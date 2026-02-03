@@ -1,0 +1,8 @@
+dari ga-messenger/pelanggan/images/Kirim/
+ke ga-portal/storage/app/private/messenger/foto_barang/
+
+dari ga-messenger/kurir/images/selesai/
+ke ga-portal/storage/app/private/messenger/gambar_akhir/
+
+dari ga-messenger/mailing/uploads/
+ke ga-portal/storage/app/private/mailing-foto/
