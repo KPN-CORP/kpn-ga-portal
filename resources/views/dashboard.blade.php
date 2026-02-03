@@ -439,7 +439,7 @@
         // MENU MANAGEMENT STOK - BARU
         'stock' => [
             'field' => 'stock_dash',
-            'title' => 'Management Stok',
+            'title' => 'Stock Control',
             'desc' => 'Kelola stok barang',
             'url' => '/stock',
             'color' => '#e67e22',
@@ -501,7 +501,7 @@
         // ADMIN MANAGEMENT STOK - OPSIONAL
         'stock_admin' => [
             'field' => 'stock_admin_dash',
-            'title' => 'GA Management Stok',
+            'title' => 'GA Stock Control',
             'desc' => 'Admin stok barang',
             'url' => '/stock/admin',
             'color' => '#e67e22',
