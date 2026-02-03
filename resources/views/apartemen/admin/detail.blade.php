@@ -238,7 +238,7 @@
                                     <label class="text-gray-500">No. HP</label>
                                     <p class="font-medium">{{ $penghuni->no_hp ?? '-' }}</p>
                                 </div>
-                                <div>
+                                <!-- <div>
                                     <label class="text-gray-500">Status</label>
                                     <p class="font-medium">
                                         @if($penghuni->status == 'AKTIF')
@@ -249,7 +249,7 @@
                                             <span class="text-gray-600">{{ $penghuni->status }}</span>
                                         @endif
                                     </p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                         @endforeach

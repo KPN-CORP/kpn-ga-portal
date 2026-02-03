@@ -238,7 +238,7 @@
                                     <label class="text-gray-500">No. HP</label>
                                     <p class="font-medium"><?php echo e($penghuni->no_hp ?? '-'); ?></p>
                                 </div>
-                                <div>
+                                <!-- <div>
                                     <label class="text-gray-500">Status</label>
                                     <p class="font-medium">
                                         <?php if($penghuni->status == 'AKTIF'): ?>
@@ -249,7 +249,7 @@
                                             <span class="text-gray-600"><?php echo e($penghuni->status); ?></span>
                                         <?php endif; ?>
                                     </p>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
