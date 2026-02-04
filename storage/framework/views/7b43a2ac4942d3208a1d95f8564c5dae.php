@@ -107,7 +107,7 @@
                         <div>
                             <p class="font-medium text-gray-900"><?php echo e($pjName); ?></p>
                             <?php if($tiket->diproses_pada): ?>
-                            <p class="text-sm text-gray-500">Sejak <?php echo e($tiket->diproses_pada->format('d/m/Y H:i')); ?></p>
+                            <p class="text-sm text-gray-500"><?php echo e($tiket->diproses_pada->format('d/m/Y H:i')); ?></p>
                             <?php endif; ?>
                         </div>
                     <?php else: ?>

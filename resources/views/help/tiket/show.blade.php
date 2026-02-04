@@ -105,7 +105,7 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ $pjName }}</p>
                             @if($tiket->diproses_pada)
-                            <p class="text-sm text-gray-500">Sejak {{ $tiket->diproses_pada->format('d/m/Y H:i') }}</p>
+                            <p class="text-sm text-gray-500">{{ $tiket->diproses_pada->format('d/m/Y H:i') }}</p>
                             @endif
                         </div>
                     @else
