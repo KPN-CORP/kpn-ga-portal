@@ -11,15 +11,23 @@ use Illuminate\Support\Facades\Validator;
 
 class IDCardController extends Controller
 {
+    /**
+     * Helper untuk mengecek akses proses
+     */
+    private function canProcessIDCard()
+    {
+        $user = Auth::user();
+        return $user->username == 'admin' || 
+               DB::table('tb_access_menu')
+                   ->where('username', $user->username)
+                   ->where('proses_idcard', 1)
+                   ->exists();
+    }
+
     public function index(Request $req) 
     {
         // Cek apakah user memiliki akses khusus dari tb_access_menu
-        $username = Auth::user()->username;
-        
-        $hasSpecialAccess = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
+        $hasSpecialAccess = $this->canProcessIDCard();
         
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
 
@@ -113,8 +121,13 @@ class IDCardController extends Controller
         // Kategori yang memerlukan masa berlaku dan sampai tanggal
         if (in_array($kategori, ['magang', 'magang_extend'])) {
             $validationRules['masa_berlaku'] = 'required|date';
-            $validationRules['sampai_tanggal'] = 'required|date';
-            $validationRules['nomor_kartu'] = 'required|string|max:50';
+            $validationRules['sampai_tanggal'] = 'required|date|after:masa_berlaku';
+            $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu';
+        }
+        
+        // Validasi NIK unik (untuk mencegah duplikat)
+        if ($kategori !== 'magang_extend') {
+            $validationRules['nik'] = 'required|string|max:50|unique:request_idcard,nik';
         }
         
         // Khusus ganti kartu memerlukan bukti bayar
@@ -138,28 +151,18 @@ class IDCardController extends Controller
                 \Log::info("=== UPLOAD FOTO DEBUG ===");
                 \Log::info("Original filename: " . $foto->getClientOriginalName());
                 \Log::info("Generated filename: " . $filename);
-                \Log::info("File size: " . $foto->getSize() . " bytes");
                 
-                // Pastikan folder ada di lokasi yang benar - SESUAI DENGAN PHOTO() METHOD
-                $folderPath = storage_path('app/private/private/idcard/foto');
-                \Log::info("Target folder: {$folderPath}");
-                \Log::info("Folder exists: " . (file_exists($folderPath) ? 'YES' : 'NO'));
+                // Simpan menggunakan Storage facade dengan disk 'private'
+                $path = $foto->storeAs('idcard/foto', $filename, 'private');
                 
-                if (!file_exists($folderPath)) {
-                    mkdir($folderPath, 0755, true);
-                    \Log::info("Created folder: {$folderPath}");
-                }
-                
-                // Simpan file ke private folder - SESUAI DENGAN PHOTO() METHOD
-                $foto->storeAs('private/private/idcard/foto', $filename);
+                \Log::info("Storage path: {$path}");
                 
                 // Verifikasi file tersimpan
-                $fullPath = storage_path('app/private/private/idcard/foto/' . $filename);
-                if (file_exists($fullPath)) {
-                    \Log::info("✓ File successfully saved at: {$fullPath}");
-                    \Log::info("File size after save: " . filesize($fullPath) . " bytes");
+                $disk = Storage::disk('private');
+                if ($disk->exists('idcard/foto/' . $filename)) {
+                    \Log::info("✓ File successfully saved");
                 } else {
-                    \Log::error("✗ File NOT saved at: {$fullPath}");
+                    \Log::error("✗ File NOT saved");
                 }
                 
                 \Log::info("=== END UPLOAD DEBUG ===");
@@ -176,24 +179,17 @@ class IDCardController extends Controller
                 \Log::info("Original filename: " . $buktiBayar->getClientOriginalName());
                 \Log::info("Generated filename: " . $buktiBayarName);
                 
-                // Pastikan folder ada di lokasi yang benar - SESUAI DENGAN PHOTO() METHOD
-                $folderPath = storage_path('app/private/private/idcard/bukti_bayar');
-                \Log::info("Target folder: {$folderPath}");
+                // Simpan menggunakan Storage facade dengan disk 'private'
+                $path = $buktiBayar->storeAs('idcard/bukti_bayar', $buktiBayarName, 'private');
                 
-                if (!file_exists($folderPath)) {
-                    mkdir($folderPath, 0755, true);
-                    \Log::info("Created folder: {$folderPath}");
-                }
-                
-                // Simpan file ke private folder - SESUAI DENGAN PHOTO() METHOD
-                $buktiBayar->storeAs('private/private/idcard/bukti_bayar', $buktiBayarName);
+                \Log::info("Storage path: {$path}");
                 
                 // Verifikasi file tersimpan
-                $fullPath = storage_path('app/private/private/idcard/bukti_bayar/' . $buktiBayarName);
-                if (file_exists($fullPath)) {
-                    \Log::info("✓ File successfully saved at: {$fullPath}");
+                $disk = Storage::disk('private');
+                if ($disk->exists('idcard/bukti_bayar/' . $buktiBayarName)) {
+                    \Log::info("✓ File successfully saved");
                 } else {
-                    \Log::error("✗ File NOT saved at: {$fullPath}");
+                    \Log::error("✗ File NOT saved");
                 }
                 
                 \Log::info("=== END BUKTI BAYAR DEBUG ===");
@@ -271,15 +267,10 @@ class IDCardController extends Controller
         
         // CEK AKSES: user hanya bisa lihat detail data mereka sendiri
         // kecuali punya akses khusus di tb_access_menu
-        $username = Auth::user()->username;
-        
         $canView = false;
         
         // Cek apakah user punya akses khusus
-        $hasSpecialAccess = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
+        $hasSpecialAccess = $this->canProcessIDCard();
         
         if ($hasSpecialAccess) {
             $canView = true;
@@ -317,10 +308,7 @@ class IDCardController extends Controller
             ->get();
         
         // CEK AKSES UNTUK PROSES (approve/reject)
-        $canProses = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
+        $canProses = $this->canProcessIDCard();
         
         $isPending = ($data->status == 'pending');
         
@@ -328,7 +316,7 @@ class IDCardController extends Controller
     }
 
     /**
-     * MENAMPILKAN FOTO - CARI DI LOKASI YANG BENAR (VERSI LAMA YANG SUDAH JALAN)
+     * MENAMPILKAN FOTO - VERSI YANG DIPERBAIKI
      */
     public function photo($filename)
     {
@@ -359,21 +347,10 @@ class IDCardController extends Controller
         // Cek apakah user punya akses
         $canView = false;
         
-        // Super admin selalu punya akses
-        if ($username == 'admin') {
-            $canView = true;
-        }
-        
-        // Cek akses khusus
-        $hasSpecialAccess = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
-        
         // User bisa lihat jika:
         // 1. Punya akses khusus, atau
         // 2. Ini adalah data miliknya sendiri
-        if ($hasSpecialAccess || $data->user_id == $user->id) {
+        if ($this->canProcessIDCard() || $data->user_id == $user->id) {
             $canView = true;
         }
         
@@ -382,51 +359,26 @@ class IDCardController extends Controller
             abort(403, 'Anda tidak memiliki akses untuk melihat file ini');
         }
 
-        // LOKASI YANG BENAR UNTUK FILE ANDA - VERSI LAMA YANG SUDAH JALAN
-        $possiblePaths = [
-            // LOKASI FILE ANDA YANG SEBENARNYA - DOUBLE "private/private"
-            storage_path('app/private/private/idcard/foto/' . $filename),
-            storage_path('app/private/private/idcard/bukti_bayar/' . $filename),
-            
-            // Backup paths jika diperlukan
-            storage_path('app/private/idcard/foto/' . $filename),
-            storage_path('app/private/idcard/bukti_bayar/' . $filename),
-            storage_path('app/public/idcard/foto/' . $filename),
-            storage_path('app/public/idcard/bukti_bayar/' . $filename),
+        // Cari file menggunakan Storage facade
+        $disk = Storage::disk('private');
+        $paths = [
+            'idcard/foto/' . $filename,
+            'idcard/bukti_bayar/' . $filename,
         ];
         
         $foundPath = null;
-        foreach ($possiblePaths as $index => $path) {
-            \Log::info("Checking path {$index}: {$path}");
-            \Log::info("Exists: " . (file_exists($path) ? 'YES' : 'NO'));
-            
-            if (file_exists($path)) {
-                $foundPath = $path;
-                \Log::info("✓ File FOUND at: {$path}");
+        
+        foreach ($paths as $path) {
+            \Log::info("Checking path: {$path}");
+            if ($disk->exists($path)) {
+                $foundPath = $disk->path($path);
+                \Log::info("✓ File found: {$path}");
                 break;
             }
         }
         
         if (!$foundPath) {
-            // Coba cari menggunakan Storage facade
-            $storagePaths = [
-                'private/private/idcard/foto/' . $filename,
-                'private/private/idcard/bukti_bayar/' . $filename,
-                'private/idcard/foto/' . $filename,
-                'private/idcard/bukti_bayar/' . $filename,
-            ];
-            
-            foreach ($storagePaths as $storagePath) {
-                if (Storage::exists($storagePath)) {
-                    $foundPath = Storage::path($storagePath);
-                    \Log::info("✓ File found via Storage: {$storagePath}");
-                    break;
-                }
-            }
-        }
-        
-        if (!$foundPath) {
-            \Log::error("❌ File not found anywhere: {$filename}");
+            \Log::error("❌ File not found: {$filename}");
             abort(404, "File tidak ditemukan: {$filename}");
         }
 
@@ -446,14 +398,7 @@ class IDCardController extends Controller
 
     public function approve(Request $req, $id) {
         // VALIDASI AKSES
-        $username = Auth::user()->username;
-        
-        $hasAccess = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
-        
-        if (!$hasAccess) {
+        if (!$this->canProcessIDCard()) {
             return back()->with('error', 'Anda tidak memiliki akses untuk melakukan approval!');
         }
         
@@ -467,12 +412,13 @@ class IDCardController extends Controller
             DB::beginTransaction();
             
             try {
-                // Untuk magang, wajib isi nomor kartu jika belum ada
+                // Untuk magang dan magang_extend, wajib isi nomor kartu jika belum ada
                 if (in_array($item->kategori, ['magang', 'magang_extend']) && empty($item->nomor_kartu)) {
                     $validator = Validator::make($req->all(), [
-                        'nomor_kartu' => 'required|string|max:50'
+                        'nomor_kartu' => 'required|string|max:50|unique:request_idcard,nomor_kartu'
                     ], [
-                        'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk Magang'
+                        'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini',
+                        'nomor_kartu.unique' => 'Nomor kartu sudah digunakan'
                     ]);
                     
                     if ($validator->fails()) {
@@ -519,14 +465,7 @@ class IDCardController extends Controller
 
     public function reject(Request $req, $id) {
         // VALIDASI AKSES
-        $username = Auth::user()->username;
-        
-        $hasAccess = DB::table('tb_access_menu')
-            ->where('username', $username)
-            ->where('proses_idcard', 1)
-            ->exists();
-        
-        if (!$hasAccess) {
+        if (!$this->canProcessIDCard()) {
             return back()->with('error', 'Anda tidak memiliki akses untuk melakukan penolakan!');
         }
         

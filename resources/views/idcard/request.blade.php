@@ -66,10 +66,13 @@
                         </div>
 
                         <div id="fotoContainer">
-                            <label class="block text-sm font-medium mb-1">Foto *</label>
+                            <label class="block text-sm font-medium mb-1">Foto * <span class="text-red-500">(Maks: 10MB)</span></label>
                             <input type="file" name="foto" id="foto" class="w-full border border-gray-300 p-2 rounded text-sm foto-input" accept=".jpg,.jpeg,.png" required>
-                            <p class="text-xs text-gray-500 mt-1">Format: jpg, png (max: 20MB)</p>
+                            <p class="text-xs text-gray-500 mt-1">Format: jpg, jpeg, png (maksimal: 10MB)</p>
                             <div id="fotoError" class="text-red-500 text-xs mt-1 hidden"></div>
+                            <div id="fileInfo" class="text-blue-600 text-xs mt-1 hidden">
+                                <span id="fileName"></span> - <span id="fileSize"></span>
+                            </div>
                         </div>
 
                         <div id="kategoriExtra">
@@ -107,20 +110,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const fotoContainer = document.getElementById('fotoContainer');
     const fotoInput = document.getElementById('foto');
     const fotoError = document.getElementById('fotoError');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
     const nikInput = document.getElementById('nik');
 
-    // Counter untuk nomor urut magang
-    let magangCounter = 1;
+    // Setting maksimal ukuran file (10MB dalam bytes) - DIUBAH DARI 15MB KE 10MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILE_SIZE_MB = 10; // Untuk tampilan
     
+    // Format bytes ke ukuran yang mudah dibaca
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
     // Fungsi untuk generate NIK magang
     function generateNikMagang() {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
-        const counter = String(magangCounter).padStart(3, '0');
+        const counter = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         
-        magangCounter++;
         return `Inter${year}${month}${day}${counter}`;
     }
     
@@ -130,23 +146,53 @@ document.addEventListener('DOMContentLoaded', function() {
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
-        const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         
         return `MAG${year}${month}${day}${random}`;
     }
 
-    // Fungsi validasi ukuran file (20MB)
+    // Fungsi validasi ukuran file (10MB) - LANGSUNG BLOKIR JIKA > 10MB
     function validateFileSize(file) {
-        const maxSize = 20 * 1024 * 1024; // 20MB dalam bytes
-        if (file.size > maxSize) {
-            fotoError.textContent = `File terlalu besar! Maksimal 20MB. File Anda: ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
+        const fileSizeMB = file.size / (1024 * 1024);
+        
+        // LANGSUNG BLOKIR JIKA > 10MB
+        if (file.size > MAX_FILE_SIZE) {
+            fotoError.textContent = `❌ File terlalu besar! Maksimal ${MAX_FILE_SIZE_MB}MB. File Anda: ${fileSizeMB.toFixed(2)}MB`;
             fotoError.classList.remove('hidden');
             fotoError.classList.add('block');
+            
+            // Tambahkan class error pada input
+            fotoInput.classList.add('border-red-500', 'border-2');
+            
+            fileInfo.classList.add('hidden');
             fotoInput.value = '';
+            
+            // Tampilkan alert tambahan
+            setTimeout(() => {
+                alert(`❌ File foto terlalu besar!\n\nUkuran file: ${fileSizeMB.toFixed(2)}MB\nBatas maksimal: ${MAX_FILE_SIZE_MB}MB\n\nSilakan kompres foto Anda terlebih dahulu atau pilih file lain yang lebih kecil.`);
+            }, 100);
+            
             return false;
         } else {
+            // File valid (≤ 10MB)
             fotoError.classList.add('hidden');
             fotoError.classList.remove('block');
+            fotoInput.classList.remove('border-red-500', 'border-2');
+            
+            // Tampilkan info file
+            fileName.textContent = file.name;
+            fileSize.textContent = formatBytes(file.size);
+            fileInfo.classList.remove('hidden');
+            
+            // Tampilkan pesan sukses untuk file besar (5-10MB)
+            if (fileSizeMB > 5) {
+                fotoError.textContent = `ℹ️ File cukup besar (${fileSizeMB.toFixed(2)}MB).`;
+                fotoError.classList.remove('hidden');
+                fotoError.classList.add('block');
+                fotoError.classList.remove('text-red-500');
+                fotoError.classList.add('text-blue-600');
+            }
+            
             return true;
         }
     }
@@ -158,21 +204,25 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             fotoError.classList.add('hidden');
             fotoError.classList.remove('block');
+            fileInfo.classList.add('hidden');
+            fotoInput.classList.remove('border-red-500', 'border-2');
         }
     });
 
-    // Validasi bukti bayar (untuk kategori ganti kartu)
+    // Validasi bukti bayar (untuk kategori ganti kartu) - JUGA 10MB
     function validateBuktiBayar(file) {
-        const maxSize = 20 * 1024 * 1024; // 20MB
+        const maxSize = MAX_FILE_SIZE; // 10MB
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
         
+        const fileSizeMB = file.size / (1024 * 1024);
+        
         if (file.size > maxSize) {
-            alert(`File Bukti Bayar terlalu besar! Maksimal 20MB. File Anda: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+            alert(`❌ File Bukti Bayar terlalu besar!\n\nUkuran file: ${fileSizeMB.toFixed(2)}MB\nBatas maksimal: ${MAX_FILE_SIZE_MB}MB\n\nSilakan kompres file Anda terlebih dahulu.`);
             return false;
         }
         
         if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.pdf')) {
-            alert('Format file Bukti Bayar tidak valid. Gunakan format: jpg, jpeg, png, atau pdf');
+            alert('❌ Format file Bukti Bayar tidak valid.\n\nGunakan format: jpg, jpeg, png, atau pdf');
             return false;
         }
         
@@ -192,6 +242,11 @@ document.addEventListener('DOMContentLoaded', function() {
         nikInput.readOnly = false;
         nikInput.style.backgroundColor = '';
         nikInput.placeholder = '';
+        
+        // Reset border file input
+        fotoInput.classList.remove('border-red-500', 'border-2');
+        fotoError.classList.add('hidden');
+        fileInfo.classList.add('hidden');
 
         // Jika kategori adalah magang atau magang extend
         if (kategori === 'magang' || kategori === 'magang_extend') {
@@ -202,6 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             fotoContainer.style.display = 'none';
             fotoInput.required = false;
+            fotoInput.value = ''; // Clear file jika ada
             
             let nomorKartu = '';
             
@@ -246,9 +302,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Tambahkan field bukti bayar
             kategoriExtra.innerHTML = `
                 <div>
-                    <label class="block text-sm font-medium mb-1">Bukti Bayar *</label>
+                    <label class="block text-sm font-medium mb-1">Bukti Bayar * <span class="text-red-500">(Maks: 10MB)</span></label>
                     <input type="file" name="bukti_bayar" id="bukti_bayar" class="w-full border border-gray-300 p-2 rounded text-sm bukti-bayar-input" accept=".jpg,.jpeg,.png,.pdf" required>
-                    <p class="text-xs text-gray-500 mt-1">Format: jpg, png, pdf (max: 20MB)</p>
+                    <p class="text-xs text-gray-500 mt-1">Format: jpg, jpeg, png, pdf (maksimal: 10MB)</p>
                     <div id="buktiBayarError" class="text-red-500 text-xs mt-1 hidden"></div>
                 </div>
             `;
@@ -260,82 +316,103 @@ document.addEventListener('DOMContentLoaded', function() {
             buktiBayarInput.addEventListener('change', function() {
                 if (this.files.length > 0) {
                     const file = this.files[0];
-                    const maxSize = 20 * 1024 * 1024;
+                    const fileSizeMB = file.size / (1024 * 1024);
                     
-                    if (file.size > maxSize) {
-                        buktiBayarError.textContent = `File terlalu besar! Maksimal 20MB. File Anda: ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
+                    if (file.size > MAX_FILE_SIZE) {
+                        buktiBayarError.textContent = `❌ File terlalu besar! Maksimal ${MAX_FILE_SIZE_MB}MB. File Anda: ${fileSizeMB.toFixed(2)}MB`;
                         buktiBayarError.classList.remove('hidden');
                         buktiBayarError.classList.add('block');
+                        
+                        this.classList.add('border-red-500', 'border-2');
                         this.value = '';
+                        
+                        // Alert tambahan
+                        setTimeout(() => {
+                            alert(`❌ File Bukti Bayar terlalu besar!\n\nUkuran file: ${fileSizeMB.toFixed(2)}MB\nBatas maksimal: ${MAX_FILE_SIZE_MB}MB`);
+                        }, 100);
                     } else {
                         buktiBayarError.classList.add('hidden');
                         buktiBayarError.classList.remove('block');
+                        this.classList.remove('border-red-500', 'border-2');
                     }
+                } else {
+                    buktiBayarError.classList.add('hidden');
+                    buktiBayarError.classList.remove('block');
+                    this.classList.remove('border-red-500', 'border-2');
                 }
             });
+        } else {
+            // Untuk karyawan baru dan karyawan mutasi
+            // Reset border file input
+            fotoInput.classList.remove('border-red-500', 'border-2');
+            fotoError.classList.add('hidden');
+            fileInfo.classList.add('hidden');
         }
-        // Untuk karyawan baru dan karyawan mutasi: tampilkan semua field standar
-        // (tidak perlu field tambahan)
     }
 
     // Event listener untuk perubahan kategori
     kategoriSelect.addEventListener('change', handleKategoriChange);
 
-    // Validasi form sebelum submit
+    // Validasi form sebelum submit - TAMBAHKAN VALIDASI UKURAN FILE
     document.getElementById('idcardForm').addEventListener('submit', function(e) {
         const kategori = kategoriSelect.value;
         let isValid = true;
+        let errorMessages = [];
         
         // Validasi kategori dipilih
         if (!kategori) {
-            alert('Kategori wajib dipilih');
+            errorMessages.push('Kategori wajib dipilih');
             isValid = false;
         }
         
         // Validasi nama
         const nama = document.getElementById('nama').value.trim();
         if (!nama) {
-            alert('Nama wajib diisi');
+            errorMessages.push('Nama wajib diisi');
             isValid = false;
         }
         
         // Validasi NIK
         const nik = nikInput.value.trim();
         if (!nik) {
-            alert('NIK wajib diisi');
+            errorMessages.push('NIK wajib diisi');
             isValid = false;
         }
         
         // Validasi bisnis unit
         const bisnisUnit = document.getElementById('bisnis_unit_id').value;
         if (!bisnisUnit) {
-            alert('Bisnis Unit wajib dipilih');
+            errorMessages.push('Bisnis Unit wajib dipilih');
             isValid = false;
         }
         
         // Validasi keterangan (lantai kerja)
         const keterangan = document.getElementById('keterangan').value.trim();
         if (!keterangan) {
-            alert('Lantai Kerja wajib diisi');
+            errorMessages.push('Lantai Kerja wajib diisi');
             isValid = false;
         }
         
         // Validasi untuk kategori yang memerlukan tanggal join dan foto
-        // (karyawan baru, karyawan mutasi, ganti kartu)
         if (kategori !== 'magang' && kategori !== 'magang_extend') {
             const tanggalJoin = tanggalJoinInput.value;
             if (!tanggalJoin) {
-                alert('Tanggal Join wajib diisi');
+                errorMessages.push('Tanggal Join wajib diisi');
                 isValid = false;
             }
             
             // Validasi foto dan ukuran file
             const foto = fotoInput.files[0];
             if (!foto) {
-                alert('Foto wajib diupload');
+                errorMessages.push('Foto wajib diupload');
                 isValid = false;
-            } else if (!validateFileSize(foto)) {
-                isValid = false;
+            } else {
+                // Validasi ukuran file (≤ 10MB)
+                const fileSizeMB = foto.size / (1024 * 1024);
+                if (foto.size > MAX_FILE_SIZE) {
+                    errorMessages.push(`Foto terlalu besar (${fileSizeMB.toFixed(2)}MB). Maksimal ${MAX_FILE_SIZE_MB}MB`);
+                    isValid = false;
+                }
             }
         }
         
@@ -346,14 +423,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const nomorKartu = document.querySelector('input[name="nomor_kartu"]')?.value;
             
             if (!masaBerlaku || !sampaiTanggal || !nomorKartu) {
-                alert('Semua field untuk kategori Magang wajib diisi');
+                errorMessages.push('Semua field untuk kategori Magang wajib diisi');
                 isValid = false;
             }
             
-            // Validasi khusus untuk magang extend: NIK harus diisi
-            if (kategori === 'magang_extend' && !nik.trim()) {
-                alert('NIK wajib diisi untuk Magang Extend');
-                isValid = false;
+            // Validasi tanggal: sampai tanggal harus setelah masa berlaku
+            if (masaBerlaku && sampaiTanggal) {
+                if (new Date(sampaiTanggal) <= new Date(masaBerlaku)) {
+                    errorMessages.push('Sampai Tanggal harus setelah Masa Berlaku');
+                    isValid = false;
+                }
             }
         }
         
@@ -361,14 +440,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if (kategori === 'ganti_kartu') {
             const buktiBayarInput = document.querySelector('input[name="bukti_bayar"]');
             if (!buktiBayarInput || !buktiBayarInput.files.length) {
-                alert('Bukti Bayar wajib diupload untuk kategori Ganti Kartu');
+                errorMessages.push('Bukti Bayar wajib diupload untuk kategori Ganti Kartu');
                 isValid = false;
             } else {
                 const file = buktiBayarInput.files[0];
-                if (!validateBuktiBayar(file)) {
+                const fileSizeMB = file.size / (1024 * 1024);
+                
+                if (file.size > MAX_FILE_SIZE) {
+                    errorMessages.push(`Bukti Bayar terlalu besar (${fileSizeMB.toFixed(2)}MB). Maksimal ${MAX_FILE_SIZE_MB}MB`);
                     isValid = false;
                 }
             }
+        }
+        
+        // Jika ada error, tampilkan semua pesan error
+        if (errorMessages.length > 0) {
+            e.preventDefault();
+            alert('❌ Mohon perbaiki kesalahan berikut:\n\n' + errorMessages.join('\n'));
         }
         
         // Jika ada yang tidak valid, cegah submit

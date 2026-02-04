@@ -19,7 +19,7 @@
     <div class="flex flex-col md:flex-row gap-8">
         <!-- Bagian Foto & Bukti Bayar (Kiri) -->
         <div class="md:w-1/3 flex flex-col items-center space-y-6">
-            <?php if($data->foto && $data->kategori != 'magang'): ?>
+            <?php if($data->foto && !in_array($data->kategori, ['magang', 'magang_extend'])): ?>
                 <div class="w-full">
                     <p class="text-sm font-medium text-gray-600 mb-3">Foto</p>
                     <div class="bg-gray-100 rounded-lg p-3 shadow-inner">
@@ -48,18 +48,26 @@
                         </div>
                     </div>
                 </div>
-            <?php elseif($data->kategori == 'magang'): ?>
+            <?php elseif(in_array($data->kategori, ['magang', 'magang_extend'])): ?>
                 <div class="w-full">
-                    <p class="text-sm font-medium text-gray-600 mb-3">Magang</p>
+                    <p class="text-sm font-medium text-gray-600 mb-3">Kategori Magang</p>
                     <div class="bg-gray-100 rounded-lg p-3 shadow-inner">
                         <div class="flex flex-col items-center justify-center p-6">
-                            <svg class="w-16 h-16 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" transform="translate(0 4)"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5" transform="translate(0 8)"/>
-                            </svg>
-                            <p class="text-sm font-medium text-gray-700">Kategori: Magang</p>
-                            <p class="text-xs text-gray-500 mt-1">Tidak memerlukan foto</p>
+                            <?php if($data->kategori == 'magang_extend'): ?>
+                                <svg class="w-16 h-16 text-orange-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                                <p class="text-sm font-medium text-gray-700">Kategori: Magang Extend</p>
+                                <p class="text-xs text-gray-500 mt-1">Perpanjangan magang</p>
+                            <?php else: ?>
+                                <svg class="w-16 h-16 text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5" transform="translate(0 4)"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5" transform="translate(0 8)"/>
+                                </svg>
+                                <p class="text-sm font-medium text-gray-700">Kategori: Magang</p>
+                                <p class="text-xs text-gray-500 mt-1">Tidak memerlukan foto</p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -133,12 +141,21 @@
                 <!-- Kategori -->
                 <div class="space-y-1">
                     <p class="text-sm text-gray-500">Kategori</p>
-                    <p class="font-medium text-gray-800 capitalize"><?php echo e(str_replace('_', ' ', $data->kategori) ?? '-'); ?></p>
+                    <?php
+                        $kategoriLabels = [
+                            'karyawan_baru' => 'Karyawan Baru',
+                            'karyawan_mutasi' => 'Karyawan Mutasi',
+                            'ganti_kartu' => 'Ganti Kartu',
+                            'magang' => 'Magang',
+                            'magang_extend' => 'Magang Extend'
+                        ];
+                    ?>
+                    <p class="font-medium text-gray-800"><?php echo e($kategoriLabels[$data->kategori] ?? ucfirst($data->kategori)); ?></p>
                 </div>
                 
                 <!-- Status -->
                 <div class="space-y-1">
-                    <p class="text-sm text-gray-500">Status</p>
+                    <p class="text-sm text-gray-500">Status Request</p>
                     <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full 
                         <?php echo e($data->status == 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                            ($data->status == 'approved' ? 'bg-green-100 text-green-800' : 
@@ -148,55 +165,163 @@
                     </span>
                 </div>
                 
-                <!-- Tanggal Join (jika bukan magang) -->
-                <?php if(!empty($data->tanggal_join) && $data->kategori != 'magang'): ?>
-                <div class="space-y-1">
-                    <p class="text-sm text-gray-500">Tanggal Join</p>
-                    <p class="font-medium text-gray-800"><?php echo e(date('d-m-Y', strtotime($data->tanggal_join))); ?></p>
-                </div>
-                <?php endif; ?>
-                
-                <!-- Untuk Magang -->
-                <?php if($data->kategori == 'magang'): ?>
+                <!-- TAMPILKAN SEMUA DATA MAGANG -->
+                <?php if(in_array($data->kategori, ['magang', 'magang_extend'])): ?>
                     <!-- Nomor Kartu -->
-                    <?php if(!empty($data->nomor_kartu)): ?>
                     <div class="space-y-1">
                         <p class="text-sm text-gray-500">Nomor Kartu</p>
-                        <p class="font-medium text-gray-800 font-mono"><?php echo e($data->nomor_kartu); ?></p>
+                        <p class="font-medium text-gray-800 font-mono">
+                            <?php if(!empty($data->nomor_kartu)): ?>
+                                <?php echo e($data->nomor_kartu); ?>
+
+                            <?php else: ?>
+                                <span class="text-gray-400 italic">Belum ada</span>
+                            <?php endif; ?>
+                        </p>
                     </div>
-                    <?php endif; ?>
                     
                     <!-- Masa Berlaku -->
-                    <?php if(!empty($data->masa_berlaku)): ?>
                     <div class="space-y-1">
-                        <p class="text-sm text-gray-500">Masa Berlaku</p>
-                        <p class="font-medium text-gray-800"><?php echo e(date('d-m-Y', strtotime($data->masa_berlaku))); ?></p>
+                        <p class="text-sm text-gray-500">Masa Berlaku (Mulai)</p>
+                        <p class="font-medium text-gray-800">
+                            <?php if(!empty($data->masa_berlaku)): ?>
+                                <?php echo e(date('d-m-Y', strtotime($data->masa_berlaku))); ?>
+
+                            <?php else: ?>
+                                <span class="text-gray-400 italic">-</span>
+                            <?php endif; ?>
+                        </p>
                     </div>
-                    <?php endif; ?>
                     
                     <!-- Sampai Tanggal -->
-                    <?php if(!empty($data->sampai_tanggal)): ?>
                     <div class="space-y-1">
-                        <p class="text-sm text-gray-500">Sampai Tanggal</p>
-                        <p class="font-medium text-gray-800"><?php echo e(date('d-m-Y', strtotime($data->sampai_tanggal))); ?></p>
+                        <p class="text-sm text-gray-500">Sampai Tanggal (Akhir)</p>
+                        <p class="font-medium text-gray-800">
+                            <?php if(!empty($data->sampai_tanggal)): ?>
+                                <?php echo e(date('d-m-Y', strtotime($data->sampai_tanggal))); ?>
+
+                            <?php else: ?>
+                                <span class="text-gray-400 italic">-</span>
+                            <?php endif; ?>
+                        </p>
                     </div>
-                    <?php endif; ?>
                     
                     <!-- Durasi Magang -->
-                    <?php if(!empty($data->masa_berlaku) && !empty($data->sampai_tanggal)): ?>
                     <div class="space-y-1">
                         <p class="text-sm text-gray-500">Durasi Magang</p>
                         <?php
-                            $start = new DateTime($data->masa_berlaku);
-                            $end = new DateTime($data->sampai_tanggal);
-                            $interval = $start->diff($end);
-                            $months = $interval->y * 12 + $interval->m;
-                            $days = $interval->d;
+                            $durationText = '-';
+                            if (!empty($data->masa_berlaku) && !empty($data->sampai_tanggal)) {
+                                $start = new DateTime($data->masa_berlaku);
+                                $end = new DateTime($data->sampai_tanggal);
+                                $interval = $start->diff($end);
+                                
+                                $years = $interval->y;
+                                $months = $interval->m;
+                                $days = $interval->d;
+                                
+                                $durationParts = [];
+                                if ($years > 0) {
+                                    $durationParts[] = $years . ' tahun';
+                                }
+                                if ($months > 0) {
+                                    $durationParts[] = $months . ' bulan';
+                                }
+                                if ($days > 0) {
+                                    $durationParts[] = $days . ' hari';
+                                }
+                                
+                                $durationText = implode(' ', $durationParts);
+                                
+                                // Jika hasil 0, berarti 1 hari
+                                if (empty($durationText)) {
+                                    $durationText = '1 hari';
+                                }
+                            }
                         ?>
-                        <p class="font-medium text-gray-800">
-                            <?php echo e($months); ?> bulan <?php echo e($days > 0 ? $days . ' hari' : ''); ?>
+                        <p class="font-medium text-gray-800"><?php echo e($durationText); ?></p>
+                    </div>
+                    
+                    <!-- Status Kartu -->
+                    <div class="space-y-1">
+                        <p class="text-sm text-gray-500">Status Kartu</p>
+                        <?php
+                            $cardStatus = 'Tidak Diketahui';
+                            $cardStatusClass = 'bg-gray-100 text-gray-800';
+                            
+                            if (!empty($data->sampai_tanggal)) {
+                                $today = date('Y-m-d');
+                                $expiryDate = date('Y-m-d', strtotime($data->sampai_tanggal));
+                                
+                                if ($today > $expiryDate) {
+                                    $cardStatus = 'Expired';
+                                    $cardStatusClass = 'bg-red-100 text-red-800';
+                                } elseif ($today >= date('Y-m-d', strtotime($data->masa_berlaku))) {
+                                    // Hitung hari tersisa
+                                    $daysLeft = floor((strtotime($expiryDate) - strtotime($today)) / (60 * 60 * 24));
+                                    
+                                    if ($daysLeft <= 7) {
+                                        $cardStatus = 'Aktif (Hampir Expired - ' . $daysLeft . ' hari lagi)';
+                                        $cardStatusClass = 'bg-yellow-100 text-yellow-800';
+                                    } else {
+                                        $cardStatus = 'Aktif';
+                                        $cardStatusClass = 'bg-green-100 text-green-800';
+                                    }
+                                } else {
+                                    $cardStatus = 'Belum Aktif';
+                                    $cardStatusClass = 'bg-blue-100 text-blue-800';
+                                }
+                            }
+                        ?>
+                        <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full <?php echo e($cardStatusClass); ?>">
+                            <?php echo e($cardStatus); ?>
 
-                        </p>
+                        </span>
+                    </div>
+                    
+                    <!-- Periode -->
+                    <?php if(!empty($data->masa_berlaku) || !empty($data->sampai_tanggal)): ?>
+                    <div class="md:col-span-2 space-y-1">
+                        <p class="text-sm text-gray-500">Periode Magang</p>
+                        <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                            <div class="flex flex-col md:flex-row items-center justify-between gap-2">
+                                <div class="text-center flex-1">
+                                    <p class="text-xs text-gray-500">Mulai</p>
+                                    <p class="font-medium text-gray-800">
+                                        <?php if(!empty($data->masa_berlaku)): ?>
+                                            <?php echo e(date('d-m-Y', strtotime($data->masa_berlaku))); ?>
+
+                                        <?php else: ?>
+                                            <span class="text-gray-400">-</span>
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                                <div class="mx-2 md:mx-4">
+                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                                    </svg>
+                                </div>
+                                <div class="text-center flex-1">
+                                    <p class="text-xs text-gray-500">Selesai</p>
+                                    <p class="font-medium text-gray-800">
+                                        <?php if(!empty($data->sampai_tanggal)): ?>
+                                            <?php echo e(date('d-m-Y', strtotime($data->sampai_tanggal))); ?>
+
+                                        <?php else: ?>
+                                            <span class="text-gray-400">-</span>
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <!-- Untuk Non-Magang: Tanggal Join -->
+                    <?php if(!empty($data->tanggal_join)): ?>
+                    <div class="space-y-1">
+                        <p class="text-sm text-gray-500">Tanggal Join</p>
+                        <p class="font-medium text-gray-800"><?php echo e(date('d-m-Y', strtotime($data->tanggal_join))); ?></p>
                     </div>
                     <?php endif; ?>
                 <?php endif; ?>
@@ -208,13 +333,10 @@
                 </div>
                 
                 <!-- Diajukan Oleh -->
-                <?php if(!empty($data->user_id)): ?>
+                <?php if(!empty($data->user_name)): ?>
                 <div class="space-y-1">
                     <p class="text-sm text-gray-500">Diajukan Oleh</p>
-                    <p class="font-medium text-gray-800">
-                        <?php echo e($data->user_name ?? 'User #' . $data->user_id); ?>
-
-                    </p>
+                    <p class="font-medium text-gray-800"><?php echo e($data->user_name); ?></p>
                 </div>
                 <?php endif; ?>
                 
@@ -229,7 +351,7 @@
                 
                 <!-- Ditolak Oleh -->
                 <?php if($data->status == 'rejected' && !empty($data->rejected_by_name)): ?>
-                <div class="space-y-1 md:col-span-2">
+                <div class="md:col-span-2 space-y-1">
                     <p class="text-sm text-gray-500">Ditolak Oleh</p>
                     <p class="font-medium text-gray-800"><?php echo e($data->rejected_by_name); ?></p>
                     <p class="text-xs text-gray-500">
@@ -242,7 +364,7 @@
                     <?php if(!empty($data->rejection_reason)): ?>
                     <div class="mt-2">
                         <p class="text-sm text-gray-500 mb-1">Alasan Penolakan:</p>
-                        <div class="bg-red-50 border border-red-200 rounded p-3 mt-1">
+                        <div class="bg-red-50 border border-red-200 rounded p-3">
                             <p class="text-sm text-red-800"><?php echo e($data->rejection_reason); ?></p>
                         </div>
                     </div>
@@ -253,7 +375,7 @@
                 <!-- Keterangan -->
                 <?php if(!empty($data->keterangan)): ?>
                 <div class="md:col-span-2 space-y-1">
-                    <p class="text-sm text-gray-500">Lantai Kerja</p>
+                    <p class="text-sm text-gray-500">Lantai Kerja/Keterangan</p>
                     <div class="bg-gray-50 border border-gray-200 rounded p-3">
                         <p class="font-medium text-gray-800"><?php echo e($data->keterangan); ?></p>
                     </div>
@@ -271,18 +393,31 @@
             <!-- Form Approve -->
             <form action="<?php echo e(route('idcard.approve', $data->id)); ?>" method="POST" class="mb-6" id="approveForm">
                 <?php echo csrf_field(); ?>
-                <?php if($data->kategori == 'magang'): ?>
-                    <div class="mb-4">
+                
+                <?php if(in_array($data->kategori, ['magang', 'magang_extend'])): ?>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Nomor Kartu (wajib untuk Magang) *
+                            Nomor Kartu *
                         </label>
                         <input type="text" name="nomor_kartu" 
-                               class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-md"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
                                value="<?php echo e($data->nomor_kartu ?? ''); ?>"
-                               placeholder="Masukkan nomor kartu"
+                               placeholder="Contoh: MAG20240115001"
                                required>
-                        <p class="text-xs text-gray-500 mt-1">Contoh: MAG20240115001</p>
+                        <p class="text-xs text-gray-500 mt-1">Wajib diisi untuk kategori Magang</p>
                     </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Sampai Tanggal
+                        </label>
+                        <input type="date" name="sampai_tanggal" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                               value="<?php echo e($data->sampai_tanggal ?? ''); ?>">
+                        <p class="text-xs text-gray-500 mt-1">Opsional, untuk update tanggal akhir</p>
+                    </div>
+                </div>
                 <?php endif; ?>
                 
                 <button type="button" 
@@ -322,17 +457,6 @@
                 <p class="text-xs text-gray-500 mt-2">Status akan berubah menjadi "Rejected"</p>
             </form>
         </div>
-    </div>
-    <?php elseif($isPending && !$canProses): ?>
-    <div class="mt-8 pt-6 border-t border-gray-200">
-        <!-- <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <div class="flex items-start">
-                <svg class="w-6 h-6 text-yellow-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.282 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                </svg>
-                
-            </div>
-        </div> -->
     </div>
     <?php endif; ?>
     
@@ -407,7 +531,7 @@
 function confirmApprove() {
     const kategori = '<?php echo e($data->kategori); ?>';
     
-    if (kategori === 'magang') {
+    if (kategori === 'magang' || kategori === 'magang_extend') {
         const nomorKartu = document.querySelector('input[name="nomor_kartu"]')?.value.trim();
         if (!nomorKartu) {
             alert('Nomor kartu wajib diisi untuk kategori Magang!');
