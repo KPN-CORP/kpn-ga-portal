@@ -62,7 +62,7 @@ class HelpTiket extends Model
     // Pelapor (dari users table) - pelapor_id references users.id
     public function pelapor(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'pelapor_id');
+        return $this->belongsTo(Pelanggan::class, 'pelapor_id', 'id_pelanggan');
     }
     
     // Penanggung jawab (dari users table) - ditugaskan_ke references users.id

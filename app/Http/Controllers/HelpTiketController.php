@@ -27,7 +27,7 @@ class HelpTiketController extends Controller
         }
         
         // SEMUA USER HANYA MELIHAT TIKET MILIKNYA SENDIRI
-        $query = HelpTiket::where('pelapor_id', $user->id);
+        $query = HelpTiket::where('pelapor_id', $user->pelanggan->id_pelanggan);
         
         // Apply filters
         if ($search = request('search')) {
@@ -76,7 +76,7 @@ class HelpTiketController extends Controller
         }
         
         // Authorization check - hanya pelapor yang bisa melihat
-        if ($tiket->pelapor_id !== $user->id) {
+        if ($tiket->pelapor_id !== $user->pelanggan->id_pelanggan) {
             abort(403, 'Anda tidak memiliki akses ke tiket ini.');
         }
         
@@ -220,7 +220,7 @@ public function store(Request $request)
         }
         
         // Hanya pelapor yang bisa mengomentari
-        if ($tiket->pelapor_id !== $user->id) {
+        if ($tiket->pelapor_id !== $user->pelanggan->id_pelanggan) {
             abort(403, 'Anda tidak memiliki akses untuk mengomentari tiket ini.');
         }
         
