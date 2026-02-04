@@ -135,15 +135,34 @@ class IDCardController extends Controller
                 $foto = $req->file('foto');
                 $filename = 'foto_' . time() . '_' . uniqid() . '.' . $foto->getClientOriginalExtension();
                 
-                // Pastikan folder ada di lokasi yang benar
-                $folderPath = storage_path('app/private/idcard/foto');
+                \Log::info("=== UPLOAD FOTO DEBUG ===");
+                \Log::info("Original filename: " . $foto->getClientOriginalName());
+                \Log::info("Generated filename: " . $filename);
+                \Log::info("File size: " . $foto->getSize() . " bytes");
+                
+                // Pastikan folder ada di lokasi yang benar - SESUAI DENGAN PHOTO() METHOD
+                $folderPath = storage_path('app/private/private/idcard/foto');
+                \Log::info("Target folder: {$folderPath}");
+                \Log::info("Folder exists: " . (file_exists($folderPath) ? 'YES' : 'NO'));
+                
                 if (!file_exists($folderPath)) {
                     mkdir($folderPath, 0755, true);
+                    \Log::info("Created folder: {$folderPath}");
                 }
                 
-                // Simpan file ke private folder
-                $foto->storeAs('private/idcard/foto', $filename);
-                \Log::info("Foto saved: storage/app/private/idcard/foto/{$filename}");
+                // Simpan file ke private folder - SESUAI DENGAN PHOTO() METHOD
+                $foto->storeAs('private/private/idcard/foto', $filename);
+                
+                // Verifikasi file tersimpan
+                $fullPath = storage_path('app/private/private/idcard/foto/' . $filename);
+                if (file_exists($fullPath)) {
+                    \Log::info("✓ File successfully saved at: {$fullPath}");
+                    \Log::info("File size after save: " . filesize($fullPath) . " bytes");
+                } else {
+                    \Log::error("✗ File NOT saved at: {$fullPath}");
+                }
+                
+                \Log::info("=== END UPLOAD DEBUG ===");
             }
             
             // UPLOAD BUKTI BAYAR - khusus ganti kartu
@@ -153,15 +172,31 @@ class IDCardController extends Controller
                 $ext = $buktiBayar->getClientOriginalExtension();
                 $buktiBayarName = 'bukti_' . time() . '_' . uniqid() . '.' . $ext;
                 
-                // Pastikan folder ada di lokasi yang benar
-                $folderPath = storage_path('app/private/idcard/bukti_bayar');
+                \Log::info("=== UPLOAD BUKTI BAYAR DEBUG ===");
+                \Log::info("Original filename: " . $buktiBayar->getClientOriginalName());
+                \Log::info("Generated filename: " . $buktiBayarName);
+                
+                // Pastikan folder ada di lokasi yang benar - SESUAI DENGAN PHOTO() METHOD
+                $folderPath = storage_path('app/private/private/idcard/bukti_bayar');
+                \Log::info("Target folder: {$folderPath}");
+                
                 if (!file_exists($folderPath)) {
                     mkdir($folderPath, 0755, true);
+                    \Log::info("Created folder: {$folderPath}");
                 }
                 
-                // Simpan file ke private folder
-                $buktiBayar->storeAs('private/idcard/bukti_bayar', $buktiBayarName);
-                \Log::info("Bukti bayar saved: storage/app/private/idcard/bukti_bayar/{$buktiBayarName}");
+                // Simpan file ke private folder - SESUAI DENGAN PHOTO() METHOD
+                $buktiBayar->storeAs('private/private/idcard/bukti_bayar', $buktiBayarName);
+                
+                // Verifikasi file tersimpan
+                $fullPath = storage_path('app/private/private/idcard/bukti_bayar/' . $buktiBayarName);
+                if (file_exists($fullPath)) {
+                    \Log::info("✓ File successfully saved at: {$fullPath}");
+                } else {
+                    \Log::error("✗ File NOT saved at: {$fullPath}");
+                }
+                
+                \Log::info("=== END BUKTI BAYAR DEBUG ===");
             }
             
             // DATA UNTUK DISIMPAN - SESUAI STRUKTUR DATABASE
@@ -293,7 +328,7 @@ class IDCardController extends Controller
     }
 
     /**
-     * MENAMPILKAN FOTO - CARI DI LOKASI YANG BENAR
+     * MENAMPILKAN FOTO - CARI DI LOKASI YANG BENAR (VERSI LAMA YANG SUDAH JALAN)
      */
     public function photo($filename)
     {
@@ -301,23 +336,97 @@ class IDCardController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        // LOKASI YANG BENAR UNTUK FILE ANDA
+        $user = Auth::user();
+        $username = $user->username;
+        
+        \Log::info("=== PHOTO ACCESS ===");
+        \Log::info("Requested file: {$filename}");
+        \Log::info("User: {$username}");
+        
+        // Cari data yang memiliki file ini (untuk validasi akses)
+        $data = DB::table('request_idcard')
+            ->where(function($query) use ($filename) {
+                $query->where('foto', $filename)
+                      ->orWhere('bukti_bayar', $filename);
+            })
+            ->first();
+        
+        if (!$data) {
+            \Log::error("File not found in database: {$filename}");
+            abort(404, 'File tidak ditemukan');
+        }
+        
+        // Cek apakah user punya akses
+        $canView = false;
+        
+        // Super admin selalu punya akses
+        if ($username == 'admin') {
+            $canView = true;
+        }
+        
+        // Cek akses khusus
+        $hasSpecialAccess = DB::table('tb_access_menu')
+            ->where('username', $username)
+            ->where('proses_idcard', 1)
+            ->exists();
+        
+        // User bisa lihat jika:
+        // 1. Punya akses khusus, atau
+        // 2. Ini adalah data miliknya sendiri
+        if ($hasSpecialAccess || $data->user_id == $user->id) {
+            $canView = true;
+        }
+        
+        if (!$canView) {
+            \Log::warning("Unauthorized access attempt: {$filename} by {$username}");
+            abort(403, 'Anda tidak memiliki akses untuk melihat file ini');
+        }
+
+        // LOKASI YANG BENAR UNTUK FILE ANDA - VERSI LAMA YANG SUDAH JALAN
         $possiblePaths = [
+            // LOKASI FILE ANDA YANG SEBENARNYA - DOUBLE "private/private"
+            storage_path('app/private/private/idcard/foto/' . $filename),
+            storage_path('app/private/private/idcard/bukti_bayar/' . $filename),
+            
+            // Backup paths jika diperlukan
             storage_path('app/private/idcard/foto/' . $filename),
             storage_path('app/private/idcard/bukti_bayar/' . $filename),
+            storage_path('app/public/idcard/foto/' . $filename),
+            storage_path('app/public/idcard/bukti_bayar/' . $filename),
         ];
         
         $foundPath = null;
-        foreach ($possiblePaths as $path) {
+        foreach ($possiblePaths as $index => $path) {
+            \Log::info("Checking path {$index}: {$path}");
+            \Log::info("Exists: " . (file_exists($path) ? 'YES' : 'NO'));
+            
             if (file_exists($path)) {
                 $foundPath = $path;
-                \Log::info("File FOUND at: {$path}");
+                \Log::info("✓ File FOUND at: {$path}");
                 break;
             }
         }
         
         if (!$foundPath) {
-            \Log::error("File not found anywhere: {$filename}");
+            // Coba cari menggunakan Storage facade
+            $storagePaths = [
+                'private/private/idcard/foto/' . $filename,
+                'private/private/idcard/bukti_bayar/' . $filename,
+                'private/idcard/foto/' . $filename,
+                'private/idcard/bukti_bayar/' . $filename,
+            ];
+            
+            foreach ($storagePaths as $storagePath) {
+                if (Storage::exists($storagePath)) {
+                    $foundPath = Storage::path($storagePath);
+                    \Log::info("✓ File found via Storage: {$storagePath}");
+                    break;
+                }
+            }
+        }
+        
+        if (!$foundPath) {
+            \Log::error("❌ File not found anywhere: {$filename}");
             abort(404, "File tidak ditemukan: {$filename}");
         }
 
@@ -326,8 +435,12 @@ class IDCardController extends Controller
         $headers = [
             'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="' . basename($foundPath) . '"',
+            'Cache-Control' => 'private, max-age=3600',
         ];
 
+        \Log::info("Returning file with MIME: {$mimeType}");
+        \Log::info("=== END PHOTO ACCESS ===");
+        
         return response()->file($foundPath, $headers);
     }
 

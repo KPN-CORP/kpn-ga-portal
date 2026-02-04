@@ -599,10 +599,10 @@
                     <i class="fas fa-sync-alt mr-1"></i> Reset
                 </button>
                 <div class="flex items-center space-x-2">
-                    <button onclick="changeZoom(-50)" class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded">
+                    <button onclick="changeZoom(-10)" class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded">
                         <i class="fas fa-minus"></i>
                     </button>
-                    <button onclick="changeZoom(50)" class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded">
+                    <button onclick="changeZoom(10)" class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
