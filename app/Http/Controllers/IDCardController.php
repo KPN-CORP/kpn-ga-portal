@@ -94,12 +94,13 @@ class IDCardController extends Controller
 
     public function store(Request $req) 
     {
-        // Set max file size
-        ini_set('upload_max_filesize', '20M');
-        ini_set('post_max_size', '25M');
+        // Set max file size - TAMBAHKAN UNTUK HANDLE 10MB
+        ini_set('upload_max_filesize', '50M');
+        ini_set('post_max_size', '55M');
         ini_set('max_execution_time', '300');
         
         \Log::info('ID Card Store Request:', $req->all());
+        \Log::info('Kategori selected: ' . $req->kategori);
         
         // VALIDASI BERDASARKAN KATEGORI
         $validationRules = [
@@ -115,29 +116,47 @@ class IDCardController extends Controller
         // Kategori yang memerlukan tanggal join dan foto
         if (in_array($kategori, ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'])) {
             $validationRules['tanggal_join'] = 'required|date';
-            $validationRules['foto'] = 'required|image|mimes:jpg,jpeg,png|max:20480';
+            $validationRules['foto'] = 'required|image|mimes:jpg,jpeg,png|max:10240'; // 10MB
         }
         
         // Kategori yang memerlukan masa berlaku dan sampai tanggal
         if (in_array($kategori, ['magang', 'magang_extend'])) {
             $validationRules['masa_berlaku'] = 'required|date';
             $validationRules['sampai_tanggal'] = 'required|date|after:masa_berlaku';
-            $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu';
+            
+            // PERBAIKAN: Untuk magang_extend, nomor kartu tidak harus unique
+            if ($kategori === 'magang') {
+                $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu';
+            } else {
+                $validationRules['nomor_kartu'] = 'required|string|max:50';
+            }
         }
         
         // Validasi NIK unik (untuk mencegah duplikat)
+        // PERBAIKAN: Untuk magang_extend, NIK tidak harus unique (karena extend dari data lama)
         if ($kategori !== 'magang_extend') {
             $validationRules['nik'] = 'required|string|max:50|unique:request_idcard,nik';
         }
         
         // Khusus ganti kartu memerlukan bukti bayar
         if ($kategori === 'ganti_kartu') {
-            $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:20480';
+            $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:10240'; // 10MB
         }
         
-        $validator = Validator::make($req->all(), $validationRules);
+        // Custom error messages
+        $customMessages = [
+            'foto.max' => 'Ukuran foto maksimal 10MB. Kompres foto Anda terlebih dahulu.',
+            'bukti_bayar.max' => 'Ukuran bukti bayar maksimal 10MB. Kompres file Anda terlebih dahulu.',
+            'foto.image' => 'File harus berupa gambar (JPG, JPEG, PNG)',
+            'nik.unique' => 'NIK sudah terdaftar. Untuk Magang Extend, gunakan NIK yang sama dengan data sebelumnya.',
+            'nomor_kartu.unique' => 'Nomor kartu sudah digunakan. Untuk Magang Extend, gunakan nomor kartu yang sama.',
+            'sampai_tanggal.after' => 'Sampai Tanggal harus setelah Masa Berlaku.',
+        ];
+        
+        $validator = Validator::make($req->all(), $validationRules, $customMessages);
         
         if ($validator->fails()) {
+            \Log::error('Validation failed: ', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
         
@@ -214,7 +233,7 @@ class IDCardController extends Controller
                 'updated_at' => now()
             ];
             
-            \Log::info("Data to create: ", $dataToCreate);
+            \Log::info("Data to create for kategori {$kategori}: ", $dataToCreate);
             
             DB::beginTransaction();
             
@@ -415,11 +434,20 @@ class IDCardController extends Controller
                 // Untuk magang dan magang_extend, wajib isi nomor kartu jika belum ada
                 if (in_array($item->kategori, ['magang', 'magang_extend']) && empty($item->nomor_kartu)) {
                     $validator = Validator::make($req->all(), [
-                        'nomor_kartu' => 'required|string|max:50|unique:request_idcard,nomor_kartu'
+                        'nomor_kartu' => 'required|string|max:50'
                     ], [
-                        'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini',
-                        'nomor_kartu.unique' => 'Nomor kartu sudah digunakan'
+                        'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini'
                     ]);
+                    
+                    // Untuk magang_extend, nomor kartu tidak harus unique
+                    if ($item->kategori === 'magang') {
+                        $validator = Validator::make($req->all(), [
+                            'nomor_kartu' => 'required|string|max:50|unique:request_idcard,nomor_kartu'
+                        ], [
+                            'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini',
+                            'nomor_kartu.unique' => 'Nomor kartu sudah digunakan'
+                        ]);
+                    }
                     
                     if ($validator->fails()) {
                         return back()->withErrors($validator)->withInput();

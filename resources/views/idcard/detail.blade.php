@@ -272,7 +272,7 @@
                     </div>
                     
                     <!-- Periode -->
-                    @if(!empty($data->masa_berlaku) || !empty($data->sampai_tanggal))
+                    <!-- @if(!empty($data->masa_berlaku) || !empty($data->sampai_tanggal))
                     <div class="md:col-span-2 space-y-1">
                         <p class="text-sm text-gray-500">Periode Magang</p>
                         <div class="bg-gray-50 border border-gray-200 rounded p-3">
@@ -305,7 +305,7 @@
                             </div>
                         </div>
                     </div>
-                    @endif
+                    @endif -->
                 @else
                     <!-- Untuk Non-Magang: Tanggal Join -->
                     @if (!empty($data->tanggal_join))
