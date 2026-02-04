@@ -27,7 +27,7 @@ class HelpTiketController extends Controller
         }
         
         // SEMUA USER HANYA MELIHAT TIKET MILIKNYA SENDIRI
-        $query = HelpTiket::where('pelapor_id', $user->pelanggan->id_pelanggan);
+        $query = HelpTiket::where('pelapor_id', $user->id);
         
         // Apply filters
         if ($search = request('search')) {
@@ -76,7 +76,7 @@ class HelpTiketController extends Controller
         }
         
         // Authorization check - hanya pelapor yang bisa melihat
-        if ($tiket->pelapor_id !== $user->pelanggan->id_pelanggan) {
+        if ($tiket->pelapor_id !== $user->id) {
             abort(403, 'Anda tidak memiliki akses ke tiket ini.');
         }
         
@@ -99,62 +99,111 @@ class HelpTiketController extends Controller
     
     // ================ ACTION METHODS ================
     
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'judul' => 'required|string|max:255',
-            'deskripsi' => 'required|string',
-            'kategori_id' => 'required|exists:db_help_kategori,id',
-            'prioritas' => 'required|in:LOW,MEDIUM,HIGH,URGENT',
-            'lampiran.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx'
-        ]);
+public function store(Request $request)
+{
+    \Log::info('Store method called', ['user_id' => Auth::id()]);
+    
+    $validated = $request->validate([
+        'judul' => 'required|string|max:255',
+        'deskripsi' => 'required|string',
+        'kategori_id' => 'required|exists:db_help_kategori,id',
+        'prioritas' => 'required|in:LOW,MEDIUM,HIGH,URGENT',
+        'lampiran.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx'
+    ]);
+    
+    \Log::info('Validation passed', $validated);
+
+    try {
+        $user = Auth::user();
         
-        try {
-            $user = Auth::user();
+        DB::beginTransaction();
+        
+        // GENERATE NOMOR TIKET
+        $nomorTiket = $this->generateNomorTiket();
+        \Log::info('Generated ticket number', ['nomor_tiket' => $nomorTiket]);
+        
+        // BUAT TIKET
+        $tiketData = [
+            'nomor_tiket' => $nomorTiket,
+            'judul' => $validated['judul'],
+            'deskripsi' => $validated['deskripsi'],
+            'kategori_id' => $validated['kategori_id'],
+            'pelapor_id' => $user->id,
+            'prioritas' => $validated['prioritas'],
+            'status' => 'OPEN',
+            'ditugaskan_ke' => null
+        ];
+        
+        \Log::info('Creating ticket with data', $tiketData);
+        
+        $tiket = HelpTiket::create($tiketData);
+        
+        \Log::info('Ticket created', ['tiket_id' => $tiket->id]);
+        
+        // Handle lampiran
+        $penggunaId = null;
+        if ($user->pelanggan) {
+            $penggunaId = $user->pelanggan->id_pelanggan;
+            \Log::info('User has pelanggan', ['pengguna_id' => $penggunaId]);
+        } else {
+            // Fallback: gunakan user ID sebagai pengguna_id
+            $penggunaId = $user->id;
+            \Log::warning('User has no pelanggan, using user_id as fallback', ['pengguna_id' => $penggunaId]);
+        }
+        
+        // Handle file uploads
+        if ($request->hasFile('lampiran')) {
+            \Log::info('Processing attachments', ['count' => count($request->file('lampiran'))]);
             
-            // Pastikan user punya pelanggan
-            if (!$user->pelanggan) {
-                return back()->withErrors(['error' => 'Data pelanggan belum terhubung. Silakan logout dan login kembali.']);
-            }
-            
-            DB::beginTransaction();
-            
-            $tiket = HelpTiket::create([
-                'nomor_tiket' => $this->generateNomorTiket(),
-                'judul' => $validated['judul'],
-                'deskripsi' => $validated['deskripsi'],
-                'kategori_id' => $validated['kategori_id'],
-                'pelapor_id' => $user->pelanggan->id_pelanggan,
-                'prioritas' => $validated['prioritas'],
-                'status' => 'OPEN'
-            ]);
-            
-            // Handle lampiran - SIMPAN DI STORAGE PRIVATE
-            if ($request->hasFile('lampiran')) {
-                foreach ($request->file('lampiran') as $file) {
-                    $this->saveLampiranFile($tiket, $file, 'INITIAL', $user->pelanggan->id_pelanggan);
+            foreach ($request->file('lampiran') as $index => $file) {
+                try {
+                    $this->saveLampiranFile($tiket, $file, 'INITIAL', $penggunaId);
+                    \Log::info('Attachment saved', ['index' => $index, 'file' => $file->getClientOriginalName()]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to save attachment', [
+                        'index' => $index,
+                        'file' => $file->getClientOriginalName(),
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
-            
-            // Add system komentar
+        }
+        
+        // Add system comment
+        if ($penggunaId) {
             HelpKomentar::create([
                 'tiket_id' => $tiket->id,
-                'pengguna_id' => $user->pelanggan->id_pelanggan,
+                'pengguna_id' => $penggunaId,
                 'komentar' => 'Tiket berhasil dibuat',
                 'pesan_sistem' => true,
                 'tipe_pesan_sistem' => 'TICKET_CREATED'
             ]);
-            
-            DB::commit();
-            
-            return redirect()->route('help.tiket.show', $tiket)
-                ->with('success', 'Tiket berhasil dibuat!');
-                
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Gagal membuat tiket: ' . $e->getMessage()]);
         }
+        
+        DB::commit();
+        
+        \Log::info('Ticket creation successful', [
+            'tiket_id' => $tiket->id,
+            'nomor_tiket' => $tiket->nomor_tiket
+        ]);
+        
+        return redirect()->route('help.tiket.show', $tiket)
+            ->with('success', 'Tiket berhasil dibuat! Nomor: ' . $tiket->nomor_tiket);
+            
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        \Log::error('Ticket creation failed', [
+            'user_id' => Auth::id(),
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return back()
+            ->withInput()
+            ->withErrors(['error' => 'Gagal membuat tiket: ' . $e->getMessage()]);
     }
+}
     
     public function addKomentar(Request $request, HelpTiket $tiket)
     {
@@ -171,7 +220,7 @@ class HelpTiketController extends Controller
         }
         
         // Hanya pelapor yang bisa mengomentari
-        if ($tiket->pelapor_id !== $user->pelanggan->id_pelanggan) {
+        if ($tiket->pelapor_id !== $user->id) {
             abort(403, 'Anda tidak memiliki akses untuk mengomentari tiket ini.');
         }
         
@@ -361,20 +410,26 @@ class HelpTiketController extends Controller
     
     // ================ HELPER METHODS ================
     
-    private function saveLampiranFile($tiket, $file, $tipe, $penggunaId)
-    {
-        // Generate nama file yang aman
+private function saveLampiranFile($tiket, $file, $tipe, $penggunaId)
+{
+    try {
         $originalName = $file->getClientOriginalName();
         $extension = $file->getClientOriginalExtension();
         $safeName = pathinfo($originalName, PATHINFO_FILENAME);
         $safeName = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $safeName);
-        $fileName = time() . '_' . Str::random(10) . '_' . $safeName . '.' . $extension;
+        $fileName = time() . '_' . uniqid() . '_' . $safeName . '.' . $extension;
+        
+        // Pastikan directory ada
+        $directory = 'help/tiket/' . $tiket->id;
+        if (!Storage::disk('private')->exists($directory)) {
+            Storage::disk('private')->makeDirectory($directory);
+        }
         
         // Path penyimpanan
-        $path = 'help/tiket/' . $tiket->id . '/' . $fileName;
+        $path = $directory . '/' . $fileName;
         
-        // Simpan ke storage private
-        $file->storeAs('help/tiket/' . $tiket->id, $fileName, 'private');
+        // Simpan file
+        Storage::disk('private')->put($path, file_get_contents($file));
         
         // Simpan ke database
         HelpLampiran::create([
@@ -386,17 +441,77 @@ class HelpTiketController extends Controller
             'ukuran_file' => $file->getSize(),
             'tipe' => $tipe
         ]);
+        
+        \Log::info('Attachment saved successfully', [
+            'tiket_id' => $tiket->id,
+            'file_name' => $originalName,
+            'path' => $path
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Failed to save attachment file', [
+            'tiket_id' => $tiket->id,
+            'file_name' => $file->getClientOriginalName(),
+            'error' => $e->getMessage()
+        ]);
+        throw $e; // Re-throw agar bisa ditangkap di method store
+    }
+}
+    
+private function generateNomorTiket()
+{
+    $prefix = 'GA';
+    $year = date('Y');
+    $month = date('m');
+    
+    // LOG 1: Debug
+    \Log::info('=== GENERATE TICKET NUMBER START ===');
+    
+    // AMBIL SEMUA NOMOR YANG SUDAH ADA (termasuk soft deleted)
+    $existingNumbers = HelpTiket::withTrashed()
+        ->where('nomor_tiket', 'like', $prefix . '-' . $year . $month . '-%')
+        ->pluck('nomor_tiket')
+        ->toArray();
+    
+    \Log::info('Existing ticket numbers this month:', $existingNumbers);
+    
+    // CARI SEQUENCE TERTINGGI YANG SUDAH DIGUNAKAN
+    $maxSequence = 0;
+    foreach ($existingNumbers as $number) {
+        // Extract 4 digit terakhir
+        if (preg_match('/-(\d{4})$/', $number, $matches)) {
+            $seq = intval($matches[1]);
+            if ($seq > $maxSequence) {
+                $maxSequence = $seq;
+            }
+        }
     }
     
-    private function generateNomorTiket()
-    {
-        $prefix = 'GA';
-        $year = date('Y');
-        $month = date('m');
-        $sequence = HelpTiket::whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->count() + 1;
-            
-        return $prefix . '-' . $year . $month . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    \Log::info('Max sequence found: ' . $maxSequence);
+    
+    // GENERATE NOMOR BARU (sequence + 1)
+    $newSequence = $maxSequence + 1;
+    $newNumber = $prefix . '-' . $year . $month . '-' . str_pad($newSequence, 4, '0', STR_PAD_LEFT);
+    
+    // DOUBLE CHECK: Pastikan benar-benar belum ada
+    $attempt = 1;
+    while (in_array($newNumber, $existingNumbers)) {
+        \Log::warning('Duplicate detected! ' . $newNumber . ' already exists. Trying next...');
+        $newSequence++;
+        $newNumber = $prefix . '-' . $year . $month . '-' . str_pad($newSequence, 4, '0', STR_PAD_LEFT);
+        $attempt++;
+        
+        // Safety break
+        if ($attempt > 100) {
+            \Log::error('Too many duplicates, using timestamp fallback');
+            $newNumber = $prefix . '-' . $year . $month . '-' . time();
+            break;
+        }
     }
+    
+    \Log::info('Final generated number: ' . $newNumber);
+    \Log::info('=== GENERATE TICKET NUMBER END ===');
+    
+    return $newNumber;
+}
 }
