@@ -201,6 +201,9 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
 
     // Help Tiket System
     Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
+        // ============================================
+        // USER TICKET ROUTES
+        // ============================================
         Route::prefix('tiket')->name('tiket.')->group(function () {
             // Halaman utama tiket user
             Route::get('/', [HelpTiketController::class, 'index'])->name('index');
@@ -211,31 +214,39 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::get('/{tiket}', [HelpTiketController::class, 'show'])->name('show');
             Route::post('/{tiket}/komentar', [HelpTiketController::class, 'addKomentar'])->name('add-komentar');
 
+            // Lampiran untuk user tiket
             Route::get('/lampiran/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])
                 ->name('lampiran.download');
                 
-            // Format URL: /help/tiket/lampiran/{id}/preview
-            // Nama Route: help.tiket.lampiran.preview
             Route::get('/lampiran/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])
-                ->name('lampiran.preview');
+                ->name('lampiran.preview'); // Nama: help.tiket.lampiran.preview
         });
         
         // ============================================
-        // APPROVAL ROUTES (UNTUK GA ADMIN)
-        // ============================================
-        Route::prefix('proses')->name('proses.')->group(function () {
-            // Halaman proses tiket untuk admin
-            Route::get('/', [HelpTiketApprovalController::class, 'index'])->name('index');
-            Route::get('/{tiket}', [HelpTiketApprovalController::class, 'show'])->name('show');
-            
-            // Aksi admin pada tiket
-            Route::post('/{tiket}/ambil', [HelpTiketApprovalController::class, 'take'])->name('take');
-            Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
-            Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
-            
-            // Komentar dari admin
-            Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
-        });
+// APPROVAL ROUTES (UNTUK GA ADMIN)
+// ============================================
+Route::prefix('proses')->name('proses.')->group(function () {
+    // Halaman proses tiket untuk admin
+    Route::get('/', [HelpTiketApprovalController::class, 'index'])->name('index');
+    
+    // **RUTE LAMPIRAN HARUS DITEMPATKAN SEBELUM {tiket}**
+    Route::get('/lampiran/{lampiran}/preview', [HelpTiketApprovalController::class, 'previewLampiran'])
+        ->name('lampiran.preview');
+    
+    Route::get('/lampiran/{lampiran}/download', [HelpTiketApprovalController::class, 'downloadLampiran'])
+        ->name('lampiran.download');
+    
+    // Setelah itu baru rute dengan parameter tiket
+    Route::get('/{tiket}', [HelpTiketApprovalController::class, 'show'])->name('show');
+    
+    // Aksi admin pada tiket
+    Route::post('/{tiket}/ambil', [HelpTiketApprovalController::class, 'take'])->name('take');
+    Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
+    Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
+    
+    // Komentar dari admin
+    Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
+});
         
         // ============================================
         // LOG SISTEM (OPSIONAL - JIKA ADA)

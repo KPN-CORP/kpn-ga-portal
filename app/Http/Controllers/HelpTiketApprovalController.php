@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image;
 
 class HelpTiketApprovalController extends Controller
 {
@@ -79,7 +80,9 @@ class HelpTiketApprovalController extends Controller
             'komentar' => function($query) {
                 $query->with(['pengguna.user'])->orderBy('created_at', 'asc');
             },
-            'lampiran',
+            'lampiran' => function($query) {
+                $query->orderBy('created_at', 'desc');
+            },
             'logStatus' => function($query) {
                 $query->with(['pengguna.user'])->orderBy('created_at', 'asc');
             },
@@ -347,6 +350,206 @@ class HelpTiketApprovalController extends Controller
             return back()->with('error', 'Gagal menutup tiket: ' . $e->getMessage());
         }
     }
+    
+public function previewLampiran(HelpLampiran $lampiran)
+{
+    \Log::info('Preview Lampiran Dipanggil', [
+        'lampiran_id' => $lampiran->id,
+        'tipe_file' => $lampiran->tipe_file,
+        'path_file' => $lampiran->path_file,
+        'is_thumbnail' => request()->has('thumb') || request()->has('thumbnail'),
+        'query_params' => request()->all()
+    ]);
+    
+    $user = Auth::user();
+    
+    if (!$user) {
+        abort(403, 'Unauthorized');
+    }
+    
+    // Cek akses ke tiket
+    $tiket = $lampiran->tiket;
+    
+    // Validasi akses
+    $canAccess = false;
+    
+    if ($user->pelanggan && $tiket->ditugaskan_ke === $user->pelanggan->id_pelanggan) {
+        $canAccess = true;
+    }
+    
+    if ($user->pelanggan && $tiket->pelapor_id === $user->pelanggan->id_pelanggan) {
+        $canAccess = true;
+    }
+    
+    if ($user->username === 'admin' || $user->is_admin == 1 || $user->role === 'admin') {
+        $canAccess = true;
+    }
+    
+    if (!$canAccess) {
+        abort(403, 'Anda tidak memiliki akses untuk melihat lampiran ini');
+    }
+    
+    // Cek apakah file adalah gambar
+    if (!str_contains($lampiran->tipe_file, 'image')) {
+        abort(404, 'File ini bukan gambar');
+    }
+    
+    // Cari file
+    $path = null;
+    $possiblePaths = [
+        storage_path('app/help/tiket/' . $tiket->id . '/' . basename($lampiran->path_file)),
+        storage_path('app/' . $lampiran->path_file),
+        storage_path('app/private/' . $lampiran->path_file),
+        storage_path('app/public/' . $lampiran->path_file),
+        storage_path('app/help/tiket/' . $tiket->id . '/' . $lampiran->nama_file),
+    ];
+    
+    \Log::info('Mencari file di paths:', $possiblePaths);
+    
+    foreach ($possiblePaths as $possiblePath) {
+        if (file_exists($possiblePath)) {
+            $path = $possiblePath;
+            \Log::info('File ditemukan di:', ['path' => $path]);
+            break;
+        }
+    }
+    
+    if (!$path) {
+        \Log::error('File tidak ditemukan di semua lokasi');
+        abort(404, 'File tidak ditemukan');
+    }
+    
+    // Tentukan apakah permintaan untuk thumbnail
+    $isThumbnail = request()->has('thumb') || request()->has('thumbnail');
+    
+    \Log::info('Processing image', [
+        'is_thumbnail' => $isThumbnail,
+        'file_size' => filesize($path),
+        'file_exists' => file_exists($path)
+    ]);
+    
+    if ($isThumbnail) {
+        try {
+            // Pastikan Intervention Image terinstall
+            if (!class_exists('Intervention\Image\ImageManager')) {
+                \Log::error('Intervention Image tidak terinstall');
+                // Return file asli
+                return response()->file($path, [
+                    'Content-Type' => $lampiran->tipe_file,
+                    'Content-Disposition' => 'inline; filename="' . $lampiran->nama_file . '"',
+                ]);
+            }
+            
+            $img = Image::make($path);
+            
+            \Log::info('Original image size', [
+                'width' => $img->width(),
+                'height' => $img->height()
+            ]);
+            
+            // Resize untuk thumbnail
+            $img->resize(200, 200, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            });
+            
+            \Log::info('Resized image size', [
+                'width' => $img->width(),
+                'height' => $img->height()
+            ]);
+            
+            return $img->response($lampiran->tipe_file)
+                ->header('Cache-Control', 'public, max-age=86400');
+                
+        } catch (\Exception $e) {
+            \Log::error('Error creating thumbnail: ' . $e->getMessage());
+            
+            // Fallback: return file asli
+            return response()->file($path, [
+                'Content-Type' => $lampiran->tipe_file,
+                'Content-Disposition' => 'inline; filename="' . $lampiran->nama_file . '"',
+            ]);
+        }
+    }
+    
+    // Return file as-is untuk full size
+    return response()->file($path, [
+        'Content-Type' => $lampiran->tipe_file,
+        'Content-Disposition' => 'inline; filename="' . $lampiran->nama_file . '"',
+    ]);
+}
+
+/**
+ * DOWNLOAD LAMPIRAN
+ */
+public function downloadLampiran(HelpLampiran $lampiran)
+{
+    $user = Auth::user();
+    
+    if (!$user) {
+        abort(403, 'Unauthorized');
+    }
+    
+    // Cek akses ke tiket
+    $tiket = $lampiran->tiket;
+    
+    // Validasi akses - PERBAIKAN: Hapus hasRole()
+    $canAccess = false;
+    
+    // 1. Cek jika user adalah penanggung jawab tiket
+    if ($user->pelanggan && $tiket->ditugaskan_ke === $user->pelanggan->id_pelanggan) {
+        $canAccess = true;
+    }
+    
+    // 2. Cek jika user adalah pelapor tiket
+    if ($user->pelanggan && $tiket->pelapor_id === $user->pelanggan->id_pelanggan) {
+        $canAccess = true;
+    }
+    
+    // 3. Admin/superuser selalu bisa akses
+    // PERBAIKAN: Ganti hasRole() dengan cek langsung
+    if ($user->username === 'admin' || $user->is_admin == 1 || $user->role === 'admin') {
+        $canAccess = true;
+    }
+    
+    if (!$canAccess) {
+        abort(403, 'Anda tidak memiliki akses untuk mendownload lampiran ini');
+    }
+    
+    // Cari file di storage
+    $path = null;
+    $possiblePaths = [
+        storage_path('app/help/tiket/' . $tiket->id . '/' . basename($lampiran->path_file)),
+        storage_path('app/' . $lampiran->path_file),
+        storage_path('app/private/' . $lampiran->path_file),
+        storage_path('app/public/' . $lampiran->path_file),
+        storage_path('app/help/tiket/' . $tiket->id . '/' . $lampiran->nama_file),
+        storage_path('app/private/help/tiket/' . $tiket->id . '/' . $lampiran->nama_file),
+        storage_path('app/public/help/tiket/' . $tiket->id . '/' . $lampiran->nama_file), // TAMBAHKAN INI
+    ];
+    
+    foreach ($possiblePaths as $possiblePath) {
+        if (file_exists($possiblePath)) {
+            $path = $possiblePath;
+            break;
+        }
+    }
+    
+    if (!$path) {
+        // Coba cari file dengan Storage facade
+        $storagePath = 'help/tiket/' . $tiket->id . '/' . basename($lampiran->path_file);
+        if (Storage::exists($storagePath)) {
+            $path = Storage::path($storagePath);
+        } else if (Storage::exists($lampiran->path_file)) {
+            $path = Storage::path($lampiran->path_file);
+        } else {
+            abort(404, 'File tidak ditemukan di storage');
+        }
+    }
+    
+    // Return file untuk download
+    return response()->download($path, $lampiran->nama_file);
+}
     
     /**
      * Helper method untuk menyimpan file lampiran
