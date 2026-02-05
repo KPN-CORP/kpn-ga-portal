@@ -38,13 +38,20 @@ class IDCardController extends Controller
             $query->where('user_id', Auth::id());
         }
 
+        // PERBAIKAN: Pisahkan pencarian search dan nomor_kartu
         if ($req->search) {
             $query->where(function($q) use ($req) {
                 $q->where('nama', 'like', "%{$req->search}%")
-                  ->orWhere('nik', 'like', "%{$req->search}%")
-                  ->orWhere('kategori', 'like', "%{$req->search}%")
-                  ->orWhere('nomor_kartu', 'like', "%{$req->search}%");
+                ->orWhere('nik', 'like', "%{$req->search}%")
+                ->orWhere('kategori', 'like', "%{$req->search}%");
+                // HAPUS: ->orWhere('nomor_kartu', 'like', "%{$req->search}%");
             });
+        }
+
+        // PENCARIAN NOMOR KARTU TERPISAH - HANYA CARI DI FIELD nomor_kartu
+        if ($req->nomor_kartu) {
+            $query->where('nomor_kartu', 'like', "%{$req->nomor_kartu}%");
+            // HANYA di field nomor_kartu, tidak mencampur dengan field lain
         }
 
         if ($req->status && $req->status != 'all') {
@@ -58,6 +65,31 @@ class IDCardController extends Controller
 
         if ($req->kategori && $req->kategori != 'all') {
             $query->where('kategori', $req->kategori);
+        }
+
+        // FILTER PERIODE
+        if ($req->periode && $req->periode != 'all') {
+            $today = now()->format('Y-m-d');
+            
+            switch ($req->periode) {
+                case 'masa_aktif':
+                    $query->where('masa_berlaku', '<=', $today)
+                        ->where('sampai_tanggal', '>=', $today);
+                    break;
+                    
+                case 'masa_tidak_aktif':
+                    $query->where(function($q) use ($today) {
+                        $q->where('masa_berlaku', '>', $today)
+                        ->orWhere('sampai_tanggal', '<', $today);
+                    });
+                    break;
+                    
+                case 'masa_habis_segera':
+                    $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
+                    $query->where('sampai_tanggal', '>=', $today)
+                        ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
+                    break;
+            }
         }
 
         $perPage = $req->get('per_page', 10);
