@@ -381,44 +381,54 @@
         <div class="bg-gray-50 rounded-lg p-6">
             <!-- Form Approve -->
             <form action="{{ route('idcard.approve', $data->id) }}" method="POST" class="mb-6" id="approveForm">
-                @csrf
-                
-                @if(in_array($data->kategori, ['magang', 'magang_extend']))
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Nomor Kartu *
-                        </label>
-                        <input type="text" name="nomor_kartu" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
-                               value="{{ $data->nomor_kartu ?? '' }}"
-                               placeholder="Contoh: MAG20240115001"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">Wajib diisi untuk kategori Magang</p>
-                    </div>
+            @csrf
+            
+            @if(in_array($data->kategori, ['magang', 'magang_extend']))
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Nomor Kartu *
+                    </label>
+                    <input type="text" name="nomor_kartu" 
+                        id="nomor_kartu"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        value="{{ $data->nomor_kartu ?? '' }}"
+                        placeholder="Contoh: MAG20240115001"
+                        required>
+                    <p class="text-xs text-gray-500 mt-1">Wajib diisi untuk kategori Magang</p>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Sampai Tanggal
-                        </label>
-                        <input type="date" name="sampai_tanggal" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
-                               value="{{ $data->sampai_tanggal ?? '' }}">
-                        <p class="text-xs text-gray-500 mt-1">Opsional, untuk update tanggal akhir</p>
-                    </div>
+                    <!-- Tampilkan warning jika nomor kartu sudah digunakan -->
+                    @if($data->nomor_kartu)
+                        <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                            <p>⚠️ Nomor kartu saat ini: <strong>{{ $data->nomor_kartu }}</strong></p>
+                            <p class="mt-1">Isi untuk mengganti nomor kartu</p>
+                        </div>
+                    @endif
                 </div>
-                @endif
                 
-                <button type="button" 
-                        onclick="confirmApprove()"
-                        class="inline-flex items-center px-5 py-2.5 bg-green-600 border border-transparent rounded-md font-semibold text-sm text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    Approve Request
-                </button>
-                <p class="text-xs text-gray-500 mt-2">Status akan berubah menjadi "Approved"</p>
-            </form>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Sampai Tanggal
+                    </label>
+                    <input type="date" name="sampai_tanggal" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        value="{{ $data->sampai_tanggal ?? '' }}"
+                        min="{{ $data->masa_berlaku ?? '' }}">
+                    <p class="text-xs text-gray-500 mt-1">Opsional, untuk update tanggal akhir</p>
+                </div>
+            </div>
+            @endif
+            
+            <button type="button" 
+                    onclick="confirmApprove()"
+                    class="inline-flex items-center px-5 py-2.5 bg-green-600 border border-transparent rounded-md font-semibold text-sm text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Approve Request
+            </button>
+            <p class="text-xs text-gray-500 mt-2">Status akan berubah menjadi "Approved"</p>
+        </form>
             
             <!-- Form Reject -->
             <form action="{{ route('idcard.reject', $data->id) }}" method="POST" id="rejectForm">

@@ -448,7 +448,7 @@ class IDCardController extends Controller
     }
 
     public function approve(Request $req, $id) {
-        // VALIDASI AKSES
+    // VALIDASI AKSES
         if (!$this->canProcessIDCard()) {
             return back()->with('error', 'Anda tidak memiliki akses untuk melakukan approval!');
         }
@@ -460,32 +460,45 @@ class IDCardController extends Controller
                 return back()->with('error', 'Request sudah diproses.');
             }
             
+            // VALIDASI KHUSUS UNTUK MAGANG & MAGANG_EXTEND
+            if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+                $validationRules = [];
+                
+                // Validasi nomor kartu wajib untuk kategori magang
+                $validationRules['nomor_kartu'] = 'required|string|max:50';
+                
+                // Untuk magang biasa, nomor kartu harus unique
+                if ($item->kategori === 'magang') {
+                    $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu,' . $id;
+                }
+                
+                // Validasi tanggal jika perlu
+                if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
+                    $validationRules['sampai_tanggal'] = 'date|after:masa_berlaku';
+                }
+                
+                $validator = Validator::make($req->all(), $validationRules, [
+                    'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori Magang',
+                    'nomor_kartu.unique' => 'Nomor kartu sudah digunakan',
+                    'sampai_tanggal.after' => 'Sampai tanggal harus setelah masa berlaku',
+                ]);
+                
+                if ($validator->fails()) {
+                    return back()->withErrors($validator)->withInput();
+                }
+            }
+            
             DB::beginTransaction();
             
             try {
-                // Untuk magang dan magang_extend, wajib isi nomor kartu jika belum ada
-                if (in_array($item->kategori, ['magang', 'magang_extend']) && empty($item->nomor_kartu)) {
-                    $validator = Validator::make($req->all(), [
-                        'nomor_kartu' => 'required|string|max:50'
-                    ], [
-                        'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini'
-                    ]);
-                    
-                    // Untuk magang_extend, nomor kartu tidak harus unique
-                    if ($item->kategori === 'magang') {
-                        $validator = Validator::make($req->all(), [
-                            'nomor_kartu' => 'required|string|max:50|unique:request_idcard,nomor_kartu'
-                        ], [
-                            'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori ini',
-                            'nomor_kartu.unique' => 'Nomor kartu sudah digunakan'
-                        ]);
-                    }
-                    
-                    if ($validator->fails()) {
-                        return back()->withErrors($validator)->withInput();
-                    }
-                    
+                // UPDATE NOMOR KARTU UNTUK MAGANG & MAGANG_EXTEND
+                if (in_array($item->kategori, ['magang', 'magang_extend'])) {
                     $item->nomor_kartu = $req->nomor_kartu;
+                    
+                    // Update tanggal jika diinput
+                    if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
+                        $item->sampai_tanggal = $req->sampai_tanggal;
+                    }
                 }
                 
                 $item->status = 'approved';
@@ -498,12 +511,17 @@ class IDCardController extends Controller
                 
                 $item->save();
                 
-                // Log activity
+                // Log activity dengan detail nomor kartu
+                $logNotes = 'Request ID Card disetujui';
+                if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+                    $logNotes .= ' - Nomor Kartu: ' . $req->nomor_kartu;
+                }
+                
                 DB::table('request_idcard_logs')->insert([
                     'request_id' => $id,
                     'action' => 'approved',
                     'action_by' => Auth::id(),
-                    'notes' => 'Request ID Card disetujui',
+                    'notes' => $logNotes,
                     'created_at' => now()
                 ]);
                 
