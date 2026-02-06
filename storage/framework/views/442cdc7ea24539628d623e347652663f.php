@@ -285,7 +285,7 @@
     
     <?php if($data->hasPages()): ?>
         <div class="mt-4">
-            <?php echo e($data->links()); ?>
+            <?php echo e($data->withQueryString()->links()); ?>
 
         </div>
     <?php endif; ?>

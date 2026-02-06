@@ -25,99 +25,101 @@ class IDCardController extends Controller
     }
 
     public function index(Request $req) 
-    {
-        // Cek apakah user memiliki akses khusus dari tb_access_menu
-        $hasSpecialAccess = $this->canProcessIDCard();
-        
-        $bisnisUnits = DB::table('tb_bisnis_unit')->get();
-
-        $query = RequestIdCard::orderBy('created_at','desc');
-        
-        // Jika tidak punya akses khusus, hanya tampilkan data user sendiri
-        if (!$hasSpecialAccess) {
-            $query->where('user_id', Auth::id());
-        }
-
-        // PERBAIKAN: Pisahkan pencarian search dan nomor_kartu
-        if ($req->search) {
-            $query->where(function($q) use ($req) {
-                $q->where('nama', 'like', "%{$req->search}%")
-                ->orWhere('nik', 'like', "%{$req->search}%")
-                ->orWhere('kategori', 'like', "%{$req->search}%");
-                // HAPUS: ->orWhere('nomor_kartu', 'like', "%{$req->search}%");
-            });
-        }
-
-        // PENCARIAN NOMOR KARTU TERPISAH - HANYA CARI DI FIELD nomor_kartu
-        if ($req->nomor_kartu) {
-            $query->where('nomor_kartu', 'like', "%{$req->nomor_kartu}%");
-            // HANYA di field nomor_kartu, tidak mencampur dengan field lain
-        }
-
-        if ($req->status && $req->status != 'all') {
-            $query->where('status', $req->status);
-        }
-
-        // Filter bisnis unit hanya untuk user dengan akses khusus
-        if ($hasSpecialAccess && $req->bisnis_unit_id && $req->bisnis_unit_id != 'all') {
-            $query->where('bisnis_unit_id', $req->bisnis_unit_id);
-        }
-
-        if ($req->kategori && $req->kategori != 'all') {
-            $query->where('kategori', $req->kategori);
-        }
-
-        // FILTER PERIODE
-        if ($req->periode && $req->periode != 'all') {
-            $today = now()->format('Y-m-d');
+        {
+            // Cek apakah user memiliki akses khusus dari tb_access_menu
+            $hasSpecialAccess = $this->canProcessIDCard();
             
-            switch ($req->periode) {
-                case 'masa_aktif':
-                    $query->where('masa_berlaku', '<=', $today)
-                        ->where('sampai_tanggal', '>=', $today);
-                    break;
-                    
-                case 'masa_tidak_aktif':
-                    $query->where(function($q) use ($today) {
-                        $q->where('masa_berlaku', '>', $today)
-                        ->orWhere('sampai_tanggal', '<', $today);
-                    });
-                    break;
-                    
-                case 'masa_habis_segera':
-                    $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
-                    $query->where('sampai_tanggal', '>=', $today)
-                        ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
-                    break;
+            $bisnisUnits = DB::table('tb_bisnis_unit')->get();
+
+            $query = RequestIdCard::orderBy('created_at','desc');
+            
+            // Jika tidak punya akses khusus, hanya tampilkan data user sendiri
+            if (!$hasSpecialAccess) {
+                $query->where('user_id', Auth::id());
             }
+
+            // PERBAIKAN: Pisahkan pencarian search dan nomor_kartu
+            if ($req->search) {
+                $query->where(function($q) use ($req) {
+                    $q->where('nama', 'like', "%{$req->search}%")
+                    ->orWhere('nik', 'like', "%{$req->search}%")
+                    ->orWhere('kategori', 'like', "%{$req->search}%");
+                    // HAPUS: ->orWhere('nomor_kartu', 'like', "%{$req->search}%");
+                });
+            }
+
+            // PENCARIAN NOMOR KARTU TERPISAH - HANYA CARI DI FIELD nomor_kartu
+            if ($req->nomor_kartu) {
+                $query->where('nomor_kartu', 'like', "%{$req->nomor_kartu}%");
+                // HANYA di field nomor_kartu, tidak mencampur dengan field lain
+            }
+
+            if ($req->status && $req->status != 'all') {
+                $query->where('status', $req->status);
+            }
+
+            // Filter bisnis unit hanya untuk user dengan akses khusus
+            if ($hasSpecialAccess && $req->bisnis_unit_id && $req->bisnis_unit_id != 'all') {
+                $query->where('bisnis_unit_id', $req->bisnis_unit_id);
+            }
+
+            if ($req->kategori && $req->kategori != 'all') {
+                $query->where('kategori', $req->kategori);
+            }
+
+            // FILTER PERIODE
+            if ($req->periode && $req->periode != 'all') {
+                $today = now()->format('Y-m-d');
+                
+                switch ($req->periode) {
+                    case 'masa_aktif':
+                        $query->where('masa_berlaku', '<=', $today)
+                            ->where('sampai_tanggal', '>=', $today);
+                        break;
+                        
+                    case 'masa_tidak_aktif':
+                        $query->where(function($q) use ($today) {
+                            $q->where('masa_berlaku', '>', $today)
+                            ->orWhere('sampai_tanggal', '<', $today);
+                        });
+                        break;
+                        
+                    case 'masa_habis_segera':
+                        $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
+                        $query->where('sampai_tanggal', '>=', $today)
+                            ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
+                        break;
+                }
+            }
+
+            $perPage = $req->get('per_page', 10);
+            
+            // PERBAIKAN DI SINI: Tambahkan withQueryString()
+            $data = $query->paginate($perPage)->withQueryString();
+
+            $statusLabels = [
+                'pending' => 'Menunggu',
+                'approved' => 'Disetujui',
+                'rejected' => 'Ditolak'
+            ];
+
+            // Kategori labels untuk filter
+            $kategoriLabels = [
+                'karyawan_baru' => 'Karyawan Baru',
+                'karyawan_mutasi' => 'Karyawan Mutasi',
+                'ganti_kartu' => 'Ganti Kartu',
+                'magang' => 'Magang',
+                'magang_extend' => 'Magang Extend'
+            ];
+
+            return view('idcard.list', [
+                'data' => $data,
+                'bisnisUnits' => $bisnisUnits,
+                'statusLabels' => $statusLabels,
+                'kategoriLabels' => $kategoriLabels,
+                'hasSpecialAccess' => $hasSpecialAccess
+            ]);
         }
-
-        $perPage = $req->get('per_page', 10);
-        $data = $query->paginate($perPage);
-
-        $statusLabels = [
-            'pending' => 'Menunggu',
-            'approved' => 'Disetujui',
-            'rejected' => 'Ditolak'
-        ];
-
-        // Kategori labels untuk filter
-        $kategoriLabels = [
-            'karyawan_baru' => 'Karyawan Baru',
-            'karyawan_mutasi' => 'Karyawan Mutasi',
-            'ganti_kartu' => 'Ganti Kartu',
-            'magang' => 'Magang',
-            'magang_extend' => 'Magang Extend'
-        ];
-
-        return view('idcard.list', [
-            'data' => $data,
-            'bisnisUnits' => $bisnisUnits,
-            'statusLabels' => $statusLabels,
-            'kategoriLabels' => $kategoriLabels,
-            'hasSpecialAccess' => $hasSpecialAccess
-        ]);
-    }
 
     public function create() {
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();

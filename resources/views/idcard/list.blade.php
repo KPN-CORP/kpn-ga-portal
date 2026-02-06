@@ -277,7 +277,7 @@
     {{-- PAGINATION --}}
     @if($data->hasPages())
         <div class="mt-4">
-            {{ $data->links() }}
+            {{ $data->withQueryString()->links() }}
         </div>
     @endif
 </div>
