@@ -7,93 +7,95 @@
 <style>
 @page {
     size: A4;
-    margin: 12mm;
+    margin: 20mm;
 }
 
 body {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 10pt;
-    color: #000;
     margin: 0;
     padding: 0;
+    color: #000;
 }
 
-/* ===== TICKET ===== */
-.ticket {
-    height: 136mm;                  /* FIX: 2 dalam 1 A4 */
-    border: 1px dashed #000;
-    border-radius: 10px;
-    padding: 7mm 9mm;
-    box-sizing: border-box;
-    position: relative;
-    page-break-inside: avoid;
-}
-
-/* jarak antar copy (tidak bikin page break) */
-.ticket + .ticket {
-    margin-top: 1mm;
+/* ===== RECEIPT ===== */
+.receipt {
+    border: 1px solid #000;
+    padding: 8mm 10mm;
+    margin-bottom: 12mm;
 }
 
 /* ===== HEADER ===== */
-.title {
+.header {
     text-align: center;
-    font-size: 13pt;
-    letter-spacing: 2px;
+    margin-bottom: 6mm;
+}
+
+.title {
+    font-size: 14pt;
     font-weight: bold;
-    margin-bottom: 3mm;
 }
 
 .brand {
-    position: absolute;
-    top: 5mm;
-    right: 9mm;
     font-size: 8pt;
 }
 
-/* ===== TABLE LAYOUT ===== */
-.layout {
+/* ===== META (ATAS) ===== */
+.meta {
     width: 100%;
     border-collapse: collapse;
+    margin-bottom: 5mm;
 }
 
-.layout td {
+.meta td {
+    padding: 2mm 0;
     vertical-align: top;
-    padding: 1.5mm 2mm;
 }
 
-.left {
-    width: 60%;
+.meta .left {
+    width: 50%;
 }
 
-.right {
-    width: 40%;
-    text-align: right;
+.meta .right {
+    width: 50%;
 }
 
-/* ===== BLOCK TEXT ===== */
+/* ===== FIELD PANJANG ===== */
 .block {
-    margin-top: 3mm;
-    word-wrap: break-word;
-    white-space: normal;
+    margin-bottom: 4mm;
+}
+
+.block .label {
+    font-weight: bold;
 }
 
 /* ===== SIGNATURE ===== */
 .sign {
     width: 100%;
-    margin-top: 7mm;
-    table-layout: fixed;
+    margin-top: 8mm;
+    text-align: center;
 }
 
 .sign td {
     width: 50%;
-    text-align: center;
-    padding-top: 3mm;
+    vertical-align: top;
 }
 
+/* JARAK ANTAR TEKS DAN GARIS */
+.sign .role {
+    margin-bottom: 10mm;   /* ⬅️ ini bikin turun jauh */
+}
+
+/* GARIS TTD */
 .line {
+    width: 70%;
     border-top: 1px solid #000;
-    width: 65%;
-    margin: 6mm auto 2mm;
+    margin: 0 auto;
+}
+
+/* JARAK GARIS KE NAMA */
+.name {
+    margin-top: 1mm;      /* ⬅️ jarak tambahan ke nama */
 }
 </style>
 </head>
@@ -101,46 +103,45 @@ body {
 <body>
 
 <!-- ================= COPY 1 ================= -->
-<div class="ticket">
+<div class="receipt">
 
-    <div class="brand">DOKUMEN · by GA Portal</div>
-    <div class="title">TANDA TERIMA</div>
+    <div class="header">
+        <div class="title">TANDA TERIMA</div>
+        <div class="brand">DOKUMEN · by GA Portal</div>
+    </div>
 
-    <table class="layout">
+    <table class="meta">
         <tr>
-            <td class="left">
-                <strong>No Dokumen :</strong> {{ $document->nomor_dokumen }}<br><br>
-                <strong>Pengirim :</strong> {{ $document->pengirim->name ?? '-' }}
-
-                <div class="block">
-                    <strong>Judul Dokumen :</strong><br>
-                    {{ $document->judul }}
-                </div>
-
-                <div class="block">
-                    <strong>Keterangan :</strong><br>
-                    {{ $document->keterangan ?? '-' }}
-                </div>
-            </td>
-
-            <td class="right">
-                <strong>Tanggal :</strong> {{ $document->created_at->format('d-m-Y') }}<br><br>
-                <strong>Penerima :</strong> {{ $document->penerima->name ?? '-' }}
-            </td>
+            <td class="left"><strong>No Dokumen</strong> : {{ $document->nomor_dokumen }}</td>
+            <td class="right"><strong>Pengirim</strong> : {{ $document->pengirim->name ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="left"><strong>Tanggal</strong> : {{ $document->created_at->format('d-m-Y') }}</td>
+            <td class="right"><strong>Penerima</strong> : {{ $document->penerima->name ?? '-' }}</td>
         </tr>
     </table>
+
+    <div class="block">
+        <div class="label">Judul Dokumen :</div>
+        {{ $document->judul }}
+    </div>
+
+    <div class="block">
+        <div class="label">Keterangan :</div>
+        {{ $document->keterangan ?? '-' }}
+    </div>
 
     <table class="sign">
         <tr>
             <td>
-                Pengirim
+                <div class="role">Pengirim</div>
                 <div class="line"></div>
-                {{ $document->pengirim->name ?? '-' }}
+                <div class="name">{{ $document->pengirim->name ?? '-' }}</div>
             </td>
             <td>
-                Penerima
+                <div class="role">Penerima</div>
                 <div class="line"></div>
-                {{ $document->penerima->name ?? '-' }}
+                <div class="name">{{ $document->penerima->name ?? '-' }}</div>
             </td>
         </tr>
     </table>
@@ -148,46 +149,45 @@ body {
 </div>
 
 <!-- ================= COPY 2 ================= -->
-<div class="ticket">
+<div class="receipt">
 
-    <div class="brand">DOKUMEN · by GA Portal</div>
-    <div class="title">TANDA TERIMA</div>
+    <div class="header">
+        <div class="title">TANDA TERIMA</div>
+        <div class="brand">DOKUMEN · by GA Portal</div>
+    </div>
 
-    <table class="layout">
+    <table class="meta">
         <tr>
-            <td class="left">
-                <strong>No Dokumen :</strong> {{ $document->nomor_dokumen }}<br><br>
-                <strong>Pengirim :</strong> {{ $document->pengirim->name ?? '-' }}
-
-                <div class="block">
-                    <strong>Judul Dokumen :</strong><br>
-                    {{ $document->judul }}
-                </div>
-
-                <div class="block">
-                    <strong>Keterangan :</strong><br>
-                    {{ $document->keterangan ?? '-' }}
-                </div>
-            </td>
-
-            <td class="right">
-                <strong>Tanggal :</strong> {{ $document->created_at->format('d-m-Y') }}<br><br>
-                <strong>Penerima :</strong> {{ $document->penerima->name ?? '-' }}
-            </td>
+            <td class="left"><strong>No Dokumen</strong> : {{ $document->nomor_dokumen }}</td>
+            <td class="right"><strong>Pengirim</strong> : {{ $document->pengirim->name ?? '-' }}</td>
+        </tr>
+        <tr>
+            <td class="left"><strong>Tanggal</strong> : {{ $document->created_at->format('d-m-Y') }}</td>
+            <td class="right"><strong>Penerima</strong> : {{ $document->penerima->name ?? '-' }}</td>
         </tr>
     </table>
+
+    <div class="block">
+        <div class="label">Judul Dokumen :</div>
+        {{ $document->judul }}
+    </div>
+
+    <div class="block">
+        <div class="label">Keterangan :</div>
+        {{ $document->keterangan ?? '-' }}
+    </div>
 
     <table class="sign">
         <tr>
             <td>
-                Pengirim
+                <div class="role">Pengirim</div>
                 <div class="line"></div>
-                {{ $document->pengirim->name ?? '-' }}
+                <div class="name">{{ $document->pengirim->name ?? '-' }}</div>
             </td>
             <td>
-                Penerima
+                <div class="role">Penerima</div>
                 <div class="line"></div>
-                {{ $document->penerima->name ?? '-' }}
+                <div class="name">{{ $document->penerima->name ?? '-' }}</div>
             </td>
         </tr>
     </table>

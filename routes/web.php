@@ -24,6 +24,7 @@ use App\Http\Controllers\Apartemen\AssignController;
 use App\Http\Controllers\Apartemen\DetailController;
 use App\Http\Controllers\HelpTiketPDFController;
 use App\Http\Controllers\HelpProsesController;
+use App\Http\Controllers\TrackFotoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -472,11 +473,18 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::post('/{id}/teruskan', [TrackRController::class, 'teruskan'])->name('track-r.teruskan');
         Route::get('/{id}/pdf', [TrackRController::class, 'pdf'])->name('track-r.pdf');
         
-        // Foto routes - hanya download
+        // Foto routes
         Route::get('/{document}/foto/{foto}/download', [TrackRController::class, 'downloadFoto'])
             ->name('track-r.foto.download');
-    });
 
+        // Route untuk menampilkan gambar (view) - menggunakan TrackFotoController
+        Route::get('/track-foto/view/{id}', [App\Http\Controllers\TrackFotoController::class, 'view'])
+            ->name('track-foto.view');
+            
+        // TAMBAHKAN INI - Route untuk download via TrackFotoController
+        Route::get('/track-foto/download/{id}', [App\Http\Controllers\TrackFotoController::class, 'download'])
+            ->name('track-foto.download');
+    });
     /*
     |--------------------------------------------------------------------------
     | NO ACCESS
