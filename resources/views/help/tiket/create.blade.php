@@ -23,7 +23,7 @@
                            value="{{ old('judul') }}"
                            required
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="Masukkan judul pengaduan">
+                           placeholder="Lampu Area Divisi ERP (Lantai 46)">
                     @error('judul')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
@@ -38,14 +38,15 @@
                               rows="4"
                               required
                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Jelaskan masalah yang Anda alami">{{ old('deskripsi') }}</textarea>
+                              placeholder="Lampu tidak menyala">{{ old('deskripsi') }}</textarea>
                     @error('deskripsi')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
                 
-                <!-- Kategori & Prioritas -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Kategori, Bisnis Unit & Prioritas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Kategori -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Kategori *
@@ -65,6 +66,26 @@
                         @enderror
                     </div>
                     
+                    <!-- Bisnis Unit -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Bisnis Unit
+                        </label>
+                        <select name="bisnis_unit_id" 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Pilih Bisnis Unit</option>
+                            @foreach($bisnisUnits as $unit)
+                            <option value="{{ $unit->id_bisnis_unit }}" {{ old('bisnis_unit_id') == $unit->id_bisnis_unit ? 'selected' : '' }}>
+                                {{ $unit->nama_bisnis_unit }}
+                            </option>
+                            @endforeach
+                        </select>
+                        @error('bisnis_unit_id')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    
+                    <!-- Prioritas -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Prioritas *

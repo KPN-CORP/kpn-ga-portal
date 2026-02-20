@@ -19,6 +19,7 @@ class HelpTiket extends Model
         'deskripsi',
         'kategori_id',
         'pelapor_id',
+        'bisnis_unit_id', // TAMBAHKAN INI
         'ditugaskan_ke',
         'status',
         'prioritas',
@@ -57,6 +58,12 @@ class HelpTiket extends Model
     public function kategori(): BelongsTo
     {
         return $this->belongsTo(HelpKategori::class, 'kategori_id');
+    }
+    
+    // Bisnis Unit - TAMBAHKAN RELATIONSHIP INI
+    public function bisnisUnit(): BelongsTo
+    {
+        return $this->belongsTo(BisnisUnit::class, 'bisnis_unit_id', 'id_bisnis_unit');
     }
     
     // Pelapor (dari users table) - pelapor_id references users.id

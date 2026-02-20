@@ -22,6 +22,8 @@ use App\Http\Controllers\Apartemen\UserController;
 use App\Http\Controllers\Apartemen\AdminController;
 use App\Http\Controllers\Apartemen\AssignController;
 use App\Http\Controllers\Apartemen\DetailController;
+use App\Http\Controllers\HelpTiketPDFController;
+use App\Http\Controllers\HelpProsesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -199,61 +201,84 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/foto/{id}', [MailingController::class, 'viewFoto'])->name('view-foto');
     });
 
-    // Help Tiket System
+    // ============================================
+    // HELP TIKET SYSTEM ROUTES
+    // ============================================
     Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
+            
+    // ============================================
+    // PDF REPORT ROUTES (Bisa diakses semua role)
+    // ============================================
+    Route::get('/tiket/{tiket}/pdf', [HelpTiketPDFController::class, 'download'])->name('tiket.pdf');
+
         // ============================================
-        // USER TICKET ROUTES
+        // USER TICKET ROUTES (Pelapor)
         // ============================================
         Route::prefix('tiket')->name('tiket.')->group(function () {
-            // Halaman utama tiket user
+            // Halaman utama
             Route::get('/', [HelpTiketController::class, 'index'])->name('index');
             Route::get('/buat', [HelpTiketController::class, 'create'])->name('create');
             Route::post('/', [HelpTiketController::class, 'store'])->name('store');
             
-            // Detail tiket & komentar
+            // Detail tiket - HARUS DIATAS ROUTE LAMPIRAN
             Route::get('/{tiket}', [HelpTiketController::class, 'show'])->name('show');
+            
+            // Komentar
             Route::post('/{tiket}/komentar', [HelpTiketController::class, 'addKomentar'])->name('add-komentar');
-
-            // Lampiran untuk user tiket
-            Route::get('/lampiran/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])
-                ->name('lampiran.download');
-                
-            Route::get('/lampiran/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])
-                ->name('lampiran.preview'); // Nama: help.tiket.lampiran.preview
+            
+            // Lampiran - URL KHUSUS UNTUK LAMPIRAN
+            Route::prefix('lampiran')->name('lampiran.')->group(function () {
+                Route::get('/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])->name('preview');
+                Route::get('/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])->name('download');
+            });
         });
         
         // ============================================
-// APPROVAL ROUTES (UNTUK GA ADMIN)
-// ============================================
-Route::prefix('proses')->name('proses.')->group(function () {
-    // Halaman proses tiket untuk admin
-    Route::get('/', [HelpTiketApprovalController::class, 'index'])->name('index');
-    
-    // **RUTE LAMPIRAN HARUS DITEMPATKAN SEBELUM {tiket}**
-    Route::get('/lampiran/{lampiran}/preview', [HelpTiketApprovalController::class, 'previewLampiran'])
-        ->name('lampiran.preview');
-    
-    Route::get('/lampiran/{lampiran}/download', [HelpTiketApprovalController::class, 'downloadLampiran'])
-        ->name('lampiran.download');
-    
-    // Setelah itu baru rute dengan parameter tiket
-    Route::get('/{tiket}', [HelpTiketApprovalController::class, 'show'])->name('show');
-    
-    // Aksi admin pada tiket
-    Route::post('/{tiket}/ambil', [HelpTiketApprovalController::class, 'take'])->name('take');
-    Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
-    Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
-    
-    // Komentar dari admin
-    Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
-});
+        // STAFF GA ROUTES (Proses Tiket)
+        // ============================================
+        Route::prefix('proses')->name('proses.')->group(function () {
+            
+            // ============================================
+            // ROUTE LAMPIRAN - DILETAKKAN PALING ATAS
+            // ============================================
+            Route::prefix('lampiran')->name('lampiran.')->group(function () {
+                Route::get('/{lampiran}/preview', [HelpTiketApprovalController::class, 'previewLampiran'])->name('preview');
+                Route::get('/{lampiran}/download', [HelpTiketApprovalController::class, 'downloadLampiran'])->name('download');
+            });
+            
+            // ============================================
+            // ROUTE UTAMA PROSES (MENGGUNAKAN HELPPROSESCONTROLLER)
+            // ============================================
+            // Halaman utama proses tiket
+            Route::get('/', [HelpProsesController::class, 'index'])->name('index');
+            
+            // Download report
+            Route::get('/download', [HelpProsesController::class, 'download'])->name('download');
+            
+            // Detail tiket (menggunakan ID biasa, bukan model binding)
+            Route::get('/{id}', [HelpProsesController::class, 'show'])->name('show');
+            
+            // Aksi mengambil tiket
+            Route::post('/{id}/take', [HelpProsesController::class, 'take'])->name('take');
+            
+            // ============================================
+            // ROUTE UNTUK STATUS TIKET (TETAP DI APPROVAL CONTROLLER)
+            // ============================================
+            Route::post('/{tiket}/waiting', [HelpTiketApprovalController::class, 'waiting'])->name('waiting');
+            Route::post('/{tiket}/resume', [HelpTiketApprovalController::class, 'resume'])->name('resume');
+            Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
+            Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
+            Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
+            Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
+            Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
+        });
         
         // ============================================
-        // LOG SISTEM (OPSIONAL - JIKA ADA)
+        // LOG SISTEM (Opsional)
         // ============================================
         Route::get('/log-sistem', [HelpTiketController::class, 'logSistem'])
             ->name('log-sistem')
-            ->middleware('ga_admin'); // Middleware khusus untuk GA Admin
+            ->middleware('ga_admin'); // Middleware khusus GA Admin
     });
 
     /*
