@@ -26,7 +26,7 @@
     </div>
 
     {{-- FILTER SECTION --}}
-    <div id="filterSection" class="bg-white border rounded-xl p-4 {{ request()->anyFilled(['search', 'status', 'bisnis_unit_id', 'prioritas', 'kategori_id', 'start_date', 'end_date']) ? '' : 'hidden' }}">
+    <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('help.proses.index') }}" id="filterForm">
             {{-- Grid untuk filter --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -337,7 +337,7 @@
                                     if ($item->pelapor->user && $item->pelapor->user->name) {
                                         $pelaporName = $item->pelapor->user->name;
                                     } else {
-                                        $pelaporName = $item->pelapor->nama ?? "Pelanggan";
+                                        $pelaporName = $item->pelapor->nama_pelanggan ?? "Pelanggan";
                                     }
                                     $pelaporInitial = substr($pelaporName, 0, 1);
                                 }
@@ -383,7 +383,7 @@
                         </div>
                     </td>
 
-                    {{-- Status --}}
+                    {{-- Status dengan Penanggung Jawab --}}
                     <td class="px-4 py-3">
                         @php
                             $statusColors = [
@@ -397,6 +397,35 @@
                         <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$item->status] }}">
                             {{ $item->status }}
                         </span>
+                        
+                        {{-- Nama Penanggung Jawab (PIC) - Menggunakan relasi ditugaskanKe() --}}
+                        <div class="mt-2 text-xs flex items-center">
+                            @if($item->ditugaskan_ke && $item->ditugaskanKe)
+                                {{-- Ada PIC --}}
+                                @php
+                                    $picName = $item->ditugaskanKe->nama_pelanggan ?? 'PIC #' . $item->ditugaskan_ke;
+                                    $picInitial = substr($picName, 0, 1);
+                                @endphp
+                                <div class="flex items-center text-gray-600">
+                                    <span class="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center text-[10px] font-medium text-green-700 mr-1">
+                                        {{ $picInitial }}
+                                    </span>
+                                    <i class="fas fa-user-check mr-1 text-gray-400 text-[10px]"></i>
+                                    <span title="PIC: {{ $picName }}" class="font-medium">
+                                        {{ Str::limit($picName, 18) }}
+                                    </span>
+                                </div>
+                            @else
+                                {{-- Tidak Ada PIC --}}
+                                <div class="flex items-center text-gray-400 italic">
+                                    <span class="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-medium text-gray-500 mr-1">
+                                        <i class="fas fa-user-slash text-[8px]"></i>
+                                    </span>
+                                    <i class="fas fa-user-times mr-1"></i>
+                                    <span>Belum ditugaskan</span>
+                                </div>
+                            @endif
+                        </div>
                         
                         {{-- Info Mobile: Bisnis Unit, Kategori --}}
                         <div class="mt-1 md:hidden">
@@ -454,6 +483,34 @@
 document.getElementById('toggleFilterBtn')?.addEventListener('click', () => {
     document.getElementById('filterSection').classList.toggle('hidden')
 })
+
+// Cek parameter filter di URL (abaikan parameter 'page')
+document.addEventListener('DOMContentLoaded', function() {
+    const filterSection = document.getElementById('filterSection');
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Daftar parameter filter yang valid
+    const filterParams = ['search', 'status', 'bisnis_unit_id', 'prioritas', 'kategori_id', 'start_date', 'end_date'];
+    
+    // Cek apakah ada parameter filter selain 'page'
+    let hasRealFilter = false;
+    
+    for (let [key, value] of urlParams.entries()) {
+        // Abaikan parameter 'page'
+        if (key === 'page') continue;
+        
+        // Jika parameter termasuk dalam daftar filter dan nilainya tidak kosong
+        if (filterParams.includes(key) && value !== '') {
+            hasRealFilter = true;
+            break;
+        }
+    }
+    
+    // Tampilkan filter hanya jika ada parameter filter yang valid
+    if (hasRealFilter) {
+        filterSection.classList.remove('hidden');
+    }
+});
 
 // Modal functions
 function openDownloadModal() {
@@ -674,19 +731,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-    }
-});
-
-// Fungsi untuk memastikan filter section tampil jika ada parameter
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasParams = Array.from(urlParams.keys()).length > 0;
-    
-    if (hasParams) {
-        const filterSection = document.getElementById('filterSection');
-        if (filterSection) {
-            filterSection.classList.remove('hidden');
-        }
     }
 });
 </script>
