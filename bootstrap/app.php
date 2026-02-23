@@ -7,6 +7,7 @@ use App\Http\Middleware\SsoDarwinboxMiddleware;
 use App\Http\Middleware\CheckEmployeesAccess;
 use App\Http\Middleware\CheckSettingAccess;
 
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -51,6 +52,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'apartemen.access' => \App\Http\Middleware\CheckApartemenAccess::class,
 
             'setting.access' => CheckSettingAccess::class,
+
+            'ga.help.admin' => \App\Http\Middleware\CheckGAHelpAdmin::class,
         ]);
         
         // Middleware groups

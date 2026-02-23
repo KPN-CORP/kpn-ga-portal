@@ -251,7 +251,9 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             // ROUTE UTAMA PROSES (MENGGUNAKAN HELPPROSESCONTROLLER)
             // ============================================
             // Halaman utama proses tiket
-            Route::get('/', [HelpProsesController::class, 'index'])->name('index');
+            Route::get('/', [HelpProsesController::class, 'index'])
+    ->middleware('ga.help.admin')
+    ->name('index');
             
             // Download report
             Route::get('/download', [HelpProsesController::class, 'download'])->name('download');
