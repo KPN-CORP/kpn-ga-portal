@@ -28,7 +28,8 @@ class AccessMenu extends Model
         'mailing_input',
         'mailing_edit',
         'mailing_proses',
-        'ga_help_proses'
+        'ga_help_proses',
+        'ga_help_full_akses'
     ];
     
     protected $casts = [
@@ -50,5 +51,6 @@ class AccessMenu extends Model
         'mailing_edit' => 'boolean',
         'mailing_proses' => 'boolean',
         'ga_help_proses' => 'boolean',
+        'ga_help_full_akses'=> 'boolean',
     ];
 }

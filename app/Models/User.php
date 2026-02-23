@@ -16,7 +16,7 @@ class User extends Authenticatable
         'email',
         'password',
         'sso_uid',
-        'employee_no', // Kolom penting untuk matching
+        'employee_no',
         'first_name',
         'last_name',
         'company_name',
@@ -38,6 +38,66 @@ class User extends Authenticatable
     public function pelanggan()
     {
         return $this->hasOne(Pelanggan::class, 'id_login', 'id');
+    }
+    
+    // Relationship ke tb_access_menu
+    public function accessMenu()
+    {
+        return $this->hasOne(AccessMenu::class, 'username', 'username');
+    }
+    
+    // Cek apakah user memiliki akses full ke GA Help
+    public function hasFullGaHelpAccess()
+    {
+        if ($this->accessMenu && $this->accessMenu->ga_help_full_akses == 1) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Mendapatkan bisnis unit ID yang bisa diakses user
+    public function getAccessibleBusinessUnits()
+    {
+        // Jika full access, kembalikan semua unit
+        if ($this->hasFullGaHelpAccess()) {
+            return BisnisUnit::pluck('id_bisnis_unit')->toArray();
+        }
+        
+        // Jika tidak, hanya unit miliknya sendiri
+        if ($this->pelanggan && $this->pelanggan->bisnis_unit) {
+            // Cari ID bisnis unit berdasarkan nama
+            $unit = BisnisUnit::where('nama_bisnis_unit', $this->pelanggan->bisnis_unit)->first();
+            if ($unit) {
+                return [$unit->id_bisnis_unit];
+            }
+        }
+        
+        return [];
+    }
+    
+    // Cek apakah user bisa mengakses tiket tertentu
+    public function canAccessTicket($tiket)
+    {
+        // Full access bisa akses semua
+        if ($this->hasFullGaHelpAccess()) {
+            return true;
+        }
+        
+        // Cek berdasarkan bisnis unit
+        $accessibleUnits = $this->getAccessibleBusinessUnits();
+        
+        // Jika tiket memiliki bisnis_unit_id dan ada dalam daftar akses
+        if ($tiket->bisnis_unit_id && in_array($tiket->bisnis_unit_id, $accessibleUnits)) {
+            return true;
+        }
+        
+        // Jika user adalah penanggung jawab tiket
+        if ($this->pelanggan && $tiket->ditugaskan_ke == $this->pelanggan->id_pelanggan) {
+            return true;
+        }
+        
+        return false;
     }
     
     // Method untuk mencari pelanggan berdasarkan employee_no atau username

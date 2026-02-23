@@ -439,12 +439,12 @@
                                 @if($log->catatan)
                                     <p class="text-sm text-gray-600 mt-1 italic bg-gray-50 p-2 rounded">"{{ $log->catatan }}"</p>
                                 @endif
-                                @if($log->ke_user_id && $log->keUser)
+                                <!-- @if($log->ke_user_id && $log->keUser)
                                     <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
                                         <i class="fas fa-arrow-right text-blue-500"></i> 
                                         Diteruskan ke: <span class="font-medium">{{ $log->keUser->name }}</span>
                                     </p>
-                                @endif
+                                @endif -->
                             </div>
                             <p class="text-xs text-gray-500 whitespace-nowrap ml-4 bg-gray-100 px-2 py-1 rounded">
                                 <i class="far fa-clock mr-1"></i>

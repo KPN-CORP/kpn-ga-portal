@@ -50,6 +50,11 @@ class HelpTiketApprovalController extends Controller
             abort(403, 'Data pelanggan belum terhubung.');
         }
         
+        // CEK AKSES USER KE TIKET INI
+        if (!$user->canAccessTicket($tiket)) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat tiket ini.');
+        }
+        
         // Load relasi
         $tiket->load([
             'kategori',
