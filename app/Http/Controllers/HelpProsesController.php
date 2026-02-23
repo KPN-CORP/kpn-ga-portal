@@ -57,6 +57,22 @@ class HelpProsesController extends Controller
                 'ditugaskanKe.user'
             ]);
         
+        // FILTER BERDASARKAN AKSES BISNIS UNIT
+        $accessibleUnits = $user->getAccessibleBusinessUnits();
+        
+        if (!empty($accessibleUnits)) {
+            // Filter tiket berdasarkan bisnis unit yang bisa diakses
+            $query->whereIn('bisnis_unit_id', $accessibleUnits);
+        } else {
+            // Jika tidak ada akses, tampilkan tiket yang ditugaskan ke user ini
+            if ($user->pelanggan) {
+                $query->where('ditugaskan_ke', $user->pelanggan->id_pelanggan);
+            } else {
+                // Jika tidak punya akses sama sekali, tampilkan 0 hasil
+                $query->whereRaw('1 = 0');
+            }
+        }
+        
         // FILTER PENCARIAN (nomor tiket atau judul)
         if ($request->filled('search')) {
             $search = $request->search;
@@ -138,6 +154,11 @@ class HelpProsesController extends Controller
             ])
             ->findOrFail($id);
         
+        // CEK AKSES USER KE TIKET INI
+        if (!$user->canAccessTicket($tiket)) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat tiket ini.');
+        }
+        
         // Cek apakah user adalah penanggung jawab
         $isAssigned = $tiket->ditugaskan_ke == $user->pelanggan->id_pelanggan;
         
@@ -159,6 +180,11 @@ class HelpProsesController extends Controller
         }
         
         $tiket = HelpTiket::findOrFail($id);
+        
+        // CEK AKSES - User hanya bisa mengambil tiket dari unit yang bisa diakses
+        if (!$user->canAccessTicket($tiket)) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mengambil tiket ini.');
+        }
         
         if ($tiket->status !== self::STATUS_TIKET['OPEN']) {
             return redirect()->back()->with('error', 'Hanya tiket dengan status OPEN yang dapat diambil.');
