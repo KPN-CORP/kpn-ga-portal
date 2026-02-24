@@ -3564,3 +3564,11 @@
 [2026-02-23 17:50:52] local.INFO: Preview lampiran {"lampiran_id":75} 
 [2026-02-23 17:57:08] local.INFO: Mencoba menampilkan foto TrackR: {"id":"10","path_db":"Track/21/1766540908024_31135cc5-8f39-4502-9d41-c63d106273a7 (1)_1771576550_69981ce602183.png","nama_file":"1766540908024_31135cc5-8f39-4502-9d41-c63d106273a7 (1)_1771576550_69981ce602183.png","document_id":21} 
 [2026-02-23 17:57:08] local.INFO: Foto TrackR ditemukan di: /var/www/html/ga-portal/storage/app/private/Track/21/1766540908024_31135cc5-8f39-4502-9d41-c63d106273a7 (1)_1771576550_69981ce602183.png  
+[2026-02-24 08:45:28] local.INFO: Preview lampiran {"lampiran_id":88} 
+[2026-02-24 08:45:31] local.INFO: Preview lampiran {"lampiran_id":88} 
+[2026-02-24 08:47:00] local.INFO: Memproses gambar: {"id":88,"nama":"IMG_1317.jpeg","path":"/var/www/html/ga-portal/storage/app/private/help/tiket/120/1771811827_699bb3f34bf00_IMG_1317.jpeg","exists":"NO","ukuran":"2085537 bytes"} 
+[2026-02-24 08:47:00] local.WARNING: File tidak ditemukan: IMG_1317.jpeg  
+[2026-02-24 08:47:21] local.INFO: Preview lampiran {"lampiran_id":88} 
+[2026-02-24 08:47:37] local.INFO: Preview lampiran {"lampiran_id":76} 
+[2026-02-24 08:47:37] local.INFO: Preview lampiran {"lampiran_id":74} 
+[2026-02-24 08:47:37] local.INFO: Preview lampiran {"lampiran_id":75} 

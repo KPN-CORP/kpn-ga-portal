@@ -20,6 +20,7 @@
         --admin-color: #800a0aff;
         --stock-color: #e67e22; /* Warna untuk Management Stok */
         --memo-color: #8e44ad; /* Warna untuk E-Memo */
+        --found-color: #00bcd4; /* Warna untuk FoundDesk */
     }
     
     body {
@@ -354,7 +355,7 @@
     </div>
 
     <?php
-    // Definisi menu utama - TAMBAHKAN 2 MENU BARU
+    // Definisi menu utama - TAMBAHKAN MENU FOUNDDESK
     $menus = [
         'messenger' => [
             'field' => 'messenger_dash',
@@ -453,10 +454,19 @@
             'url' => '/ememo',
             'color' => '#8e44ad',
             'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+        ],
+        // MENU FOUNDDESK - BARU
+        'founddesk' => [
+            'field' => 'founddesk_dash',
+            'title' => 'FoundDesk',
+            'desc' => 'Penemuan barang hilang',
+            'url' => '/founddesk',
+            'color' => '#00bcd4',
+            'icon' => 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z M15 10l-3 3m0 0l-3-3m3 3V8'
         ]
     ];
     
-    // Menu Admin - TAMBAHKAN JUGA VERSI ADMIN JIKA DIPERLUKAN
+    // Menu Admin - TAMBAHKAN JUGA VERSI ADMIN FOUNDDESK
     $adminMenus = [
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
@@ -623,7 +633,7 @@
             <p class="text-muted mb-3">Data akses tidak ditemukan di sistem.</p>
             <div class="alert alert-warning mb-3 py-2">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Silakan hubungi administrator.
+                Silakan hubungkan administrator.
             </div>
             <button onclick="window.location.reload()" class="btn btn-sm btn-outline-primary">
                 <i class="fas fa-redo me-1"></i>Refresh
