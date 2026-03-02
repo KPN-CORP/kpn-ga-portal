@@ -1,156 +1,55 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
-<div class="max-w-4xl mx-auto p-4 md:p-6">
+<div class="max-w-7xl mx-auto px-4 py-6">
 
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">Pengajuan Apartemen</h1>
-        <p class="text-gray-500 text-sm mt-1">Isi form untuk mengajukan hunian</p>
+    {{-- HEADER --}}
+    <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-gray-900">Pengajuan Apartemen</h1>
+        <p class="text-sm text-gray-500">Form permintaan hunian karyawan</p>
     </div>
 
-    @if(session('error'))
-    <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-        {{ session('error') }}
-    </div>
-    @endif
-
-    @if($errors->any())
-    <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-        <ul class="list-disc pl-4">
-            @foreach($errors->all() as $error)
-            <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-    @endif
-
-    <form method="POST" action="{{ route('apartemen.user.store') }}" class="space-y-6">
+    <form id="apartemenForm" method="POST" action="{{ route('apartemen.user.store') }}" class="space-y-6">
         @csrf
 
-        {{-- PILIH UNIT --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">Pilih Unit</h2>
-            
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Unit Tersedia *</label>
-                <select name="unit_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Pilih Unit --</option>
-                    @foreach($availableUnits as $apartemen => $units)
-                    <optgroup label="{{ $apartemen }}">
-                        @foreach($units as $unit)
-                        <option value="{{ $unit->id }}" {{ old('unit_id') == $unit->id ? 'selected' : '' }}>
-                            Unit {{ $unit->nomor_unit }} (Kapasitas: {{ $unit->kapasitas }} orang)
-                        </option>
-                        @endforeach
-                    </optgroup>
-                    @endforeach
-                </select>
-                @error('unit_id')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
+        {{-- JUMLAH PENGHUNI --}}
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Penghuni</label>
+            <div class="relative w-40">
+                <input type="number" id="jumlah" min="1" max="15" value="1"
+                       onchange="generate()"
+                       class="w-full pl-10 pr-3 py-2 rounded-xl border-gray-200 focus:ring-blue-500 focus:border-blue-500">
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai *</label>
-                    <input type="date" name="tanggal_mulai" value="{{ old('tanggal_mulai') }}" required
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Selesai *</label>
-                    <input type="date" name="tanggal_selesai" value="{{ old('tanggal_selesai') }}" required
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-            </div>
-        </div>
-
-        {{-- DATA PENGHUNI --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-800">Data Penghuni</h2>
-                <span class="text-sm text-gray-500">Maksimal 5 orang</span>
-            </div>
-
-            <div id="penghuni-container">
-                @php
-                    $oldPenghuni = old('penghuni', [['nama' => '', 'id_karyawan' => '', 'no_hp' => '', 'unit_kerja' => '', 'gol' => '']]);
-                @endphp
-
-                @foreach($oldPenghuni as $index => $p)
-                <div class="penghuni-item border border-gray-200 rounded-lg p-4 mb-4 {{ $index > 0 ? 'mt-4' : '' }}">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-medium text-gray-700">Penghuni {{ $index + 1 }}</h3>
-                        @if($index > 0)
-                        <button type="button" onclick="hapusPenghuni(this)" class="text-red-600 hover:text-red-800 text-sm">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                        @endif
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap *</label>
-                            <input type="text" name="penghuni[{{ $index }}][nama]" value="{{ $p['nama'] }}" required
-                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">ID Karyawan *</label>
-                            <input type="text" name="penghuni[{{ $index }}][id_karyawan]" value="{{ $p['id_karyawan'] }}" required
-                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">No HP *</label>
-                            <input type="text" name="penghuni[{{ $index }}][no_hp]" value="{{ $p['no_hp'] }}" required
-                                   placeholder="08123456789"
-                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Unit Kerja</label>
-                            <input type="text" name="penghuni[{{ $index }}][unit_kerja]" value="{{ $p['unit_kerja'] }}"
-                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label>
-                            <select name="penghuni[{{ $index }}][gol]" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                <option value="">Pilih</option>
-                                @foreach(['4','5','6','7','8','9','10'] as $gol)
-                                <option value="{{ $gol }}" {{ $p['gol'] == $gol ? 'selected' : '' }}>{{ $gol }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-
-            <button type="button" onclick="tambahPenghuni()" 
-                    class="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                          d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m6-4a4 4 0 11-8 0 4 4 0 018 0z"/>
                 </svg>
-                Tambah Penghuni
-            </button>
+            </div>
         </div>
+
+        {{-- CONTAINER PENGHUNI --}}
+        <div id="penghuni" class="space-y-5"></div>
 
         {{-- ALASAN --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Alasan Pengajuan *</label>
-            <textarea name="alasan" rows="3" required minlength="10"
-                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                      placeholder="Contoh: Penempatan kerja...">{{ old('alasan') }}</textarea>
-            <p class="text-xs text-gray-500 mt-1">Minimal 10 karakter</p>
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Alasan Pengajuan <span class="text-red-500">*</span>
+            </label>
+            <textarea name="alasan" rows="3" required minlength="20"
+                      placeholder="Contoh: Penempatan kerja proyek jangka menengah"
+                      class="w-full rounded-xl border-gray-200 focus:ring-blue-500 focus:border-blue-500"></textarea>
+            <p class="text-xs text-gray-400 mt-1">Minimal 20 karakter</p>
         </div>
 
-        {{-- SUBMIT --}}
+        {{-- ACTION --}}
         <div class="flex justify-end gap-3">
-            <a href="{{ route('apartemen.user.requests') }}" 
-               class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <a href="{{ route('apartemen.user.index') }}"
+               class="px-5 py-2 rounded-xl border text-gray-600 hover:bg-gray-50">
                 Batal
             </a>
-            <button type="submit" id="submitBtn"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+            <button id="submitBtn"
+                    class="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium shadow">
                 Ajukan Permintaan
             </button>
         </div>
@@ -158,98 +57,129 @@
 </div>
 
 <script>
-let penghuniCount = {{ count(old('penghuni', [['nama' => '']])) }};
+const MAX = 15;
 
-function tambahPenghuni() {
-    if (penghuniCount >= 5) {
-        alert('Maksimal 5 penghuni');
-        return;
+/* ========= UTIL ========= */
+function onlyNumber(el){
+    el.value = el.value.replace(/[^0-9]/g,'');
+}
+
+/* ========= GENERATE PENGHUNI ========= */
+function generate(){
+    const jml = Math.min(Math.max(+jumlah.value || 1,1),MAX);
+    jumlah.value = jml;
+    penghuni.innerHTML = '';
+
+    for(let i=0;i<jml;i++){
+        const wajib = i===0 ? 'required' : '';
+        penghuni.innerHTML += `
+        <div class="bg-white rounded-2xl shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-gray-800">Penghuni ${i+1}</h3>
+                ${i===0 ? '<span class="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full">Wajib</span>' : ''}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                ${inputIcon('Nama Lengkap','penghuni['+i+'][nama]','user',wajib)}
+                ${inputIcon('ID Karyawan','penghuni['+i+'][id_karyawan]','badge',wajib)}
+                ${inputIcon('No HP','penghuni['+i+'][no_hp]','phone',wajib,'onlyNumber(this)',9,15)}
+                ${selectGolongan('penghuni['+i+'][gol]')}
+                ${inputIcon('Unit Kerja','penghuni['+i+'][unit_kerja]','office')}
+                ${inputDate('Tanggal Mulai','penghuni['+i+'][tanggal_mulai]',wajib,'mulai')}
+                ${inputDate('Tanggal Selesai','penghuni['+i+'][tanggal_selesai]',wajib,'selesai')}
+            </div>
+        </div>`;
     }
-    
-    const container = document.getElementById('penghuni-container');
-    const newIndex = penghuniCount;
-    
-    const html = `
-        <div class="penghuni-item border border-gray-200 rounded-lg p-4 mt-4">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="font-medium text-gray-700">Penghuni ${newIndex + 1}</h3>
-                <button type="button" onclick="hapusPenghuni(this)" class="text-red-600 hover:text-red-800 text-sm">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
+}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap *</label>
-                    <input type="text" name="penghuni[${newIndex}][nama]" required
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">ID Karyawan *</label>
-                    <input type="text" name="penghuni[${newIndex}][id_karyawan]" required
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">No HP *</label>
-                    <input type="text" name="penghuni[${newIndex}][no_hp]" required
-                           placeholder="08123456789"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit Kerja</label>
-                    <input type="text" name="penghuni[${newIndex}][unit_kerja]"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label>
-                    <select name="penghuni[${newIndex}][gol]" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                        <option value="">Pilih</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="6">6</option>
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                        <option value="9">9</option>
-                        <option value="10">10</option>
-                    </select>
-                </div>
-            </div>
+/* ========= INPUT COMPONENT ========= */
+function inputIcon(label,name,icon,req='',oninput='',min='',max=''){
+    return `
+    <div>
+        <label class="text-xs text-gray-500 mb-1 block">${label}</label>
+        <div class="relative">
+            <input ${req} name="${name}"
+                   ${min ? `minlength="${min}" maxlength="${max}"` : ''}
+                   oninput="${oninput}"
+                   placeholder="${label}"
+                   class="w-full pl-10 pr-3 py-2 rounded-xl border-gray-200 focus:ring-blue-500 focus:border-blue-500">
+            ${iconSvg(icon)}
         </div>
-    `;
-    
-    container.insertAdjacentHTML('beforeend', html);
-    penghuniCount++;
+    </div>`;
 }
 
-function hapusPenghuni(button) {
-    if (penghuniCount <= 1) {
-        alert('Minimal 1 penghuni');
-        return;
+function inputDate(label,name,req,cls){
+    return `
+    <div>
+        <label class="text-xs text-gray-500 mb-1 block">${label}</label>
+        <input type="date" ${req} name="${name}"
+               class="w-full px-3 py-2 rounded-xl border-gray-200 focus:ring-blue-500 focus:border-blue-500 ${cls}">
+    </div>`;
+}
+
+function selectGolongan(name){
+    return `
+    <div>
+        <label class="text-xs text-gray-500 mb-1 block">Golongan</label>
+        <div class="relative">
+            <select name="${name}"
+                class="w-full pl-10 pr-3 py-2 rounded-xl border-gray-200 bg-white focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Pilih Golongan</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+                <option>9</option>
+                <option>10</option>
+            </select>
+            ${iconSvg('layers')}
+        </div>
+    </div>`;
+}
+
+/* ========= ICONS ========= */
+function iconSvg(type){
+    const icons = {
+        user:`<svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A9 9 0 1119.9 7.1"/></svg>`,
+        phone:`<svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2l2 5-2 1a11 11 0 005 5l1-2 5 2v2a2 2 0 01-2 2A16 16 0 013 5z"/></svg>`,
+        badge:`<svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>`,
+        office:`<svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 21h18V7H3v14z"/></svg>`,
+        layers:`<svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>`
+    };
+    return icons[type] ?? '';
+}
+
+/* ========= VALIDASI & SUBMIT ========= */
+function validateForm(){
+    const phones = document.querySelectorAll('[name*="[no_hp]"]');
+    for (let p of phones){
+        if (p.value && (p.value.length < 9 || p.value.length > 15)){
+            alert('No HP harus 9–15 digit angka');
+            p.focus(); return false;
+        }
     }
-    
-    button.closest('.penghuni-item').remove();
-    penghuniCount--;
-    
-    // Renumber
-    document.querySelectorAll('.penghuni-item').forEach((item, index) => {
-        item.querySelector('h3').textContent = `Penghuni ${index + 1}`;
-        
-        // Update name attributes
-        item.querySelectorAll('input, select').forEach(input => {
-            const name = input.getAttribute('name');
-            if (name) {
-                input.setAttribute('name', name.replace(/\[\d+\]/, `[${index}]`));
-            }
-        });
-    });
+
+    const mulai = document.querySelectorAll('.mulai');
+    const selesai = document.querySelectorAll('.selesai');
+    for (let i=0;i<mulai.length;i++){
+        if (mulai[i].value && selesai[i].value && selesai[i].value <= mulai[i].value){
+            alert(`Tanggal selesai harus setelah tanggal mulai (Penghuni ${i+1})`);
+            selesai[i].focus(); return false;
+        }
+    }
+    return true;
 }
 
-// Form submit loading
-document.querySelector('form').addEventListener('submit', function() {
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('submitBtn').innerHTML = 'Mengirim...';
+apartemenForm.addEventListener('submit', e => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Mengirim...';
+    apartemenForm.submit();
 });
+
+document.addEventListener('DOMContentLoaded', generate);
 </script>
 @endsection
