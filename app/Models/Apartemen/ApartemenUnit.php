@@ -62,39 +62,6 @@ class ApartemenUnit extends Model
             ->whereNull('tb_apartemen_aset.deleted_at');
     }
 
-    // Relasi ke kode unik
-    public function kodeUnik()
-    {
-        return $this->hasOne(ApartemenUnitKode::class, 'unit_id');
-    }
-
-    // Relasi ke peraturan
-    public function peraturan()
-    {
-        return $this->hasMany(ApartemenPeraturan::class, 'apartemen_id', 'apartemen_id')
-            ->where('aktif', true);
-    }
-
-    // Cek ketersediaan unit untuk rentang tanggal
-    public function scopeTersediaUntukTanggal($query, $tanggal_mulai, $tanggal_selesai, $exclude_assign_id = null)
-    {
-        return $query->whereDoesntHave('assigns', function($q) use ($tanggal_mulai, $tanggal_selesai, $exclude_assign_id) {
-            $q->where('status', 'AKTIF')
-            ->where(function($query) use ($tanggal_mulai, $tanggal_selesai) {
-                $query->whereBetween('tanggal_mulai', [$tanggal_mulai, $tanggal_selesai])
-                        ->orWhereBetween('tanggal_selesai', [$tanggal_mulai, $tanggal_selesai])
-                        ->orWhere(function($q) use ($tanggal_mulai, $tanggal_selesai) {
-                            $q->where('tanggal_mulai', '<=', $tanggal_mulai)
-                            ->where('tanggal_selesai', '>=', $tanggal_selesai);
-                        });
-            });
-            
-            if ($exclude_assign_id) {
-                $q->where('id', '!=', $exclude_assign_id);
-            }
-        });
-    }
-
     // Scope untuk unit tersedia
     public function scopeReady($query)
     {
