@@ -5,8 +5,13 @@
 
     {{-- NOTIFICATION --}}
     @if(session('success'))
-    <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-        {{ session('success') }}
+    <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-between">
+        <span>{{ session('success') }}</span>
+        <button onclick="this.parentElement.remove()" class="text-green-700 hover:text-green-900">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
     </div>
     @endif
 
@@ -115,6 +120,15 @@
                     </svg>
                     <span class="font-medium text-gray-700 text-sm truncate">Riwayat</span>
                 </a>
+
+                {{-- Scan Barcode Button --}}
+                <a href="{{ route('apartemen.admin.scan') }}" 
+                   class="inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex-1 lg:flex-none justify-center min-w-[100px] md:min-w-0">
+                    <svg class="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    <span class="font-medium text-sm truncate">Scan QR</span>
+                </a>
             </div>
         </div>
 
@@ -128,80 +142,117 @@
         </div>
     </div>
 
-    {{-- APARTEMEN INFO --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+    {{-- APARTEMEN INFO CARD --}}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 hover:shadow-md transition-shadow">
         <div class="p-6">
             <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div class="flex-1">
-                    <h2 class="text-xl font-bold text-gray-800">{{ $apartemen->nama_apartemen }}</h2>
-                    <div class="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-2 bg-blue-100 rounded-lg">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-800">{{ $apartemen->nama_apartemen }}</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <label class="text-sm text-gray-500">Alamat</label>
-                            <p class="font-medium">{{ $apartemen->alamat ?? '-' }}</p>
+                            <label class="text-xs text-gray-500 uppercase tracking-wider">Alamat</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $apartemen->alamat ?? '-' }}</p>
                         </div>
                         <div>
-                            <label class="text-sm text-gray-500">Penanggung Jawab</label>
-                            <p class="font-medium">{{ $apartemen->penanggung_jawab ?? '-' }}</p>
+                            <label class="text-xs text-gray-500 uppercase tracking-wider">Penanggung Jawab</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $apartemen->penanggung_jawab ?? '-' }}</p>
                         </div>
                         <div>
-                            <label class="text-sm text-gray-500">Telepon</label>
-                            <p class="font-medium">{{ $apartemen->telepon ?? '-' }}</p>
+                            <label class="text-xs text-gray-500 uppercase tracking-wider">Telepon</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $apartemen->telepon ?? '-' }}</p>
                         </div>
                         <div>
-                            <label class="text-sm text-gray-500">Email</label>
-                            <p class="font-medium">{{ $apartemen->email ?? '-' }}</p>
+                            <label class="text-xs text-gray-500 uppercase tracking-wider">Email</label>
+                            <p class="font-medium text-gray-900 mt-1 break-all">{{ $apartemen->email ?? '-' }}</p>
                         </div>
                     </div>
+
+                    @if($apartemen->kontak_darurat)
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        <label class="text-xs text-gray-500 uppercase tracking-wider">Kontak Darurat</label>
+                        <p class="font-medium text-gray-900 mt-1">{{ $apartemen->kontak_darurat }}</p>
+                    </div>
+                    @endif
                 </div>
-                <div class="bg-gray-50 rounded-lg p-4 min-w-[200px]">
-                    <div class="text-center mb-2">
-                        <label class="text-sm text-gray-500">Status Unit</label>
+                
+                {{-- Status Ringkasan --}}
+                <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg p-4 min-w-[200px] border border-blue-100">
+                    <div class="text-center mb-3">
+                        <label class="text-sm font-medium text-gray-700">Status Unit</label>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
-                        <div class="text-center">
-                            <div class="text-lg font-bold text-gray-900">{{ $apartemen->units_count ?? 0 }}</div>
+                        <div class="text-center p-2 bg-white rounded-lg shadow-sm">
+                            <div class="text-xl font-bold text-gray-900">{{ $apartemen->units_count ?? 0 }}</div>
                             <div class="text-xs text-gray-500">Total</div>
                         </div>
-                        <div class="text-center">
-                            <div class="text-lg font-bold text-green-600">{{ $apartemen->units_ready ?? 0 }}</div>
-                            <div class="text-xs text-gray-500">Tersedia</div>
+                        <div class="text-center p-2 bg-green-50 rounded-lg shadow-sm border border-green-100">
+                            <div class="text-xl font-bold text-green-600">{{ $apartemen->units_ready ?? 0 }}</div>
+                            <div class="text-xs text-green-600">Tersedia</div>
                         </div>
-                        <div class="text-center">
-                            <div class="text-lg font-bold text-blue-600">{{ $apartemen->units_terisi ?? 0 }}</div>
-                            <div class="text-xs text-gray-500">Terisi</div>
+                        <div class="text-center p-2 bg-blue-50 rounded-lg shadow-sm border border-blue-100">
+                            <div class="text-xl font-bold text-blue-600">{{ $apartemen->units_terisi ?? 0 }}</div>
+                            <div class="text-xs text-blue-600">Terisi</div>
                         </div>
                     </div>
+                    @if(($apartemen->units_maintenance ?? 0) > 0)
+                    <div class="mt-2 text-center text-xs text-yellow-600 bg-yellow-50 py-1 rounded">
+                        {{ $apartemen->units_maintenance }} unit dalam maintenance
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- UNIT LIST --}}
+    {{-- UNIT LIST CARD --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {{-- Table Header --}}
-        <div class="px-6 py-4 border-b border-gray-200">
+        <div class="px-4 md:px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h3 class="text-lg font-semibold text-gray-800">Daftar Unit</h3>
                 <div class="flex items-center gap-3">
-                    <div class="text-sm text-gray-500">
-                        Total: <span class="font-medium">{{ $units->total() }}</span> unit
+                    <div class="text-sm text-gray-600">
+                        Total: <span class="font-bold">{{ $units->total() }}</span> unit
                     </div>
                     <button onclick="toggleAddUnitForm()"
-                       class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-                        + Tambah Unit
+                       class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span class="hidden sm:inline">Tambah Unit</span>
+                        <span class="sm:hidden">Tambah</span>
                     </button>
                 </div>
             </div>
         </div>
 
         {{-- Add Unit Form (Hidden by default) --}}
-        <div id="addUnitForm" class="hidden p-6 border-b border-gray-200 bg-gray-50">
-            <h4 class="font-medium text-gray-800 mb-3">Tambah Unit Baru</h4>
-            <form action="{{ route('apartemen.admin.unit.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div id="addUnitForm" class="hidden p-6 border-b border-gray-200 bg-blue-50">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="p-1.5 bg-blue-100 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                <h4 class="font-medium text-gray-800">Tambah Unit Baru</h4>
+            </div>
+            
+            <form action="{{ route('apartemen.admin.unit.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 @csrf
                 <input type="hidden" name="apartemen_id" value="{{ $apartemen->id }}">
+                
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Unit *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Nomor Unit <span class="text-red-500">*</span>
+                    </label>
                     <input type="text" name="nomor_unit" required
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            placeholder="Contoh: A101">
@@ -209,26 +260,42 @@
                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                     @enderror
                 </div>
+                
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Kapasitas *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Kapasitas <span class="text-red-500">*</span>
+                    </label>
                     <input type="number" name="kapasitas" required min="1" max="10"
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            placeholder="Jumlah orang" value="2">
                 </div>
+                
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Status <span class="text-red-500">*</span>
+                    </label>
                     <select name="status" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="READY">Tersedia</option>
                         <option value="MAINTENANCE">Maintenance</option>
                     </select>
                 </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Catatan (opsional)
+                    </label>
+                    <input type="text" name="catatan" 
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Catatan unit">
+                </div>
+                
                 <div class="flex items-end gap-2">
                     <button type="submit" 
-                            class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md">
                         Simpan
                     </button>
                     <button type="button" onclick="toggleAddUnitForm()"
-                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-all">
                         Batal
                     </button>
                 </div>
@@ -236,81 +303,147 @@
         </div>
 
         {{-- Table Content --}}
-        <div class="p-6">
+        <div class="p-4 md:p-6">
             @if($units->count() > 0)
-            <div class="overflow-x-auto -mx-3 md:mx-0">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nomor Unit</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kapasitas</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penghuni Aktif</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @foreach($units as $unit)
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="font-medium text-gray-900">Unit {{ $unit->nomor_unit }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ $unit->kapasitas }} orang</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @switch($unit->status)
-                                    @case('READY')
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            Tersedia
-                                        </span>
-                                        @break
-                                    @case('TERISI')
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            Terisi
-                                        </span>
-                                        @break
-                                    @case('MAINTENANCE')
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                            Maintenance
-                                        </span>
-                                        @break
-                                    @default
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                            {{ $unit->status ?? 'Unknown' }}
-                                        </span>
-                                @endswitch
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ $unit->active_assignments ?? 0 }} orang</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex items-center space-x-2">
-                                    @if($unit->status == 'READY' || $unit->status == 'MAINTENANCE')
-                                    <button onclick="toggleMaintenance({{ $unit->id }}, '{{ $unit->status }}')"
-                                            class="text-yellow-600 hover:text-yellow-800 transition-colors">
-                                        @if($unit->status == 'READY')
-                                        Set Maintenance
-                                        @elseif($unit->status == 'MAINTENANCE')
-                                        Set Tersedia
-                                        @else
-                                        Ubah Status
+            <div class="overflow-x-auto -mx-4 md:mx-0">
+                <div class="inline-block min-w-full align-middle">
+                    <div class="overflow-hidden border border-gray-200 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nomor Unit</th>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kapasitas</th>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penghuni Aktif</th>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
+                                    <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($units as $unit)
+                                @php
+                                    $activePenghuni = $unit->assigns->flatMap->penghuni->where('status', 'AKTIF');
+                                    $activeCount = $activePenghuni->count();
+                                    $kodeUnik = $unit->kodeUnik;
+                                @endphp
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                                        <div class="font-medium text-gray-900">Unit {{ $unit->nomor_unit }}</div>
+                                        @if($unit->catatan)
+                                        <div class="text-xs text-gray-500 mt-1">{{ Str::limit($unit->catatan, 30) }}</div>
                                         @endif
-                                    </button>
-                                    @endif
-                                    
-                                    @if($unit->status == 'READY' && ($unit->active_assignments ?? 0) == 0)
-                                    <button onclick="deleteUnit({{ $unit->id }}, '{{ $unit->nomor_unit }}')"
-                                            class="text-red-600 hover:text-red-800 transition-colors">
-                                        Hapus
-                                    </button>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                                    </td>
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">{{ $unit->kapasitas }} orang</div>
+                                    </td>
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                                        @switch($unit->status)
+                                            @case('READY')
+                                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Tersedia
+                                                </span>
+                                                @break
+                                            @case('TERISI')
+                                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
+                                                    </svg>
+                                                    Terisi
+                                                </span>
+                                                @break
+                                            @case('MAINTENANCE')
+                                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                                    </svg>
+                                                    Maintenance
+                                                </span>
+                                                @break
+                                        @endswitch
+                                    </td>
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                                        @if($activeCount > 0)
+                                            <div class="text-sm font-medium text-gray-900">{{ $activeCount }} orang</div>
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                @foreach($activePenghuni->take(2) as $p)
+                                                {{ $p->nama }}@if(!$loop->last), @endif
+                                                @endforeach
+                                                @if($activeCount > 2)
+                                                <span class="text-gray-400">+{{ $activeCount - 2 }} lainnya</span>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="text-sm text-gray-400">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap">
+                                        @if($kodeUnik && $kodeUnik->qr_path)
+                                            <button onclick="showQRCode('{{ $kodeUnik->kode_unik }}', '{{ Storage::url($kodeUnik->qr_path) }}', '{{ $unit->nomor_unit }}')"
+                                                    class="text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                                </svg>
+                                                Lihat QR
+                                            </button>
+                                        @else
+                                            <button onclick="generateQR({{ $unit->id }})"
+                                                    class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                                Generate QR
+                                            </button>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                            @if($unit->status == 'READY' || $unit->status == 'MAINTENANCE')
+                                            <button onclick="toggleMaintenance({{ $unit->id }}, '{{ $unit->status }}')"
+                                                    class="text-yellow-600 hover:text-yellow-800 transition-colors text-sm">
+                                                @if($unit->status == 'READY')
+                                                <span class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                                    </svg>
+                                                    Maintenance
+                                                </span>
+                                                @else
+                                                <span class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Tersedia
+                                                </span>
+                                                @endif
+                                            </button>
+                                            @endif
+                                            
+                                            @if($unit->status == 'READY' && $activeCount == 0)
+                                            <button onclick="deleteUnit({{ $unit->id }}, '{{ $unit->nomor_unit }}')"
+                                                    class="text-red-600 hover:text-red-800 transition-colors text-sm flex items-center">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                                Hapus
+                                            </button>
+                                            @endif
+
+                                            <a href="{{ route('apartemen.detail', $unit->id) }}" 
+                                               class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                Detail
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {{-- PAGINATION --}}
@@ -320,15 +453,20 @@
             @else
             {{-- EMPTY STATE --}}
             <div class="text-center py-12">
-                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <h3 class="mt-4 text-lg font-medium text-gray-900">Belum ada unit</h3>
-                <p class="mt-1 text-gray-500 max-w-md mx-auto">
-                    Tambahkan unit baru untuk apartemen ini.
+                <div class="mx-auto w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Belum ada unit</h3>
+                <p class="text-gray-500 max-w-md mx-auto mb-6">
+                    Tambahkan unit baru untuk apartemen {{ $apartemen->nama_apartemen }}.
                 </p>
                 <button onclick="toggleAddUnitForm()"
-                        class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-md">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
                     + Tambah Unit Pertama
                 </button>
             </div>
@@ -338,14 +476,23 @@
 
 </div>
 
-{{-- Maintenance Modal --}}
+{{-- MODAL: Maintenance --}}
 <div id="maintenanceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden transition-opacity">
     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white transform transition-all">
         <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">Update Status Unit</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Update Status Unit</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
             <form id="maintenanceForm" method="POST" class="space-y-4">
                 @csrf
                 <input type="hidden" id="unitId" name="unit_id">
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Status *</label>
                     <select name="status" id="unitStatus" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
@@ -353,12 +500,14 @@
                         <option value="MAINTENANCE">Maintenance</option>
                     </select>
                 </div>
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
                     <textarea name="catatan" rows="3" 
                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                               placeholder="Catatan maintenance..."></textarea>
                 </div>
+                
                 <div class="flex justify-end space-x-3 pt-4">
                     <button type="button" onclick="closeModal()"
                             class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors">
@@ -374,12 +523,54 @@
     </div>
 </div>
 
+{{-- MODAL: QR Code --}}
+<div id="qrModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden transition-opacity">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white transform transition-all">
+        <div class="text-center">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="qrModalTitle">QR Code Unit</h3>
+                <button onclick="closeQRModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="qrImageContainer" class="mb-4 p-4 bg-white rounded-lg border border-gray-200">
+                <img id="qrImage" src="" alt="QR Code" class="mx-auto w-48 h-48">
+            </div>
+            
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-1">Kode Unik:</p>
+                <p id="qrKodeUnik" class="font-mono text-sm bg-gray-100 p-2 rounded break-all"></p>
+            </div>
+            
+            <div class="flex justify-center gap-3">
+                <button onclick="downloadQR()" 
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                </button>
+                <button onclick="closeQRModal()" 
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- JavaScript --}}
 <script>
 // Toggle Add Unit Form
 function toggleAddUnitForm() {
     const form = document.getElementById('addUnitForm');
     form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+        document.querySelector('input[name="nomor_unit"]').focus();
+    }
 }
 
 // Toggle Maintenance Modal
@@ -405,6 +596,16 @@ function toggleMaintenance(unitId, currentStatus) {
     }, 10);
 }
 
+// Close Modal
+function closeModal() {
+    const modal = document.getElementById('maintenanceModal');
+    modal.classList.remove('opacity-100');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        document.getElementById('maintenanceForm').reset();
+    }, 200);
+}
+
 // Delete Unit
 function deleteUnit(unitId, unitName) {
     if (confirm(`Apakah Anda yakin ingin menghapus Unit ${unitName}?`)) {
@@ -427,7 +628,6 @@ function deleteUnit(unitId, unitName) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Reload page
                 location.reload();
             } else {
                 alert(data.message || 'Terjadi kesalahan');
@@ -443,39 +643,71 @@ function deleteUnit(unitId, unitName) {
     }
 }
 
-// Close Modal
-function closeModal() {
-    const modal = document.getElementById('maintenanceModal');
+// Generate QR Code
+function generateQR(unitId) {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = 'Memproses...';
+    button.disabled = true;
+    
+    fetch(`/apartemen/admin/unit/${unitId}/generate-qr`, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('QR Code berhasil digenerate!');
+            location.reload();
+        } else {
+            alert(data.message || 'Gagal generate QR Code');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        alert('Terjadi kesalahan: ' + error.message);
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// Show QR Code Modal
+function showQRCode(kodeUnik, qrPath, unitNomor) {
+    document.getElementById('qrModalTitle').textContent = `QR Code Unit ${unitNomor}`;
+    document.getElementById('qrImage').src = qrPath;
+    document.getElementById('qrKodeUnik').textContent = kodeUnik;
+    
+    const modal = document.getElementById('qrModal');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.add('opacity-100');
+    }, 10);
+}
+
+// Close QR Modal
+function closeQRModal() {
+    const modal = document.getElementById('qrModal');
     modal.classList.remove('opacity-100');
     setTimeout(() => {
         modal.classList.add('hidden');
-        document.getElementById('maintenanceForm').reset();
-        resetMaintenanceButton();
     }, 200);
 }
 
-function resetMaintenanceButton() {
-    const submitBtn = document.getElementById('submitMaintenanceBtn');
-    if (submitBtn) {
-        submitBtn.innerHTML = 'Simpan';
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    }
+// Download QR Code
+function downloadQR() {
+    const img = document.getElementById('qrImage');
+    const kode = document.getElementById('qrKodeUnik').textContent;
+    
+    const link = document.createElement('a');
+    link.href = img.src;
+    link.download = `qrcode_${kode}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
-
-// Close modal when clicking outside
-document.getElementById('maintenanceModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-
-// Close modal on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !document.getElementById('maintenanceModal').classList.contains('hidden')) {
-        closeModal();
-    }
-});
 
 // Handle maintenance form submission
 document.getElementById('maintenanceForm').addEventListener('submit', function(e) {
@@ -498,17 +730,20 @@ document.getElementById('maintenanceForm').addEventListener('submit', function(e
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Close modal and reload
             closeModal();
             location.reload();
         } else {
             alert(data.message || 'Terjadi kesalahan');
-            resetMaintenanceButton();
+            submitBtn.innerHTML = 'Simpan';
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     })
     .catch(error => {
         alert('Terjadi kesalahan: ' + error.message);
-        resetMaintenanceButton();
+        submitBtn.innerHTML = 'Simpan';
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     });
 });
 
@@ -546,6 +781,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Close modals on outside click
+document.getElementById('maintenanceModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+document.getElementById('qrModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeQRModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (!document.getElementById('maintenanceModal').classList.contains('hidden')) {
+            closeModal();
+        }
+        if (!document.getElementById('qrModal').classList.contains('hidden')) {
+            closeQRModal();
+        }
+    }
+});
 </script>
 
 <style>
@@ -557,21 +817,21 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* Modal animation */
-#maintenanceModal {
+#maintenanceModal, #qrModal {
     opacity: 0;
     transition: opacity 0.2s ease;
 }
 
-#maintenanceModal.opacity-100 {
+#maintenanceModal.opacity-100, #qrModal.opacity-100 {
     opacity: 1;
 }
 
-#maintenanceModal .transform {
+#maintenanceModal .transform, #qrModal .transform {
     transform: scale(0.95);
     transition: transform 0.2s ease;
 }
 
-#maintenanceModal.opacity-100 .transform {
+#maintenanceModal.opacity-100 .transform, #qrModal.opacity-100 .transform {
     transform: scale(1);
 }
 
@@ -597,6 +857,37 @@ tr:hover {
 
 .overflow-x-auto::-webkit-scrollbar-thumb:hover {
     background: #a1a1a1;
+}
+
+/* Button styles */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Loading spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading {
+    position: relative;
+    color: transparent !important;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
 }
 </style>
 @endsection

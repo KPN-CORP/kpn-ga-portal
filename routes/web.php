@@ -25,7 +25,8 @@ use App\Http\Controllers\Apartemen\DetailController;
 use App\Http\Controllers\HelpTiketPDFController;
 use App\Http\Controllers\HelpProsesController;
 use App\Http\Controllers\TrackFotoController;
-
+use App\Http\Controllers\Founddesk\FounddeskController;
+use App\Http\Controllers\Founddesk\FounddeskDispositionController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -486,6 +487,33 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         // TAMBAHKAN INI - Route untuk download via TrackFotoController
         Route::get('/track-foto/download/{id}', [App\Http\Controllers\TrackFotoController::class, 'download'])
             ->name('track-foto.download');
+    });
+    /*
+    |--------------------------------------------------------------------------
+    | foundesk
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('founddesk')
+    ->name('founddesk.')
+    ->middleware(['auth', 'founddesk.access']) // ⬅️ INI KUNCI UTAMANYA
+    ->group(function () {
+
+        // Items
+        Route::get('/', [FounddeskController::class, 'index'])->name('index');
+        Route::get('/create', [FounddeskController::class, 'create'])->name('create');
+        Route::post('/', [FounddeskController::class, 'store'])->name('store');
+        Route::delete('/{id}', [FounddeskController::class, 'destroy'])->name('destroy');
+        Route::get('/photo/{id}', [FounddeskController::class, 'showPhoto'])->name('photo');
+        Route::get('/export/csv', [FounddeskController::class, 'export'])->name('export');
+
+        // Dispositions
+        Route::prefix('disposition')->name('disposition.')->group(function () {
+            Route::get('/create', [FounddeskDispositionController::class, 'create'])->name('create');
+            Route::post('/', [FounddeskDispositionController::class, 'store'])->name('store');
+            Route::get('/{id}', [FounddeskDispositionController::class, 'show'])->name('show');
+            Route::get('/photo/{id}/{type}', [FounddeskDispositionController::class, 'showPhoto'])->name('photo');
+            Route::patch('/{id}/cancel', [FounddeskDispositionController::class, 'cancel'])->name('cancel');
+        });
     });
     /*
     |--------------------------------------------------------------------------

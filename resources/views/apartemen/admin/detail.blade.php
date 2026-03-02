@@ -3,6 +3,19 @@
 @section('content')
 <div class="p-4 md:p-6">
 
+    {{-- NOTIFICATION --}}
+    @if(session('success'))
+    <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+        {{ session('success') }}
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        {{ session('error') }}
+    </div>
+    @endif
+
     {{-- HEADER --}}
     <div class="mb-6 md:mb-8">
         {{-- Mobile: Judul di atas semua --}}
@@ -199,12 +212,12 @@
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-lg font-semibold text-gray-800">Daftar Penghuni</h2>
                         <span class="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
-                            {{ $request->penghuni->count() }} orang
+                            {{ $request->penghuni ? $request->penghuni->count() : 0 }} orang
                         </span>
                     </div>
 
                     <div class="space-y-4">
-                        @foreach($request->penghuni as $penghuni)
+                        @forelse($request->penghuni ?? [] as $penghuni)
                         <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                             <div class="flex justify-between items-start">
                                 <div>
@@ -228,67 +241,70 @@
                             <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div>
                                     <label class="text-gray-500">Mulai</label>
-                                    <p class="font-medium">{{ \Carbon\Carbon::parse($penghuni->tanggal_mulai)->format('d/m/Y') }}</p>
+                                    <p class="font-medium">{{ $penghuni->tanggal_mulai ? \Carbon\Carbon::parse($penghuni->tanggal_mulai)->format('d/m/Y') : '-' }}</p>
                                 </div>
                                 <div>
                                     <label class="text-gray-500">Selesai</label>
-                                    <p class="font-medium">{{ \Carbon\Carbon::parse($penghuni->tanggal_selesai)->format('d/m/Y') }}</p>
+                                    <p class="font-medium">{{ $penghuni->tanggal_selesai ? \Carbon\Carbon::parse($penghuni->tanggal_selesai)->format('d/m/Y') : '-' }}</p>
                                 </div>
                                 <div>
                                     <label class="text-gray-500">No. HP</label>
                                     <p class="font-medium">{{ $penghuni->no_hp ?? '-' }}</p>
                                 </div>
-                                <!-- <div>
-                                    <label class="text-gray-500">Status</label>
+                                <div>
+                                    <label class="text-gray-500">Durasi</label>
                                     <p class="font-medium">
-                                        @if($penghuni->status == 'AKTIF')
-                                            <span class="text-green-600">Aktif</span>
-                                        @elseif($penghuni->status == 'SELESAI')
-                                            <span class="text-gray-600">Selesai</span>
+                                        @if($penghuni->tanggal_mulai && $penghuni->tanggal_selesai)
+                                            {{ \Carbon\Carbon::parse($penghuni->tanggal_mulai)->diffInDays($penghuni->tanggal_selesai) + 1 }} hari
                                         @else
-                                            <span class="text-gray-600">{{ $penghuni->status }}</span>
+                                            -
                                         @endif
                                     </p>
-                                </div> -->
+                                </div>
                             </div>
                         </div>
-                        @endforeach
+                        @empty
+                        <div class="text-center py-8 text-gray-400">
+                            <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
+                            </svg>
+                            <p>Tidak ada data penghuni</p>
+                        </div>
+                        @endforelse
                     </div>
                 </div>
             </div>
 
-        </div>
-
-        {{-- RIGHT COLUMN --}}
-        <div class="space-y-6">
-            
-            {{-- UNIT INFORMATION --}}
-            @if($request->status == 'APPROVED' && count($units) > 0)
+            {{-- UNIT ASSIGNMENTS --}}
+            @if(isset($units) && $units->count() > 0)
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div class="p-6">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">Penempatan Unit</h2>
                     
                     <div class="space-y-4">
                         @foreach($units as $assign)
-                        <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                             <div class="flex justify-between items-start mb-3">
                                 <div>
                                     <h4 class="font-medium text-gray-900">{{ $assign->unit->apartemen->nama_apartemen ?? 'N/A' }}</h4>
                                     <p class="text-sm text-gray-500">Unit: {{ $assign->unit->nomor_unit ?? 'N/A' }}</p>
                                 </div>
                                 <span class="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded">
-                                    {{ $assign->penghuni->where('status', 'AKTIF')->count() }} aktif
+                                    {{ $assign->penghuni ? $assign->penghuni->where('status', 'AKTIF')->count() : 0 }} aktif
                                 </span>
                             </div>
                             
                             <div class="text-sm text-gray-600 mb-3">
-                                Kapasitas: {{ $assign->unit->kapasitas }} orang
+                                Kapasitas: {{ $assign->unit->kapasitas ?? '-' }} orang
                             </div>
                             
                             <div class="text-sm">
                                 <div class="flex justify-between mb-1">
                                     <span class="text-gray-500">Periode:</span>
-                                    <span class="font-medium">{{ $assign->tanggal_mulai->format('d/m/Y') }} - {{ $assign->tanggal_selesai->format('d/m/Y') }}</span>
+                                    <span class="font-medium">
+                                        {{ $assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-' }} - 
+                                        {{ $assign->tanggal_selesai ? $assign->tanggal_selesai->format('d/m/Y') : '-' }}
+                                    </span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-500">Status:</span>
@@ -303,6 +319,26 @@
                                     </span>
                                 </div>
                             </div>
+
+                            {{-- Penghuni di unit ini --}}
+                            @if($assign->penghuni && $assign->penghuni->count() > 0)
+                            <div class="mt-3 pt-3 border-t border-gray-100">
+                                <p class="text-xs font-medium text-gray-500 mb-2">Penghuni di unit ini:</p>
+                                <div class="space-y-2">
+                                    @foreach($assign->penghuni as $p)
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div>
+                                            <span class="font-medium">{{ $p->nama }}</span>
+                                            <span class="text-gray-500 text-xs ml-2">{{ $p->id_karyawan }}</span>
+                                        </div>
+                                        <span class="text-xs {{ $p->status == 'AKTIF' ? 'text-green-600' : 'text-gray-400' }}">
+                                            {{ $p->status }}
+                                        </span>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @endforeach
                     </div>
@@ -310,6 +346,11 @@
             </div>
             @endif
 
+        </div>
+
+        {{-- RIGHT COLUMN --}}
+        <div class="space-y-6">
+            
             {{-- QUICK INFO --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div class="p-6">
@@ -318,7 +359,7 @@
                     <div class="space-y-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-500 mb-1">Total Penghuni</label>
-                            <p class="font-medium text-gray-900">{{ $request->penghuni->count() }} orang</p>
+                            <p class="font-medium text-gray-900 text-lg">{{ $request->penghuni ? $request->penghuni->count() : 0 }} orang</p>
                         </div>
                         
                         <div>
@@ -332,24 +373,38 @@
                             </p>
                         </div>
                         
-                        @if($request->status == 'APPROVED' && count($units) > 0)
+                        @if($request->status == 'APPROVED' && isset($units) && $units->count() > 0)
                         <div>
                             <label class="block text-sm font-medium text-gray-500 mb-1">Unit Ditempati</label>
-                            <p class="font-medium text-gray-900">{{ count($units) }} unit</p>
+                            <p class="font-medium text-gray-900">{{ $units->count() }} unit</p>
                         </div>
                         @endif
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-500 mb-1">Durasi (requested)</label>
                             @php
-                                $firstPenghuni = $request->penghuni->first();
+                                $firstPenghuni = $request->penghuni ? $request->penghuni->first() : null;
                             @endphp
-                            @if($firstPenghuni)
+                            @if($firstPenghuni && $firstPenghuni->tanggal_mulai && $firstPenghuni->tanggal_selesai)
                             <p class="font-medium text-gray-900">
-                                {{ \Carbon\Carbon::parse($firstPenghuni->tanggal_mulai)->diffInDays($firstPenghuni->tanggal_selesai) }} hari
+                                {{ \Carbon\Carbon::parse($firstPenghuni->tanggal_mulai)->diffInDays($firstPenghuni->tanggal_selesai) + 1 }} hari
                             </p>
+                            @else
+                            <p class="font-medium text-gray-900">-</p>
                             @endif
                         </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 mb-1">Dibuat Pada</label>
+                            <p class="font-medium text-gray-900">{{ $request->created_at->format('d M Y H:i') }}</p>
+                        </div>
+
+                        @if($request->updated_at && $request->updated_at != $request->created_at)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-500 mb-1">Terakhir Update</label>
+                            <p class="font-medium text-gray-900">{{ $request->updated_at->format('d M Y H:i') }}</p>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -378,10 +433,10 @@
                             Kembali ke Daftar
                         </a>
 
-                        @if($request->status == 'APPROVED' && count($units) > 0)
+                        @if($request->status == 'APPROVED' && isset($units) && $units->count() > 0)
                         <div class="pt-4 border-t border-gray-200">
                             <h3 class="text-sm font-medium text-gray-700 mb-2">Monitoring Penghuni</h3>
-                            <a href="{{ route('apartemen.admin.monitoring') }}?search={{ $request->penghuni->first()->nama ?? '' }}" 
+                            <a href="{{ route('apartemen.admin.monitoring') }}?search={{ $request->penghuni && $request->penghuni->first() ? urlencode($request->penghuni->first()->nama) : '' }}" 
                                class="w-full flex items-center justify-center px-4 py-2 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
@@ -389,6 +444,16 @@
                                 Lihat di Monitoring
                             </a>
                         </div>
+                        @endif
+
+                        @if($request->status == 'PENDING' && auth()->user()->can('cancel-request'))
+                        <button onclick="confirmCancel({{ $request->id }})"
+                                class="w-full flex items-center justify-center px-4 py-2 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Batalkan Permintaan
+                        </button>
                         @endif
                     </div>
                 </div>
@@ -398,4 +463,60 @@
     </div>
 
 </div>
+
+{{-- Cancel Confirmation Modal --}}
+<div id="cancelModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Pembatalan</h3>
+                <p class="text-gray-600 mb-6">Apakah Anda yakin ingin membatalkan permintaan ini?</p>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closeCancelModal()" 
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Tidak
+                    </button>
+                    <form id="cancelForm" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" 
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">
+                            Ya, Batalkan
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmCancel(id) {
+    document.getElementById('cancelForm').action = `/apartemen/admin/request/${id}/cancel`;
+    document.getElementById('cancelModal').classList.remove('hidden');
+}
+
+function closeCancelModal() {
+    document.getElementById('cancelModal').classList.add('hidden');
+}
+
+// Close modal on outside click
+document.getElementById('cancelModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCancelModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !document.getElementById('cancelModal').classList.contains('hidden')) {
+        closeCancelModal();
+    }
+});
+</script>
+
+<style>
+#cancelModal {
+    transition: opacity 0.3s ease;
+}
+</style>
 @endsection
