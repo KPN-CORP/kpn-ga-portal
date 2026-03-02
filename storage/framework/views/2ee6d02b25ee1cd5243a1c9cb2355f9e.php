@@ -375,8 +375,8 @@
         ],
         'trackreceipt' => [
             'field' => 'receipt_dash',
-            'title' => 'Track Receipt',
-            'desc' => 'Lacak dokumen',
+            'title' => 'Tracking Receipt',
+            'desc' => 'Tanda Terima Internal',
             'url' => '/track-r',
             'color' => '#9b59b6',
             'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'
@@ -458,7 +458,7 @@
         // MENU FOUNDDESK - BARU
         'founddesk' => [
             'field' => 'founddesk_dash',
-            'title' => 'FoundDesk',
+            'title' => 'Lost and Found',
             'desc' => 'Penemuan barang hilang',
             'url' => '/founddesk',
             'color' => '#00bcd4',
@@ -466,7 +466,7 @@
         ]
     ];
     
-    // Menu Admin - TAMBAHKAN JUGA VERSI ADMIN FOUNDDESK
+
     $adminMenus = [
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
@@ -556,7 +556,7 @@
     <?php if(isset($access) && $access): ?>
         <!-- Section Menu Utama (jika ada akses menu utama) -->
         <?php if($hasMainAccess): ?>
-            <h3 class="section-title">Modul</h3>
+            <h3 class="section-title">Tools</h3>
             <div class="menu-grid">
                 <?php $__currentLoopData = $menus; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $key => $menu): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                     <?php if(isset($access->{$menu['field']}) && $access->{$menu['field']} == 1): ?>
@@ -642,10 +642,10 @@
     <?php endif; ?>
     
     <!-- Footer -->
-    <div class="mt-4 pt-3 border-top text-center text-muted">
+    <!-- <div class="mt-4 pt-3 border-top text-center text-muted">
         <p class="mb-1 small">GA Portal &copy; <?php echo e(date('Y')); ?> - KPN Corporate</p>
         <small class="text-muted">v3.0.0</small>
-    </div>
+    </div> -->
 </div>
 <?php $__env->stopSection(); ?>
 
