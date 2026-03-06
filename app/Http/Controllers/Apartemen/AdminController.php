@@ -125,7 +125,7 @@ class AdminController extends Controller
         return view('apartemen.admin.approve', compact('request', 'availableUnits'));
     }
 
-    // PROCESS APPROVAL - VERSI MULTIPLE UNITS
+    // PROCESS APPROVAL - VERSI MULTIPLE UNITS DENGAN TANGGAL PER UNIT
     public function approveProcess(Request $request, $id)
     {
         Log::info('=== APPROVE PROCESS START ===');
@@ -142,13 +142,13 @@ class AdminController extends Controller
         DB::beginTransaction();
         try {
             if ($action === 'approve') {
-                // Validasi untuk approve dengan multiple units
+                // Validasi untuk approve dengan multiple units - TANGGAL PER UNIT
                 $request->validate([
                     'penempatan' => 'required|array|min:1',
                     'penempatan.*.unit_id' => 'required|exists:tb_apartemen_unit,id',
                     'penempatan.*.penghuni_ids' => 'required|array|min:1',
-                    'tanggal_mulai' => 'required|date',
-                    'tanggal_selesai' => 'required|date|after:tanggal_mulai'
+                    'penempatan.*.tanggal_mulai' => 'required|date',
+                    'penempatan.*.tanggal_selesai' => 'required|date|after:penempatan.*.tanggal_mulai',
                 ]);
 
                 // Debug: Log data yang diterima
@@ -167,7 +167,7 @@ class AdminController extends Controller
                     return back()->with('error', 'Ada penghuni yang belum ditetapkan ke unit!');
                 }
                 
-                // Validasi kapasitas unit dan cek bentrok tanggal
+                // Validasi kapasitas unit dan cek bentrok tanggal PER UNIT
                 foreach ($request->penempatan as $item) {
                     $unit = ApartemenUnit::find($item['unit_id']);
                     $jumlahPenghuni = count($item['penghuni_ids']);
@@ -177,21 +177,21 @@ class AdminController extends Controller
                         return back()->with('error', "Unit {$unit->nomor_unit} kapasitas tidak mencukupi! (Kapasitas: {$unit->kapasitas}, Ditempatkan: {$jumlahPenghuni})");
                     }
                     
-                    // CEK BENTROK TANGGAL - TAMBAHAN BARU
+                    // CEK BENTROK TANGGAL per unit
                     $bentrok = ApartemenAssign::where('unit_id', $unit->id)
                         ->where('status', 'AKTIF')
-                        ->where(function($query) use ($request) {
-                            $query->whereBetween('tanggal_mulai', [$request->tanggal_mulai, $request->tanggal_selesai])
-                                  ->orWhereBetween('tanggal_selesai', [$request->tanggal_mulai, $request->tanggal_selesai])
-                                  ->orWhere(function($q) use ($request) {
-                                      $q->where('tanggal_mulai', '<=', $request->tanggal_mulai)
-                                        ->where('tanggal_selesai', '>=', $request->tanggal_selesai);
+                        ->where(function($query) use ($item) {
+                            $query->whereBetween('tanggal_mulai', [$item['tanggal_mulai'], $item['tanggal_selesai']])
+                                  ->orWhereBetween('tanggal_selesai', [$item['tanggal_mulai'], $item['tanggal_selesai']])
+                                  ->orWhere(function($q) use ($item) {
+                                      $q->where('tanggal_mulai', '<=', $item['tanggal_mulai'])
+                                        ->where('tanggal_selesai', '>=', $item['tanggal_selesai']);
                                   });
                         })
                         ->exists();
 
                     if ($bentrok) {
-                        return back()->with('error', "Unit {$unit->nomor_unit} sudah ditempati pada periode {$request->tanggal_mulai} s/d {$request->tanggal_selesai}!");
+                        return back()->with('error', "Unit {$unit->nomor_unit} sudah ditempati pada periode {$item['tanggal_mulai']} s/d {$item['tanggal_selesai']}!");
                     }
                     
                     // Unit status tetap perlu dicek untuk memastikan tidak maintenance
@@ -214,12 +214,12 @@ class AdminController extends Controller
                     // Update status unit menjadi TERISI
                     $unit->update(['status' => 'TERISI']);
                     
-                    // Buat assign untuk unit ini
+                    // Buat assign untuk unit ini (menggunakan tanggal dari item)
                     $assign = ApartemenAssign::create([
                         'request_id' => $apartemenRequest->id,
                         'unit_id' => $unit->id,
-                        'tanggal_mulai' => $request->tanggal_mulai,
-                        'tanggal_selesai' => $request->tanggal_selesai,
+                        'tanggal_mulai' => $item['tanggal_mulai'],
+                        'tanggal_selesai' => $item['tanggal_selesai'],
                         'status' => 'AKTIF',
                         'assign_by' => auth()->id()
                     ]);

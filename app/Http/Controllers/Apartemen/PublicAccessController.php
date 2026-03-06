@@ -141,7 +141,7 @@ class PublicAccessController extends Controller
     }
 
     /**
-     * Proses CHECK-IN mandiri
+     * Proses CHECK-IN mandiri (dengan penambahan history)
      */
     public function checkin(Request $request, $id)
     {
@@ -219,6 +219,22 @@ class PublicAccessController extends Controller
                 'penghuni' => $penghuni->nama,
                 'checkin_at' => $assign->fresh()->checkin_at
             ]);
+
+            // === TAMBAHKAN HISTORY CHECK-IN ===
+            $history = ApartemenHistory::create([
+                'id_karyawan'    => $penghuni->id_karyawan,
+                'nama'           => $penghuni->nama,
+                'no_hp'          => $penghuni->no_hp ?? '-',
+                'unit_kerja'     => $penghuni->unit_kerja ?? '-',
+                'gol'            => $penghuni->gol ?? '-',
+                'apartemen'      => $assign->unit->apartemen->nama_apartemen ?? '-',
+                'unit'           => $assign->unit->nomor_unit ?? '-',
+                'periode'        => $assign->tanggal_mulai->format('d/m/Y') . ' - ' . $assign->tanggal_selesai->format('d/m/Y'),
+                'status_selesai' => 'CHECKIN',
+                'created_at'     => now(),
+            ]);
+
+            Log::info('Public check-in history created', ['history_id' => $history->id]);
 
             // Update jumlah penggunaan kode akses
             $accessCode->incrementUsed();

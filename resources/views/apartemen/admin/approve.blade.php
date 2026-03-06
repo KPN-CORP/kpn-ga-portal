@@ -241,22 +241,6 @@
                             </label>
                             
                             <div id="approve-section" class="mt-4 space-y-4">
-                                {{-- DATES --}}
-                                <div class="grid grid-cols-2 gap-4 mb-6">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Masuk *</label>
-                                        <input type="date" name="tanggal_mulai" id="tanggal_mulai"
-                                            value="{{ old('tanggal_mulai', $request->penghuni->first()->tanggal_mulai ?? '') }}"
-                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Keluar *</label>
-                                        <input type="date" name="tanggal_selesai" id="tanggal_selesai"
-                                            value="{{ old('tanggal_selesai', $request->penghuni->first()->tanggal_selesai ?? '') }}"
-                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                </div>
-
                                 {{-- PENEMPATAN SECTION --}}
                                 <div id="penempatan-container">
                                     <div class="flex justify-between items-center mb-4">
@@ -279,6 +263,22 @@
                                             </button>
                                         </div>
                                         
+                                        {{-- TANGGAL UNTUK UNIT INI --}}
+                                        <div class="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Masuk *</label>
+                                                <input type="date" name="penempatan[0][tanggal_mulai]" 
+                                                       value="{{ old('penempatan.0.tanggal_mulai', $request->penghuni->first()->tanggal_mulai ?? '') }}"
+                                                       class="tanggal-mulai w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Keluar *</label>
+                                                <input type="date" name="penempatan[0][tanggal_selesai]" 
+                                                       value="{{ old('penempatan.0.tanggal_selesai', $request->penghuni->first()->tanggal_selesai ?? '') }}"
+                                                       class="tanggal-selesai w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                        </div>
+
                                         {{-- UNIT SELECTION --}}
                                         <div class="mb-4">
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit *</label>
@@ -556,6 +556,10 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         });
         
+        // Ambil nilai tanggal default dari unit pertama (atau kosong)
+        const defaultTanggalMulai = document.querySelector('.unit-group .tanggal-mulai')?.value || '';
+        const defaultTanggalSelesai = document.querySelector('.unit-group .tanggal-selesai')?.value || '';
+        
         const newUnitHTML = `
             <div class="unit-group mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50" data-unit-index="${newIndex}">
                 <div class="flex justify-between items-center mb-3">
@@ -565,6 +569,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>
                 </div>
                 
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Masuk *</label>
+                        <input type="date" name="penempatan[${newIndex}][tanggal_mulai]" 
+                               value="${defaultTanggalMulai}"
+                               class="tanggal-mulai w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Keluar *</label>
+                        <input type="date" name="penempatan[${newIndex}][tanggal_selesai]" 
+                               value="${defaultTanggalSelesai}"
+                               class="tanggal-selesai w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit *</label>
                     <select name="penempatan[${newIndex}][unit_id]" 
@@ -616,6 +635,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     unitSelect.name = `penempatan[${index}][unit_id]`;
                 }
                 
+                const tanggalMulai = group.querySelector('.tanggal-mulai');
+                if (tanggalMulai) {
+                    tanggalMulai.name = `penempatan[${index}][tanggal_mulai]`;
+                }
+                
+                const tanggalSelesai = group.querySelector('.tanggal-selesai');
+                if (tanggalSelesai) {
+                    tanggalSelesai.name = `penempatan[${index}][tanggal_selesai]`;
+                }
+                
                 const checkboxes = group.querySelectorAll('.penghuni-checkbox');
                 checkboxes.forEach(cb => {
                     cb.name = `penempatan[${index}][penghuni_ids][]`;
@@ -664,27 +693,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (action === 'approve') {
-                // Validasi tanggal
-                const tanggalMulai = document.getElementById('tanggal_mulai').value;
-                const tanggalSelesai = document.getElementById('tanggal_selesai').value;
-                
-                if (!tanggalMulai || !tanggalSelesai) {
-                    e.preventDefault();
-                    alert('Silakan isi tanggal masuk dan keluar!');
-                    return false;
-                }
-                
-                if (new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
-                    e.preventDefault();
-                    alert('Tanggal keluar harus setelah tanggal masuk!');
-                    return false;
-                }
-                
                 // Validasi unit dan penghuni
                 let totalPenghuniTercover = 0;
                 let adaUnitTanpaPenghuni = false;
                 let adaKapasitasMelebihi = false;
                 let adaUnitBelumDipilih = false;
+                let adaTanggalTidakValid = false;
+                let pesanError = '';
                 
                 const unitGroups = document.querySelectorAll('.unit-group');
                 if (unitGroups.length === 0) {
@@ -693,12 +708,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     return false;
                 }
                 
-                unitGroups.forEach(unitGroup => {
+                unitGroups.forEach((unitGroup, index) => {
                     const unitSelect = unitGroup.querySelector('.unit-select');
                     if (!unitSelect) return;
                     
                     const unitId = unitSelect.value;
                     let kapasitas = 0;
+                    
+                    // Validasi tanggal
+                    const tanggalMulai = unitGroup.querySelector('.tanggal-mulai')?.value;
+                    const tanggalSelesai = unitGroup.querySelector('.tanggal-selesai')?.value;
+                    
+                    if (!tanggalMulai || !tanggalSelesai) {
+                        adaTanggalTidakValid = true;
+                        pesanError = 'Semua unit harus memiliki tanggal masuk dan keluar!';
+                        return;
+                    }
+                    
+                    if (new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
+                        adaTanggalTidakValid = true;
+                        pesanError = `Tanggal keluar harus setelah tanggal masuk untuk Unit #${index+1}!`;
+                        return;
+                    }
                     
                     if (unitId) {
                         const selectedOption = unitSelect.options[unitSelect.selectedIndex];
@@ -722,6 +753,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         totalPenghuniTercover += jumlahPenghuni;
                     }
                 });
+                
+                if (adaTanggalTidakValid) {
+                    e.preventDefault();
+                    alert(pesanError || 'Periksa kembali tanggal pada semua unit!');
+                    return false;
+                }
                 
                 if (adaUnitBelumDipilih) {
                     e.preventDefault();
