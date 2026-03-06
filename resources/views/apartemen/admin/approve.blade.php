@@ -368,10 +368,6 @@
                             </div>
                         </div>
 
-                        {{-- VALIDATION MESSAGE --}}
-                        <div id="validationMessage" class="hidden mb-4 p-3 bg-yellow-100 text-yellow-700 rounded-lg text-sm">
-                        </div>
-
                         {{-- SUBMIT BUTTONS --}}
                         <div class="flex space-x-3">
                             <button type="submit" id="submitBtn"
@@ -379,7 +375,7 @@
                                 Proses Penempatan
                             </button>
                             <a href="{{ route('apartemen.admin.index') }}" 
-                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium text-center transition-colors">
+                               class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium text-center transition-colors">
                                 Batal
                             </a>
                         </div>
@@ -428,7 +424,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let unitCounter = 1;
     const totalPenghuni = {{ $request->penghuni->count() }};
     
-    function updateSummary() {
+    // Fungsi update summary
+    window.updateSummary = function() {
+        console.log('Update summary dipanggil');
         let totalTercover = 0;
         let unitSummaryHtml = '';
         
@@ -436,19 +434,21 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.penghuni-option').forEach(option => {
             option.style.opacity = '1';
             const checkbox = option.querySelector('.penghuni-checkbox');
-            checkbox.disabled = false;
+            if (checkbox) checkbox.disabled = false;
         });
         
         // Hitung total tercover dan buat summary
         document.querySelectorAll('.unit-group').forEach((unitGroup, index) => {
             const unitSelect = unitGroup.querySelector('.unit-select');
+            if (!unitSelect) return;
+            
             const selectedOption = unitSelect.options[unitSelect.selectedIndex];
             const unitId = unitSelect.value;
             
             if (unitId) {
-                const unitName = selectedOption.getAttribute('data-apartemen') + ' - ' + 
-                               selectedOption.getAttribute('data-unit');
-                const kapasitas = selectedOption.getAttribute('data-kapasitas');
+                const unitName = (selectedOption.getAttribute('data-apartemen') || '-') + ' - ' + 
+                               (selectedOption.getAttribute('data-unit') || '-');
+                const kapasitas = selectedOption.getAttribute('data-kapasitas') || '0';
                 
                 // Update kapasitas display
                 const kapasitasSpan = unitGroup.querySelector('.kapasitas-unit');
@@ -477,13 +477,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     unitGroup.style.borderColor = '#e5e7eb';
                     unitGroup.style.backgroundColor = '#f9fafb';
                 }
+            } else {
+                // Reset jika unit belum dipilih
+                const kapasitasSpan = unitGroup.querySelector('.kapasitas-unit');
+                if (kapasitasSpan) kapasitasSpan.textContent = '-';
+                
+                const jumlahSpan = unitGroup.querySelector('.jumlah-penghuni');
+                if (jumlahSpan) jumlahSpan.textContent = '0';
+                
+                unitGroup.style.borderColor = '#e5e7eb';
+                unitGroup.style.backgroundColor = '#f9fafb';
             }
         });
         
         // Update display
-        document.getElementById('penghuni-tercover').textContent = totalTercover;
-        document.getElementById('penghuni-belum-tercover').textContent = totalPenghuni - totalTercover;
-        document.getElementById('unit-summary').innerHTML = unitSummaryHtml || '<div>Belum ada unit yang dipilih</div>';
+        const tercoverSpan = document.getElementById('penghuni-tercover');
+        const belumTercoverSpan = document.getElementById('penghuni-belum-tercover');
+        const unitSummaryDiv = document.getElementById('unit-summary');
+        
+        if (tercoverSpan) tercoverSpan.textContent = totalTercover;
+        if (belumTercoverSpan) belumTercoverSpan.textContent = totalPenghuni - totalTercover;
+        if (unitSummaryDiv) {
+            unitSummaryDiv.innerHTML = unitSummaryHtml || '<div>Belum ada unit yang dipilih</div>';
+        }
         
         // Nonaktifkan checkbox yang sudah dipilih di unit lain
         const semuaCheckedIds = [];
@@ -494,14 +510,51 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.penghuni-checkbox:not(:checked)').forEach(cb => {
             if (semuaCheckedIds.includes(cb.value)) {
                 cb.disabled = true;
-                cb.closest('.penghuni-option').style.opacity = '0.5';
+                const option = cb.closest('.penghuni-option');
+                if (option) option.style.opacity = '0.5';
             }
         });
-    }
+    };
     
+    // Fungsi tambah unit
     window.tambahUnit = function() {
+        console.log('Tambah unit diklik');
         const container = document.getElementById('penempatan-container');
         const newIndex = unitCounter++;
+        
+        // Ambil data unit dari PHP
+        const units = @json($availableUnits);
+        
+        // Buat options untuk select unit
+        let unitOptions = '<option value="">-- Pilih Unit --</option>';
+        units.forEach(unit => {
+            unitOptions += `<option value="${unit.id}" 
+                data-kapasitas="${unit.kapasitas}"
+                data-apartemen="${unit.apartemen?.nama_apartemen || '-'}"
+                data-unit="${unit.nomor_unit}">
+                ${unit.apartemen?.nama_apartemen || '-'} - ${unit.nomor_unit} (Kap: ${unit.kapasitas})
+            </option>`;
+        });
+        
+        // Ambil data penghuni dari PHP
+        const penghunis = @json($request->penghuni);
+        
+        // Buat checkbox untuk penghuni
+        let penghuniCheckboxes = '';
+        penghunis.forEach(penghuni => {
+            penghuniCheckboxes += `
+                <label class="flex items-center penghuni-option" data-penghuni-id="${penghuni.id}">
+                    <input type="checkbox" 
+                           name="penempatan[${newIndex}][penghuni_ids][]" 
+                           value="${penghuni.id}"
+                           class="penghuni-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500"
+                           onchange="updateSummary()">
+                    <span class="ml-2 text-sm text-gray-700">
+                        ${penghuni.nama} (${penghuni.id_karyawan})
+                    </span>
+                </label>
+            `;
+        });
         
         const newUnitHTML = `
             <div class="unit-group mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50" data-unit-index="${newIndex}">
@@ -517,33 +570,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <select name="penempatan[${newIndex}][unit_id]" 
                             class="unit-select w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             onchange="updateSummary()">
-                        <option value="">-- Pilih Unit --</option>
-                        @foreach($availableUnits as $unit)
-                        <option value="{{ $unit->id }}" 
-                                data-kapasitas="{{ $unit->kapasitas }}"
-                                data-apartemen="{{ $unit->apartemen->nama_apartemen }}"
-                                data-unit="{{ $unit->nomor_unit }}">
-                            {{ $unit->apartemen->nama_apartemen }} - {{ $unit->nomor_unit }} (Kap: {{ $unit->kapasitas }})
-                        </option>
-                        @endforeach
+                        ${unitOptions}
                     </select>
                 </div>
 
                 <div class="mb-3">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Penghuni *</label>
                     <div class="penghuni-checkbox-group grid grid-cols-1 md:grid-cols-2 gap-2">
-                        @foreach($request->penghuni as $penghuni)
-                        <label class="flex items-center penghuni-option" data-penghuni-id="{{ $penghuni->id }}">
-                            <input type="checkbox" 
-                                   name="penempatan[${newIndex}][penghuni_ids][]" 
-                                   value="{{ $penghuni->id }}"
-                                   class="penghuni-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                   onchange="updateSummary()">
-                            <span class="ml-2 text-sm text-gray-700">
-                                {{ $penghuni->nama }} ({{ $penghuni->id_karyawan }})
-                            </span>
-                        </label>
-                        @endforeach
+                        ${penghuniCheckboxes}
                     </div>
                 </div>
                 
@@ -558,9 +592,13 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSummary();
     };
     
+    // Fungsi hapus unit
     window.hapusUnit = function(button) {
+        console.log('Hapus unit diklik');
         const unitGroup = button.closest('.unit-group');
-        if (document.querySelectorAll('.unit-group').length > 1) {
+        const totalUnits = document.querySelectorAll('.unit-group').length;
+        
+        if (totalUnits > 1) {
             unitGroup.remove();
             updateSummary();
             
@@ -590,115 +628,156 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Event listeners untuk radio buttons
+    // Toggle sections untuk approve/reject
     const approveRadio = document.querySelector('#approveRadio');
     const rejectRadio = document.querySelector('#rejectRadio');
     const approveSection = document.getElementById('approve-section');
     const rejectSection = document.getElementById('reject-section');
     
-    function toggleSections() {
-        if (approveRadio.checked) {
-            approveSection.classList.remove('hidden');
-            rejectSection.classList.add('hidden');
-        } else {
-            approveSection.classList.add('hidden');
-            rejectSection.classList.remove('hidden');
+    if (approveRadio && rejectRadio) {
+        function toggleSections() {
+            if (approveRadio.checked) {
+                approveSection.classList.remove('hidden');
+                rejectSection.classList.add('hidden');
+            } else {
+                approveSection.classList.add('hidden');
+                rejectSection.classList.remove('hidden');
+            }
         }
+        
+        approveRadio.addEventListener('change', toggleSections);
+        rejectRadio.addEventListener('change', toggleSections);
+        toggleSections();
     }
-    
-    approveRadio.addEventListener('change', toggleSections);
-    rejectRadio.addEventListener('change', toggleSections);
-    toggleSections();
     
     // Form validation
     const form = document.getElementById('approvalForm');
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const action = document.querySelector('input[name="action"]:checked').value;
-        let isValid = true;
-        let message = '';
-        
-        if (action === 'approve') {
-            // Validasi tanggal
-            const tanggalMulai = document.getElementById('tanggal_mulai').value;
-            const tanggalSelesai = document.getElementById('tanggal_selesai').value;
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Ambil action yang dipilih
+            const action = document.querySelector('input[name="action"]:checked')?.value;
             
-            if (!tanggalMulai || !tanggalSelesai) {
-                isValid = false;
-                message = 'Silakan isi tanggal masuk dan keluar!';
-            } else if (new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
-                isValid = false;
-                message = 'Tanggal keluar harus setelah tanggal masuk!';
+            if (!action) {
+                e.preventDefault();
+                alert('Pilih tindakan terlebih dahulu (Setujui atau Tolak)');
+                return false;
             }
             
-            // Validasi unit dan penghuni
-            let totalPenghuniTercover = 0;
-            let adaUnitTanpaPenghuni = false;
-            let adaKapasitasMelebihi = false;
-            let adaUnitBelumDipilih = false;
-            
-            document.querySelectorAll('.unit-group').forEach(unitGroup => {
-                const unitSelect = unitGroup.querySelector('.unit-select');
-                const unitId = unitSelect.value;
-                const kapasitas = unitId ? parseInt(unitSelect.options[unitSelect.selectedIndex].getAttribute('data-kapasitas')) : 0;
-                const checkboxes = unitGroup.querySelectorAll('.penghuni-checkbox:checked');
-                const jumlahPenghuni = checkboxes.length;
+            if (action === 'approve') {
+                // Validasi tanggal
+                const tanggalMulai = document.getElementById('tanggal_mulai').value;
+                const tanggalSelesai = document.getElementById('tanggal_selesai').value;
                 
-                if (!unitId) {
-                    adaUnitBelumDipilih = true;
-                } else if (unitId && jumlahPenghuni === 0) {
-                    adaUnitTanpaPenghuni = true;
+                if (!tanggalMulai || !tanggalSelesai) {
+                    e.preventDefault();
+                    alert('Silakan isi tanggal masuk dan keluar!');
+                    return false;
                 }
                 
-                if (unitId && jumlahPenghuni > kapasitas) {
-                    adaKapasitasMelebihi = true;
+                if (new Date(tanggalSelesai) <= new Date(tanggalMulai)) {
+                    e.preventDefault();
+                    alert('Tanggal keluar harus setelah tanggal masuk!');
+                    return false;
                 }
                 
-                if (unitId) {
-                    totalPenghuniTercover += jumlahPenghuni;
+                // Validasi unit dan penghuni
+                let totalPenghuniTercover = 0;
+                let adaUnitTanpaPenghuni = false;
+                let adaKapasitasMelebihi = false;
+                let adaUnitBelumDipilih = false;
+                
+                const unitGroups = document.querySelectorAll('.unit-group');
+                if (unitGroups.length === 0) {
+                    e.preventDefault();
+                    alert('Minimal harus ada satu unit yang dipilih!');
+                    return false;
                 }
-            });
-            
-            if (adaUnitBelumDipilih) {
-                isValid = false;
-                message = 'Ada unit yang belum dipilih!';
-            } else if (adaUnitTanpaPenghuni) {
-                isValid = false;
-                message = 'Ada unit yang dipilih tanpa penghuni!';
-            } else if (adaKapasitasMelebihi) {
-                isValid = false;
-                message = 'Ada unit yang melebihi kapasitas!';
-            } else if (totalPenghuniTercover < totalPenghuni) {
-                isValid = false;
-                message = `Masih ada ${totalPenghuni - totalPenghuniTercover} penghuni yang belum ditempatkan!`;
+                
+                unitGroups.forEach(unitGroup => {
+                    const unitSelect = unitGroup.querySelector('.unit-select');
+                    if (!unitSelect) return;
+                    
+                    const unitId = unitSelect.value;
+                    let kapasitas = 0;
+                    
+                    if (unitId) {
+                        const selectedOption = unitSelect.options[unitSelect.selectedIndex];
+                        kapasitas = parseInt(selectedOption?.getAttribute('data-kapasitas') || '0');
+                    }
+                    
+                    const checkboxes = unitGroup.querySelectorAll('.penghuni-checkbox:checked');
+                    const jumlahPenghuni = checkboxes.length;
+                    
+                    if (!unitId) {
+                        adaUnitBelumDipilih = true;
+                    } else if (unitId && jumlahPenghuni === 0) {
+                        adaUnitTanpaPenghuni = true;
+                    }
+                    
+                    if (unitId && jumlahPenghuni > kapasitas) {
+                        adaKapasitasMelebihi = true;
+                    }
+                    
+                    if (unitId) {
+                        totalPenghuniTercover += jumlahPenghuni;
+                    }
+                });
+                
+                if (adaUnitBelumDipilih) {
+                    e.preventDefault();
+                    alert('Ada unit yang belum dipilih!');
+                    return false;
+                }
+                
+                if (adaUnitTanpaPenghuni) {
+                    e.preventDefault();
+                    alert('Ada unit yang dipilih tanpa penghuni!');
+                    return false;
+                }
+                
+                if (adaKapasitasMelebihi) {
+                    e.preventDefault();
+                    alert('Ada unit yang melebihi kapasitas!');
+                    return false;
+                }
+                
+                if (totalPenghuniTercover < totalPenghuni) {
+                    e.preventDefault();
+                    alert(`Masih ada ${totalPenghuni - totalPenghuniTercover} penghuni yang belum ditempatkan!`);
+                    return false;
+                }
+                
+                // Show loading
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) {
+                    submitBtn.innerHTML = 'Memproses...';
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                
+                // Biarkan form submit
+                return true;
+                
+            } else if (action === 'reject') {
+                const rejectReason = document.getElementById('reject_reason')?.value.trim();
+                if (!rejectReason || rejectReason.length < 5) {
+                    e.preventDefault();
+                    alert('Silakan isi alasan penolakan (minimal 5 karakter)!');
+                    return false;
+                }
+                
+                // Show loading
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) {
+                    submitBtn.innerHTML = 'Memproses...';
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                
+                return true;
             }
-            
-        } else if (action === 'reject') {
-            const rejectReason = document.getElementById('reject_reason').value.trim();
-            if (!rejectReason || rejectReason.length < 5) {
-                isValid = false;
-                message = 'Silakan isi alasan penolakan (minimal 5 karakter)!';
-            }
-        }
-        
-        if (!isValid) {
-            const validationMessage = document.getElementById('validationMessage');
-            validationMessage.textContent = message;
-            validationMessage.classList.remove('hidden');
-            validationMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
-        }
-        
-        // Show loading
-        const submitBtn = document.getElementById('submitBtn');
-        submitBtn.innerHTML = 'Memproses...';
-        submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        
-        // Submit form
-        form.submit();
-    });
+        });
+    }
     
     // Update summary on load
     updateSummary();

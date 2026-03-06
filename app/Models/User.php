@@ -4,7 +4,9 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Messkar\MesBooking;
+use App\Models\Messkar\MesNotifikasi;
+use App\Models\Messkar\MesRiwayat;
 
 class User extends Authenticatable
 {
@@ -46,6 +48,46 @@ class User extends Authenticatable
         return $this->hasOne(AccessMenu::class, 'username', 'username');
     }
     
+    // =====================================================
+    // RELATIONSHIP UNTUK MESS KARYAWAN
+    // =====================================================
+    
+    /**
+     * Get the mess bookings for the user.
+     */
+    public function messBookings()
+    {
+        return $this->hasMany(MesBooking::class, 'id_user', 'id');
+    }
+    
+    /**
+     * Get the mess notifikasi for the user.
+     */
+    public function messNotifikasi()
+    {
+        return $this->hasMany(MesNotifikasi::class, 'id_user', 'id');
+    }
+    
+    /**
+     * Get the mess riwayat for the user.
+     */
+    public function messRiwayat()
+    {
+        return $this->hasMany(MesRiwayat::class, 'id_user', 'id');
+    }
+    
+    /**
+     * Get bookings that need approval (for admin)
+     */
+    public function pendingApprovals()
+    {
+        return $this->hasMany(MesBooking::class, 'approved_by', 'id');
+    }
+    
+    // =====================================================
+    // EXISTING METHODS
+    // =====================================================
+    
     // Cek apakah user memiliki akses full ke GA Help
     public function hasFullGaHelpAccess()
     {
@@ -54,6 +96,13 @@ class User extends Authenticatable
         }
         
         return false;
+    }
+    
+    // Cek apakah user adalah admin mess (bisa ditambahkan sendiri)
+    public function isMessAdmin()
+    {
+        // Misal: user dengan akses GA Help full atau role tertentu
+        return $this->hasFullGaHelpAccess() || $this->username == 'admin';
     }
     
     // Mendapatkan bisnis unit ID yang bisa diakses user

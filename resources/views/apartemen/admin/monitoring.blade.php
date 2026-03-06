@@ -9,7 +9,7 @@
         {{-- Mobile: Judul di atas semua --}}
         <div class="lg:hidden mb-4">
             <h1 class="text-xl font-bold text-gray-800">Monitoring Penghuni</h1>
-            <p class="text-gray-600 text-xs mt-1">Pantau penghuni aktif di semua apartemen</p>
+            <p class="text-gray-600 text-xs mt-1">Pantau penghuni di semua apartemen</p>
         </div>
 
         {{-- ACTION BAR --}}
@@ -19,7 +19,7 @@
                 {{-- Judul Halaman --}}
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800">Monitoring Penghuni</h1>
-                    <p class="text-gray-600 text-sm mt-1">Pantau penghuni aktif di semua apartemen</p>
+                    <p class="text-gray-600 text-sm mt-1">Pantau penghuni di semua apartemen</p>
                 </div>
             </div>
 
@@ -44,8 +44,12 @@
                 @php
                     $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
                     $unitCount = \App\Models\Apartemen\ApartemenUnit::count();
-                    $penghuniCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) {
-                        $q->where('status', 'AKTIF');
+                    
+                    // Hitung penghuni dengan status AKTIF (sudah mulai dan belum selesai)
+                    $activePenghuniCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) {
+                        $q->where('status', 'AKTIF')
+                          ->where('tanggal_mulai', '<=', now())
+                          ->where('tanggal_selesai', '>=', now());
                     })->count();
                 @endphp
                 
@@ -80,8 +84,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
                     </svg>
                     <span class="font-medium text-blue-700 text-sm truncate">Penghuni</span>
-                    @if($penghuniCount > 0)
-                    <span class="ml-1 md:ml-2 bg-blue-100 text-blue-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $penghuniCount }}</span>
+                    @if($activePenghuniCount > 0)
+                    <span class="ml-1 md:ml-2 bg-blue-100 text-blue-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $activePenghuniCount }}</span>
                     @endif
                 </a>
 
@@ -123,9 +127,9 @@
                             <div>
                                 <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" onchange="this.form.submit()">
                                     <option value="">Semua Status</option>
+                                    <option value="belum_aktif" {{ request('status') == 'belum_aktif' ? 'selected' : '' }}>Belum Aktif</option>
                                     <option value="aktif" {{ request('status') == 'aktif' ? 'selected' : '' }}>Aktif</option>
-                                    <option value="akan_selesai" {{ request('status') == 'akan_selesai' ? 'selected' : '' }}>Akan Selesai</option>
-                                    <option value="telah_selesai" {{ request('status') == 'telah_selesai' ? 'selected' : '' }}>Telah Selesai</option>
+                                    <option value="belum_checkout" {{ request('status') == 'belum_checkout' ? 'selected' : '' }}>Belum Check-out</option>
                                 </select>
                             </div>
                             
@@ -170,11 +174,11 @@
                                     @if(request('status'))
                                     <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium 
                                         {{ request('status') == 'aktif' ? 'bg-green-100 text-green-800' : 
-                                           (request('status') == 'akan_selesai' ? 'bg-yellow-100 text-yellow-800' : 
+                                           (request('status') == 'belum_aktif' ? 'bg-yellow-100 text-yellow-800' : 
                                            'bg-red-100 text-red-800') }} whitespace-nowrap">
                                         {{ request('status') == 'aktif' ? 'Aktif' : 
-                                         (request('status') == 'akan_selesai' ? 'Akan Selesai' : 
-                                         'Telah Selesai') }}
+                                         (request('status') == 'belum_aktif' ? 'Belum Aktif' : 
+                                         'Belum Check-out') }}
                                     </span>
                                     @endif
                                 </div>
@@ -190,28 +194,24 @@
     {{-- STATS --}}
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
         @php
-            $totalActive = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) {
-                $q->where('status', 'AKTIF');
+            $now = now();
+            
+            $belumAktifCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) use ($now) {
+                $q->where('status', 'AKTIF')
+                  ->where('tanggal_mulai', '>', $now);
             })->count();
             
-            $endingSoon = \App\Models\Apartemen\ApartemenAssign::where('status', 'AKTIF')
-                ->whereBetween('tanggal_selesai', [now(), now()->addDays(7)])
-                ->count();
+            $activeCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) use ($now) {
+                $q->where('status', 'AKTIF')
+                  ->where('tanggal_mulai', '<=', $now)
+                  ->where('tanggal_selesai', '>=', $now);
+            })->count();
+            
+            $expiredCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) use ($now) {
+                $q->where('status', 'AKTIF')
+                  ->where('tanggal_selesai', '<', $now);
+            })->count();
         @endphp
-        
-        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-            <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-blue-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Penghuni Aktif</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $totalActive }}</p>
-                </div>
-            </div>
-        </div>
         
         <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
             <div class="flex items-center">
@@ -221,8 +221,8 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Akan Selesai (7 hari)</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $endingSoon }}</p>
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Belum Aktif</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $belumAktifCount }}</p>
                 </div>
             </div>
         </div>
@@ -231,12 +231,26 @@
             <div class="flex items-center">
                 <div class="p-1.5 md:p-2 rounded-lg bg-green-100 mr-2 md:mr-3">
                     <svg class="w-4 h-4 md:w-5 md:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Apartemen Aktif</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $apartemen->count() }}</p>
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Aktif</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $activeCount }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+            <div class="flex items-center">
+                <div class="p-1.5 md:p-2 rounded-lg bg-red-100 mr-2 md:mr-3">
+                    <svg class="w-4 h-4 md:w-5 md:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Belum Check-out</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $expiredCount }}</p>
                 </div>
             </div>
         </div>
@@ -247,7 +261,7 @@
         {{-- Table Header --}}
         <div class="px-3 md:px-4 lg:px-6 py-3 md:py-4 border-b border-gray-200">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h3 class="text-base md:text-lg font-semibold text-gray-800">Daftar Penghuni Aktif</h3>
+                <h3 class="text-base md:text-lg font-semibold text-gray-800">Daftar Penghuni</h3>
                 <div class="text-xs md:text-sm text-gray-500">
                     Total: <span class="font-medium">{{ $penghuni->total() ?? 0 }}</span> penghuni
                 </div>
@@ -274,7 +288,48 @@
                                 @foreach($penghuni as $p)
                                 @php
                                     $assign = $p->assign;
-                                    $canCheckout = $assign && $assign->status == 'AKTIF';
+                                    $now = now();
+                                    $today = now()->startOfDay();
+                                    
+                                    // Cek apakah sudah check-in
+                                    $sudahCheckin = $assign && $assign->checkin_at ? true : false;
+                                    
+                                    // Tentukan status berdasarkan tanggal
+                                    if ($assign) {
+                                        $startDate = \Carbon\Carbon::parse($assign->tanggal_mulai)->startOfDay();
+                                        $endDate = \Carbon\Carbon::parse($assign->tanggal_selesai)->startOfDay();
+                                        
+                                        if ($assign->tanggal_mulai > $now) {
+                                            $status = 'belum_aktif';
+                                            $statusLabel = 'Belum Aktif';
+                                            $statusColor = 'yellow';
+                                            // Hanya bisa check-in jika sudah H-0 atau lebih
+                                            $canCheckin = $today->greaterThanOrEqualTo($startDate) && !$sudahCheckin;
+                                            $canCheckout = false;
+                                            $daysUntilStart = $today->diffInDays($startDate, false); // negatif jika sudah lewat
+                                        } elseif ($assign->tanggal_selesai < $now) {
+                                            $status = 'expired';
+                                            $statusLabel = 'Belum Check-out';
+                                            $statusColor = 'red';
+                                            $canCheckin = false;
+                                            $canCheckout = $sudahCheckin;
+                                            $daysUntilStart = null;
+                                        } else {
+                                            $status = 'active';
+                                            $statusLabel = 'Aktif';
+                                            $statusColor = 'green';
+                                            $canCheckin = !$sudahCheckin;
+                                            $canCheckout = $sudahCheckin;
+                                            $daysUntilStart = null;
+                                        }
+                                    } else {
+                                        $status = null;
+                                        $statusLabel = '-';
+                                        $statusColor = 'gray';
+                                        $canCheckin = false;
+                                        $canCheckout = false;
+                                        $daysUntilStart = null;
+                                    }
                                 @endphp
                                 <tr class="hover:bg-gray-50">
                                     {{-- Penghuni --}}
@@ -292,6 +347,11 @@
                                         <div class="text-xs">
                                             <div class="font-medium text-gray-900 truncate max-w-[100px]">{{ $assign->unit->apartemen->nama_apartemen }}</div>
                                             <div class="text-gray-500">Unit {{ $assign->unit->nomor_unit }}</div>
+                                            @if($assign->checkin_at)
+                                            <div class="text-green-600 text-[10px] mt-1">
+                                                <i class="fas fa-check-circle mr-1"></i>Sudah Check-in {{ $assign->checkin_at->format('d/m H:i') }}
+                                            </div>
+                                            @endif
                                         </div>
                                         @else
                                         <span class="text-gray-400 text-xs">-</span>
@@ -303,6 +363,11 @@
                                         @if($assign && $assign->unit && $assign->unit->apartemen)
                                         <div class="font-medium text-gray-900 text-sm truncate">{{ $assign->unit->apartemen->nama_apartemen }}</div>
                                         <div class="text-xs text-gray-500 truncate">Unit {{ $assign->unit->nomor_unit }}</div>
+                                        @if($assign->checkin_at)
+                                        <div class="text-green-600 text-[10px] mt-1">
+                                            <i class="fas fa-check-circle mr-1"></i>Check-in {{ $assign->checkin_at->format('d/m H:i') }}
+                                        </div>
+                                        @endif
                                         @else
                                         <span class="text-gray-400 text-sm">-</span>
                                         @endif
@@ -334,35 +399,72 @@
                                     {{-- Status --}}
                                     <td class="py-3 px-2 md:px-3 lg:px-4">
                                         @if($assign)
-                                            @if($assign->tanggal_selesai->lt(now()))
-                                            <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 whitespace-nowrap">
-                                                Telah Selesai
-                                            </span>
-                                            @elseif($assign->tanggal_selesai->diffInDays(now()) <= 3)
+                                            @if($status == 'belum_aktif')
                                             <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 whitespace-nowrap">
-                                                Akan Selesai
+                                                Belum Aktif
                                             </span>
-                                            @else
+                                            @elseif($status == 'active')
                                             <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
                                                 Aktif
                                             </span>
+                                            @elseif($status == 'expired')
+                                            <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 whitespace-nowrap">
+                                                Belum Check-out
+                                            </span>
+                                            @endif
+                                            
+                                            @if($assign->checkin_at)
+                                            <div class="text-[10px] text-green-600 mt-1 text-center">
+                                                ✓ Check-in
+                                            </div>
                                             @endif
                                         @else
                                         <span class="text-gray-400 text-xs">-</span>
                                         @endif
                                     </td>
 
-                                    {{-- Aksi (FIXED) --}}
+                                    {{-- Aksi --}}
+                                    {{-- Aksi --}}
                                     <td class="py-3 px-2 md:px-3 lg:px-4">
-                                        @if($canCheckout)
-                                        <button type="button" 
-                                                onclick="confirmCheckout({{ $p->id }}, '{{ addslashes($p->nama) }}'); return false;"
-                                                class="text-red-600 hover:text-red-800 text-xs md:text-sm font-medium whitespace-nowrap checkout-btn"
-                                                data-id="{{ $p->id }}">
-                                            Check-out
-                                        </button>
+                                        @if($canCheckin)
+                                            <button type="button" 
+                                                    onclick="confirmCheckin({{ $p->id }}, '{{ addslashes($p->nama) }}'); return false;"
+                                                    class="text-green-600 hover:text-green-800 text-xs md:text-sm font-medium whitespace-nowrap checkin-btn"
+                                                    data-id="{{ $p->id }}">
+                                                Check-in
+                                            </button>
+                                        @elseif($status == 'belum_aktif' && isset($daysUntilStart) && $daysUntilStart > 0)
+                                            {{-- Belum waktunya check-in --}}
+                                            <div class="relative group inline-block">
+                                                <button type="button" 
+                                                        disabled
+                                                        class="text-gray-400 text-xs md:text-sm font-medium whitespace-nowrap cursor-not-allowed">
+                                                    Check-in
+                                                </button>
+                                                {{-- Tooltip --}}
+                                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-50 shadow-lg min-w-[180px]">
+                                                    <div class="flex items-center">
+                                                        <svg class="w-3 h-3 mr-1 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span class="font-medium">Belum waktunya check-in</span>
+                                                    </div>
+                                                    <div class="text-gray-300 text-[10px] mt-1 leading-relaxed">
+                                                        <div>Mulai: {{ $assign->tanggal_mulai->format('d/m/Y') }}</div>
+                                                        <div>{{ $daysUntilStart }} hari lagi</div>
+                                                        <div class="border-t border-gray-600 mt-1 pt-1">Check-in hanya bisa H-0</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @elseif($canCheckout)
+                                            <button type="button" 
+                                                    onclick="confirmCheckout({{ $p->id }}, '{{ addslashes($p->nama) }}'); return false;"
+                                                    class="text-red-600 hover:text-red-800 text-xs md:text-sm font-medium whitespace-nowrap checkout-btn"
+                                                    data-id="{{ $p->id }}">
+                                                Check-out
+                                            </button>
                                         @else
-                                        <span class="text-gray-400 text-xs">-</span>
+                                            <span class="text-gray-400 text-xs">-</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -404,12 +506,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
                     </svg>
                 </div>
-                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-1 md:mb-2">Belum ada penghuni aktif</h3>
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-1 md:mb-2">Belum ada penghuni</h3>
                 <p class="text-gray-500 max-w-xs md:max-w-md mx-auto text-xs md:text-sm">
                     @if(request()->filled('search') || request()->filled('apartemen_id') || request()->filled('status'))
                     Tidak ditemukan penghuni yang sesuai dengan filter.
                     @else
-                    Tidak ada penghuni yang sedang aktif menempati unit.
+                    Belum ada data penghuni.
                     @endif
                 </p>
                 @if(request()->filled('search') || request()->filled('apartemen_id') || request()->filled('status'))
@@ -425,7 +527,11 @@
 
 </div>
 
-{{-- Hidden Form untuk Checkout --}}
+{{-- Hidden Form untuk Checkin dan Checkout --}}
+<form id="checkinForm" method="POST" style="display: none;">
+    @csrf
+</form>
+
 <form id="checkoutForm" method="POST" style="display: none;">
     @csrf
 </form>
@@ -492,8 +598,8 @@ table tbody tr {
     overflow: hidden;
 }
 
-/* Confirmation dialog styling */
-.checkout-btn {
+/* Button styling */
+.checkin-btn, .checkout-btn {
     transition: color 0.2s ease;
     background: none;
     border: none;
@@ -503,22 +609,26 @@ table tbody tr {
     font-size: inherit;
 }
 
+.checkin-btn:hover {
+    color: #16a34a; /* green-600 */
+}
+
 .checkout-btn:hover {
     color: #dc2626; /* red-800 */
 }
 
-.checkout-btn:disabled {
+.checkin-btn:disabled, .checkout-btn:disabled {
     color: #9ca3af; /* gray-400 */
     cursor: not-allowed;
 }
 
 /* Loading state */
-.checkout-btn.loading {
+.checkin-btn.loading, .checkout-btn.loading {
     position: relative;
     color: transparent !important;
 }
 
-.checkout-btn.loading::after {
+.checkin-btn.loading::after, .checkout-btn.loading::after {
     content: '';
     position: absolute;
     left: 50%;
@@ -527,10 +637,20 @@ table tbody tr {
     height: 12px;
     margin-left: -6px;
     margin-top: -6px;
-    border: 2px solid #dc2626;
+    border: 2px solid currentColor;
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
+}
+
+.checkin-btn.loading::after {
+    border-color: #16a34a;
+    border-top-color: transparent;
+}
+
+.checkout-btn.loading::after {
+    border-color: #dc2626;
+    border-top-color: transparent;
 }
 
 @keyframes spin {
@@ -539,15 +659,70 @@ table tbody tr {
 </style>
 
 <script>
-let checkoutInProgress = false;
+let actionInProgress = false;
+
+function confirmCheckin(id, name) {
+    console.log('=== 🚀 CHECKIN START ===');
+    console.log('Penghuni ID:', id, 'Name:', name);
+    
+    if (actionInProgress) {
+        console.log('⚠️ Aksi sedang berjalan, mohon tunggu...');
+        alert('Aksi sedang diproses, mohon tunggu...');
+        return false;
+    }
+    
+    if (!confirm(`Yakin melakukan check-in untuk ${name}?`)) {
+        console.log('❌ User membatalkan check-in');
+        return false;
+    }
+    
+    console.log('✅ User mengkonfirmasi check-in');
+    actionInProgress = true;
+    
+    const button = document.querySelector(`.checkin-btn[data-id="${id}"]`);
+    if (button) {
+        button.disabled = true;
+        button.classList.add('loading');
+        button.textContent = 'Memproses...';
+    }
+    
+    // Buat form dinamis untuk check-in
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/apartemen/admin/penghuni/${id}/checkin`;
+    form.style.display = 'none';
+    
+    // CSRF token
+    const csrfToken = document.createElement('input');
+    csrfToken.type = 'hidden';
+    csrfToken.name = '_token';
+    csrfToken.value = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    form.appendChild(csrfToken);
+    
+    // Tambahkan ke body
+    document.body.appendChild(form);
+    
+    console.log('📤 Submitting check-in form to:', form.action);
+    
+    try {
+        form.submit();
+        console.log('✅ Check-in form submitted successfully');
+    } catch (error) {
+        console.error('❌ Form submission error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+        resetAction(button);
+    }
+    
+    return false;
+}
 
 function confirmCheckout(id, name) {
     console.log('=== 🚀 CHECKOUT START ===');
     console.log('Penghuni ID:', id, 'Name:', name);
     
-    if (checkoutInProgress) {
-        console.log('⚠️ Checkout sedang berjalan, mohon tunggu...');
-        alert('Checkout sedang diproses, mohon tunggu...');
+    if (actionInProgress) {
+        console.log('⚠️ Aksi sedang berjalan, mohon tunggu...');
+        alert('Aksi sedang diproses, mohon tunggu...');
         return false;
     }
     
@@ -557,7 +732,7 @@ function confirmCheckout(id, name) {
     }
     
     console.log('✅ User mengkonfirmasi checkout');
-    checkoutInProgress = true;
+    actionInProgress = true;
     
     const button = document.querySelector(`.checkout-btn[data-id="${id}"]`);
     if (button) {
@@ -566,7 +741,7 @@ function confirmCheckout(id, name) {
         button.textContent = 'Memproses...';
     }
     
-    // Buat form dinamis (tanpa @method('PUT') karena route hanya menerima POST)
+    // Buat form dinamis untuk check-out
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = `/apartemen/admin/penghuni/${id}/checkout`;
@@ -582,45 +757,54 @@ function confirmCheckout(id, name) {
     // Tambahkan ke body
     document.body.appendChild(form);
     
-    console.log('📤 Submitting form to:', form.action);
+    console.log('📤 Submitting check-out form to:', form.action);
     
     try {
         form.submit();
-        console.log('✅ Form submitted successfully');
+        console.log('✅ Check-out form submitted successfully');
     } catch (error) {
         console.error('❌ Form submission error:', error);
         alert('Terjadi kesalahan: ' + error.message);
-        resetCheckout(button);
+        resetAction(button);
     }
     
     return false;
 }
 
-function resetCheckout(button) {
+function resetAction(button) {
     if (button) {
         button.disabled = false;
         button.classList.remove('loading');
-        button.textContent = 'Check-out';
+        if (button.classList.contains('checkin-btn')) {
+            button.textContent = 'Check-in';
+        } else {
+            button.textContent = 'Check-out';
+        }
     }
-    checkoutInProgress = false;
+    actionInProgress = false;
 }
 
 // Debug info
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM loaded, checkout system ready');
+    console.log('📄 DOM loaded, checkin/checkout system ready');
+    console.log('Found checkin buttons:', document.querySelectorAll('.checkin-btn').length);
     console.log('Found checkout buttons:', document.querySelectorAll('.checkout-btn').length);
 });
 
 // Auto-reset setelah 10 detik
 setTimeout(() => {
-    if (checkoutInProgress) {
-        console.log('🕐 Auto-resetting checkout progress');
-        checkoutInProgress = false;
+    if (actionInProgress) {
+        console.log('🕐 Auto-resetting action progress');
+        actionInProgress = false;
         
-        document.querySelectorAll('.checkout-btn.loading').forEach(button => {
+        document.querySelectorAll('.checkin-btn.loading, .checkout-btn.loading').forEach(button => {
             button.disabled = false;
             button.classList.remove('loading');
-            button.textContent = 'Check-out';
+            if (button.classList.contains('checkin-btn')) {
+                button.textContent = 'Check-in';
+            } else {
+                button.textContent = 'Check-out';
+            }
         });
     }
 }, 10000);

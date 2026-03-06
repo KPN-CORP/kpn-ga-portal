@@ -303,11 +303,11 @@
                             </a>
                             @endif
                             
-                            <button onclick="confirmDelete({{ $item->id }})" 
+                            <!-- <button onclick="confirmDelete({{ $item->id }})" 
                                     class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
                                     title="Hapus Barang">
                                 <i class="fas fa-trash"></i>
-                            </button>
+                            </button> -->
                         </div>
                         <form id="delete-form-{{ $item->id }}" 
                               action="{{ route('founddesk.destroy', $item->id) }}" 
@@ -396,10 +396,10 @@
                             <i class="fas fa-file-alt text-xs"></i>
                         </a>
                         @endif
-                        <button onclick="confirmDelete({{ $item->id }})" 
+                        <!-- <button onclick="confirmDelete({{ $item->id }})" 
                                 class="p-1 text-red-600 hover:text-red-800" title="Hapus">
                             <i class="fas fa-trash text-xs"></i>
-                        </button>
+                        </button> -->
                     </div>
                 </div>
             </div>

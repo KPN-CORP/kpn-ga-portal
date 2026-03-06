@@ -1,4 +1,5 @@
 <?php
+// app/Models/Apartemen/ApartemenAssign.php
 
 namespace App\Models\Apartemen;
 
@@ -10,17 +11,21 @@ class ApartemenAssign extends Model
     use SoftDeletes;
 
     protected $table = 'tb_apartemen_assign';
+    
     protected $fillable = [
         'request_id',
         'unit_id',
         'tanggal_mulai',
         'tanggal_selesai',
-        'status'
+        'checkin_at', // TAMBAHKAN INI
+        'status',
+        'assign_by'
     ];
 
     protected $casts = [
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
+        'checkin_at' => 'datetime', // TAMBAHKAN INI
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime'
@@ -79,8 +84,6 @@ class ApartemenAssign extends Model
         return $this->tanggal_mulai->format('d/m/Y') . ' - ' . $this->tanggal_selesai->format('d/m/Y');
     }
 
-    // Di model ApartemenAssign.php
-
     // Method untuk mendapatkan jumlah penghuni aktif
     public function getActivePenghuniCountAttribute()
     {
@@ -92,6 +95,7 @@ class ApartemenAssign extends Model
     {
         return $this->active_penghuni_count == 0;
     }
+
     // Accessor untuk status
     public function getStatusLabelAttribute()
     {
@@ -113,5 +117,11 @@ class ApartemenAssign extends Model
     public function getSisaHariAttribute()
     {
         return now()->diffInDays($this->tanggal_selesai, false);
+    }
+    
+    // Cek apakah sudah check-in
+    public function getSudahCheckinAttribute()
+    {
+        return !is_null($this->checkin_at);
     }
 }

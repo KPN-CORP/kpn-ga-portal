@@ -27,6 +27,9 @@ use App\Http\Controllers\HelpProsesController;
 use App\Http\Controllers\TrackFotoController;
 use App\Http\Controllers\Founddesk\FounddeskController;
 use App\Http\Controllers\Founddesk\FounddeskDispositionController;
+use App\Http\Controllers\Apartemen\PublicAccessController;
+use App\Http\Controllers\Apartemen\QRCodeAdminController;
+
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -75,6 +78,22 @@ Route::get('/dblogin', [DBLoginController::class, 'handle'])
 Route::get('/dblogin-fallback', [DBLoginController::class, 'handle'])
     ->name('sso.login.fallback')
     ->withoutMiddleware(['sso.darwinbox']);
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC ACCESS APARTEMEN (TANPA LOGIN) - DIPINDAHKAN KE SINI
+|--------------------------------------------------------------------------
+*/
+    Route::prefix('apartemen/public')->name('apartemen.public.')->group(function () {
+        Route::get('/', [PublicAccessController::class, 'index'])->name('index');
+        Route::post('/verify', [PublicAccessController::class, 'verify'])->name('verify');
+        Route::get('/search', [PublicAccessController::class, 'search'])->name('search');
+        Route::get('/find', [PublicAccessController::class, 'find'])->name('find');
+        Route::post('/checkout/{id}', [PublicAccessController::class, 'checkout'])->name('checkout');
+        Route::post('/checkin/{id}', [PublicAccessController::class, 'checkin'])->name('checkin');
+        Route::get('/success', [PublicAccessController::class, 'success'])->name('success');
+        Route::get('/logout', [PublicAccessController::class, 'logout'])->name('logout');
+    });
 
 /*
 |--------------------------------------------------------------------------
@@ -290,111 +309,143 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
     | APARTEMEN / MESS (UI ONLY - PHASE 1)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['auth'])
-    ->prefix('apartemen')
-    ->group(function () {
+    Route::prefix('apartemen')
+        ->group(function () {
 
-        // USER
-        Route::middleware('apartemen.access:apt_user')->group(function () {
-            Route::get('/', [UserController::class, 'index'])
-                ->name('apartemen.user.index');
+            // USER
+            Route::middleware('apartemen.access:apt_user')->group(function () {
+                Route::get('/', [UserController::class, 'index'])
+                    ->name('apartemen.user.index');
 
-            // TAMBAHKAN ROUTE INI ↓
-            Route::get('/requests', [UserController::class, 'requests'])
-                ->name('apartemen.user.requests');
+                Route::get('/requests', [UserController::class, 'requests'])
+                    ->name('apartemen.user.requests');
 
-            Route::get('/create', [UserController::class, 'create'])
-                ->name('apartemen.user.create');
+                Route::get('/create', [UserController::class, 'create'])
+                    ->name('apartemen.user.create');
 
-            Route::post('/store', [UserController::class, 'store'])
-                ->name('apartemen.user.store');
+                Route::post('/store', [UserController::class, 'store'])
+                    ->name('apartemen.user.store');
 
-            Route::get('/show/{id}', [UserController::class, 'show'])
-                ->name('apartemen.user.show');
-        });
-
-        // ADMIN
-        Route::middleware('apartemen.access:apt_admin')
-            ->prefix('admin')
-            ->group(function () {
-
-                Route::get('/', [AdminController::class, 'index'])
-                    ->name('apartemen.admin.index');
-
-                Route::get('/dashboard', [AdminController::class, 'dashboard'])
-                    ->name('apartemen.admin.dashboard');
-
-                Route::get('/approve/{id}', [AdminController::class, 'approve'])
-                    ->name('apartemen.admin.approve');
-
-                Route::post('/approve/{id}', [AdminController::class, 'approveProcess'])
-                    ->name('apartemen.admin.approve.process');
-
-                Route::get('/assign/{id}', [AdminController::class, 'assign'])
-                    ->name('apartemen.admin.assign');
-
-                Route::post('/assign', [AssignController::class, 'store'])
-                    ->name('apartemen.admin.assign.store');
-
-                Route::put('/assign/{id}', [AssignController::class, 'update'])
-                    ->name('apartemen.admin.assign.update');
-
-                Route::get('/monitoring', [AdminController::class, 'monitoring'])
-                    ->name('apartemen.admin.monitoring');
-
-                Route::get('/history', [AdminController::class, 'history'])
-                    ->name('apartemen.admin.history');
-
-                Route::get('/apartemen', [AdminController::class, 'apartemen'])
-                    ->name('apartemen.admin.apartemen');
-
-                Route::get('/apartemen/{id}', [AdminController::class, 'apartemenDetail'])
-                    ->name('apartemen.admin.apartemen.detail');
-
-                // PERBAIKAN: Ganti ApartemenAdminController dengan AdminController
-                Route::post('/penghuni/{id}/checkout', [AdminController::class, 'checkoutPenghuni'])
-                    ->name('apartemen.admin.penghuni.checkout');
-
-                Route::post('/transfer/{id}', [AssignController::class, 'transfer'])
-                    ->name('apartemen.admin.transfer');
-
-                Route::post('/maintenance/{id}', [AdminController::class, 'setMaintenance'])
-                    ->name('apartemen.admin.maintenance');
-
-                Route::get('/request/{id}/detail', [AdminController::class, 'detail'])
-                    ->name('apartemen.admin.detail');
-
-                Route::get('/report', [AdminController::class, 'report'])
-                    ->name('apartemen.admin.report');
-
-                // Pindahkan route ini ke dalam group admin
-                Route::post('/unit/store', [AdminController::class, 'storeUnit'])
-                    ->name('apartemen.admin.unit.store');
-                    
-                Route::post('/unit/delete', [AdminController::class, 'deleteUnit'])
-                    ->name('apartemen.admin.unit.delete');
-
-                Route::post('/unit/maintenance', [AdminController::class, 'setMaintenance'])
-                    ->name('apartemen.admin.setMaintenance');
-
-                Route::post('/apartemen/store', [AdminController::class, 'storeApartemen'])
-                    ->name('apartemen.admin.apartemen.store');
+                Route::get('/show/{id}', [UserController::class, 'show'])
+                    ->name('apartemen.user.show');
             });
 
-        // DETAIL UNIT
-        Route::middleware('apartemen.access:apt_detail')->group(function () {
-            Route::get('/detail/{unit_id}', [DetailController::class, 'show'])
-                ->name('apartemen.detail');
-        });
+            // ADMIN
+            Route::middleware('apartemen.access:apt_admin')
+                ->prefix('admin')
+                ->group(function () {
 
-        // HISTORY
-        Route::middleware('apartemen.access:apt_history')->group(function () {
-            Route::get('/history', function () {
-                return view('apartemen.history');
-            })->name('apartemen.history');
-        });
-    });
+                    Route::get('/', [AdminController::class, 'index'])
+                        ->name('apartemen.admin.index');
 
+                    Route::get('/dashboard', [AdminController::class, 'dashboard'])
+                        ->name('apartemen.admin.dashboard');
+
+                    Route::get('/approve/{id}', [AdminController::class, 'approve'])
+                        ->name('apartemen.admin.approve');
+
+                    Route::post('/approve/{id}', [AdminController::class, 'approveProcess'])
+                        ->name('apartemen.admin.approve.process');
+
+                    Route::get('/assign/{id}', [AdminController::class, 'assign'])
+                        ->name('apartemen.admin.assign');
+
+                    Route::post('/assign', [AssignController::class, 'store'])
+                        ->name('apartemen.admin.assign.store');
+
+                    Route::put('/assign/{id}', [AssignController::class, 'update'])
+                        ->name('apartemen.admin.assign.update');
+
+                    Route::get('/monitoring', [AdminController::class, 'monitoring'])
+                        ->name('apartemen.admin.monitoring');
+
+                    Route::get('/history', [AdminController::class, 'history'])
+                        ->name('apartemen.admin.history');
+
+                    Route::get('/apartemen', [AdminController::class, 'apartemen'])
+                        ->name('apartemen.admin.apartemen');
+
+                    Route::get('/apartemen/{id}', [AdminController::class, 'apartemenDetail'])
+                        ->name('apartemen.admin.apartemen.detail');
+
+                    Route::post('/penghuni/{id}/checkout', [AdminController::class, 'checkoutPenghuni'])
+                        ->name('apartemen.admin.penghuni.checkout');
+
+                    Route::post('/penghuni/{id}/checkin', [AdminController::class, 'checkin'])->name('checkin');
+
+                    Route::post('/transfer/{id}', [AssignController::class, 'transfer'])
+                        ->name('apartemen.admin.transfer');
+
+                    Route::post('/maintenance/{id}', [AdminController::class, 'setMaintenance'])
+                        ->name('apartemen.admin.maintenance');
+
+                    Route::get('/request/{id}/detail', [AdminController::class, 'detail'])
+                        ->name('apartemen.admin.detail');
+
+                    Route::get('/report', [AdminController::class, 'report'])
+                        ->name('apartemen.admin.report');
+
+                    Route::post('/unit/store', [AdminController::class, 'storeUnit'])
+                        ->name('apartemen.admin.unit.store');
+                        
+                    Route::post('/unit/delete', [AdminController::class, 'deleteUnit'])
+                        ->name('apartemen.admin.unit.delete');
+
+                    Route::post('/unit/maintenance', [AdminController::class, 'setMaintenance'])
+                        ->name('apartemen.admin.setMaintenance');
+
+                    Route::post('/apartemen/store', [AdminController::class, 'storeApartemen'])
+                        ->name('apartemen.admin.apartemen.store');
+
+                    // ============ QR CODE MANAGEMENT ============
+                    Route::get('/access-codes', [PublicAccessController::class, 'manageCodes'])
+                        ->name('apartemen.admin.access-codes');
+                        
+                    Route::post('/generate-qr', [PublicAccessController::class, 'generateQR'])
+                        ->name('apartemen.admin.generate-qr');
+                        
+                    Route::post('/access-codes/{id}/deactivate', [PublicAccessController::class, 'deactivateCode'])
+                        ->name('apartemen.admin.deactivate-code');
+                        
+                    Route::post('/access-codes/{id}/activate', [PublicAccessController::class, 'activateCode'])
+                        ->name('apartemen.admin.activate-code');
+                        
+                    Route::delete('/access-codes/{id}', [PublicAccessController::class, 'deleteCode'])
+                        ->name('apartemen.admin.delete-code');
+
+                    Route::get('/access-codes', [QRCodeAdminController::class, 'index'])
+                        ->name('apartemen.admin.access-codes');
+                        
+                    Route::post('/generate-qr', [QRCodeAdminController::class, 'generate'])
+                        ->name('apartemen.admin.generate-qr');
+                        
+                    Route::post('/access-codes/{id}/deactivate', [QRCodeAdminController::class, 'deactivate'])
+                        ->name('apartemen.admin.deactivate-code');
+                        
+                    Route::post('/access-codes/{id}/activate', [QRCodeAdminController::class, 'activate'])
+                        ->name('apartemen.admin.activate-code');
+                        
+                    Route::delete('/access-codes/{id}', [QRCodeAdminController::class, 'destroy'])
+                        ->name('apartemen.admin.delete-code');
+                        
+                    Route::get('/access-codes/{id}/print', [QRCodeAdminController::class, 'print'])
+                        ->name('apartemen.admin.print-code');
+                });
+
+
+            // DETAIL UNIT
+            Route::middleware('apartemen.access:apt_detail')->group(function () {
+                Route::get('/detail/{unit_id}', [DetailController::class, 'show'])
+                    ->name('apartemen.detail');
+            });
+
+            // HISTORY
+            Route::middleware('apartemen.access:apt_history')->group(function () {
+                Route::get('/history', function () {
+                    return view('apartemen.history');
+                })->name('apartemen.history');
+            });
+        });
 
     /*
     |--------------------------------------------------------------------------

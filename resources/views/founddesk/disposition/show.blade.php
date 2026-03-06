@@ -164,7 +164,7 @@
                             <p class="font-medium">{{ $disposition->item->found_by ?? '-' }}</p>
                         </div>
                     </div>
-                                        
+                    
                     <div class="grid grid-cols-2 gap-4 mt-3">
                         <div>
                             <p class="text-xs text-slate-500">Kategori</p>
@@ -183,7 +183,15 @@
                             <p class="font-medium">{{ $disposition->item->found_date ? date('d/m/Y', strtotime($disposition->item->found_date)) : '-' }}</p>
                         </div>
                     </div>
-                    
+                    {{-- DESKRIPSI BARANG (BARU) --}}
+                    @if($disposition->item->description)
+                    <div class="mt-3 pt-2 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-1">Deskripsi Barang</p>
+                        <p class="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg">
+                            {{ $disposition->item->description }}
+                        </p>
+                    </div>
+                    @endif
                     <div class="pt-3">
                         <a href="{{ route('founddesk.index') }}?search={{ $disposition->item->item_code }}" 
                         class="inline-block text-sm text-blue-600 hover:text-blue-800">

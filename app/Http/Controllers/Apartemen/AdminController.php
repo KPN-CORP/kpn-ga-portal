@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/Apartemen/AdminController.php
 
 namespace App\Http\Controllers\Apartemen;
 
@@ -58,23 +59,20 @@ class AdminController extends Controller
         ));
     }
 
-    // INDEX - TAB PERMINTAAN
+    // INDEX - KHUSUS MENAMPILKAN DATA PENDING SAJA
     public function index(Request $request)
     {
-        $query = ApartemenRequest::with(['user', 'penghuni', 'assign.unit.apartemen'])
+        $query = ApartemenRequest::with(['user', 'penghuni'])
+            ->where('status', 'PENDING')
             ->orderBy('created_at', 'desc');
 
-        // Filter status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        // Filter tanggal
+        if ($request->filled('tanggal_mulai')) {
+            $query->whereDate('created_at', '>=', $request->tanggal_mulai);
         }
 
-        // Filter tanggal
-        if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
-            $query->whereBetween('tanggal_pengajuan', [
-                $request->tanggal_mulai,
-                $request->tanggal_selesai
-            ]);
+        if ($request->filled('tanggal_selesai')) {
+            $query->whereDate('created_at', '<=', $request->tanggal_selesai);
         }
 
         // Search
@@ -99,11 +97,29 @@ class AdminController extends Controller
     public function approve($id)
     {
         $request = ApartemenRequest::with(['penghuni', 'user'])
+            ->where('status', 'PENDING')
             ->findOrFail($id);
 
-        // Cek unit yang tersedia (status READY)
-        $availableUnits = ApartemenUnit::where('status', 'READY')
-            ->with('apartemen')
+        // Ambil rentang tanggal dari request (min tanggal_mulai dan max tanggal_selesai)
+        $tanggalMulai = $request->penghuni->min('tanggal_mulai');
+        $tanggalSelesai = $request->penghuni->max('tanggal_selesai');
+
+        // Unit yang TIDAK memiliki assign AKTIF dalam rentang tanggal
+        // dan tidak dalam status MAINTENANCE
+        $availableUnits = ApartemenUnit::with('apartemen')
+            ->where('status', '!=', 'MAINTENANCE')
+            ->whereDoesntHave('assigns', function($query) use ($tanggalMulai, $tanggalSelesai) {
+                $query->where('status', 'AKTIF')
+                      ->where(function($q) use ($tanggalMulai, $tanggalSelesai) {
+                          // Cek apakah ada assign yang bentrok tanggalnya
+                          $q->whereBetween('tanggal_mulai', [$tanggalMulai, $tanggalSelesai])
+                            ->orWhereBetween('tanggal_selesai', [$tanggalMulai, $tanggalSelesai])
+                            ->orWhere(function($q2) use ($tanggalMulai, $tanggalSelesai) {
+                                $q2->where('tanggal_mulai', '<=', $tanggalMulai)
+                                   ->where('tanggal_selesai', '>=', $tanggalSelesai);
+                            });
+                      });
+            })
             ->get();
 
         return view('apartemen.admin.approve', compact('request', 'availableUnits'));
@@ -112,6 +128,12 @@ class AdminController extends Controller
     // PROCESS APPROVAL - VERSI MULTIPLE UNITS
     public function approveProcess(Request $request, $id)
     {
+        Log::info('=== APPROVE PROCESS START ===');
+        Log::info('Request ID: ' . $id);
+        Log::info('All request data:', $request->all());
+        Log::info('Action: ' . $request->action);
+        Log::info('Penempatan: ', $request->penempatan ?? []);
+        
         $apartemenRequest = ApartemenRequest::with(['penghuni'])->findOrFail($id);
 
         // Validasi action
@@ -145,22 +167,40 @@ class AdminController extends Controller
                     return back()->with('error', 'Ada penghuni yang belum ditetapkan ke unit!');
                 }
                 
-                // Validasi kapasitas unit
+                // Validasi kapasitas unit dan cek bentrok tanggal
                 foreach ($request->penempatan as $item) {
                     $unit = ApartemenUnit::find($item['unit_id']);
                     $jumlahPenghuni = count($item['penghuni_ids']);
                     
+                    // Validasi kapasitas
                     if ($unit->kapasitas < $jumlahPenghuni) {
                         return back()->with('error', "Unit {$unit->nomor_unit} kapasitas tidak mencukupi! (Kapasitas: {$unit->kapasitas}, Ditempatkan: {$jumlahPenghuni})");
                     }
                     
-                    // Validasi unit status
-                    if ($unit->status != 'READY') {
-                        return back()->with('error', "Unit {$unit->nomor_unit} tidak tersedia (Status: {$unit->status})");
+                    // CEK BENTROK TANGGAL - TAMBAHAN BARU
+                    $bentrok = ApartemenAssign::where('unit_id', $unit->id)
+                        ->where('status', 'AKTIF')
+                        ->where(function($query) use ($request) {
+                            $query->whereBetween('tanggal_mulai', [$request->tanggal_mulai, $request->tanggal_selesai])
+                                  ->orWhereBetween('tanggal_selesai', [$request->tanggal_mulai, $request->tanggal_selesai])
+                                  ->orWhere(function($q) use ($request) {
+                                      $q->where('tanggal_mulai', '<=', $request->tanggal_mulai)
+                                        ->where('tanggal_selesai', '>=', $request->tanggal_selesai);
+                                  });
+                        })
+                        ->exists();
+
+                    if ($bentrok) {
+                        return back()->with('error', "Unit {$unit->nomor_unit} sudah ditempati pada periode {$request->tanggal_mulai} s/d {$request->tanggal_selesai}!");
+                    }
+                    
+                    // Unit status tetap perlu dicek untuk memastikan tidak maintenance
+                    if ($unit->status == 'MAINTENANCE') {
+                        return back()->with('error', "Unit {$unit->nomor_unit} sedang dalam maintenance!");
                     }
                 }
                 
-                // Update status request
+                // Update status request menjadi APPROVED
                 $apartemenRequest->update([
                     'status' => 'APPROVED',
                     'approved_at' => now(),
@@ -194,7 +234,7 @@ class AdminController extends Controller
                                 'assign_id' => $assign->id,
                                 'nama' => $reqPenghuni->nama,
                                 'id_karyawan' => $reqPenghuni->id_karyawan,
-                                'no_hp' => $reqPenghuni->no_hp, // INI YANG PENTING: Ambil no_hp
+                                'no_hp' => $reqPenghuni->no_hp,
                                 'unit_kerja' => $reqPenghuni->unit_kerja,
                                 'gol' => $reqPenghuni->gol,
                                 'tanggal_mulai' => $reqPenghuni->tanggal_mulai,
@@ -239,6 +279,83 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * CHECK-IN PENGHUNI
+     */
+    public function checkin($id)
+    {
+        try {
+            Log::info('=== CHECKIN START === ID: ' . $id);
+            
+            DB::beginTransaction();
+            
+            // Ambil data penghuni dengan assign
+            $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen'])
+                ->where('id', $id)
+                ->where('status', 'AKTIF')
+                ->lockForUpdate()
+                ->firstOrFail();
+            
+            Log::info('Penghuni ditemukan: ' . $penghuni->nama);
+            
+            // Validasi assign
+            if (!$penghuni->assign) {
+                throw new \Exception('Penghuni tidak memiliki data penempatan');
+            }
+            
+            $assign = $penghuni->assign;
+            
+            // Validasi status assign
+            if ($assign->status != 'AKTIF') {
+                throw new \Exception('Penempatan tidak aktif');
+            }
+            
+            // Validasi apakah sudah check-in
+            if ($assign->checkin_at) {
+                throw new \Exception('Penghuni sudah melakukan check-in pada ' . $assign->checkin_at->format('d/m/Y H:i'));
+            }
+            
+            // Validasi tanggal mulai
+            if ($assign->tanggal_mulai > now()) {
+                throw new \Exception('Belum waktunya check-in. Tanggal mulai: ' . $assign->tanggal_mulai->format('d/m/Y'));
+            }
+            
+            // Update checkin_at
+            $assign->update([
+                'checkin_at' => now()
+            ]);
+            
+            // Catat history
+            ApartemenHistory::create([
+                'nama' => $penghuni->nama,
+                'id_karyawan' => $penghuni->id_karyawan,
+                'no_hp' => $penghuni->no_hp ?? '-',
+                'unit_kerja' => $penghuni->unit_kerja ?? '-',
+                'gol' => $penghuni->gol ?? '-',
+                'apartemen' => $assign->unit->apartemen->nama_apartemen ?? '-',
+                'unit' => $assign->unit->nomor_unit ?? '-',
+                'periode' => $assign->tanggal_mulai->format('d/m/Y') . ' - ' . $assign->tanggal_selesai->format('d/m/Y'),
+                'status_selesai' => 'CHECKIN',
+                'created_at' => now()
+            ]);
+            
+            DB::commit();
+            
+            Log::info('=== CHECKIN SUCCESS ===');
+            
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('success', 'Check-in berhasil untuk ' . $penghuni->nama . ' pada ' . now()->format('d/m/Y H:i'));
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('=== CHECKIN ERROR ===');
+            Log::error('Error: ' . $e->getMessage());
+            
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('error', 'Gagal check-in: ' . $e->getMessage());
+        }
+    }
+
     // MONITORING PENGHUNI
     public function monitoring(Request $request)
     {
@@ -262,14 +379,31 @@ class AdminController extends Controller
             });
         }
 
-        // Filter berdasarkan tanggal selesai
-        if ($request->filled('status')) {
-            if ($request->status == 'akan_selesai') {
+        // Filter berdasarkan status check-in
+        if ($request->filled('checkin_status')) {
+            if ($request->checkin_status == 'sudah_checkin') {
                 $query->whereHas('assign', function($q) {
-                    $q->where('tanggal_selesai', '>=', now())
-                      ->where('tanggal_selesai', '<=', now()->addDays(7));
+                    $q->whereNotNull('checkin_at');
                 });
-            } elseif ($request->status == 'telah_selesai') {
+            } elseif ($request->checkin_status == 'belum_checkin') {
+                $query->whereHas('assign', function($q) {
+                    $q->whereNull('checkin_at');
+                });
+            }
+        }
+
+        // Filter berdasarkan status
+        if ($request->filled('status')) {
+            if ($request->status == 'belum_aktif') {
+                $query->whereHas('assign', function($q) {
+                    $q->where('tanggal_mulai', '>', now());
+                });
+            } elseif ($request->status == 'aktif') {
+                $query->whereHas('assign', function($q) {
+                    $q->where('tanggal_mulai', '<=', now())
+                      ->where('tanggal_selesai', '>=', now());
+                });
+            } elseif ($request->status == 'belum_checkout') {
                 $query->whereHas('assign', function($q) {
                     $q->where('tanggal_selesai', '<', now());
                 });
@@ -302,110 +436,108 @@ class AdminController extends Controller
     public function checkoutPenghuni($id)
     {
         try {
-            Log::info('=== CHECKOUT START === ID: ' . $id);
+            Log::info('=== CHECKOUT START ===', ['id' => $id]);
             
-            // Gunakan database transaction dengan retry
-            $result = DB::transaction(function () use ($id) {
-                Log::info('Transaction started for ID: ' . $id);
+            DB::beginTransaction();
+            
+            // 1. Cari penghuni dengan LOCK
+            $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen', 'assign.penghuni'])
+                ->where('id', $id)
+                ->where('status', 'AKTIF')
+                ->lockForUpdate()
+                ->first();
+            
+            if (!$penghuni) {
+                throw new \Exception('Penghuni tidak ditemukan atau sudah tidak aktif');
+            }
+            
+            Log::info('Penghuni ditemukan', [
+                'nama' => $penghuni->nama,
+                'assign_id' => $penghuni->assign_id
+            ]);
+            
+            // 2. Cek assign
+            if (!$penghuni->assign) {
+                throw new \Exception('Penghuni tidak memiliki data penempatan');
+            }
+            
+            $assign = $penghuni->assign;
+            
+            // 3. Validasi status assign
+            if ($assign->status != 'AKTIF') {
+                throw new \Exception('Status penempatan tidak aktif');
+            }
+            
+            // 4. Validasi apakah sudah check-in
+            if (!$assign->checkin_at) {
+                throw new \Exception('Penghuni belum melakukan check-in. Tidak bisa check-out.');
+            }
+            
+            // 5. Hitung penghuni aktif SEBELUM checkout
+            $activeBefore = $assign->penghuni()
+                ->where('status', 'AKTIF')
+                ->count();
+            
+            Log::info('Active penghuni before checkout', ['count' => $activeBefore]);
+            
+            // 6. Update status penghuni
+            $penghuni->update(['status' => 'SELESAI']);
+            
+            // 7. Hitung penghuni aktif SETELAH checkout
+            $activeAfter = $assign->penghuni()
+                ->where('status', 'AKTIF')
+                ->count();
+            
+            Log::info('Active penghuni after checkout', ['count' => $activeAfter]);
+            
+            // 8. Jika ini penghuni TERAKHIR, update assign ke SELESAI dan unit ke READY
+            if ($activeAfter == 0) {
+                Log::info('Last penghuni, updating assign and unit');
                 
-                // 1. Ambil data dengan LOCK FOR UPDATE
-                $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen', 'assign.penghuni'])
-                    ->where('status', 'AKTIF')
-                    ->lockForUpdate()
-                    ->findOrFail($id);
-                    
-                Log::info('Penghuni found (locked): ' . $penghuni->nama . ' (ID: ' . $penghuni->id . ')');
+                $assign->update(['status' => 'SELESAI']);
                 
-                // 2. Cek assign
-                $assign = $penghuni->assign;
-                if (!$assign) {
-                    throw new \Exception('Penghuni tidak memiliki assignment');
+                if ($assign->unit) {
+                    $assign->unit->update(['status' => 'READY']);
+                    Log::info('Unit updated to READY', ['unit' => $assign->unit->nomor_unit]);
                 }
-                
-                Log::info('Assign ID: ' . $assign->id . ', Unit: ' . ($assign->unit ? $assign->unit->nomor_unit : 'N/A'));
-                
-                // 3. Cek DUPLIKAT history dalam 1 MENIT terakhir
-                $recentHistory = ApartemenHistory::where('id_karyawan', $penghuni->id_karyawan)
-                    ->where('apartemen', $assign->unit->apartemen->nama_apartemen ?? '')
-                    ->where('unit', $assign->unit->nomor_unit ?? '')
-                    ->where('created_at', '>=', now()->subMinute())
-                    ->exists();
-                    
-                if ($recentHistory) {
-                    Log::warning('Duplicate checkout detected within 1 minute for: ' . $penghuni->nama);
-                    throw new \Exception('Checkout sudah diproses untuk penghuni ini dalam 1 menit terakhir.');
-                }
-                
-                // 4. Hitung penghuni aktif SEBELUM update
-                $activePenghuniBefore = $assign->penghuni()
-                    ->where('status', 'AKTIF')
-                    ->count();
-                    
-                Log::info('Active penghuni before checkout: ' . $activePenghuniBefore);
-                
-                // 5. Update status penghuni
-                $penghuni->update(['status' => 'SELESAI']);
-                Log::info('Updated penghuni status to SELESAI');
-                
-                // 6. Hitung penghuni aktif SETELAH update
-                $activePenghuniAfter = $assign->penghuni()
-                    ->where('status', 'AKTIF')
-                    ->count();
-                    
-                Log::info('Active penghuni after checkout: ' . $activePenghuniAfter);
-                
-                // 7. Jika ini penghuni TERAKHIR, update assign ke SELESAI dan unit ke READY
-                if ($activePenghuniAfter == 0) {
-                    Log::info('Last penghuni in assign, updating assign and unit...');
-                    
-                    try {
-                        // PERBAIKAN: Tangkap exception jika ada constraint violation
-                        try {
-                            $assign->update(['status' => 'SELESAI']);
-                            Log::info('Updated assign status to SELESAI');
-                        } catch (\Illuminate\Database\QueryException $e) {
-                            // Jika error karena constraint violation (duplicate entry)
-                            if ($e->errorInfo[1] == 1062) {
-                                Log::warning('Constraint violation when updating assign to SELESAI, but continuing...');
-                                // Tetap lanjutkan, karena yang penting penghuni sudah SELESAI
-                            } else {
-                                throw $e; // Re-throw error lainnya
-                            }
-                        }
-                        
-                        // Update unit status ke READY
-                        if ($assign->unit) {
-                            $assign->unit->update(['status' => 'READY']);
-                            Log::info('Unit updated to READY: ' . $assign->unit->nomor_unit);
-                        }
-                    } catch (\Exception $e) {
-                        Log::warning('Error updating assign/unit status: ' . $e->getMessage());
-                        // Tetap lanjutkan karena history sudah dibuat
-                    }
-                } else {
-                    Log::info('Masih ada ' . $activePenghuniAfter . ' penghuni aktif di unit ' . ($assign->unit ? $assign->unit->nomor_unit : 'N/A'));
-                }
-                
-                // **PERBAIKAN: HAPUS INSERT HISTORY DI SINI**
-                // Biarkan database trigger atau event yang menangani
-                Log::info('History akan dibuat oleh database trigger/event');
-                
-                return [
-                    'success' => true,
-                    'message' => 'Check-out penghuni ' . $penghuni->nama . ' berhasil dilakukan.'
-                ];
-            }, 3); // 3 attempts
+            }
+            
+            // 9. Catat history dengan nilai ENUM yang valid
+            $historyData = [
+                'nama' => $penghuni->nama,
+                'id_karyawan' => $penghuni->id_karyawan,
+                'no_hp' => $penghuni->no_hp ?? '-',
+                'unit_kerja' => $penghuni->unit_kerja ?? '-',
+                'gol' => $penghuni->gol ?? '-',
+                'apartemen' => $assign->unit->apartemen->nama_apartemen ?? '-',
+                'unit' => $assign->unit->nomor_unit ?? '-',
+                'periode' => ($assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-') . ' - ' . ($assign->tanggal_selesai ? $assign->tanggal_selesai->format('d/m/Y') : '-'),
+                'status_selesai' => 'SELESAI',
+                'created_at' => now()
+            ];
+            
+            Log::info('Mencatat history', $historyData);
+            
+            $history = ApartemenHistory::create($historyData);
+            
+            Log::info('History created', ['history_id' => $history->id]);
+            
+            DB::commit();
             
             Log::info('=== CHECKOUT SUCCESS ===');
             
-            return back()->with('success', $result['message']);
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('success', 'Check-out berhasil untuk ' . $penghuni->nama);
             
         } catch (\Exception $e) {
-            Log::error('=== CHECKOUT ERROR ===');
-            Log::error('Error: ' . $e->getMessage());
-            Log::error('Trace: ' . $e->getTraceAsString());
+            DB::rollBack();
+            Log::error('=== CHECKOUT ERROR ===', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('error', 'Gagal check-out: ' . $e->getMessage());
         }
     }
 
@@ -505,16 +637,10 @@ class AdminController extends Controller
     {
         $request = ApartemenRequest::with([
             'user', 
-            'penghuni',
-            'assign.unit.apartemen', // GANTI 'assigns' MENJADI 'assign'
-            'assign.penghuni' => function($query) {
-                $query->where('status', 'AKTIF')->orWhere('status', 'SELESAI')
-                    ->select('id', 'assign_id', 'nama', 'id_karyawan', 'no_hp', 'unit_kerja', 'gol', 'status');
-            }
+            'penghuni'
         ])->findOrFail($id);
 
         // Jika sudah di-approve, ambil unit yang ditempati
-        // Karena mungkin ada multiple units, query langsung
         $units = collect();
         if ($request->status == 'APPROVED') {
             $units = ApartemenAssign::where('request_id', $request->id)

@@ -1,3 +1,4 @@
+{{-- resources/views/founddesk/create.blade.php --}}
 @extends('layouts.app-sidebar')
 
 @section('content')
@@ -117,13 +118,6 @@
                            value="{{ old('found_by') }}"
                            class="w-full mt-1 px-4 py-2 rounded-lg border"
                            placeholder="Contoh: Petugas Kebersihan">
-                </div>
-
-                <div>
-                    <label class="text-sm font-medium">Detail Lokasi</label>
-                    <textarea name="found_location_detail" rows="2"
-                              class="w-full mt-1 px-4 py-2 rounded-lg border"
-                              placeholder="Contoh: Di kursi taman belakang">{{ old('found_location_detail') }}</textarea>
                 </div>
 
                 <div>

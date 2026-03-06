@@ -117,7 +117,8 @@
                             <div>
                                 <select name="status_selesai" class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" onchange="this.form.submit()">
                                     <option value="">Semua Status</option>
-                                    <option value="SELESAI" {{ request('status_selesai') == 'SELESAI' ? 'selected' : '' }}>Selesai</option>
+                                    <option value="CHECKIN" {{ request('status_selesai') == 'CHECKIN' ? 'selected' : '' }}>Check In</option>
+                                    <option value="SELESAI" {{ request('status_selesai') == 'SELESAI' ? 'selected' : '' }}>Check Out</option>
                                     <option value="DIPINDAH" {{ request('status_selesai') == 'DIPINDAH' ? 'selected' : '' }}>Dipindah</option>
                                     <option value="DIBATALKAN" {{ request('status_selesai') == 'DIBATALKAN' ? 'selected' : '' }}>Dibatalkan</option>
                                 </select>
@@ -144,12 +145,14 @@
                                 <div class="flex flex-wrap gap-1">
                                     @if(request('status_selesai'))
                                     <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium 
-                                        {{ request('status_selesai') == 'SELESAI' ? 'bg-green-100 text-green-800' : 
+                                        {{ request('status_selesai') == 'CHECKIN' ? 'bg-blue-100 text-blue-800' : 
+                                           (request('status_selesai') == 'SELESAI' ? 'bg-green-100 text-green-800' : 
                                            (request('status_selesai') == 'DIPINDAH' ? 'bg-blue-100 text-blue-800' : 
-                                           'bg-red-100 text-red-800') }} whitespace-nowrap">
-                                        {{ request('status_selesai') == 'SELESAI' ? 'Selesai' : 
-                                         (request('status_selesai') == 'DIPINDAH' ? 'Dipindah' : 
-                                         'Dibatalkan') }}
+                                           'bg-red-100 text-red-800')) }} whitespace-nowrap">
+                                        {{ request('status_selesai') == 'CHECKIN' ? 'Check In' : 
+                                           (request('status_selesai') == 'SELESAI' ? 'Check Out' : 
+                                           (request('status_selesai') == 'DIPINDAH' ? 'Dipindah' : 
+                                           'Dibatalkan')) }}
                                     </span>
                                     @endif
                                     @if(request('tanggal_mulai') && request('tanggal_selesai'))
@@ -171,7 +174,8 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
         @php
             $totalHistory = \App\Models\Apartemen\ApartemenHistory::count();
-            $completed = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'SELESAI')->count();
+            $checkin = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'CHECKIN')->count();
+            $checkout = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'SELESAI')->count();
             $transferred = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'DIPINDAH')->count();
             $cancelled = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'DIBATALKAN')->count();
         @endphp
@@ -192,28 +196,28 @@
         
         <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
             <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-green-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                <div class="p-1.5 md:p-2 rounded-lg bg-blue-100 mr-2 md:mr-3">
+                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Selesai</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $completed }}</p>
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Check In</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $checkin }}</p>
                 </div>
             </div>
         </div>
         
         <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
             <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-blue-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                <div class="p-1.5 md:p-2 rounded-lg bg-green-100 mr-2 md:mr-3">
+                    <svg class="w-4 h-4 md:w-5 md:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Dipindah</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $transferred }}</p>
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Check Out</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $checkout }}</p>
                 </div>
             </div>
         </div>
@@ -226,8 +230,8 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Dibatalkan</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $cancelled }}</p>
+                    <p class="text-xs md:text-sm text-gray-500 truncate">Lainnya</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $transferred + $cancelled }}</p>
                 </div>
             </div>
         </div>
@@ -425,21 +429,46 @@
                                     {{-- Status --}}
                                     <td class="py-3 px-2 md:px-3 lg:px-4">
                                         @switch($history->status_selesai)
-                                            @case('SELESAI')
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
-                                                    Selesai
+                                            @case('CHECKIN')
+                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                                    </svg>
+                                                    Check in
                                                 </span>
                                                 @break
+                                                
+                                            @case('SELESAI')
+                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                    </svg>
+                                                    Check out
+                                                </span>
+                                                @break
+                                                
                                             @case('DIPINDAH')
                                                 <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                    </svg>
                                                     Dipindah
                                                 </span>
                                                 @break
+                                                
                                             @case('DIBATALKAN')
                                                 <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 whitespace-nowrap">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
                                                     Dibatalkan
                                                 </span>
                                                 @break
+                                                
+                                            @default
+                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
+                                                    {{ $history->status_selesai }}
+                                                </span>
                                         @endswitch
                                     </td>
 

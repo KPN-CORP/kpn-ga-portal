@@ -55,6 +55,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'ga.help.admin' => \App\Http\Middleware\CheckGAHelpAdmin::class,
             'founddesk.access' => \App\Http\Middleware\FounddeskAccess::class,
+            'public.access' => \App\Http\Middleware\CheckPublicAccess::class,
         ]);
         
         // Middleware groups
