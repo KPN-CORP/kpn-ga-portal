@@ -17,9 +17,13 @@
 
     <!-- Custom Styles: Soft Borders & Shadows -->
     <style>
+        html{
+            zoom:0.8;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f9fafb; /* Soft gray */
+            background-color: #f9fafb;
         }
 
         /* Soft border helpers */

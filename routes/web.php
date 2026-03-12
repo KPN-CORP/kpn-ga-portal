@@ -29,6 +29,16 @@ use App\Http\Controllers\Founddesk\FounddeskController;
 use App\Http\Controllers\Founddesk\FounddeskDispositionController;
 use App\Http\Controllers\Apartemen\PublicAccessController;
 use App\Http\Controllers\Apartemen\QRCodeAdminController;
+use App\Http\Controllers\StockCtl\StockDashboardController;
+use App\Http\Controllers\StockCtl\PermintaanController;
+use App\Http\Controllers\StockCtl\ApprovalL1Controller;
+use App\Http\Controllers\StockCtl\ApprovalAdminController;
+use App\Http\Controllers\StockCtl\BarangController;
+use App\Http\Controllers\StockCtl\StokController;
+use App\Http\Controllers\StockCtl\TransaksiController;
+use App\Http\Controllers\StockCtl\OpnameController;
+use App\Http\Controllers\StockCtl\LaporanController;
+use App\Http\Controllers\StockCtl\SuperadminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -304,6 +314,58 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             ->middleware('ga_admin'); // Middleware khusus GA Admin
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Stok Control
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['auth', 'stock.ctl:user'])->prefix('stock-ctl')->name('stock-ctl.')->group(function () {
+        // Dashboard
+        Route::get('/dashboard', [StockDashboardController::class, 'index'])->name('dashboard');
+
+        // Permintaan (user)
+        Route::resource('permintaan', PermintaanController::class)->only(['index', 'create', 'store', 'show']);
+        Route::get('permintaan/{id}/history', [PermintaanController::class, 'history'])->name('permintaan.history');
+
+        // Approval L1 (atasan) - bisa diakses oleh user yang menjadi approver
+        Route::get('approval/l1', [ApprovalL1Controller::class, 'index'])->name('approval.l1.index');
+        Route::post('approval/l1/{id}/approve', [ApprovalL1Controller::class, 'approve'])->name('approval.l1.approve');
+        Route::post('approval/l1/{id}/reject', [ApprovalL1Controller::class, 'reject'])->name('approval.l1.reject');
+
+        // Approval Admin (hanya admin)
+        Route::middleware('stock.ctl:admin')->group(function () {
+            Route::get('approval/admin', [ApprovalAdminController::class, 'index'])->name('approval.admin.index');
+            Route::post('approval/admin/{id}/approve', [ApprovalAdminController::class, 'approve'])->name('approval.admin.approve');
+            Route::post('approval/admin/{id}/reject', [ApprovalAdminController::class, 'reject'])->name('approval.admin.reject');
+        });
+
+        // Admin (stok, barang, transaksi, opname)
+        Route::middleware('stock.ctl:admin')->group(function () {
+            Route::resource('barang', BarangController::class);
+            Route::get('stok', [StokController::class, 'index'])->name('stok.index');
+            Route::get('stok/awal', [StokController::class, 'createAwal'])->name('stok.awal');
+            Route::post('stok/awal', [StokController::class, 'storeAwal'])->name('stok.awal.store');
+            Route::get('transaksi/masuk', [TransaksiController::class, 'createMasuk'])->name('transaksi.masuk');
+            Route::post('transaksi/masuk', [TransaksiController::class, 'storeMasuk'])->name('transaksi.masuk.store');
+            Route::get('transaksi/keluar', [TransaksiController::class, 'createKeluar'])->name('transaksi.keluar');
+            Route::post('transaksi/keluar', [TransaksiController::class, 'storeKeluar'])->name('transaksi.keluar.store');
+            Route::get('transaksi/transfer', [TransaksiController::class, 'createTransfer'])->name('transaksi.transfer');
+            Route::post('transaksi/transfer', [TransaksiController::class, 'storeTransfer'])->name('transaksi.transfer.store');
+            Route::resource('opname', OpnameController::class);
+            Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
+            Route::post('laporan/pdf', [LaporanController::class, 'pdf'])->name('laporan.pdf');
+            Route::get('transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
+            Route::get('laporan/history', [LaporanController::class, 'history'])->name('laporan.history');
+        });
+
+        // Superadmin (kelola area, user profil)
+        Route::middleware('stock.ctl:superadmin')->group(function () {
+            Route::resource('area-kerja', SuperadminController::class)->parameters(['area-kerja' => 'area'])->names('area');
+            Route::get('user-profil', [SuperadminController::class, 'userProfilIndex'])->name('user-profil.index');
+            Route::get('user-profil/{id}', [SuperadminController::class, 'getUserProfil'])->name('user-profil.get');
+            Route::post('user-profil/{id}', [SuperadminController::class, 'userProfilUpdate'])->name('user-profil.update');
+        });
+    });
     /*
     |--------------------------------------------------------------------------
     | APARTEMEN / MESS (UI ONLY - PHASE 1)
