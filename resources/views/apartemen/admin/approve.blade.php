@@ -779,9 +779,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (totalPenghuniTercover < totalPenghuni) {
-                    e.preventDefault();
-                    alert(`Masih ada ${totalPenghuni - totalPenghuniTercover} penghuni yang belum ditempatkan!`);
-                    return false;
+                    if (!confirm(`Masih ada ${totalPenghuni - totalPenghuniTercover} penghuni yang belum ditempatkan. Lanjutkan approval?`)) {
+                        e.preventDefault();
+                        return false;
+                    }
                 }
                 
                 // Show loading

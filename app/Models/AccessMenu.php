@@ -29,7 +29,10 @@ class AccessMenu extends Model
         'mailing_edit',
         'mailing_proses',
         'ga_help_proses',
-        'ga_help_full_akses'
+        'ga_help_full_akses',
+        'stock_ctl_user',
+        'stock_ctl_admin',
+        'stock_ctl_superadmin',
     ];
     
     protected $casts = [
@@ -52,5 +55,8 @@ class AccessMenu extends Model
         'mailing_proses' => 'boolean',
         'ga_help_proses' => 'boolean',
         'ga_help_full_akses'=> 'boolean',
+        'stock_ctl_user' => 'boolean',
+        'stock_ctl_admin' => 'boolean',
+        'stock_ctl_superadmin' => 'boolean',
     ];
 }

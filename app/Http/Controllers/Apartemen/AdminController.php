@@ -93,39 +93,23 @@ class AdminController extends Controller
         return view('apartemen.admin.index', compact('requests'));
     }
 
-    // APPROVE/REVIEW REQUEST - UNTUK MULTIPLE UNITS
+    // APPROVE/REVIEW REQUEST - TAMPILKAN SEMUA UNIT NON-MAINTENANCE
     public function approve($id)
     {
         $request = ApartemenRequest::with(['penghuni', 'user'])
             ->where('status', 'PENDING')
             ->findOrFail($id);
 
-        // Ambil rentang tanggal dari request (min tanggal_mulai dan max tanggal_selesai)
-        $tanggalMulai = $request->penghuni->min('tanggal_mulai');
-        $tanggalSelesai = $request->penghuni->max('tanggal_selesai');
-
-        // Unit yang TIDAK memiliki assign AKTIF dalam rentang tanggal
-        // dan tidak dalam status MAINTENANCE
+        // Tampilkan semua unit yang tidak dalam maintenance (READY atau TERISI)
+        // Unit TERISI tetap ditampilkan karena mungkin bisa digunakan untuk periode berbeda
         $availableUnits = ApartemenUnit::with('apartemen')
             ->where('status', '!=', 'MAINTENANCE')
-            ->whereDoesntHave('assigns', function($query) use ($tanggalMulai, $tanggalSelesai) {
-                $query->where('status', 'AKTIF')
-                      ->where(function($q) use ($tanggalMulai, $tanggalSelesai) {
-                          // Cek apakah ada assign yang bentrok tanggalnya
-                          $q->whereBetween('tanggal_mulai', [$tanggalMulai, $tanggalSelesai])
-                            ->orWhereBetween('tanggal_selesai', [$tanggalMulai, $tanggalSelesai])
-                            ->orWhere(function($q2) use ($tanggalMulai, $tanggalSelesai) {
-                                $q2->where('tanggal_mulai', '<=', $tanggalMulai)
-                                   ->where('tanggal_selesai', '>=', $tanggalSelesai);
-                            });
-                      });
-            })
             ->get();
 
         return view('apartemen.admin.approve', compact('request', 'availableUnits'));
     }
 
-    // PROCESS APPROVAL - VERSI MULTIPLE UNITS DENGAN TANGGAL PER UNIT
+    // PROCESS APPROVAL - VERSI PARSIAL & PER-UNIT DATES
     public function approveProcess(Request $request, $id)
     {
         Log::info('=== APPROVE PROCESS START ===');
@@ -136,13 +120,12 @@ class AdminController extends Controller
         
         $apartemenRequest = ApartemenRequest::with(['penghuni'])->findOrFail($id);
 
-        // Validasi action
         $action = $request->action;
         
         DB::beginTransaction();
         try {
             if ($action === 'approve') {
-                // Validasi untuk approve dengan multiple units - TANGGAL PER UNIT
+                // Validasi per unit (tanpa validasi semua penghuni harus tercover)
                 $request->validate([
                     'penempatan' => 'required|array|min:1',
                     'penempatan.*.unit_id' => 'required|exists:tb_apartemen_unit,id',
@@ -151,21 +134,10 @@ class AdminController extends Controller
                     'penempatan.*.tanggal_selesai' => 'required|date|after:penempatan.*.tanggal_mulai',
                 ]);
 
-                // Debug: Log data yang diterima
                 Log::info('Penempatan data received:', $request->penempatan);
                 
-                // Validasi bahwa semua penghuni tercover
-                $penghuniTercover = collect();
-                foreach ($request->penempatan as $item) {
-                    $penghuniTercover = $penghuniTercover->merge($item['penghuni_ids']);
-                }
-                
-                $semuaPenghuniIds = $apartemenRequest->penghuni->pluck('id')->toArray();
-                $selisih = array_diff($semuaPenghuniIds, $penghuniTercover->toArray());
-                
-                if (!empty($selisih)) {
-                    return back()->with('error', 'Ada penghuni yang belum ditetapkan ke unit!');
-                }
+                // HAPUS validasi "semua penghuni harus tercover" – sekarang approval parsial diperbolehkan
+                // (blok kode yang memeriksa $selisih dihapus)
                 
                 // Validasi kapasitas unit dan cek bentrok tanggal PER UNIT
                 foreach ($request->penempatan as $item) {
@@ -246,9 +218,14 @@ class AdminController extends Controller
                 }
                 
                 DB::commit();
-                
+
+                // Hitung jumlah yang ditempatkan untuk pesan sukses
+                $totalPenghuni = $apartemenRequest->penghuni->count();
+                $jumlahDitempatkan = collect($request->penempatan)->sum(fn($item) => count($item['penghuni_ids']));
+                $pesan = "Permintaan berhasil disetujui. $jumlahDitempatkan dari $totalPenghuni penghuni telah ditempatkan.";
+
                 return redirect()->route('apartemen.admin.index')
-                    ->with('success', 'Permintaan berhasil disetujui dan penghuni telah ditempatkan!');
+                    ->with('success', $pesan);
                 
             } elseif ($action === 'reject') {
                 // Validasi untuk reject
