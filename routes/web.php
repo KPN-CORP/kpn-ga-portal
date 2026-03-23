@@ -39,7 +39,14 @@ use App\Http\Controllers\StockCtl\TransaksiController;
 use App\Http\Controllers\StockCtl\OpnameController;
 use App\Http\Controllers\StockCtl\LaporanController;
 use App\Http\Controllers\StockCtl\SuperadminController;
-
+use App\Http\Controllers\Drms\RequestController;
+use App\Http\Controllers\Drms\AppL1Controller;
+use App\Http\Controllers\Drms\AppAdminController;
+use App\Http\Controllers\Drms\DriverController;
+use App\Http\Controllers\Drms\VehicleController;
+use App\Http\Controllers\Drms\VoucherController;
+use App\Http\Controllers\Work\WorkReportController;
+use App\Http\Controllers\Work\WorkReportCategoryController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -366,6 +373,42 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::post('user-profil/{id}', [SuperadminController::class, 'userProfilUpdate'])->name('user-profil.update');
         });
     });
+
+/*
+|--------------------------------------------------------------------------
+| DRIVER REQUEST MANAGEMENT SYSTEM (DRMS)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
+    // Request User
+    Route::get('requests', [RequestController::class, 'index'])->name('requests.index');
+    Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
+    Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
+    Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
+
+    // Approval L1
+    Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
+        Route::get('/', [AppL1Controller::class, 'index'])->name('index');
+        Route::post('{id}/approve', [AppL1Controller::class, 'approve'])->name('approve');
+        Route::post('{id}/reject', [AppL1Controller::class, 'reject'])->name('reject');
+    });
+
+    // Approval Admin
+    Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
+        Route::get('/', [AppAdminController::class, 'index'])->name('index');
+        Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
+        Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
+    });
+
+    // Master Data (hanya admin)
+    Route::middleware(['can:isDrmsAdmin'])->group(function () {
+        // Letakkan route khusus SEBELUM resource
+        Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
+        Route::resource('drivers', DriverController::class);
+        Route::resource('vehicles', VehicleController::class);
+        Route::resource('vouchers', VoucherController::class);
+    });
+});
     /*
     |--------------------------------------------------------------------------
     | APARTEMEN / MESS (UI ONLY - PHASE 1)
@@ -600,6 +643,35 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         // TAMBAHKAN INI - Route untuk download via TrackFotoController
         Route::get('/track-foto/download/{id}', [App\Http\Controllers\TrackFotoController::class, 'download'])
             ->name('track-foto.download');
+    });
+
+    // Work Reports Routes
+    Route::middleware(['auth'])->prefix('work-reports')->name('work-reports.')->group(function () {
+        Route::get('/', [WorkReportController::class, 'index'])->name('index');
+        Route::get('/create', [WorkReportController::class, 'create'])->name('create');
+        Route::post('/', [WorkReportController::class, 'store'])->name('store');
+        Route::get('/{workReport}/edit', [WorkReportController::class, 'edit'])->name('edit');
+        Route::put('/{workReport}', [WorkReportController::class, 'update'])->name('update');
+        Route::delete('/{workReport}', [WorkReportController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::get('/private-storage/{path}', function ($path) {
+        $fullPath = storage_path('app/private/' . $path);
+        if (!file_exists($fullPath)) {
+            abort(404);
+        }
+        return response()->file($fullPath);
+    })->where('path', '.*')->name('private.storage')->middleware('auth');
+
+
+    // Work Categories Routes (hanya admin)
+    Route::middleware(['auth'])->prefix('work-reports-categories')->name('work-reports.categories.')->group(function () {
+        Route::get('/', [WorkReportCategoryController::class, 'index'])->name('index');
+        Route::get('/create', [WorkReportCategoryController::class, 'create'])->name('create');
+        Route::post('/', [WorkReportCategoryController::class, 'store'])->name('store');
+        Route::get('/{workReportCategory}/edit', [WorkReportCategoryController::class, 'edit'])->name('edit');
+        Route::put('/{workReportCategory}', [WorkReportCategoryController::class, 'update'])->name('update');
+        Route::delete('/{workReportCategory}', [WorkReportCategoryController::class, 'destroy'])->name('destroy');
     });
     /*
     |--------------------------------------------------------------------------

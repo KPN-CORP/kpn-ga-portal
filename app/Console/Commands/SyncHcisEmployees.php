@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Console\Commands;
 
 use App\Models\ApiEmpHcis;
@@ -10,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class SyncHcisEmployees extends Command
 {
     protected $signature = 'hcis:sync-employees';
-    protected $description = 'Sinkronisasi data karyawan dari HCIS ke database lokal';
+    protected $description = 'Sinkronisasi data karyawan dari HCIS ke database lokal (termasuk unit)';
 
     protected $service;
 
@@ -45,6 +44,7 @@ class SyncHcisEmployees extends Command
                     'email'          => $empData['email'] ?? null,
                     'group_company'  => $empData['group_company'] ?? null,
                     'office_area'    => $empData['office_area'] ?? null,
+                    'unit'           => $empData['unit'] ?? null, // <-- tambahkan field unit
                     'manager_l1_id'  => $empData['manager_l1_id'] ?? null,
                     'manager_l2_id'  => $empData['manager_l2_id'] ?? null,
                 ];

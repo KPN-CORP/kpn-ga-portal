@@ -393,7 +393,7 @@
             'field' => 'car_dash',
             'title' => 'Car Service',
             'desc' => 'Layanan mobil',
-            'url' => '#',
+            'url' => '/drms/requests',
             'color' => '#16a085',
             'icon' => 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
         ],
@@ -431,9 +431,9 @@
         ],
         'reports' => [
             'field' => 'reports_dash',
-            'title' => 'Reports',
-            'desc' => 'Laporan & statistik',
-            'url' => '/reports',
+            'title' => 'GA Reports',
+            'desc' => 'GA Reports',
+            'url' => '/work-reports',
             'color' => '#1abc9c',
             'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
         ],
@@ -496,7 +496,7 @@
             'field' => 'car_admin_dash',
             'title' => 'GA Car Service',
             'desc' => 'Admin mobil',
-            'url' => '/car/admin',
+            'url' => '/drms/approval/admin',
             'color' => '#16a085',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
         ],

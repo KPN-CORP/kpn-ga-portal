@@ -17,10 +17,20 @@ class Permintaan extends Model
     const STATUS_REJECTED = 'ditolak';
 
     protected $fillable = [
-        'id_user_pemohon', 'id_barang', 'jumlah', 'keterangan', 'status',
-        'id_approver', 'tanggal_approval', 'alasan_tolak', 'id_area_kerja',
-        'approved_l1_by', 'approved_l1_at', 'approved_admin_by', 'approved_admin_at',
-        'rejected_by', 'rejected_at', 'rejection_reason'
+        // 'nomor_permintaan' dihapus karena tidak digunakan
+        'id_user_pemohon',
+        'id_barang',
+        'jumlah',
+        'keterangan',
+        'status',
+        'id_area_kerja',
+        'approved_l1_by',
+        'approved_l1_at',
+        'approved_admin_by',
+        'approved_admin_at',
+        'rejected_by',
+        'rejected_at',
+        'rejection_reason',
     ];
 
     protected $casts = [

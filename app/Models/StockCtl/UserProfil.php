@@ -12,7 +12,13 @@ class UserProfil extends Model
     public $incrementing = false;
     public $timestamps = false;
 
-    protected $fillable = ['id_user', 'id_bisnis_unit', 'id_area_kerja', 'id_approver'];
+    protected $fillable = [
+        'id_user',
+        'id_bisnis_unit',
+        'id_area_kerja',
+        'unit',
+        'id_approver',
+    ];
 
     public function user()
     {

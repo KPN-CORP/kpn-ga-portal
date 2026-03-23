@@ -22,7 +22,15 @@ class PermintaanController extends Controller
         $user = Auth::user();
         $access = session('stock_ctl_access');
 
-        $query = Permintaan::with('barang', 'pemohon', 'approver');
+        // Query utama dengan join ke users untuk mendapatkan nama approver
+        $query = Permintaan::select(
+                'stock_ctl_permintaan.*',
+                'l1.name as approver_l1_name',
+                'admin.name as approver_admin_name'
+            )
+            ->leftJoin('users as l1', 'l1.id', '=', 'stock_ctl_permintaan.approved_l1_by')
+            ->leftJoin('users as admin', 'admin.id', '=', 'stock_ctl_permintaan.approved_admin_by')
+            ->with('barang', 'pemohon.profil'); // tetap eager load relasi lain
 
         // Filter berdasarkan role
         if ($access['is_super']) {
@@ -44,7 +52,7 @@ class PermintaanController extends Controller
 
         // Filter berdasarkan request
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('stock_ctl_permintaan.status', $request->status);
         }
 
         if ($request->filled('search')) {
@@ -56,14 +64,16 @@ class PermintaanController extends Controller
         }
 
         if ($request->filled('dari')) {
-            $query->whereDate('tanggal_permintaan', '>=', $request->dari);
+            $query->whereDate('stock_ctl_permintaan.tanggal_permintaan', '>=', $request->dari);
         }
 
         if ($request->filled('sampai')) {
-            $query->whereDate('tanggal_permintaan', '<=', $request->sampai);
+            $query->whereDate('stock_ctl_permintaan.tanggal_permintaan', '<=', $request->sampai);
         }
 
-        $permintaan = $query->orderBy('tanggal_permintaan', 'desc')->paginate(15)->withQueryString();
+        $permintaan = $query->orderBy('stock_ctl_permintaan.tanggal_permintaan', 'desc')
+                            ->paginate(15)
+                            ->withQueryString();
 
         // Ambil semua barang untuk dropdown modal create
         $barang = Barang::all();
@@ -104,12 +114,12 @@ class PermintaanController extends Controller
         }
 
         $permintaan = Permintaan::create([
-            'id_user_pemohon' => $user->id,
-            'id_barang'       => $request->id_barang,
-            'jumlah'          => $request->jumlah,
-            'keterangan'      => $request->keterangan,
-            'status'          => Permintaan::STATUS_PENDING_L1,
-            'id_area_kerja'   => $profil->id_area_kerja,
+            'id_user_pemohon'    => $user->id,
+            'id_barang'          => $request->id_barang,
+            'jumlah'             => $request->jumlah,
+            'keterangan'         => $request->keterangan,
+            'status'             => Permintaan::STATUS_PENDING_L1,
+            'id_area_kerja'      => $profil->id_area_kerja,
         ]);
 
         // Kirim notifikasi ke atasan (L1)
@@ -129,7 +139,7 @@ class PermintaanController extends Controller
      */
     public function show($id)
     {
-        $permintaan = Permintaan::with('barang', 'pemohon', 'approver', 'areaKerja')
+        $permintaan = Permintaan::with('barang', 'pemohon', 'approverL1', 'approverAdmin', 'areaKerja')
             ->findOrFail($id);
         $this->authorizeView($permintaan);
         return view('stock-ctl.permintaan.show', compact('permintaan'));
