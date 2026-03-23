@@ -26,7 +26,8 @@
                     <th class="px-4 py-3 text-left">Nama</th>
                     <th class="px-4 py-3 text-left">Bisnis Unit</th>
                     <th class="px-4 py-3 text-left">Area Kerja</th>
-                    <th class="px-4 py-3 text-left">Approver</th>
+                    <th class="px-4 py-3 text-left">Unit</th> {{-- Kolom baru --}}
+                    <th class="px-4 py-3 text-left">Approver</th> {{-- Kolom baru --}}
                     <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
@@ -37,13 +38,21 @@
                     <td class="px-4 py-3">{{ $profil->user->name ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $profil->bisnisUnit->nama_bisnis_unit ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $profil->areaKerja->nama_area ?? '-' }}</td>
+                    <td class="px-4 py-3">
+                        {{-- Tampilkan unit tanpa bagian dalam kurung --}}
+                        @if($profil->unit)
+                            {{ explode(' (', $profil->unit)[0] }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="px-4 py-3">{{ $profil->approver->name ?? '-' }}</td>
                     <td class="px-4 py-3">
                         <button onclick="showEditModal({{ $profil->id_user }})" class="text-blue-600 hover:underline">Edit</button>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="py-10 text-center text-gray-500">Belum ada data profil user</td></tr>
+                <tr><td colspan="7" class="py-10 text-center text-gray-500">Belum ada data profil user</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -98,7 +107,6 @@
 
 <script>
 function showEditModal(userId) {
-    // Fetch data user via AJAX (pastikan route GET sudah tersedia)
     fetch(`/stock-ctl/user-profil/${userId}`)
         .then(res => res.json())
         .then(data => {

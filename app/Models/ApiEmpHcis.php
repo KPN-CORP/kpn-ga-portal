@@ -17,6 +17,7 @@ class ApiEmpHcis extends Model
         'email',
         'group_company',
         'office_area',
+        'unit',
         'manager_l1_id',
         'manager_l2_id',
     ];

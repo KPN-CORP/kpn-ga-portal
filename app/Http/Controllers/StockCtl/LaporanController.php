@@ -200,14 +200,20 @@ class LaporanController extends Controller
 
     private function getDataPermintaan($request, $access)
     {
-        $query = Permintaan::with('pemohon', 'barang', 'areaKerja', 'approverL1', 'approverAdmin');
+        $query = Permintaan::with(
+                'pemohon.profil',        // <-- tambahkan ini
+                'barang',
+                'areaKerja',
+                'approverL1',
+                'approverAdmin'
+            );
 
         if (!$access['is_super']) {
             $query->whereExists(function ($q) use ($access) {
                 $q->select(DB::raw(1))
-                  ->from('stock_ctl_user_profil')
-                  ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
-                  ->where('stock_ctl_user_profil.id_bisnis_unit', $access['id_bisnis_unit']);
+                ->from('stock_ctl_user_profil')
+                ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
+                ->where('stock_ctl_user_profil.id_bisnis_unit', $access['id_bisnis_unit']);
             });
         }
 
@@ -228,6 +234,7 @@ class LaporanController extends Controller
         }
 
         $permintaan = $query->orderBy('tanggal_permintaan', 'desc')->get();
+
         return compact('permintaan');
     }
 }

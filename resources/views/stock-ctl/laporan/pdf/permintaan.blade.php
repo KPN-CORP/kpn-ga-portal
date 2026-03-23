@@ -11,9 +11,6 @@
         .header { margin-bottom: 20px; }
         .filter { margin-bottom: 10px; font-size: 11px; color: #555; }
         .text-right { text-align: right; }
-        .status-pending { color: #856404; background-color: #fff3cd; }
-        .status-approved { color: #155724; background-color: #d4edda; }
-        .status-rejected { color: #721c24; background-color: #f8d7da; }
     </style>
 </head>
 <body>
@@ -29,8 +26,10 @@
     <table>
         <thead>
             <tr>
+                <th>No. Permintaan</th>
                 <th>Tanggal</th>
                 <th>Pemohon</th>
+                <th>Unit</th> {{-- Kolom baru --}}
                 <th>Area</th>
                 <th>Barang</th>
                 <th class="text-right">Jumlah</th>
@@ -43,8 +42,16 @@
         <tbody>
             @forelse($permintaan as $item)
             <tr>
+                <td>G-SC-{{ $item->id_permintaan }}</td>
                 <td>{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}</td>
                 <td>{{ $item->pemohon->name ?? '-' }}</td>
+                <td>
+                    @if($item->pemohon && $item->pemohon->profil && $item->pemohon->profil->unit)
+                        {{ explode(' (', $item->pemohon->profil->unit)[0] }}
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ $item->areaKerja->nama_area ?? '-' }}</td>
                 <td>{{ $item->barang->nama_barang ?? '-' }}</td>
                 <td class="text-right">{{ number_format($item->jumlah) }}</td>
@@ -59,7 +66,7 @@
                 <td>{{ $item->approverAdmin->name ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" style="text-align: center;">Tidak ada data</td></tr>
+            <tr><td colspan="11" style="text-align: center;">Tidak ada data</td></tr>
             @endforelse
         </tbody>
     </table>

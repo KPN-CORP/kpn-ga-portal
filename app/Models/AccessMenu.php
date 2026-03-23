@@ -33,6 +33,11 @@ class AccessMenu extends Model
         'stock_ctl_user',
         'stock_ctl_admin',
         'stock_ctl_superadmin',
+        'drms_user',
+        'drms_admin',
+        'drms_superadmin',
+        'work_user',      // tambah
+        'work_admin',     // tambah
     ];
     
     protected $casts = [
@@ -58,5 +63,10 @@ class AccessMenu extends Model
         'stock_ctl_user' => 'boolean',
         'stock_ctl_admin' => 'boolean',
         'stock_ctl_superadmin' => 'boolean',
+        'drms_user'=> 'boolean',
+        'drms_admin'=> 'boolean',
+        'drms_superadmin'=> 'boolean',
+        'work_user' => 'boolean',   // tambah
+        'work_admin' => 'boolean',  // tambah
     ];
 }
