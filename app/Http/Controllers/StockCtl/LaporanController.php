@@ -11,6 +11,7 @@ use App\Models\StockCtl\Permintaan;
 use App\Models\StockCtl\LaporanHistory;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
 
 class LaporanController extends Controller
 {
@@ -99,6 +100,69 @@ class LaporanController extends Controller
         $this->saveHistory($request);
 
         return $pdf->download('laporan_' . $request->jenis . '_' . date('YmdHis') . '.pdf');
+    }
+
+    /**
+     * Generate laporan dalam format CSV (Excel).
+     */
+    public function excel(Request $request)
+    {
+        $request->validate([
+            'jenis'         => 'required|in:stok,mutasi,permintaan',
+            'id_area'       => 'nullable|exists:stock_ctl_area_kerja,id_area_kerja',
+            'id_barang'     => 'nullable|exists:stock_ctl_barang,id_barang',
+            'tanggal_awal'  => 'nullable|date',
+            'tanggal_akhir' => 'nullable|date|after_or_equal:tanggal_awal',
+        ]);
+
+        $access = session('stock_ctl_access');
+
+        // Validasi area
+        if (!$access['is_super'] && $request->id_area) {
+            $area = AreaKerja::find($request->id_area);
+            if (!$area || $area->id_bisnis_unit != $access['id_bisnis_unit']) {
+                abort(403, 'Anda tidak memiliki akses ke area tersebut.');
+            }
+        }
+
+        // Ambil data sesuai jenis
+        switch ($request->jenis) {
+            case 'stok':
+                $data = $this->getDataStok($request, $access);
+                $headers = ['Area', 'Kode Barang', 'Nama Barang', 'Satuan', 'Stok', 'Stok Minimum', 'Status', 'Update Terakhir'];
+                $rows = $this->formatStokRows($data['stok']);
+                $filename = 'laporan_stok_' . date('YmdHis') . '.csv';
+                break;
+            case 'mutasi':
+                $data = $this->getDataMutasi($request, $access);
+                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
+                $rows = $this->formatMutasiRows($data['transaksi']);
+                $filename = 'laporan_mutasi_' . date('YmdHis') . '.csv';
+                break;
+            case 'permintaan':
+                $data = $this->getDataPermintaan($request, $access);
+                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Status', 'Approver L1', 'Approver Admin'];
+                $rows = $this->formatPermintaanRows($data['permintaan']);
+                $filename = 'laporan_permintaan_' . date('YmdHis') . '.csv';
+                break;
+            default:
+                abort(400);
+        }
+
+        // Simpan history
+        $this->saveHistory($request);
+
+        // Generate CSV
+        return Response::streamDownload(function () use ($headers, $rows) {
+            $output = fopen('php://output', 'w');
+            // Tambahkan BOM agar UTF-8 terbaca di Excel
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, $headers);
+            foreach ($rows as $row) {
+                fputcsv($output, $row);
+            }
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /**
@@ -201,7 +265,7 @@ class LaporanController extends Controller
     private function getDataPermintaan($request, $access)
     {
         $query = Permintaan::with(
-                'pemohon.profil',        // <-- tambahkan ini
+                'pemohon.profil',
                 'barang',
                 'areaKerja',
                 'approverL1',
@@ -234,7 +298,73 @@ class LaporanController extends Controller
         }
 
         $permintaan = $query->orderBy('tanggal_permintaan', 'desc')->get();
-
         return compact('permintaan');
+    }
+
+    // ----- Formatting Helpers -----
+
+    private function formatStokRows($stok)
+    {
+        return $stok->map(function ($item) {
+            return [
+                $item->areaKerja->nama_area ?? '-',
+                $item->barang->kode_barang ?? '-',
+                $item->barang->nama_barang ?? '-',
+                $item->barang->satuan ?? '-',
+                number_format($item->jumlah, 2),
+                number_format($item->stok_minimum, 2),
+                $item->jumlah <= $item->stok_minimum ? 'Menipis' : 'Aman',
+                $item->last_update ? \Carbon\Carbon::parse($item->last_update)->format('d M Y H:i') : '-',
+            ];
+        })->toArray();
+    }
+
+    private function formatMutasiRows($transaksi)
+    {
+        return $transaksi->map(function ($item) {
+            return [
+                \Carbon\Carbon::parse($item->tanggal)->format('d M Y H:i'),
+                ucfirst($item->jenis),
+                $item->barang->nama_barang ?? '-',
+                number_format($item->jumlah, 2),
+                $item->barang->satuan ?? '-',
+                $item->areaAsal->nama_area ?? '-',
+                $item->areaTujuan->nama_area ?? '-',
+                $item->keterangan ?? '-',
+                $item->user->name ?? '-',
+            ];
+        })->toArray();
+    }
+
+    private function formatPermintaanRows($permintaan)
+    {
+        return $permintaan->map(function ($item) {
+            $unit = optional($item->pemohon->profil)->unit ?? '';
+            $unitName = $unit ? explode(' (', $unit)[0] : '-';
+            return [
+                'G-SC-' . $item->id_permintaan,
+                \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i'),
+                $item->pemohon->name ?? '-',
+                $unitName,
+                $item->areaKerja->nama_area ?? '-',
+                $item->barang->nama_barang ?? '-',
+                number_format($item->jumlah, 2),
+                $item->barang->satuan ?? '-',
+                $this->getStatusLabel($item->status),
+                $item->approverL1->name ?? '-',
+                $item->approverAdmin->name ?? '-',
+            ];
+        })->toArray();
+    }
+
+    private function getStatusLabel($status)
+    {
+        $labels = [
+            'pending_l1' => 'Menunggu L1',
+            'pending_admin' => 'Menunggu Admin',
+            'disetujui' => 'Disetujui',
+            'ditolak' => 'Ditolak',
+        ];
+        return $labels[$status] ?? ucfirst($status);
     }
 }

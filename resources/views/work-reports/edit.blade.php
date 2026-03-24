@@ -26,7 +26,7 @@
             @enderror
         </div>
 
-        <!-- Foto Sebelum (with preview) -->
+        <!-- Foto Sebelum (with preview & kamera HP) -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Foto Sebelum (opsional)</label>
             @if($workReport->photo_before)
@@ -35,13 +35,14 @@
                     <p class="text-xs text-gray-500 mt-1">Foto sebelum saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_before" accept="image/*" class="mt-1 block w-full" id="photo_before">
+            <input type="file" name="photo_before" accept="image/*" capture="camera" class="mt-1 block w-full" id="photo_before">
+            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_before')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
         </div>
 
-        <!-- Foto Sesudah (with preview) -->
+        <!-- Foto Sesudah (with preview & kamera HP) -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Foto Sesudah (opsional)</label>
             @if($workReport->photo_after)
@@ -50,7 +51,8 @@
                     <p class="text-xs text-gray-500 mt-1">Foto sesudah saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_after" accept="image/*" class="mt-1 block w-full" id="photo_after">
+            <input type="file" name="photo_after" accept="image/*" capture="camera" class="mt-1 block w-full" id="photo_after">
+            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_after')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
@@ -134,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (beforeInput && beforeInput.files.length) filesToCompress.push({ input: beforeInput, name: 'photo_before' });
         if (afterInput && afterInput.files.length) filesToCompress.push({ input: afterInput, name: 'photo_after' });
 
+        // Jika tidak ada file baru, submit biasa
         if (filesToCompress.length === 0) {
             form.submit();
             return;
@@ -146,8 +149,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = input.files[0];
             try {
                 const compressed = await imageCompression(file, {
-                    maxSizeMB: 2,
-                    maxWidthOrHeight: 1200,
+                    maxSizeMB: 2,           // target ukuran setelah kompresi
+                    maxWidthOrHeight: 1200, // ukuran maksimal
                     useWebWorker: true,
                     fileType: 'image/jpeg',
                     initialQuality: 0.75,

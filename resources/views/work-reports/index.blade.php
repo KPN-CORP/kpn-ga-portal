@@ -76,7 +76,9 @@
                     @if($report->photo_before)
                         <div>
                             <p class="text-xs text-gray-500 mb-1">Sebelum</p>
-                            <img src="{{ route('private.storage', $report->photo_before) }}" class="w-full h-32 object-cover rounded">
+                            <img src="{{ route('private.storage', $report->photo_before) }}" 
+                                 class="w-full h-32 object-cover rounded cursor-pointer report-image" 
+                                 alt="Foto sebelum">
                         </div>
                     @else
                         <div class="bg-gray-100 h-32 flex items-center justify-center text-gray-400 rounded">
@@ -86,7 +88,9 @@
                     @if($report->photo_after)
                         <div>
                             <p class="text-xs text-gray-500 mb-1">Sesudah</p>
-                            <img src="{{ route('private.storage', $report->photo_after) }}" class="w-full h-32 object-cover rounded">
+                            <img src="{{ route('private.storage', $report->photo_after) }}" 
+                                 class="w-full h-32 object-cover rounded cursor-pointer report-image" 
+                                 alt="Foto sesudah">
                         </div>
                     @else
                         <div class="bg-gray-100 h-32 flex items-center justify-center text-gray-400 rounded">
@@ -141,3 +145,61 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<!-- Modal untuk popup gambar besar -->
+<div id="imageModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-75 transition-opacity" style="display: none;">
+    <div class="relative max-w-5xl max-h-screen p-4">
+        <button id="closeModalBtn" class="absolute top-2 right-2 text-white text-3xl font-bold hover:text-gray-300">&times;</button>
+        <img id="modalImage" class="max-w-full max-h-screen object-contain" alt="Gambar besar">
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const closeBtn = document.getElementById('closeModalBtn');
+
+    // Fungsi buka modal
+    function openModal(imgSrc) {
+        modalImg.src = imgSrc;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Fungsi tutup modal
+    function closeModal() {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+        modalImg.src = '';
+    }
+
+    // Pasang event listener ke semua gambar dengan class report-image
+    const reportImages = document.querySelectorAll('.report-image');
+    reportImages.forEach(img => {
+        img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openModal(img.src);
+        });
+    });
+
+    // Tutup modal saat klik tombol close
+    closeBtn.addEventListener('click', closeModal);
+
+    // Tutup modal saat klik backdrop
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Tutup modal dengan tombol Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeModal();
+        }
+    });
+});
+</script>
+@endpush

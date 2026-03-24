@@ -7,7 +7,7 @@
     </div>
 
     <div class="bg-white border rounded-xl p-6">
-        <form method="POST" action="{{ route('stock-ctl.laporan.pdf') }}" target="_blank">
+        <form method="POST" id="laporan-form" target="_blank">
             @csrf
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -47,8 +47,11 @@
                 </div>
             </div>
             <div class="mt-6 flex justify-end">
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                <button type="button" id="btn-pdf" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
                     <i class="fas fa-print mr-1"></i> Cetak PDF
+                </button>
+                <button type="button" id="btn-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg ml-2">
+                    <i class="fas fa-file-excel mr-1"></i> Cetak Excel
                 </button>
             </div>
         </form>
@@ -74,7 +77,7 @@
                             <th class="px-4 py-2 text-left">Barang</th>
                             <th class="px-4 py-2 text-left">Periode</th>
                             <th class="px-4 py-2 text-left">User</th>
-                        </tr>
+                         </tr>
                     </thead>
                     <tbody class="divide-y">
                         @foreach($recentHistory as $h)
@@ -111,6 +114,16 @@
             } else {
                 barangField.classList.add('hidden');
             }
+        });
+
+        const form = document.getElementById('laporan-form');
+        document.getElementById('btn-pdf').addEventListener('click', function() {
+            form.action = "{{ route('stock-ctl.laporan.pdf') }}";
+            form.submit();
+        });
+        document.getElementById('btn-excel').addEventListener('click', function() {
+            form.action = "{{ route('stock-ctl.laporan.excel') }}";
+            form.submit();
         });
     </script>
 </div>
