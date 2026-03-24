@@ -84,7 +84,11 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    @if(auth()->user()->can('apartemen.admin') ?? false)
+                    {{-- ########################## --}}
+                    {{-- FORCE ADMIN VIEW FOR TESTING --}}
+                    {{-- Change to @if(true) to always see admin menu --}}
+                    {{-- ########################## --}}
+                    @if(true)   {{-- Ganti dengan kondisi asli: auth()->user()->can('apartemen.admin') ?? false --}}
                         {{-- ADMIN MENU --}}
                         {{-- Dashboard GA (main GA dashboard) --}}
                         @if(Route::has('dashboard'))
@@ -92,19 +96,10 @@
                             <a href="{{ route('dashboard') }}" 
                                class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                                 <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard GA</span>
-                            </a>
-                        </li>
-                        @endif
-
-                        {{-- Dashboard Apartemen --}}
-                        <li>
-                            <a href="{{ route('apartemen.admin.dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
+                        @endif
 
                         {{-- Status Aktif (user view) --}}
                         <li>
@@ -133,71 +128,7 @@
                             </a>
                         </li>
 
-                        <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Manajemen</li>
-
-                        {{-- Permintaan Pending --}}
-                        <li>
-                            <a href="{{ route('apartemen.admin.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.index') ? 'active' : '' }}">
-                                <i class="fas fa-inbox mr-3 text-gray-500 opacity-70"></i>
-                                <span>Permintaan</span>
-                                @php
-                                    $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
-                                @endphp
-                                @if($pendingCount > 0)
-                                    <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingCount }}</span>
-                                @endif
-                            </a>
-                        </li>
-
-                        {{-- Unit (Apartemen & Unit) --}}
-                        <li>
-                            <a href="{{ route('apartemen.admin.apartemen') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.apartemen*') ? 'active' : '' }}">
-                                <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
-                                <span>Unit</span>
-                            </a>
-                        </li>
-
-                        {{-- Penghuni Aktif (Monitoring) --}}
-                        <li>
-                            <a href="{{ route('apartemen.admin.monitoring') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.monitoring') ? 'active' : '' }}">
-                                <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
-                                <span>Penghuni Aktif</span>
-                            </a>
-                        </li>
-
-                        {{-- Riwayat (history penghuni) --}}
-                        <li>
-                            <a href="{{ route('apartemen.admin.history') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.history') ? 'active' : '' }}">
-                                <i class="fas fa-history mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat</span>
-                            </a>
-                        </li>
-
-                        {{-- QR Code Management (opsional) --}}
-                        @if(Route::has('apartemen.admin.access-codes'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.access-codes') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.access-codes*') ? 'active' : '' }}">
-                                <i class="fas fa-qrcode mr-3 text-gray-500 opacity-70"></i>
-                                <span>QR Code Akses</span>
-                            </a>
-                        </li>
-                        @endif
-
-                        {{-- Laporan (opsional) --}}
-                        @if(Route::has('apartemen.admin.report'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.report') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.report') ? 'active' : '' }}">
-                                <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
-                                <span>Laporan</span>
-                            </a>
-                        </li>
-                        @endif
+                        
                     @else
                         {{-- USER MENU --}}
                         <li>
