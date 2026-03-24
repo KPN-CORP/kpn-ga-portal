@@ -361,6 +361,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::resource('opname', OpnameController::class);
             Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
             Route::post('laporan/pdf', [LaporanController::class, 'pdf'])->name('laporan.pdf');
+            Route::post('laporan/excel', [LaporanController::class, 'excel'])->name('laporan.excel');
             Route::get('transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
             Route::get('laporan/history', [LaporanController::class, 'history'])->name('laporan.history');
         });
