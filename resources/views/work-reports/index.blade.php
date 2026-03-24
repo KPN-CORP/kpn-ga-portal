@@ -48,24 +48,23 @@
                 <input type="text" name="location" value="{{ $location ?? '' }}" class="mt-1 block w-48 rounded-md border-gray-300 shadow-sm" placeholder="Cari lokasi...">
             </div>
 
-            <div class="flex space-x-2">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Tampilkan</button>
-                <a href="{{ route('work-reports.export', request()->query()) }}" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition">
-                    <i class="fas fa-file-excel mr-1"></i> Export Excel
-                </a>
+            <!-- Tombol & Info Jumlah -->
+            <div class="flex-1 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex space-x-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Tampilkan</button>
+                    <a href="{{ route('work-reports.export', request()->query()) }}" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition">
+                        <i class="fas fa-file-excel mr-1"></i> Export Excel
+                    </a>
+                </div>
+                <div class="text-gray-600">
+                    Menampilkan <strong>{{ $reports->count() }}</strong> laporan
+                    @if($categoryId || $location)
+                        <span class="text-sm text-gray-500">(filter)</span>
+                        <a href="{{ route('work-reports.index', ['month' => $month]) }}" class="ml-2 text-blue-600 hover:underline text-sm">Reset Filter</a>
+                    @endif
+                </div>
             </div>
         </form>
-    </div>
-
-    <!-- Info jumlah data & reset filter -->
-    <div class="flex justify-between items-center mb-4">
-        <div class="text-gray-600">
-            Menampilkan <strong>{{ $reports->count() }}</strong> laporan
-            @if($categoryId || $location)
-                <span class="text-sm text-gray-500">(hasil filter)</span>
-                <a href="{{ route('work-reports.index', ['month' => $month]) }}" class="ml-2 text-blue-600 hover:underline text-sm">Reset Filter</a>
-            @endif
-        </div>
     </div>
 
     @if($reports->count())
