@@ -1,5 +1,4 @@
-{{-- resources/views/apartemen/admin/access-codes.blade.php --}}
-@extends('layouts.app-sidebar')
+@extends('layouts.app_apartadmin_sidebar')
 
 @section('content')
 <div class="p-4 md:p-6">
