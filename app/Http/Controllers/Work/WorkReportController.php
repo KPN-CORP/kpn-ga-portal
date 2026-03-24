@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Work;
 
+use App\Exports\WorkReportsExport;
 use App\Http\Controllers\Controller;
 use App\Models\Work\WorkReport;
 use App\Models\Work\WorkReportCategory;
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
-use Intervention\Image\Facades\Image;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WorkReportController extends Controller
 {
@@ -28,14 +29,25 @@ class WorkReportController extends Controller
     public function index(Request $request)
     {
         $month = $request->get('month', now()->format('Y-m'));
+        $categoryId = $request->get('category_id');
+        $location = $request->get('location');
+
         $startDate = \Carbon\Carbon::parse($month)->startOfMonth();
         $endDate = \Carbon\Carbon::parse($month)->endOfMonth();
 
-        $reports = WorkReport::with(['category', 'creator'])
-            ->whereBetween('report_date', [$startDate, $endDate])
-            ->orderBy('report_date', 'desc')
-            ->orderBy('start_time', 'desc')
-            ->get();
+        $query = WorkReport::with(['category', 'creator'])
+            ->whereBetween('report_date', [$startDate, $endDate]);
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+        if ($location) {
+            $query->where('location', 'LIKE', '%' . $location . '%');
+        }
+
+        $reports = $query->orderBy('report_date', 'desc')
+                         ->orderBy('start_time', 'desc')
+                         ->get();
 
         $months = collect();
         for ($i = 0; $i < 12; $i++) {
@@ -43,7 +55,9 @@ class WorkReportController extends Controller
             $months->put($date->format('Y-m'), $date->isoFormat('MMMM Y'));
         }
 
-        return view('work-reports.index', compact('reports', 'month', 'months'));
+        $categories = WorkReportCategory::orderBy('name')->get();
+
+        return view('work-reports.index', compact('reports', 'month', 'months', 'categories', 'categoryId', 'location'));
     }
 
     public function create()
@@ -148,89 +162,103 @@ class WorkReportController extends Controller
                          ->with('success', 'Laporan berhasil diperbarui.');
     }
 
-public function destroy(WorkReport $workReport)
-{
-    if (!$workReport->canBeModifiedBy(Auth::user())) {
-        abort(403, 'Laporan tidak dapat dihapus karena sudah melewati 12 jam atau Anda bukan pembuat.');
+    public function destroy(WorkReport $workReport)
+    {
+        if (!$workReport->canBeModifiedBy(Auth::user())) {
+            abort(403, 'Laporan tidak dapat dihapus karena sudah melewati 12 jam atau Anda bukan pembuat.');
+        }
+
+        $oldData = $workReport->toArray();
+
+        if ($workReport->photo_before && Storage::disk('private')->exists($workReport->photo_before)) {
+            Storage::disk('private')->delete($workReport->photo_before);
+        }
+        if ($workReport->photo_after && Storage::disk('private')->exists($workReport->photo_after)) {
+            Storage::disk('private')->delete($workReport->photo_after);
+        }
+
+        DB::transaction(function () use ($workReport, $oldData) {
+            WorkReportLog::create([
+                'work_report_id' => $workReport->id,
+                'user_id'        => Auth::id(),
+                'action'         => 'deleted',
+                'old_data'       => $oldData,
+            ]);
+            $workReport->delete();
+        });
+
+        return redirect()->route('work-reports.index')
+                         ->with('success', 'Laporan dihapus.');
     }
 
-    $oldData = $workReport->toArray();
+    public function export(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+        $categoryId = $request->get('category_id');
+        $location = $request->get('location');
 
-    // Hapus file foto
-    if ($workReport->photo_before && Storage::disk('private')->exists($workReport->photo_before)) {
-        Storage::disk('private')->delete($workReport->photo_before);
-    }
-    if ($workReport->photo_after && Storage::disk('private')->exists($workReport->photo_after)) {
-        Storage::disk('private')->delete($workReport->photo_after);
-    }
+        $fileName = 'laporan_pekerjaan_' . $month . '.xlsx';
+        if ($categoryId) {
+            $fileName = 'laporan_' . $month . '_kategori_' . $categoryId . '.xlsx';
+        }
+        if ($location) {
+            $fileName = 'laporan_' . $month . '_lokasi_' . $location . '.xlsx';
+        }
 
-    DB::transaction(function () use ($workReport, $oldData) {
-        // 1. Catat log terlebih dahulu
-        WorkReportLog::create([
-            'work_report_id' => $workReport->id,
-            'user_id'        => Auth::id(),
-            'action'         => 'deleted',
-            'old_data'       => $oldData,
-        ]);
-        // 2. Hapus laporan
-        $workReport->delete();
-    });
-
-    return redirect()->route('work-reports.index')
-                     ->with('success', 'Laporan dihapus.');
-}
-
-private function compressAndStoreImage($file)
-{
-    if (!$file) {
-        return null;
+        return Excel::download(new WorkReportsExport($month, $categoryId, $location), $fileName);
     }
 
-    try {
-        $imgInfo = getimagesize($file);
-        if (!$imgInfo) {
+    private function compressAndStoreImage($file)
+    {
+        if (!$file) {
             return null;
         }
 
-        switch ($imgInfo[2]) {
-            case IMAGETYPE_JPEG:
-                $src = imagecreatefromjpeg($file);
-                break;
-            case IMAGETYPE_PNG:
-                $src = imagecreatefrompng($file);
-                break;
-            case IMAGETYPE_GIF:
-                $src = imagecreatefromgif($file);
-                break;
-            default:
+        try {
+            $imgInfo = getimagesize($file);
+            if (!$imgInfo) {
                 return null;
-        }
+            }
 
-        $width = imagesx($src);
-        $height = imagesy($src);
-        $maxWidth = 1200;
+            switch ($imgInfo[2]) {
+                case IMAGETYPE_JPEG:
+                    $src = imagecreatefromjpeg($file);
+                    break;
+                case IMAGETYPE_PNG:
+                    $src = imagecreatefrompng($file);
+                    break;
+                case IMAGETYPE_GIF:
+                    $src = imagecreatefromgif($file);
+                    break;
+                default:
+                    return null;
+            }
 
-        if ($width > $maxWidth) {
-            $newWidth = $maxWidth;
-            $newHeight = ($maxWidth / $width) * $height;
-            $dst = imagecreatetruecolor($newWidth, $newHeight);
-            imagecopyresampled($dst, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            $width = imagesx($src);
+            $height = imagesy($src);
+            $maxWidth = 1200;
+
+            if ($width > $maxWidth) {
+                $newWidth = $maxWidth;
+                $newHeight = ($maxWidth / $width) * $height;
+                $dst = imagecreatetruecolor($newWidth, $newHeight);
+                imagecopyresampled($dst, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                imagedestroy($src);
+                $src = $dst;
+            }
+
+            $filename = 'work_report/' . uniqid() . '.jpg';
+            $fullPath = storage_path('app/private/' . $filename);
+            $dir = dirname($fullPath);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            imagejpeg($src, $fullPath, 75);
             imagedestroy($src);
-            $src = $dst;
-        }
 
-        $filename = 'work_report/' . uniqid() . '.jpg';
-        $fullPath = storage_path('app/private/' . $filename);
-        $dir = dirname($fullPath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
+            return $filename;
+        } catch (\Exception $e) {
+            return null;
         }
-        imagejpeg($src, $fullPath, 75);
-        imagedestroy($src);
-
-        return $filename;
-    } catch (\Exception $e) {
-        return null;
     }
-}
 }

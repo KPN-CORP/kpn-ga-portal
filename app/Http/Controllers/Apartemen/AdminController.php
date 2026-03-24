@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Apartemen\FasilitasBooking;
 
 class AdminController extends Controller
 {
@@ -59,6 +60,50 @@ class AdminController extends Controller
         ));
     }
 
+    public function calendarEvents()
+    {
+        // Events untuk penempatan unit (apartemen)
+        $assignments = ApartemenAssign::with('unit.apartemen')
+            ->where('status', 'AKTIF')
+            ->get();
+
+        $events = [];
+
+        foreach ($assignments as $assign) {
+            $events[] = [
+                'title' => "Unit {$assign->unit->nomor_unit} ({$assign->unit->apartemen->nama_apartemen})",
+                'start' => $assign->tanggal_mulai->toDateString(),
+                'end'   => $assign->tanggal_selesai->addDay()->toDateString(), // end exclusive
+                'color' => '#3b82f6', // blue
+                'extendedProps' => [
+                    'type' => 'unit',
+                    'unit_id' => $assign->unit_id,
+                    'penghuni' => $assign->penghuni->pluck('nama')->join(', ')
+                ]
+            ];
+        }
+
+        // Events untuk booking fasilitas yang sudah disetujui atau check-in
+        $bookings = FasilitasBooking::with('fasilitas', 'user')
+            ->whereIn('status', ['APPROVED', 'CHECKED_IN'])
+            ->get();
+
+        foreach ($bookings as $booking) {
+            $events[] = [
+                'title' => "{$booking->fasilitas->nama_fasilitas} ({$booking->user->name})",
+                'start' => "{$booking->tanggal_booking->toDateString()}T{$booking->jam_mulai}",
+                'end'   => "{$booking->tanggal_booking->toDateString()}T{$booking->jam_selesai}",
+                'color' => '#10b981', // green
+                'extendedProps' => [
+                    'type' => 'facility',
+                    'booking_id' => $booking->id,
+                    'jumlah_orang' => $booking->jumlah_orang
+                ]
+            ];
+        }
+
+        return response()->json($events);
+    }
     // INDEX - KHUSUS MENAMPILKAN DATA PENDING SAJA
     public function index(Request $request)
     {
@@ -779,24 +824,40 @@ class AdminController extends Controller
     }
 
     // REPORT
-    public function report(Request $request)
+// REPORT
+public function report(Request $request)
     {
-        $reportData = [];
-        $type = $request->get('type', 'occupancy');
+        // Query untuk mengambil data history (sama seperti method history)
+        $query = ApartemenHistory::orderBy('created_at', 'desc');
 
-        switch ($type) {
-            case 'occupancy':
-                $reportData = $this->occupancyReport($request);
-                break;
-            case 'utilization':
-                $reportData = $this->utilizationReport($request);
-                break;
-            case 'maintenance':
-                $reportData = $this->maintenanceReport($request);
-                break;
+        // Filter tanggal
+        if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
+            $query->whereBetween('created_at', [
+                $request->tanggal_mulai,
+                $request->tanggal_selesai
+            ]);
         }
 
-        return view('apartemen.admin.report', compact('reportData', 'type'));
+        // Filter status
+        if ($request->filled('status_selesai')) {
+            $query->where('status_selesai', $request->status_selesai);
+        }
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                ->orWhere('id_karyawan', 'like', "%{$search}%")
+                ->orWhere('apartemen', 'like', "%{$search}%")
+                ->orWhere('unit', 'like', "%{$search}%");
+            });
+        }
+
+        $histories = $query->paginate(10);
+
+        // Kirim data ke view report
+        return view('apartemen.admin.report', compact('histories'));
     }
 
     private function occupancyReport($request)

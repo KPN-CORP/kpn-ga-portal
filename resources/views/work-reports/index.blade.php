@@ -19,9 +19,9 @@
         </div>
     </div>
 
-    <!-- Filter Bulan -->
+    <!-- Filter Bulan, Kategori & Lokasi -->
     <div class="bg-white p-4 rounded-lg shadow mb-6">
-        <form method="GET" action="{{ route('work-reports.index') }}" class="flex flex-wrap items-center gap-4">
+        <form method="GET" action="{{ route('work-reports.index') }}" class="flex flex-wrap items-end gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700">Bulan</label>
                 <select name="month" class="mt-1 block w-48 rounded-md border-gray-300 shadow-sm">
@@ -30,10 +30,42 @@
                     @endforeach
                 </select>
             </div>
-            <div class="mt-6">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Kategori</label>
+                <select name="category_id" class="mt-1 block w-48 rounded-md border-gray-300 shadow-sm">
+                    <option value="">Semua Kategori</option>
+                    @foreach($categories as $cat)
+                        <option value="{{ $cat->id }}" {{ $categoryId == $cat->id ? 'selected' : '' }}>
+                            {{ $cat->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Lokasi</label>
+                <input type="text" name="location" value="{{ $location ?? '' }}" class="mt-1 block w-48 rounded-md border-gray-300 shadow-sm" placeholder="Cari lokasi...">
+            </div>
+
+            <div class="flex space-x-2">
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Tampilkan</button>
+                <a href="{{ route('work-reports.export', request()->query()) }}" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition">
+                    <i class="fas fa-file-excel mr-1"></i> Export Excel
+                </a>
             </div>
         </form>
+    </div>
+
+    <!-- Info jumlah data & reset filter -->
+    <div class="flex justify-between items-center mb-4">
+        <div class="text-gray-600">
+            Menampilkan <strong>{{ $reports->count() }}</strong> laporan
+            @if($categoryId || $location)
+                <span class="text-sm text-gray-500">(hasil filter)</span>
+                <a href="{{ route('work-reports.index', ['month' => $month]) }}" class="ml-2 text-blue-600 hover:underline text-sm">Reset Filter</a>
+            @endif
+        </div>
     </div>
 
     @if($reports->count())

@@ -535,6 +535,8 @@ Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
                         
                     Route::get('/access-codes/{id}/print', [QRCodeAdminController::class, 'print'])
                         ->name('apartemen.admin.print-code');
+
+                    Route::get('/calendar-events', [AdminController::class, 'calendarEvents'])->name('apartemen.admin.calendar.events');
                 });
 
 
@@ -551,6 +553,29 @@ Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
                 })->name('apartemen.history');
             });
         });
+
+        // Facility routes (user)
+        Route::prefix('facilities')->name('facilities.')->group(function () {
+            Route::get('/', [FacilityController::class, 'index'])->name('index');
+            Route::get('/book/{id}', [FacilityController::class, 'bookForm'])->name('book');
+            Route::post('/book/{id}', [FacilityController::class, 'store'])->name('store');
+            Route::get('/history', [FacilityController::class, 'history'])->name('history');
+            Route::post('/cancel/{id}', [FacilityController::class, 'cancel'])->name('cancel');
+        });
+
+        // Facility management
+    Route::prefix('facilities')->name('facilities.')->group(function () {
+        Route::get('/', [FacilityAdminController::class, 'index'])->name('index');
+        Route::post('/', [FacilityAdminController::class, 'store'])->name('store');
+        Route::put('/{id}', [FacilityAdminController::class, 'update'])->name('update');
+        Route::delete('/{id}', [FacilityAdminController::class, 'destroy'])->name('destroy');
+
+        Route::get('/bookings', [FacilityAdminController::class, 'bookings'])->name('bookings');
+        Route::post('/bookings/{id}/approve', [FacilityAdminController::class, 'approve'])->name('approve');
+        Route::post('/bookings/{id}/reject', [FacilityAdminController::class, 'reject'])->name('reject');
+        Route::post('/bookings/{id}/checkin', [FacilityAdminController::class, 'checkin'])->name('checkin');
+        Route::post('/bookings/{id}/checkout', [FacilityAdminController::class, 'checkout'])->name('checkout');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -653,6 +678,8 @@ Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
         Route::get('/{workReport}/edit', [WorkReportController::class, 'edit'])->name('edit');
         Route::put('/{workReport}', [WorkReportController::class, 'update'])->name('update');
         Route::delete('/{workReport}', [WorkReportController::class, 'destroy'])->name('destroy');
+        Route::get('/export', [WorkReportController::class, 'export'])->name('export');
+        Route::get('/work-reports/export', [WorkReportController::class, 'export'])->name('work-reports.export');
     });
 
     Route::get('/private-storage/{path}', function ($path) {

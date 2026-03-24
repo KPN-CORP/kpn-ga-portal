@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_apartemen_sidebar')
 
 @section('content')
 <div class="max-w-7xl mx-auto px-4 py-6">

@@ -1,5 +1,5 @@
 {{-- resources/views/apartemen/user/show.blade.php --}}
-@extends('layouts.app-sidebar')
+@extends('layouts.app_apartemen_sidebar')
 
 @section('content')
 @php
