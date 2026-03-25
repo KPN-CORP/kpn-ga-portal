@@ -26,9 +26,9 @@
                                      onclick="viewImage('{{ $photo->id }}')">
                                     <img src="{{ $userRole === 'staff' 
                                         ? route('help.proses.lampiran.preview', ['lampiran' => $photo->id]) 
-                                        : route('help.tiket.lampiran.preview', ['lampiran' => $photo->id]) }}?thumb=true" 
-                                         alt="{{ $photo->nama_file }}"
-                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
+                                        : route('help.tiket.lampiran.preview', ['lampiran' => $photo->id]) }}" 
+                                        alt="{{ $photo->nama_file }}"
+                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200">
                                     
                                     @if($badgeText)
                                         <div class="absolute top-1 right-1">
