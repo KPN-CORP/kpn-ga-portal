@@ -7,39 +7,46 @@
             <span class="text-xs text-gray-500">{{ $tiket->komentar->count() }} pesan</span>
         </div>
     </div>
-    
+
     <div class="p-4 bg-gray-50" style="height: 400px; overflow-y: auto;" id="chatContainer">
         @forelse($tiket->komentar as $komentar)
             @if($komentar->pesan_sistem)
-                <!-- System Message -->
+                <!-- System message -->
                 <div class="text-center my-3">
                     <div class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                         <i class="fas fa-robot mr-1"></i>
-                        @php
-                            $systemUserName = $komentar->pengguna->user->name ?? $komentar->pengguna->nama ?? 'System';
-                        @endphp
-                        {{ $systemUserName }} • {{ $komentar->created_at->format('d/m H:i') }}
+                        {{ $komentar->pengguna->user->name ?? $komentar->pengguna->nama ?? 'System' }} • {{ $komentar->created_at->format('d/m H:i') }}
                     </div>
                     <div class="mt-1 text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-200 max-w-md mx-auto">
                         {{ $komentar->komentar }}
                     </div>
                 </div>
             @else
-                <!-- User Message -->
                 @php
                     $currentUserId = auth()->user()->pelanggan->id_pelanggan ?? null;
                     $penggunaName = $komentar->pengguna->user->name ?? $komentar->pengguna->nama ?? 'User';
                     $penggunaInitial = substr($penggunaName, 0, 1);
                     $isOwnMessage = $komentar->pengguna_id === $currentUserId;
+
+                    // Cek apakah komentar ini memiliki lampiran (relasi atau fallback waktu)
+                    $hasLampiran = false;
+                    $lampiranCount = 0;
                     
-                    // Cari lampiran yang terkait dengan komentar ini
-                    $komentarLampiran = $tiket->lampiran
-                        ->where('pengguna_id', $komentar->pengguna_id)
-                        ->where('created_at', '>=', $komentar->created_at->copy()->subMinute())
-                        ->where('created_at', '<=', $komentar->created_at->copy()->addMinute())
-                        ->first();
+                    if (method_exists($komentar, 'lampiran') && $komentar->lampiran && $komentar->lampiran->count()) {
+                        $hasLampiran = true;
+                        $lampiranCount = $komentar->lampiran->count();
+                    } else {
+                        // Fallback: cari lampiran dalam rentang waktu 2 menit
+                        $startTime = $komentar->created_at->copy()->subMinutes(2);
+                        $endTime = $komentar->created_at->copy()->addMinutes(2);
+                        $lampiranKomentar = $tiket->lampiran
+                            ->where('pengguna_id', $komentar->pengguna_id)
+                            ->whereBetween('created_at', [$startTime, $endTime]);
+                        $lampiranCount = $lampiranKomentar->count();
+                        $hasLampiran = $lampiranCount > 0;
+                    }
                 @endphp
-                
+
                 <div class="flex items-start mb-3 {{ $isOwnMessage ? 'justify-end' : '' }}">
                     @if(!$isOwnMessage)
                         <div class="flex-shrink-0 mr-2">
@@ -48,73 +55,31 @@
                             </div>
                         </div>
                     @endif
-                    
+
                     <div class="{{ $isOwnMessage ? 'max-w-[75%]' : 'max-w-[75%]' }}">
                         <div class="flex items-center mb-0.5 {{ $isOwnMessage ? 'justify-end' : '' }}">
                             <span class="text-xs text-gray-500">{{ $penggunaName }}</span>
                             <span class="text-xs text-gray-400 mx-1">•</span>
-                            <span class="text-xs text-gray-400" title="{{ $komentar->created_at->format('d/m/Y H:i') }}">
-                                {{ $komentar->created_at->diffForHumans() }}
-                            </span>
+                            <span class="text-xs text-gray-400">{{ $komentar->created_at->diffForHumans() }}</span>
                         </div>
-                        
+
                         <div class="{{ $isOwnMessage ? 'bg-blue-100' : 'bg-white' }} p-3 rounded-xl {{ $isOwnMessage ? 'rounded-tr-none' : 'rounded-tl-none' }} border {{ $isOwnMessage ? 'border-blue-200' : 'border-gray-200' }}">
                             <p class="text-gray-800 text-sm whitespace-pre-line">{{ $komentar->komentar }}</p>
-                            
-                            @if($komentarLampiran)
-                                <div class="mt-2 pt-2 border-t border-gray-200">
-                                    @if(str_contains($komentarLampiran->tipe_file, 'image'))
-                                        <div class="mt-1">
-                                            <img src="{{ $userRole === 'staff' 
-                                                ? route('help.proses.lampiran.preview', ['lampiran' => $komentarLampiran->id]) 
-                                                : route('help.tiket.lampiran.preview', ['lampiran' => $komentarLampiran->id]) }}?thumb=true" 
-                                                alt="{{ $komentarLampiran->nama_file }}"
-                                                class="w-20 h-20 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-90 transition-opacity"
-                                                onclick="viewImage('{{ $komentarLampiran->id }}')">
-                                            <div class="mt-1 flex items-center">
-                                                <span class="text-xs text-gray-600 truncate max-w-[150px]">{{ $komentarLampiran->nama_file }}</span>
-                                                <a href="{{ $userRole === 'staff' 
-                                                    ? route('help.proses.lampiran.download', ['lampiran' => $komentarLampiran->id]) 
-                                                    : route('help.tiket.lampiran.download', ['lampiran' => $komentarLampiran->id]) }}" 
-                                                    class="ml-1 text-xs text-blue-600 hover:text-blue-800"
-                                                    title="Download"
-                                                    onclick="event.stopPropagation();">
-                                                    <i class="fas fa-download"></i>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    @else
-                                        @php
-                                            $iconClass = '';
-                                            if (str_contains($komentarLampiran->tipe_file, 'pdf')) {
-                                                $iconClass = 'fas fa-file-pdf text-red-500';
-                                            } elseif (str_contains($komentarLampiran->tipe_file, 'word')) {
-                                                $iconClass = 'fas fa-file-word text-blue-500';
-                                            } else {
-                                                $iconClass = 'fas fa-file text-gray-500';
-                                            }
-                                        @endphp
-                                        <div class="flex items-center">
-                                            <i class="{{ $iconClass }} mr-2"></i>
-                                            <a href="{{ $userRole === 'staff' 
-                                                ? route('help.proses.lampiran.download', ['lampiran' => $komentarLampiran->id]) 
-                                                : route('help.tiket.lampiran.download', ['lampiran' => $komentarLampiran->id]) }}" 
-                                                class="text-xs text-gray-700 hover:text-blue-600 truncate max-w-[180px]">
-                                                {{ $komentarLampiran->nama_file }}
-                                            </a>
-                                            <span class="ml-2 text-xs text-gray-500">{{ $komentarLampiran->formatted_size ?? '' }}</span>
-                                        </div>
-                                    @endif
+
+                            {{-- Tampilkan teks bahwa ada lampiran, tanpa thumbnail --}}
+                            @if($hasLampiran)
+                                <div class="mt-2 pt-1 text-xs text-gray-500 flex items-center gap-1">
+                                    <i class="fas fa-paperclip"></i>
+                                    <span>{{ $lampiranCount }} lampiran (lihat di bagian <strong>Lampiran</strong>)</span>
                                 </div>
                             @endif
                         </div>
                     </div>
-                    
+
                     @if($isOwnMessage)
                         @php
                             $currentUser = auth()->user();
-                            $currentUserName = $currentUser->name ?? 'You';
-                            $currentUserInitial = substr($currentUserName, 0, 1);
+                            $currentUserInitial = substr($currentUser->name ?? 'You', 0, 1);
                         @endphp
                         <div class="flex-shrink-0 ml-2">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center font-medium text-green-700 text-sm">
@@ -134,7 +99,7 @@
             </div>
         @endforelse
     </div>
-    
+
     @if($showInput)
         <div class="border-t border-gray-200 p-4">
             <form action="{{ $userRole === 'staff' 
@@ -144,13 +109,12 @@
                 enctype="multipart/form-data" 
                 id="chatForm">
                 @csrf
-                
-                <!-- ========== PREVIEW UPLOAD FILE (TAMBAHAN INI!) ========== -->
+
+                <!-- Preview upload file (tetap ada, agar user tahu file terpilih) -->
                 <div id="chatPreviewContainer" class="hidden mb-4 bg-white rounded-lg border border-gray-200 p-4">
                     <div class="flex justify-between items-center mb-3">
                         <h4 class="text-sm font-medium text-gray-700 flex items-center">
-                            <i class="fas fa-images text-blue-500 mr-2"></i> 
-                            File Siap Upload
+                            <i class="fas fa-images text-blue-500 mr-2"></i> File Siap Upload
                         </h4>
                         <div class="flex items-center gap-2">
                             <span id="chatFileBadge" class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full hidden">0 file</span>
@@ -159,46 +123,30 @@
                             </button>
                         </div>
                     </div>
-                    
-                    <!-- Daftar Preview File -->
-                    <div id="chatFilePreview" class="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        <!-- Preview akan diisi JavaScript -->
-                    </div>
-                    
+                    <div id="chatFilePreview" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
                     <div class="mt-3 text-xs text-gray-500 flex items-center bg-blue-50 p-2 rounded">
                         <i class="fas fa-info-circle mr-1 text-blue-500"></i>
-                        <span class="text-blue-700">Klik <strong>Kirim</strong> untuk mengupload file. Maksimal 5MB per file.</span>
+                        <span class="text-blue-700">File akan tersimpan di bagian <strong>Lampiran</strong> setelah dikirim.</span>
                     </div>
                 </div>
-                
+
                 <div class="flex gap-2">
                     <div class="flex-1">
-                        <textarea name="komentar" 
-                                  id="chatInput"
-                                  rows="1"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
-                                  placeholder="Ketik pesan..."
-                                  required></textarea>
+                        <textarea name="komentar" id="chatInput" rows="1"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
+                            placeholder="Ketik pesan..." required></textarea>
                     </div>
                     <div class="flex items-end gap-1">
                         <div class="relative">
-                            <input type="file" 
-                                   id="chat-lampiran" 
-                                   name="lampiran[]" 
-                                   multiple
-                                   class="hidden"
-                                   accept="image/*,.pdf,.doc,.docx">
-                            <button type="button" 
-                                    onclick="document.getElementById('chat-lampiran').click()"
-                                    class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-gray-300 transition-colors"
-                                    title="Lampirkan File">
+                            <input type="file" id="chat-lampiran" name="lampiran[]" multiple class="hidden" accept="image/*,.pdf,.doc,.docx">
+                            <button type="button" onclick="document.getElementById('chat-lampiran').click()"
+                                class="inline-flex items-center justify-center w-9 h-9 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-gray-300">
                                 <i class="fas fa-paperclip text-sm"></i>
                             </button>
                             <span id="file-count" class="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
                         </div>
-                        
                         <button type="submit"
-                                class="inline-flex items-center justify-center w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                            class="inline-flex items-center justify-center w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
                             <i class="fas fa-paper-plane text-sm"></i>
                         </button>
                     </div>
@@ -217,259 +165,95 @@
 
 @push('scripts')
 <script>
-// ==================== PREVIEW FILE UPLOAD ====================
-document.addEventListener('DOMContentLoaded', function() {
-    const chatFileInput = document.getElementById('chat-lampiran');
+    // Auto scroll chat
+    const chatContainer = document.getElementById('chatContainer');
+    if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    // Preview upload file (minimal)
+    const fileInput = document.getElementById('chat-lampiran');
     const fileCountSpan = document.getElementById('file-count');
-    const chatPreviewContainer = document.getElementById('chatPreviewContainer');
-    const chatFilePreview = document.getElementById('chatFilePreview');
-    const chatFileBadge = document.getElementById('chatFileBadge');
-    const clearAllBtn = document.getElementById('clearAllBtn');
+    const previewContainer = document.getElementById('chatPreviewContainer');
+    const filePreviewDiv = document.getElementById('chatFilePreview');
+    const fileBadge = document.getElementById('chatFileBadge');
+    const clearBtn = document.getElementById('clearAllBtn');
 
-    if (!chatFileInput) return;
-
-    // Event Listener untuk perubahan file
-    chatFileInput.addEventListener('change', function() {
-        const count = this.files.length;
-        
-        // Update badge di tombol upload
-        if (fileCountSpan) {
-            if (count > 0) {
+    if(fileInput) {
+        fileInput.addEventListener('change', function() {
+            const count = this.files.length;
+            if(count > 0) {
                 fileCountSpan.textContent = count;
                 fileCountSpan.classList.remove('hidden');
+                previewContainer.classList.remove('hidden');
+                fileBadge.textContent = count + ' file' + (count > 1 ? 's' : '');
+                fileBadge.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+                
+                // Preview sederhana (nama file)
+                filePreviewDiv.innerHTML = '';
+                Array.from(this.files).forEach((file, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                    div.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-file-alt text-gray-500"></i>
+                            <span class="text-sm truncate max-w-[200px]">${file.name}</span>
+                            <span class="text-xs text-gray-500">(${(file.size/1024).toFixed(0)} KB)</span>
+                        </div>
+                        <button type="button" onclick="removeFile(${idx})" class="text-red-500 text-xs">Hapus</button>
+                    `;
+                    filePreviewDiv.appendChild(div);
+                });
             } else {
                 fileCountSpan.classList.add('hidden');
-            }
-        }
-        
-        // Tampilkan/sembunyikan preview container
-        if (chatPreviewContainer) {
-            if (count > 0) {
-                chatPreviewContainer.classList.remove('hidden');
-                if (chatFileBadge) {
-                    chatFileBadge.textContent = count + ' file' + (count > 1 ? 's' : '');
-                    chatFileBadge.classList.remove('hidden');
-                }
-                if (clearAllBtn) clearAllBtn.classList.remove('hidden');
-                previewChatFiles(this.files);
-            } else {
-                chatPreviewContainer.classList.add('hidden');
-                if (chatFileBadge) chatFileBadge.classList.add('hidden');
-                if (clearAllBtn) clearAllBtn.classList.add('hidden');
-                if (chatFilePreview) chatFilePreview.innerHTML = '';
-            }
-        }
-    });
-
-    // Fungsi preview file
-    function previewChatFiles(files) {
-        if (!chatFilePreview) return;
-        
-        chatFilePreview.innerHTML = '';
-        
-        // Konversi FileList ke Array
-        const fileArray = Array.from(files);
-        
-        fileArray.forEach((file, index) => {
-            // Validasi ukuran file (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'File Terlalu Besar',
-                    text: `${file.name} melebihi 5MB. File tidak akan diupload.`,
-                    timer: 2000,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false
-                });
-                return;
-            }
-            
-            const isImage = file.type.startsWith('image/');
-            const fileSize = (file.size / 1024).toFixed(0);
-            const fileExt = file.name.split('.').pop().toUpperCase() || 'FILE';
-            
-            const previewItem = document.createElement('div');
-            previewItem.className = 'flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors group';
-            previewItem.setAttribute('data-file-index', index);
-            
-            if (isImage) {
-                // Preview UNTUK GAMBAR
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewItem.innerHTML = `
-                        <div class="flex-shrink-0 mr-3 relative">
-                            <img src="${e.target.result}" class="w-14 h-14 object-cover rounded-lg border-2 border-white shadow-sm">
-                            <span class="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">IMG</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <p class="text-sm font-medium text-gray-900 truncate">${file.name}</p>
-                                <span class="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">Baru</span>
-                            </div>
-                            <div class="flex items-center gap-3 mt-1 text-xs">
-                                <span class="text-gray-500 flex items-center">
-                                    <i class="fas fa-database mr-1 text-gray-400"></i> ${fileSize} KB
-                                </span>
-                                <span class="text-gray-500 flex items-center">
-                                    <i class="fas fa-file-image mr-1 text-blue-400"></i> ${fileExt}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="flex items-center ml-2 space-x-1">
-                            <button type="button" onclick="removeChatFile(${index})" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Hapus file">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    `;
-                    chatFilePreview.appendChild(previewItem);
-                };
-                reader.readAsDataURL(file);
-            } else {
-                // Preview UNTUK DOKUMEN
-                previewItem.innerHTML = `
-                    <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center mr-3">
-                        <i class="fas fa-file-alt text-gray-600 text-2xl"></i>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                            <p class="text-sm font-medium text-gray-900 truncate">${file.name}</p>
-                            <span class="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">Baru</span>
-                        </div>
-                        <div class="flex items-center gap-3 mt-1 text-xs">
-                            <span class="text-gray-500 flex items-center">
-                                <i class="fas fa-database mr-1 text-gray-400"></i> ${fileSize} KB
-                            </span>
-                            <span class="text-gray-500 flex items-center">
-                                <i class="fas fa-file mr-1 text-orange-400"></i> ${fileExt}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="flex items-center ml-2 space-x-1">
-                        <button type="button" onclick="removeChatFile(${index})" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Hapus file">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                `;
-                chatFilePreview.appendChild(previewItem);
+                previewContainer.classList.add('hidden');
+                fileBadge.classList.add('hidden');
+                clearBtn.classList.add('hidden');
+                filePreviewDiv.innerHTML = '';
             }
         });
     }
 
-    // Fungsi hapus file individual
-    window.removeChatFile = function(index) {
+    window.removeFile = function(index) {
         const input = document.getElementById('chat-lampiran');
         const dt = new DataTransfer();
         const files = input.files;
-        
-        for (let i = 0; i < files.length; i++) {
-            if (i !== index) {
-                dt.items.add(files[i]);
-            }
+        for(let i=0; i<files.length; i++) {
+            if(i !== index) dt.items.add(files[i]);
         }
-        
         input.files = dt.files;
-        
-        // Trigger change event
-        const event = new Event('change', { bubbles: true });
-        input.dispatchEvent(event);
-        
-        // Notifikasi
-        Swal.fire({
-            icon: 'success',
-            title: 'File Dihapus',
-            text: 'File telah dihapus dari daftar upload',
-            timer: 1500,
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false
-        });
+        input.dispatchEvent(new Event('change'));
     };
 
-    // Fungsi hapus semua file
     window.clearAllFiles = function() {
-        Swal.fire({
-            title: 'Hapus Semua File?',
-            text: 'Semua file yang dipilih akan dihapus dari daftar upload.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Ya, Hapus Semua',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#ef4444',
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const input = document.getElementById('chat-lampiran');
-                input.value = '';
-                const event = new Event('change', { bubbles: true });
-                input.dispatchEvent(event);
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Semua File Dihapus',
-                    text: 'Daftar upload telah dikosongkan',
-                    timer: 1500,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false
-                });
+        document.getElementById('chat-lampiran').value = '';
+        document.getElementById('chat-lampiran').dispatchEvent(new Event('change'));
+    };
+
+    // Kirim dengan Ctrl+Enter
+    const chatInput = document.getElementById('chatInput');
+    if(chatInput) {
+        chatInput.addEventListener('keydown', function(e) {
+            if(e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                if(this.value.trim() !== '') document.getElementById('chatForm').submit();
             }
         });
-    };
-});
+    }
 </script>
 @endpush
 
 @push('styles')
 <style>
-/* ==================== PREVIEW UPLOAD ==================== */
-#chatPreviewContainer {
-    animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
+    #chatPreviewContainer {
+        animation: slideDown 0.3s ease;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-}
-
-#chatFilePreview {
-    scrollbar-width: thin;
-    scrollbar-color: #c1c1c1 #f1f1f1;
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-#chatFilePreview::-webkit-scrollbar {
-    width: 4px;
-}
-
-#chatFilePreview::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 2px;
-}
-
-#chatFilePreview::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 2px;
-}
-
-#chatFilePreview::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Toast Notification */
-.swal2-toast {
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-}
-
-.swal2-toast .swal2-title {
-    font-size: 0.875rem !important;
-}
+    #chatFilePreview {
+        max-height: 200px;
+        overflow-y: auto;
+    }
 </style>
 @endpush
