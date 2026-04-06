@@ -470,7 +470,7 @@
     $adminMenus = [
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
-            'title' => 'GA Messenger',
+            'title' => 'GA E-Messenger',
             'desc' => '',
             'url' => '/messenger/proses',
             'color' => '#3498db',
