@@ -27,7 +27,12 @@
                 <i class="fas fa-plus mr-2"></i> Pilih Foto
             </button>
             <p class="text-xs text-gray-500 mt-2">Format: JPG, PNG (maks. 5MB per file)</p>
-            <div id="fotoPreview" class="mt-3 space-y-2 hidden"></div>
+            
+            <!-- INDIKATOR FILE TERLAMPIR -->
+            <div id="fileIndicator" class="mt-2 text-sm font-medium text-green-600 hidden"></div>
+            
+            <!-- PREVIEW NAMA FILE (opsional, biar user tahu file apa saja) -->
+            <div id="fotoPreview" class="mt-3 space-y-1 hidden"></div>
         </div>
         
         <div>
@@ -46,3 +51,44 @@
         </button>
     </form>
 </div>
+
+<script>
+// ==================== FUNGSI PREVIEW FOTO (DIPANGGIL SAAT ONCHANGE) ====================
+window.previewFotoFiles = function(input) {
+    const fileIndicator = document.getElementById('fileIndicator');
+    const previewDiv = document.getElementById('fotoPreview');
+    const files = input.files;
+    const fileCount = files.length;
+    
+    if (fileCount === 0) {
+        // Sembunyikan indikator dan preview
+        fileIndicator.classList.add('hidden');
+        previewDiv.classList.add('hidden');
+        previewDiv.innerHTML = '';
+        return;
+    }
+    
+    // Tampilkan indikator jumlah file
+    fileIndicator.textContent = `✅ ${fileCount} file terlampir`;
+    fileIndicator.classList.remove('hidden');
+    
+    // Tampilkan daftar nama file (preview sederhana)
+    previewDiv.classList.remove('hidden');
+    previewDiv.innerHTML = '';
+    
+    for (let i = 0; i < fileCount; i++) {
+        const file = files[i];
+        const fileSize = (file.size / 1024).toFixed(0);
+        const fileItem = document.createElement('div');
+        fileItem.className = 'text-left text-sm text-gray-600 bg-gray-50 p-1 rounded';
+        fileItem.innerHTML = `
+            <i class="fas fa-image text-green-500 mr-1"></i> 
+            ${file.name} <span class="text-gray-400 text-xs">(${fileSize} KB)</span>
+        `;
+        previewDiv.appendChild(fileItem);
+    }
+    
+    // Optional: scroll ke bawah biar terlihat
+    previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+</script>
