@@ -162,9 +162,17 @@
                     <input type="number" step="0.01" name="jumlah" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-600 mb-1">Keterangan (opsional)</label>
-                    <textarea name="keterangan" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
-                </div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">
+                    Keterangan <span class="text-red-500">*</span>
+                </label>
+                <textarea 
+                    name="keterangan" 
+                    rows="3" 
+                    required
+                    class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Wajib diisi"
+                ></textarea>
+            </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Ajukan</button>
