@@ -5817,3 +5817,5 @@
 [2026-04-06 16:50:38] local.INFO: Upload foto: Transaction COMMIT  
 [2026-04-06 16:50:40] local.INFO: Preview lampiran {"lampiran_id":121} 
 [2026-04-06 16:50:48] local.INFO: Preview lampiran {"lampiran_id":121} 
+[2026-04-06 16:52:10] local.INFO: File preview {"user_id":2,"lampiran_id":120} 
+[2026-04-06 16:52:10] local.INFO: File preview {"user_id":2,"lampiran_id":121} 
