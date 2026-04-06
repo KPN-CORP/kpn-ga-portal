@@ -359,24 +359,24 @@
     $menus = [
         'messenger' => [
             'field' => 'messenger_dash',
-            'title' => 'Messenger',
-            'desc' => 'Paket dalam Kota',
+            'title' => 'E-Messenger',
+            'desc' => '',
             'url' => '/messenger',
             'color' => '#3498db',
             'icon' => 'M9 20l-5.447-2.724A1 1 0 013 16.382V6.618a1 1 0 01.553-.894L9 3m0 17l6 3m-6-3V3m6 20l5.447-2.724A1 1 0 0021 18.382V8.618a1 1 0 00-.553-.894L15 3m0 20V3'
         ],
         'mailing' => [
             'field' => 'ma_room_dash',
-            'title' => 'Mailing Room',
-            'desc' => 'Penerimaan Paket',
+            'title' => 'E-Mailing Room',
+            'desc' => '',
             'url' => '/mailing',
             'color' => '#2ecc71',
             'icon' => 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
         ],
         'trackreceipt' => [
             'field' => 'receipt_dash',
-            'title' => 'Tracking Receipt',
-            'desc' => 'Tanda Terima Internal',
+            'title' => 'E-Tracking Receipt',
+            'desc' => '',
             'url' => '/track-r',
             'color' => '#9b59b6',
             'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'
@@ -384,7 +384,7 @@
         'idcard' => [
             'field' => 'idcard_dash',
             'title' => 'ID Card',
-            'desc' => 'Kelola ID Card',
+            'desc' => '',
             'url' => '/idcard',
             'color' => '#e74c3c',
             'icon' => 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2'
@@ -392,7 +392,7 @@
         'car' => [
             'field' => 'car_dash',
             'title' => 'Car Service',
-            'desc' => 'Layanan mobil',
+            'desc' => '',
             'url' => '/drms/requests',
             'color' => '#16a085',
             'icon' => 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
@@ -400,7 +400,7 @@
         'apart' => [
             'field' => 'apart_dash',
             'title' => 'Apartemen',
-            'desc' => 'Kelola apartemen',
+            'desc' => '',
             'url' => 'apartemen',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
@@ -408,7 +408,7 @@
         'receptionist' => [
             'field' => 'receptionist_dash',
             'title' => 'Receptionist',
-            'desc' => 'Front office',
+            'desc' => '',
             'url' => '#',
             'color' => '#8e44ad',
            'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5'
@@ -416,7 +416,7 @@
         'helpdesk' => [
             'field' => 'helpdest_dash',
             'title' => 'GA Helpdesk',
-            'desc' => 'Bantuan GA',
+            'desc' => '',
             'url' => '/help/tiket',
             'color' => '#2980b9',
             'icon' => 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
@@ -424,7 +424,7 @@
         'employees' => [
             'field' => 'employees_dash',
             'title' => 'Employees',
-            'desc' => 'Data karyawan',
+            'desc' => '',
             'url' => '/employees',
             'color' => '#f39c12',
             'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
@@ -432,7 +432,7 @@
         'reports' => [
             'field' => 'reports_dash',
             'title' => 'GA Reports',
-            'desc' => 'GA Reports',
+            'desc' => '',
             'url' => '/work-reports',
             'color' => '#1abc9c',
             'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
@@ -440,8 +440,8 @@
         // MENU MANAGEMENT STOK - BARU
         'stock' => [
             'field' => 'stock_dash',
-            'title' => 'Stock Control',
-            'desc' => 'Kelola stok barang',
+            'title' => 'E-Stationery',
+            'desc' => '',
             'url' => '/stock-ctl/permintaan',
             'color' => '#e67e22',
             'icon' => 'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4'
@@ -450,7 +450,7 @@
         'ememo' => [
             'field' => 'ememo_dash',
             'title' => 'E-Memo',
-            'desc' => 'Memo elektronik',
+            'desc' => '',
             'url' => '/ememo',
             'color' => '#8e44ad',
             'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
@@ -459,7 +459,7 @@
         'founddesk' => [
             'field' => 'founddesk_dash',
             'title' => 'Lost and Found',
-            'desc' => 'Penemuan barang hilang',
+            'desc' => '',
             'url' => '/founddesk',
             'color' => '#00bcd4',
             'icon' => 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z M15 10l-3 3m0 0l-3-3m3 3V8'
@@ -471,15 +471,15 @@
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
             'title' => 'GA Messenger',
-            'desc' => 'Pengiriman',
+            'desc' => '',
             'url' => '/messenger/proses',
             'color' => '#3498db',
             'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
         ],
         'mailing_admin' => [
             'field' => 'maroom_admin_dash',
-            'title' => 'GA Mailing Room',
-            'desc' => 'Admin Penerimaan',
+            'title' => 'GA E-Mailing Room',
+            'desc' => '',
             'url' => '/mailing/proses',
             'color' => '#2ecc71',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
@@ -487,7 +487,7 @@
         'apart_admin' => [
             'field' => 'apart_admin_dash',
             'title' => 'GA Apartemen',
-            'desc' => 'Admin apartemen',
+            'desc' => '',
             'url' => '/apartemen/admin/dashboard',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
@@ -495,7 +495,7 @@
         'car_admin' => [
             'field' => 'car_admin_dash',
             'title' => 'GA Car Service',
-            'desc' => 'Admin mobil',
+            'desc' => '',
             'url' => '/drms/approval/admin',
             'color' => '#16a085',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
@@ -503,7 +503,7 @@
         'helpdesk_admin' => [
             'field' => 'helpdesk_admin_dash',
             'title' => 'GA Helpdesk',
-            'desc' => 'Admin bantuan',
+            'desc' => '',
             'url' => '/help/proses',
             'color' => '#2980b9',
             'icon' => 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
@@ -511,8 +511,8 @@
         // ADMIN MANAGEMENT STOK - OPSIONAL
         'stock_admin' => [
             'field' => 'stock_admin_dash',
-            'title' => 'GA Stock Control',
-            'desc' => 'Admin stok barang',
+            'title' => 'GA E-Stationery',
+            'desc' => '',
             'url' => '/stock-ctl/dashboard',
             'color' => '#e67e22',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
@@ -521,7 +521,7 @@
         'ememo_admin' => [
             'field' => 'ememo_admin_dash',
             'title' => 'GA E-Memo',
-            'desc' => 'Admin memo elektronik',
+            'desc' => '',
             'url' => '/ememo/admin',
             'color' => '#8e44ad',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'

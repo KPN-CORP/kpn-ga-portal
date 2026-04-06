@@ -15,11 +15,13 @@
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
+                    <th class="px-4 py-3 text-left">No. Permintaan</th>
                     <th class="px-4 py-3 text-left">Tanggal</th>
                     <th class="px-4 py-3 text-left">Pemohon</th>
                     <th class="px-4 py-3 text-left">Area</th>
                     <th class="px-4 py-3 text-left">Barang</th>
                     <th class="px-4 py-3 text-left">Jumlah</th>
+                    <th class="px-4 py-3 text-left">Keterangan</th>
                     <th class="px-4 py-3 text-left">Disetujui L1 Oleh</th>
                     <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
@@ -27,11 +29,13 @@
             <tbody class="divide-y">
                 @forelse($permintaan as $item)
                 <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 font-mono text-sm">G-SC-{{ $item->id_permintaan }}</td>
                     <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}</td>
                     <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->areaKerja->nama_area ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
+                    <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->approverL1->name ?? '-' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex gap-2">
@@ -47,7 +51,9 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="7" class="py-10 text-center text-gray-500">Tidak ada permintaan pending</td></tr>
+                <tr>
+                    <td colspan="9" class="py-10 text-center text-gray-500">Tidak ada permintaan pending</td>
+                </tr>
                 @endforelse
             </tbody>
         </table>

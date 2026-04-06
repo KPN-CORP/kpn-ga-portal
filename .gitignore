@@ -7,3 +7,6 @@
 /public/build
 /public/hot
 /storage/*.key
+
+/app/Providers/AppServiceProvider Update Pakai Ini.php
+/app/Providers/AppServiceProvider.php
