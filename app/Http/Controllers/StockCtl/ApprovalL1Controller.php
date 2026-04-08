@@ -22,12 +22,24 @@ class ApprovalL1Controller extends Controller
             ->where('status', Permintaan::STATUS_PENDING_L1)
             ->whereExists(function ($q) use ($user) {
                 $q->select(DB::raw(1))
-                  ->from('stock_ctl_user_profil')
-                  ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
-                  ->where('stock_ctl_user_profil.id_approver', $user->id);
+                ->from('stock_ctl_user_profil')
+                ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
+                ->where('stock_ctl_user_profil.id_approver', $user->id);
             })
             ->orderBy('tanggal_permintaan')
             ->get();
+
+        // Tambahkan nama approver (atasan dari pemohon) untuk setiap permintaan
+        foreach ($permintaan as $item) {
+            // Ambil profil pemohon untuk mendapatkan id_approver
+            $profil = UserProfil::where('id_user', $item->id_user_pemohon)->first();
+            if ($profil && $profil->id_approver) {
+                $approver = User::find($profil->id_approver);
+                $item->approver_name = $approver ? $approver->name : '-';
+            } else {
+                $item->approver_name = '-';
+            }
+        }
 
         $pendingCount = $permintaan->count();
         return view('stock-ctl.approval.l1.index', compact('permintaan', 'pendingCount'));
@@ -82,7 +94,7 @@ class ApprovalL1Controller extends Controller
                 'status'           => Permintaan::STATUS_REJECTED,
                 'rejected_by'      => Auth::id(),
                 'rejected_at'      => now(),
-                'rejection_reason' => $request->alasan,
+                'alasan_tolak'     => $request->alasan, // ✅ sesuai struktur tabel
             ]);
 
             $permintaan->pemohon->notify(new PermintaanDitolak($permintaan));
