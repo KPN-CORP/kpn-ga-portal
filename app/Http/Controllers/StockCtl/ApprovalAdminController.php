@@ -103,7 +103,7 @@ class ApprovalAdminController extends Controller
                 'status'           => Permintaan::STATUS_REJECTED,
                 'rejected_by'      => Auth::id(),
                 'rejected_at'      => now(),
-                'rejection_reason' => $request->alasan,
+                'alasan_tolak'     => $request->alasan, 
             ]);
 
             $permintaan->pemohon->notify(new PermintaanDitolak($permintaan));

@@ -75,6 +75,19 @@ class PermintaanController extends Controller
                             ->paginate(15)
                             ->withQueryString();
 
+        // ========== TAMBAHKAN: nama atasan (approver L1) untuk setiap permintaan ==========
+        foreach ($permintaan as $item) {
+            // Ambil profil pemohon untuk mendapatkan id_approver (atasan)
+            $profil = UserProfil::where('id_user', $item->id_user_pemohon)->first();
+            if ($profil && $profil->id_approver) {
+                $approver = User::find($profil->id_approver);
+                $item->approver_name = $approver ? $approver->name : '-';
+            } else {
+                $item->approver_name = '-';
+            }
+        }
+        // ==================================================================================
+
         // Ambil semua barang untuk dropdown modal create
         $barang = Barang::all();
 
@@ -96,9 +109,10 @@ class PermintaanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id_barang'  => 'required|exists:stock_ctl_barang,id_barang',
-            'jumlah'     => 'required|numeric|min:1',
-            'keterangan' => 'nullable|string',
+            'items' => 'required|array|min:1|max:5',
+            'items.*.id_barang' => 'required|exists:stock_ctl_barang,id_barang',
+            'items.*.jumlah' => 'required|numeric|min:0.01',
+            'items.*.keterangan' => 'required|string',
         ]);
 
         $user = Auth::user();
@@ -107,31 +121,36 @@ class PermintaanController extends Controller
             return back()->withErrors('Profil area kerja belum diatur. Silakan hubungi admin.');
         }
 
-        // Validasi: area harus sesuai dengan unit user
         $area = AreaKerja::find($profil->id_area_kerja);
         if (!$area || $area->id_bisnis_unit != $profil->id_bisnis_unit) {
             return back()->withErrors('Profil area kerja tidak sesuai dengan unit bisnis Anda. Silakan hubungi admin.');
         }
 
-        $permintaan = Permintaan::create([
-            'id_user_pemohon'    => $user->id,
-            'id_barang'          => $request->id_barang,
-            'jumlah'             => $request->jumlah,
-            'keterangan'         => $request->keterangan,
-            'status'             => Permintaan::STATUS_PENDING_L1,
-            'id_area_kerja'      => $profil->id_area_kerja,
-        ]);
+        $permintaanIds = [];
+        foreach ($request->items as $item) {
+            $permintaan = Permintaan::create([
+                'id_user_pemohon'    => $user->id,
+                'id_barang'          => $item['id_barang'],
+                'jumlah'             => $item['jumlah'],
+                'keterangan'         => $item['keterangan'] ?? null,
+                'status'             => Permintaan::STATUS_PENDING_L1,
+                'id_area_kerja'      => $profil->id_area_kerja,
+            ]);
+            $permintaanIds[] = $permintaan->id_permintaan;
+        }
 
         // Kirim notifikasi ke atasan (L1)
         if ($profil->id_approver) {
             $approver = User::find($profil->id_approver);
             if ($approver) {
-                $approver->notify(new PermintaanBaruL1($permintaan));
+                foreach ($permintaanIds as $id) {
+                    $approver->notify(new PermintaanBaruL1(Permintaan::find($id)));
+                }
             }
         }
 
         return redirect()->route('stock-ctl.permintaan.index')
-            ->with('success', 'Permintaan berhasil diajukan, menunggu approval atasan.');
+            ->with('success', count($permintaanIds) . ' permintaan berhasil diajukan, menunggu approval atasan.');
     }
 
     /**

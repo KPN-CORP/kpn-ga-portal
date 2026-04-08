@@ -84,6 +84,7 @@
                 <tr>
                     <th class="px-4 py-3 text-left">No. Permintaan</th>
                     <th class="px-4 py-3 text-left">Tanggal</th>
+                    <th class="px-4 py-3 text-left">Pemohon</th>   {{-- KOLOM BARU --}}
                     <th class="px-4 py-3 text-left">Barang</th>
                     <th class="px-4 py-3 text-left">Jumlah</th>
                     <th class="px-4 py-3 text-left">Status</th>
@@ -95,6 +96,7 @@
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 font-mono text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
                     <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
+                    <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>   {{-- TAMPILKAN NAMA PEMOHON --}}
                     <td class="px-4 py-3">
                         <div class="font-medium">{{ $item->barang->nama_barang ?? '-' }}</div>
                         <div class="text-xs text-gray-500 sm:hidden">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</div>
@@ -125,7 +127,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="py-10 text-center text-gray-500">
+                    <td colspan="7" class="py-10 text-center text-gray-500">   {{-- colspan menjadi 7 --}}
                         @if(request()->hasAny(['search', 'status', 'dari', 'sampai']))
                         Data tidak ditemukan
                         @else
@@ -144,35 +146,38 @@
 
     {{-- MODAL CREATE --}}
     <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold mb-4">Ajukan Permintaan ATK</h3>
+        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4">Ajukan Permintaan ATK (Max 5 Item)</h3>
             <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
                 @csrf
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-600 mb-1">Pilih Barang</label>
-                    <select name="id_barang" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
-                        <option value="">-- Pilih Barang --</option>
-                        @foreach($barang as $b)
-                            <option value="{{ $b->id_barang }}">{{ $b->kode_barang }} - {{ $b->nama_barang }} ({{ $b->satuan }})</option>
-                        @endforeach
-                    </select>
+                <div x-data="{
+                    items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
+                    maxItems: 5
+                }">
+                    <template x-for="(item, index) in items" :key="index">
+                        <div class="mb-4 p-3 border rounded-lg relative">
+                            <button type="button" x-show="items.length > 1" @click="items.splice(index,1)" class="absolute top-2 right-2 text-red-500 hover:text-red-700">&times;</button>
+                            <div class="mb-2">
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Barang</label>
+                                <select x-model="item.id_barang" :name="'items['+index+'][id_barang]'" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                                    <option value="">-- Pilih Barang --</option>
+                                    @foreach($barang as $b)
+                                        <option value="{{ $b->id_barang }}">{{ $b->nama_barang }} ({{ $b->satuan }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah</label>
+                                <input type="number" step="0.01" x-model="item.jumlah" :name="'items['+index+'][jumlah]'" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Keterangan <span class="text-red-500">*</span></label>
+                                <textarea x-model="item.keterangan" :name="'items['+index+'][keterangan]'" rows="2" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                    </template>
+                    <button type="button" @click="if(items.length < maxItems) items.push({ id_barang: '', jumlah: 1, keterangan: '' })" :disabled="items.length >= maxItems" class="mb-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-50">+ Tambah Barang (max 5)</button>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah</label>
-                    <input type="number" step="0.01" name="jumlah" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-600 mb-1">
-                    Keterangan <span class="text-red-500">*</span>
-                </label>
-                <textarea 
-                    name="keterangan" 
-                    rows="3" 
-                    required
-                    class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Wajib diisi"
-                ></textarea>
-            </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Ajukan</button>
@@ -181,7 +186,7 @@
         </div>
     </div>
 
-    {{-- MODAL DETAIL --}}
+    {{-- MODAL DETAIL (tidak berubah, sudah menampilkan nama atasan untuk pending L1) --}}
     <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 class="text-lg font-semibold mb-4">Detail Permintaan</h3>
@@ -189,15 +194,9 @@
                 <tr><td class="py-2 text-gray-600 w-1/3">No. Permintaan</td><td class="py-2 font-medium">ATK-SC-<span x-text="detailItem.id_permintaan"></span></td></tr>
                 <tr><td class="py-2 text-gray-600">Tanggal</td><td class="py-2 font-medium" x-text="detailItem.tanggal_permintaan ? new Date(detailItem.tanggal_permintaan).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Pemohon</td><td class="py-2 font-medium" x-text="detailItem.pemohon?.name ?? '-'"></td></tr>
-
-                {{-- Unit Pemohon (ditampilkan hanya jika ada) --}}
                 <template x-if="detailItem.pemohon?.profil?.unit">
-                    <tr>
-                        <td class="py-2 text-gray-600">Unit</td>
-                        <td class="py-2 font-medium" x-text="detailItem.pemohon.profil.unit.split(' (')[0]"></td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Unit</td><td class="py-2 font-medium" x-text="detailItem.pemohon.profil.unit.split(' (')[0]"></td></tr>
                 </template>
-
                 <tr><td class="py-2 text-gray-600">Barang</td><td class="py-2 font-medium" x-text="(detailItem.barang?.nama_barang ?? '') + ' (' + (detailItem.barang?.kode_barang ?? '') + ')'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Jumlah</td><td class="py-2 font-medium" x-text="(detailItem.jumlah ?? '') + ' ' + (detailItem.barang?.satuan ?? '')"></td></tr>
                 <tr><td class="py-2 text-gray-600">Keterangan</td><td class="py-2 font-medium" x-text="detailItem.keterangan ?? '-'"></td></tr>
@@ -208,37 +207,24 @@
                             'bg-orange-100 text-orange-800': detailItem.status == 'pending_admin',
                             'bg-green-100 text-green-800': detailItem.status == 'disetujui',
                             'bg-red-100 text-red-800': detailItem.status == 'ditolak'
-                        }" x-text="detailItem.status ? (detailItem.status == 'pending_l1' ? 'Pending L1' : (detailItem.status == 'pending_admin' ? 'Pending Admin' : detailItem.status.charAt(0).toUpperCase() + detailItem.status.slice(1))) : '-'"></span>
+                        }">
+                            <span x-show="detailItem.status == 'pending_l1'">
+                                Pending L1 (<span x-text="detailItem.approver_name || '-'"></span>)
+                            </span>
+                            <span x-show="detailItem.status == 'pending_admin'">Pending Admin</span>
+                            <span x-show="detailItem.status == 'disetujui'">Disetujui</span>
+                            <span x-show="detailItem.status == 'ditolak'">Ditolak</span>
+                            <span x-show="!['pending_l1','pending_admin','disetujui','ditolak'].includes(detailItem.status)" 
+                                  x-text="detailItem.status.charAt(0).toUpperCase() + detailItem.status.slice(1)"></span>
+                        </span>
                     </td>
                 </tr>
-
-                {{-- Approval L1 --}}
-<template x-if="detailItem.approved_l1_by">
-    <tr>
-        <td class="py-2 text-gray-600">Approval L1</td>
-        <td class="py-2 font-medium">
-            <span x-text="detailItem.approver_l1_name || 'User ' + detailItem.approved_l1_by"></span>
-            <span x-show="detailItem.approved_l1_at" class="text-gray-500 text-xs ml-1">
-                (<span x-text="new Date(detailItem.approved_l1_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})"></span>)
-            </span>
-        </td>
-    </tr>
-</template>
-
-{{-- Approval Admin --}}
-<template x-if="detailItem.approved_admin_by">
-    <tr>
-        <td class="py-2 text-gray-600">Approval Admin</td>
-        <td class="py-2 font-medium">
-            <span x-text="detailItem.approver_admin_name || 'User ' + detailItem.approved_admin_by"></span>
-            <span x-show="detailItem.approved_admin_at" class="text-gray-500 text-xs ml-1">
-                (<span x-text="new Date(detailItem.approved_admin_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})"></span>)
-            </span>
-        </td>
-    </tr>
-</template>
-
-                {{-- Alasan Penolakan --}}
+                <template x-if="detailItem.approved_l1_by">
+                    <tr><td class="py-2 text-gray-600">Approval L1</td><td class="py-2 font-medium"><span x-text="detailItem.approver_l1_name || 'User ' + detailItem.approved_l1_by"></span><span x-show="detailItem.approved_l1_at" class="text-gray-500 text-xs ml-1">(<span x-text="new Date(detailItem.approved_l1_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})"></span>)</span></td></tr>
+                </template>
+                <template x-if="detailItem.approved_admin_by">
+                    <tr><td class="py-2 text-gray-600">Approval Admin</td><td class="py-2 font-medium"><span x-text="detailItem.approver_admin_name || 'User ' + detailItem.approved_admin_by"></span><span x-show="detailItem.approved_admin_at" class="text-gray-500 text-xs ml-1">(<span x-text="new Date(detailItem.approved_admin_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})"></span>)</span></td></tr>
+                </template>
                 <template x-if="detailItem.status == 'ditolak'">
                     <tr><td class="py-2 text-gray-600">Alasan Penolakan</td><td class="py-2 font-medium text-red-600" x-text="detailItem.alasan_tolak ?? '-'"></td></tr>
                 </template>

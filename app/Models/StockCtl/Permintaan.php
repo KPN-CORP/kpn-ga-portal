@@ -30,6 +30,7 @@ class Permintaan extends Model
         'approved_admin_at',
         'rejected_by',
         'rejected_at',
+        'alasan_tolak', 
         'rejection_reason',
     ];
 
