@@ -28,9 +28,7 @@
     {{-- FILTER SECTION --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('help.proses.index') }}" id="filterForm">
-            {{-- Grid untuk filter --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {{-- Search --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Search</label>
                     <input type="text" name="search" value="{{ request('search') }}"
@@ -38,7 +36,6 @@
                            class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
 
-                {{-- Status --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Status</label>
                     <select name="status"
@@ -49,10 +46,10 @@
                         <option value="WAITING" {{ request('status')=='WAITING'?'selected':'' }}>WAITING</option>
                         <option value="DONE" {{ request('status')=='DONE'?'selected':'' }}>DONE</option>
                         <option value="CLOSED" {{ request('status')=='CLOSED'?'selected':'' }}>CLOSED</option>
+                        <option value="HELP_GA_CORP" {{ request('status')=='HELP_GA_CORP'?'selected':'' }}>HELP GA CORP</option>
                     </select>
                 </div>
 
-                {{-- Bisnis Unit --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Bisnis Unit</label>
                     <select name="bisnis_unit_id"
@@ -66,7 +63,6 @@
                     </select>
                 </div>
 
-                {{-- Prioritas --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Prioritas</label>
                     <select name="prioritas"
@@ -79,7 +75,6 @@
                     </select>
                 </div>
 
-                {{-- Kategori --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Kategori</label>
                     <select name="kategori_id"
@@ -93,7 +88,6 @@
                     </select>
                 </div>
 
-                {{-- Tanggal Mulai --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Tanggal Mulai</label>
                     <input type="date" name="start_date" id="filter_start_date" 
@@ -101,7 +95,6 @@
                            value="{{ request('start_date') }}">
                 </div>
 
-                {{-- Tanggal Akhir --}}
                 <div>
                     <label class="text-sm font-medium text-gray-600">Tanggal Akhir</label>
                     <input type="date" name="end_date" id="filter_end_date" 
@@ -110,7 +103,6 @@
                 </div>
             </div>
 
-            {{-- Action Buttons --}}
             <div class="flex flex-col sm:flex-row gap-3 justify-end mt-6 pt-4 border-t border-gray-200">
                 <button type="button" onclick="openDownloadModal()"
                         class="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold 
@@ -149,7 +141,6 @@
                 </div>
                 
                 <form action="{{ route('help.proses.download') }}" method="GET" id="downloadForm">
-                    {{-- FILTER TERSEMBUNYI (mengikuti filter yang aktif) --}}
                     <input type="hidden" name="search" value="{{ request('search') }}">
                     <input type="hidden" name="status" value="{{ request('status') }}">
                     <input type="hidden" name="bisnis_unit_id" value="{{ request('bisnis_unit_id') }}">
@@ -157,7 +148,6 @@
                     <input type="hidden" name="kategori_id" value="{{ request('kategori_id') }}">
                     
                     <div class="space-y-4">
-                        {{-- INFO FILTER AKTIF --}}
                         @php
                             $hasActiveFilters = request()->anyFilled(['search', 'status', 'bisnis_unit_id', 'prioritas', 'kategori_id']);
                         @endphp
@@ -198,7 +188,6 @@
                         </div>
                         @endif
 
-                        {{-- RENTANG TANGGAL DOWNLOAD --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 <i class="fas fa-calendar-alt mr-1 text-gray-500"></i>
@@ -212,7 +201,6 @@
                                            class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                                            value="{{ request('start_date') }}">
                                 </div>
-                                
                                 <div>
                                     <label class="text-xs text-gray-500">Tanggal Akhir</label>
                                     <input type="date" name="end_date" id="download_end_date" 
@@ -240,7 +228,6 @@
                             </p>
                         </div>
 
-                        {{-- OPSI DOWNLOAD --}}
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="flex items-center space-x-3">
                                 <input type="checkbox" name="ignore_filters" id="ignore_filters" value="1" class="rounded text-blue-600">
@@ -332,7 +319,6 @@
                             @php
                                 $pelaporName = "ID: {$item->pelapor_id}";
                                 $pelaporInitial = "P";
-                                
                                 if ($item->pelapor) {
                                     if ($item->pelapor->user && $item->pelapor->user->name) {
                                         $pelaporName = $item->pelapor->user->name;
@@ -351,7 +337,6 @@
                             </span>
                         </div>
                         
-                        {{-- Bisnis Unit di bawah Pelapor --}}
                         <div class="text-xs text-purple-600 pl-8 mt-1">
                             @if($item->bisnisUnit)
                                 <i class="fas fa-building mr-1"></i>{{ $item->bisnisUnit->nama_bisnis_unit }}
@@ -367,7 +352,6 @@
                             {{ $item->kategori->nama ?? '-' }}
                         </span>
                         
-                        {{-- Prioritas di bawah Kategori --}}
                         <div class="mt-1">
                             @php
                                 $priorityColors = [
@@ -391,17 +375,16 @@
                                 'ON_PROCESS' => 'bg-blue-100 text-blue-800',
                                 'WAITING' => 'bg-orange-100 text-orange-800',
                                 'DONE' => 'bg-green-100 text-green-800',
-                                'CLOSED' => 'bg-gray-100 text-gray-800'
+                                'CLOSED' => 'bg-gray-100 text-gray-800',
+                                'HELP_GA_CORP' => 'bg-purple-100 text-purple-800'
                             ];
                         @endphp
                         <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$item->status] }}">
-                            {{ $item->status }}
+                            {{ $item->status == 'HELP_GA_CORP' ? 'HELP GA CORP' : $item->status }}
                         </span>
                         
-                        {{-- Nama Penanggung Jawab (PIC) - Menggunakan relasi ditugaskanKe() --}}
                         <div class="mt-2 text-xs flex items-center">
                             @if($item->ditugaskan_ke && $item->ditugaskanKe)
-                                {{-- Ada PIC --}}
                                 @php
                                     $picName = $item->ditugaskanKe->nama_pelanggan ?? 'PIC #' . $item->ditugaskan_ke;
                                     $picInitial = substr($picName, 0, 1);
@@ -416,7 +399,6 @@
                                     </span>
                                 </div>
                             @else
-                                {{-- Tidak Ada PIC --}}
                                 <div class="flex items-center text-gray-400 italic">
                                     <span class="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-medium text-gray-500 mr-1">
                                         <i class="fas fa-user-slash text-[8px]"></i>
@@ -427,7 +409,6 @@
                             @endif
                         </div>
                         
-                        {{-- Info Mobile: Bisnis Unit, Kategori --}}
                         <div class="mt-1 md:hidden">
                             @if($item->bisnisUnit)
                             <div class="text-xs text-purple-600">
@@ -450,7 +431,7 @@
                                 <i class="fas fa-eye mr-1"></i> Detail
                             </a>
                             
-                            @if($item->status === 'OPEN')
+                            @if($item->status === 'OPEN' || $item->status === 'HELP_GA_CORP')
                             <form action="{{ route('help.proses.take', $item) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" 
@@ -484,41 +465,27 @@ document.getElementById('toggleFilterBtn')?.addEventListener('click', () => {
     document.getElementById('filterSection').classList.toggle('hidden')
 })
 
-// Cek parameter filter di URL (abaikan parameter 'page')
 document.addEventListener('DOMContentLoaded', function() {
     const filterSection = document.getElementById('filterSection');
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Daftar parameter filter yang valid
     const filterParams = ['search', 'status', 'bisnis_unit_id', 'prioritas', 'kategori_id', 'start_date', 'end_date'];
-    
-    // Cek apakah ada parameter filter selain 'page'
     let hasRealFilter = false;
-    
     for (let [key, value] of urlParams.entries()) {
-        // Abaikan parameter 'page'
         if (key === 'page') continue;
-        
-        // Jika parameter termasuk dalam daftar filter dan nilainya tidak kosong
         if (filterParams.includes(key) && value !== '') {
             hasRealFilter = true;
             break;
         }
     }
-    
-    // Tampilkan filter hanya jika ada parameter filter yang valid
     if (hasRealFilter) {
         filterSection.classList.remove('hidden');
     }
 });
 
-// Modal functions
 function openDownloadModal() {
     const modal = document.getElementById('downloadModal');
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
-    
-    // Reset form state
     resetDownloadModal();
 }
 
@@ -528,7 +495,6 @@ function closeDownloadModal() {
     document.body.style.overflow = 'auto';
 }
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('downloadModal');
     if (event.target == modal) {
@@ -536,7 +502,6 @@ window.onclick = function(event) {
     }
 }
 
-// Auto hide alerts after 5 seconds
 setTimeout(() => {
     document.querySelectorAll('.bg-green-50, .bg-red-50').forEach(alert => {
         alert.style.transition = 'opacity 0.3s ease-out';
@@ -545,11 +510,9 @@ setTimeout(() => {
     });
 }, 5000);
 
-// Validasi tanggal filter di halaman utama
 document.addEventListener('DOMContentLoaded', function() {
     const filterStartDate = document.getElementById('filter_start_date');
     const filterEndDate = document.getElementById('filter_end_date');
-    
     if (filterStartDate && filterEndDate) {
         filterStartDate.addEventListener('change', function() {
             if (filterEndDate.value && this.value > filterEndDate.value) {
@@ -557,7 +520,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = '';
             }
         });
-        
         filterEndDate.addEventListener('change', function() {
             if (filterStartDate.value && this.value < filterStartDate.value) {
                 alert('Tanggal akhir tidak boleh lebih kecil dari tanggal mulai!');
@@ -567,7 +529,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Fungsi untuk reset modal download
 function resetDownloadModal() {
     const downloadStartDate = document.getElementById('download_start_date');
     const downloadEndDate = document.getElementById('download_end_date');
@@ -575,16 +536,10 @@ function resetDownloadModal() {
     const ignoreFilters = document.getElementById('ignore_filters');
     const filterStartDate = document.getElementById('filter_start_date');
     const filterEndDate = document.getElementById('filter_end_date');
-    
-    // Reset nilai ke filter yang aktif
     if (downloadStartDate) downloadStartDate.value = filterStartDate?.value || '';
     if (downloadEndDate) downloadEndDate.value = filterEndDate?.value || '';
-    
-    // Uncheck semua checkbox
     if (useFilterDates) useFilterDates.checked = false;
     if (ignoreFilters) ignoreFilters.checked = false;
-    
-    // Enable semua input
     if (downloadStartDate) {
         downloadStartDate.disabled = false;
         downloadStartDate.classList.remove('bg-gray-100');
@@ -596,7 +551,6 @@ function resetDownloadModal() {
     if (useFilterDates) useFilterDates.disabled = false;
 }
 
-// Validasi dan interaktivitas modal download
 document.addEventListener('DOMContentLoaded', function() {
     const downloadStartDate = document.getElementById('download_start_date');
     const downloadEndDate = document.getElementById('download_end_date');
@@ -604,8 +558,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const ignoreFilters = document.getElementById('ignore_filters');
     const filterStartDate = document.getElementById('filter_start_date');
     const filterEndDate = document.getElementById('filter_end_date');
-    
-    // Validasi tanggal di modal download
     if (downloadStartDate && downloadEndDate) {
         downloadStartDate.addEventListener('change', function() {
             if (downloadEndDate.value && this.value > downloadEndDate.value) {
@@ -613,7 +565,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = '';
             }
         });
-        
         downloadEndDate.addEventListener('change', function() {
             if (downloadStartDate.value && this.value < downloadStartDate.value) {
                 alert('Tanggal akhir tidak boleh lebih kecil dari tanggal mulai!');
@@ -621,31 +572,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Handle "use filter dates" checkbox
     if (useFilterDates && filterStartDate && filterEndDate) {
         useFilterDates.addEventListener('change', function() {
             if (this.checked) {
-                // Gunakan tanggal dari filter halaman
                 downloadStartDate.value = filterStartDate.value || '';
                 downloadEndDate.value = filterEndDate.value || '';
-                
-                // Validasi tanggal
-                if (filterStartDate.value && filterEndDate.value) {
-                    if (filterStartDate.value > filterEndDate.value) {
-                        alert('Filter tanggal di halaman utama tidak valid. Silakan perbaiki terlebih dahulu.');
-                        this.checked = false;
-                        return;
-                    }
+                if (filterStartDate.value && filterEndDate.value && filterStartDate.value > filterEndDate.value) {
+                    alert('Filter tanggal di halaman utama tidak valid. Silakan perbaiki terlebih dahulu.');
+                    this.checked = false;
+                    return;
                 }
-                
-                // Disable input tanggal
                 downloadStartDate.disabled = true;
                 downloadEndDate.disabled = true;
                 downloadStartDate.classList.add('bg-gray-100');
                 downloadEndDate.classList.add('bg-gray-100');
             } else {
-                // Enable input tanggal
                 downloadStartDate.disabled = false;
                 downloadEndDate.disabled = false;
                 downloadStartDate.classList.remove('bg-gray-100');
@@ -653,12 +594,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Handle "ignore filters" checkbox
     if (ignoreFilters) {
         ignoreFilters.addEventListener('change', function() {
             if (this.checked) {
-                // Disable semua kontrol tanggal
                 if (downloadStartDate) {
                     downloadStartDate.disabled = true;
                     downloadStartDate.classList.add('bg-gray-100');
@@ -671,12 +609,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     useFilterDates.disabled = true;
                     useFilterDates.checked = false;
                 }
-                
-                // Kosongkan nilai tanggal
                 if (downloadStartDate) downloadStartDate.value = '';
                 if (downloadEndDate) downloadEndDate.value = '';
             } else {
-                // Enable kembali berdasarkan kondisi useFilterDates
                 if (useFilterDates && useFilterDates.checked) {
                     if (downloadStartDate) {
                         downloadStartDate.disabled = true;
@@ -696,24 +631,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         downloadEndDate.classList.remove('bg-gray-100');
                     }
                 }
-                if (useFilterDates) {
-                    useFilterDates.disabled = false;
-                }
+                if (useFilterDates) useFilterDates.disabled = false;
             }
         });
     }
-    
-    // Submit form download dengan validasi
     const downloadForm = document.getElementById('downloadForm');
     if (downloadForm) {
         downloadForm.addEventListener('submit', function(e) {
             const ignoreFiltersCheck = document.getElementById('ignore_filters');
             const downloadStart = document.getElementById('download_start_date');
             const downloadEnd = document.getElementById('download_end_date');
-            
-            // Jika ignore filters dicentang, pastikan tidak ada parameter filter yang dikirim
             if (ignoreFiltersCheck && ignoreFiltersCheck.checked) {
-                // Hapus semua input hidden filter
                 const hiddenInputs = this.querySelectorAll('input[type="hidden"]');
                 hiddenInputs.forEach(input => {
                     if (input.name !== '_token' && input.name !== '_method') {
@@ -721,66 +649,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             }
-            
-            // Validasi tanggal jika diisi
-            if (downloadStart.value && downloadEnd.value) {
-                if (downloadStart.value > downloadEnd.value) {
-                    e.preventDefault();
-                    alert('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!');
-                    return false;
-                }
+            if (downloadStart.value && downloadEnd.value && downloadStart.value > downloadEnd.value) {
+                e.preventDefault();
+                alert('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!');
+                return false;
             }
         });
     }
 });
 </script>
 
-{{-- STYLE UNTUK MODAL --}}
 <style>
 #downloadModal {
     display: none;
     z-index: 9999;
 }
-
 #downloadModal.active {
     display: block;
 }
-
-/* Animasi modal */
 #downloadModal .relative {
     animation: slideDown 0.3s ease-out;
 }
-
 @keyframes slideDown {
-    from {
-        transform: translateY(-50px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
-
-/* Pastikan tombol tidak berubah styling */
 button, .btn {
     transition: all 0.2s ease;
 }
-
 button:focus, .btn:focus {
     outline: none;
     ring: 2px;
     ring-color: #3b82f6;
 }
-
-/* Styling untuk input yang di-disable */
 input:disabled, select:disabled {
     background-color: #f3f4f6;
     cursor: not-allowed;
     opacity: 0.7;
 }
-
-/* Styling untuk modal background */
 .fixed.inset-0.bg-gray-600.bg-opacity-50 {
     backdrop-filter: blur(2px);
 }

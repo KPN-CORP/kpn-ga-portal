@@ -16,7 +16,8 @@
                             'ON_PROCESS' => 'bg-blue-100 text-blue-800 border-blue-200',
                             'WAITING' => 'bg-orange-100 text-orange-800 border-orange-200',
                             'DONE' => 'bg-green-100 text-green-800 border-green-200',
-                            'CLOSED' => 'bg-gray-100 text-gray-800 border-gray-200'
+                            'CLOSED' => 'bg-gray-100 text-gray-800 border-gray-200',
+                            'HELP_GA_CORP' => 'bg-purple-100 text-purple-800 border-purple-200',
                         ];
                         $statusLabels = [
                             'OPEN'       => 'Menunggu Penanganan',
@@ -24,6 +25,7 @@
                             'WAITING'    => 'Dalam Proses Pengadaan',
                             'DONE'       => 'Selesai',
                             'CLOSED'     => 'Ditutup',
+                            'HELP_GA_CORP' => 'Help GA Corp',
                         ];
                         $priorityColors = [
                             'URGENT' => 'bg-red-100 text-red-800 border-red-200',
@@ -165,7 +167,7 @@
                     <div class="flex items-start">
                         <i class="fas fa-hourglass-half text-orange-500 mt-0.5 mr-2 text-sm"></i>
                         <div>
-                            <p class="text-sm text-gray-700">Menunggu</p>
+                            <p class="text-sm text-gray-700">Menunggu respons dari Anda.</p>
                             <p class="text-sm font-medium text-orange-600 mt-1">Silakan berikan respons atau info tambahan.</p>
                         </div>
                     </div>
@@ -187,6 +189,14 @@
                             @if($tiket->ditutup_pada)
                             <p class="text-xs text-gray-500 mt-0.5">{{ $tiket->ditutup_pada->format('d/m H:i') }}</p>
                             @endif
+                        </div>
+                    </div>
+                    @elseif($tiket->status === 'HELP_GA_CORP')
+                    <div class="flex items-start">
+                        <i class="fas fa-exchange-alt text-purple-500 mt-0.5 mr-2 text-sm"></i>
+                        <div>
+                            <p class="text-sm text-gray-700">Tiket sedang dalam antrian GA Corp.</p>
+                            <p class="text-sm text-purple-600 mt-1">Tiket akan segera diproses oleh petugas GA Corp.</p>
                         </div>
                     </div>
                     @endif
