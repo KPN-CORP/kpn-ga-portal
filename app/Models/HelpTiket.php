@@ -19,7 +19,7 @@ class HelpTiket extends Model
         'deskripsi',
         'kategori_id',
         'pelapor_id',
-        'bisnis_unit_id', // TAMBAHKAN INI
+        'bisnis_unit_id',
         'ditugaskan_ke',
         'status',
         'prioritas',
@@ -51,54 +51,54 @@ class HelpTiket extends Model
     ];
 
     /**
-     * RELATIONSHIPS
+     * Status tiket yang tersedia
      */
-    
-    // Kategori tiket
+    const STATUS_TIKET = [
+        'OPEN' => 'OPEN',
+        'ON_PROCESS' => 'ON_PROCESS',
+        'WAITING' => 'WAITING',
+        'DONE' => 'DONE',
+        'CLOSED' => 'CLOSED',
+        'HELP_GA_CORP' => 'HELP_GA_CORP',
+    ];
+
+    // RELATIONSHIPS
     public function kategori(): BelongsTo
     {
         return $this->belongsTo(HelpKategori::class, 'kategori_id');
     }
     
-    // Bisnis Unit - TAMBAHKAN RELATIONSHIP INI
     public function bisnisUnit(): BelongsTo
     {
         return $this->belongsTo(BisnisUnit::class, 'bisnis_unit_id', 'id_bisnis_unit');
     }
     
-    // Pelapor (dari users table) - pelapor_id references users.id
     public function pelapor(): BelongsTo
     {
         return $this->belongsTo(Pelanggan::class, 'pelapor_id', 'id_pelanggan');
     }
     
-    // Penanggung jawab (dari users table) - ditugaskan_ke references users.id
     public function ditugaskanKe(): BelongsTo
     {
         return $this->belongsTo(Pelanggan::class, 'ditugaskan_ke', 'id_pelanggan');
     }
     
-    // Komentar
     public function komentar(): HasMany
     {
         return $this->hasMany(HelpKomentar::class, 'tiket_id');
     }
     
-    // Lampiran
     public function lampiran(): HasMany
     {
         return $this->hasMany(HelpLampiran::class, 'tiket_id');
     }
     
-    // Log status
     public function logStatus(): HasMany
     {
         return $this->hasMany(HelpLogStatus::class, 'tiket_id');
     }
     
-    /**
-     * SCOPES
-     */
+    // SCOPES
     public function scopeOpen($query)
     {
         return $query->where('status', 'OPEN');
@@ -122,5 +122,10 @@ class HelpTiket extends Model
     public function scopeClosed($query)
     {
         return $query->where('status', 'CLOSED');
+    }
+
+    public function scopeHelpGaCorp($query)
+    {
+        return $query->where('status', 'HELP_GA_CORP');
     }
 }

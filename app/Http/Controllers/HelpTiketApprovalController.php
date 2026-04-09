@@ -36,7 +36,8 @@ class HelpTiketApprovalController extends Controller
         'ON_PROCESS' => 'ON_PROCESS',
         'WAITING' => 'WAITING',
         'DONE' => 'DONE',
-        'CLOSED' => 'CLOSED'
+        'CLOSED' => 'CLOSED',
+        'HELP_GA_CORP' => 'HELP_GA_CORP'
     ];
 
     /**
@@ -144,7 +145,7 @@ class HelpTiketApprovalController extends Controller
     }
 
     /**
-     * Transfer ticket to GA Corp (ON_PROCESS/WAITING -> OPEN)
+     * Transfer ticket to GA Corp (ON_PROCESS/WAITING -> HELP_GA_CORP)
      */
     public function transferToCorp(Request $request, HelpTiket $tiket)
     {
@@ -199,11 +200,8 @@ class HelpTiketApprovalController extends Controller
             // Catat status lama
             $statusLama = $tiket->status;
             
-            // Update tiket:
-            // 1. Ubah status menjadi OPEN
-            // 2. Hapus penanggung jawab (ditugaskan_ke = null)
-            // 3. Reset waktu diproses
-            $tiket->status = 'OPEN';
+            // Update tiket: status menjadi HELP_GA_CORP, hapus penanggung jawab, reset waktu
+            $tiket->status = self::STATUS_TIKET['HELP_GA_CORP'];
             $tiket->ditugaskan_ke = null;
             $tiket->diproses_pada = null;
             $tiket->menunggu_pada = null;
@@ -213,7 +211,7 @@ class HelpTiketApprovalController extends Controller
             HelpLogStatus::create([
                 'tiket_id' => $tiket->id,
                 'status_lama' => $statusLama,
-                'status_baru' => 'OPEN',
+                'status_baru' => self::STATUS_TIKET['HELP_GA_CORP'],
                 'pengguna_id' => $currentPelanggan->id_pelanggan,
                 'catatan' => 'Penanganan Dilanjutkan ke GA Corp. Alasan: ' . $request->alasan_transfer,
             ]);
@@ -224,7 +222,7 @@ class HelpTiketApprovalController extends Controller
                 'pengguna_id' => $currentPelanggan->id_pelanggan,
                 'komentar' => '⚠️ **Penanganan Dilanjutkan ke GA Corp** ⚠️' . "\n\n" .
                               '**Alasan:** ' . $request->alasan_transfer . "\n\n" .
-                              '_Tiket dikembalikan ke antrian untuk diproses._',
+                              '_Tiket dalam antrian GA Corp._',
                 'pesan_sistem' => true,
                 'tipe_pesan_sistem' => 'STATUS_CHANGED',
             ]);
@@ -239,7 +237,7 @@ class HelpTiketApprovalController extends Controller
             ]);
             
             return redirect()->route('help.proses.index')
-                ->with('success', '✅ Tiket berhasil dialihkan ke GA Corp. Tiket telah dikembalikan ke antrian OPEN.');
+                ->with('success', '✅ Tiket berhasil dialihkan ke GA Corp. Status: HELP GA CORP');
                 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1155,7 +1153,8 @@ class HelpTiketApprovalController extends Controller
             self::STATUS_TIKET['ON_PROCESS'] => '<span class="badge bg-info">ON_PROCESS</span>',
             self::STATUS_TIKET['WAITING'] => '<span class="badge bg-warning">WAITING</span>',
             self::STATUS_TIKET['DONE'] => '<span class="badge bg-success">DONE</span>',
-            self::STATUS_TIKET['CLOSED'] => '<span class="badge bg-secondary">CLOSED</span>'
+            self::STATUS_TIKET['CLOSED'] => '<span class="badge bg-secondary">CLOSED</span>',
+            self::STATUS_TIKET['HELP_GA_CORP'] => '<span class="badge bg-purple">HELP GA CORP</span>',
         ];
         
         return $labels[$status] ?? $status;

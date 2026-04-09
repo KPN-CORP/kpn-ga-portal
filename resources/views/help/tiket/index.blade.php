@@ -51,6 +51,7 @@
                     <option value="WAITING" {{ request('status')=='WAITING'?'selected':'' }}>WAITING</option>
                     <option value="DONE" {{ request('status')=='DONE'?'selected':'' }}>DONE</option>
                     <option value="CLOSED" {{ request('status')=='CLOSED'?'selected':'' }}>CLOSED</option>
+                    <option value="HELP_GA_CORP" {{ request('status')=='HELP_GA_CORP'?'selected':'' }}>HELP GA CORP</option>
                 </select>
             </div>
 
@@ -127,11 +128,20 @@
                                 'ON_PROCESS' => 'bg-blue-100 text-blue-800',
                                 'WAITING' => 'bg-orange-100 text-orange-800',
                                 'DONE' => 'bg-green-100 text-green-800',
-                                'CLOSED' => 'bg-gray-100 text-gray-800'
+                                'CLOSED' => 'bg-gray-100 text-gray-800',
+                                'HELP_GA_CORP' => 'bg-purple-100 text-purple-800',
+                            ];
+                            $statusLabels = [
+                                'OPEN' => 'OPEN',
+                                'ON_PROCESS' => 'ON PROCESS',
+                                'WAITING' => 'WAITING',
+                                'DONE' => 'DONE',
+                                'CLOSED' => 'CLOSED',
+                                'HELP_GA_CORP' => 'HELP GA CORP',
                             ];
                         @endphp
                         <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$item->status] }}">
-                            {{ $item->status }}
+                            {{ $statusLabels[$item->status] ?? $item->status }}
                         </span>
                     </td>
 
