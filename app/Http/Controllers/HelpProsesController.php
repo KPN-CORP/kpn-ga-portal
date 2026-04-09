@@ -35,7 +35,8 @@ class HelpProsesController extends Controller
         'ON_PROCESS' => 'ON_PROCESS',
         'WAITING' => 'WAITING',
         'DONE' => 'DONE',
-        'CLOSED' => 'CLOSED'
+        'CLOSED' => 'CLOSED',
+        'HELP_GA_CORP' => 'HELP_GA_CORP',   // TAMBAHKAN INI
     ];
 
     /**
@@ -186,12 +187,16 @@ class HelpProsesController extends Controller
             return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mengambil tiket ini.');
         }
         
-        if ($tiket->status !== self::STATUS_TIKET['OPEN']) {
-            return redirect()->back()->with('error', 'Hanya tiket dengan status OPEN yang dapat diambil.');
+        // IZINKAN MENGAMBIL JIKA STATUS OPEN ATAU HELP_GA_CORP
+        if (!in_array($tiket->status, [self::STATUS_TIKET['OPEN'], self::STATUS_TIKET['HELP_GA_CORP']])) {
+            return redirect()->back()->with('error', 'Hanya tiket dengan status OPEN atau HELP GA CORP yang dapat diambil.');
         }
         
         try {
             DB::beginTransaction();
+            
+            // Catat status lama (sebelum update)
+            $oldStatus = $tiket->status;
             
             // Update tiket
             $tiket->update([
@@ -204,7 +209,7 @@ class HelpProsesController extends Controller
             HelpLogStatus::create([
                 'tiket_id' => $tiket->id,
                 'pengguna_id' => $user->pelanggan->id_pelanggan,
-                'status_lama' => self::STATUS_TIKET['OPEN'],
+                'status_lama' => $oldStatus,
                 'status_baru' => self::STATUS_TIKET['ON_PROCESS'],
                 'catatan' => 'Tiket diambil oleh ' . ($user->name ?? $user->username)
             ]);
@@ -635,7 +640,7 @@ class HelpProsesController extends Controller
             'today' => [
                 'label' => 'Hari Ini',
                 'start' => Carbon::today()->format('Y-m-d'),
-                'end' => Carbon::today()->format('Y-m-d')  // ← HAPUS KURUNG SETELAH INI
+                'end' => Carbon::today()->format('Y-m-d')
             ],
             'yesterday' => [
                 'label' => 'Kemarin',
