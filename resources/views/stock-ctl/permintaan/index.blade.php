@@ -3,45 +3,39 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="permintaanModal()">
     {{-- HEADER --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-2 sm:px-0">
         <div>
-            <h2 class="text-xl font-semibold text-gray-800">Permintaan ATK</h2>
-            <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full
-                         text-xs font-semibold bg-blue-100 text-blue-800">
+            <h2 class="text-lg sm:text-xl font-semibold text-gray-800">Permintaan ATK</h2>
+            <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                 Personal Requests
             </span>
         </div>
 
         <div class="flex gap-2 w-full sm:w-auto">
             <button @click="openCreateModal()"
-                    class="flex-1 sm:flex-none inline-flex items-center justify-center
-                           px-4 py-2 bg-blue-600 text-white rounded-lg
-                           text-sm font-semibold hover:bg-blue-700 transition">
+                    class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">
                 + Buat Permintaan
             </button>
 
             <button id="toggleFilterBtn"
-                class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700
-                       rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
                 Filters
             </button>
         </div>
     </div>
 
     {{-- FILTER --}}
-    <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
+    <div id="filterSection" class="bg-white border rounded-xl p-3 sm:p-4 hidden">
         <form method="GET" action="{{ route('stock-ctl.permintaan.index') }}"
-              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div>
-                <label class="text-sm font-medium text-gray-600">Search</label>
+                <label class="text-xs sm:text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}"
                        placeholder="Cari barang"
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-
             <div>
-                <label class="text-sm font-medium text-gray-600">Status</label>
+                <label class="text-xs sm:text-sm font-medium text-gray-600">Status</label>
                 <select name="status"
                         class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Status</option>
@@ -51,19 +45,16 @@
                     <option value="ditolak" {{ request('status')=='ditolak'?'selected':'' }}>Ditolak</option>
                 </select>
             </div>
-
             <div>
-                <label class="text-sm font-medium text-gray-600">Dari Tanggal</label>
+                <label class="text-xs sm:text-sm font-medium text-gray-600">Dari Tanggal</label>
                 <input type="date" name="dari" value="{{ request('dari') }}"
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-
             <div>
-                <label class="text-sm font-medium text-gray-600">Sampai Tanggal</label>
+                <label class="text-xs sm:text-sm font-medium text-gray-600">Sampai Tanggal</label>
                 <input type="date" name="sampai" value="{{ request('sampai') }}"
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-
             <div class="lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
                 <button type="submit"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
@@ -77,32 +68,40 @@
         </form>
     </div>
 
-    {{-- TABLE --}}
-    <div class="bg-white border rounded-xl overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
+    {{-- TABLE RESPONSIF --}}
+    <div class="bg-white border rounded-xl overflow-x-auto shadow-sm">
+        <table class="w-full text-sm min-w-[640px]">
+            <thead class="bg-gray-50 text-gray-600 text-xs sm:text-sm">
                 <tr>
-                    <th class="px-4 py-3 text-left">No. Permintaan</th>
-                    <th class="px-4 py-3 text-left">Tanggal</th>
-                    <th class="px-4 py-3 text-left">Pemohon</th>   {{-- KOLOM BARU --}}
-                    <th class="px-4 py-3 text-left">Barang</th>
-                    <th class="px-4 py-3 text-left">Jumlah</th>
-                    <th class="px-4 py-3 text-left">Status</th>
-                    <th class="px-4 py-3 text-left">Aksi</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">No.</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">Tanggal</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">Pemohon</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">Barang</th>
+                    <th class="px-2 sm:px-4 py-3 text-left hidden sm:table-cell">Jumlah</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">Status</th>
+                    <th class="px-2 sm:px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($permintaan as $item)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-mono text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
-                    <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
-                    <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>   {{-- TAMPILKAN NAMA PEMOHON --}}
-                    <td class="px-4 py-3">
-                        <div class="font-medium">{{ $item->barang->nama_barang ?? '-' }}</div>
-                        <div class="text-xs text-gray-500 sm:hidden">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</div>
+                    <td class="px-2 sm:px-4 py-3 font-mono text-xs sm:text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
+                    <td class="px-2 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap">
+                        {{ \Carbon\Carbon::parse($item->tanggal_permintaan)->timezone('Asia/Jakarta')->format('d M Y H:i') }}
                     </td>
-                    <td class="px-4 py-3 hidden sm:table-cell">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
-                    <td class="px-4 py-3">
+                    <td class="px-2 sm:px-4 py-3 text-xs sm:text-sm truncate max-w-[100px] sm:max-w-none">
+                        {{ $item->pemohon->name ?? '-' }}
+                    </td>
+                    <td class="px-2 sm:px-4 py-3">
+                        <div class="font-medium text-xs sm:text-sm">{{ $item->barang->nama_barang ?? '-' }}</div>
+                        <div class="text-xs text-gray-500 sm:hidden">
+                            {{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}
+                        </div>
+                    </td>
+                    <td class="px-2 sm:px-4 py-3 hidden sm:table-cell text-xs sm:text-sm">
+                        {{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}
+                    </td>
+                    <td class="px-2 sm:px-4 py-3">
                         @php
                             $statusColors = [
                                 'pending_l1' => 'bg-yellow-100 text-yellow-800',
@@ -117,21 +116,24 @@
                                 'ditolak' => 'Ditolak'
                             ];
                         @endphp
-                        <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$item->status] ?? 'bg-gray-100 text-gray-800' }}">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap {{ $statusColors[$item->status] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $statusLabels[$item->status] ?? ucfirst($item->status) }}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <button @click="openDetailModal({{ $item->toJson() }})" class="text-blue-600 font-semibold hover:underline">Detail</button>
+                    <td class="px-2 sm:px-4 py-3">
+                        <button @click="openDetailModal({{ $item->toJson() }})" 
+                                class="text-blue-600 font-semibold hover:underline text-xs sm:text-sm">
+                            Detail
+                        </button>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="py-10 text-center text-gray-500">   {{-- colspan menjadi 7 --}}
+                    <td colspan="7" class="py-10 text-center text-gray-500 text-sm">
                         @if(request()->hasAny(['search', 'status', 'dari', 'sampai']))
-                        Data tidak ditemukan
+                            Data tidak ditemukan
                         @else
-                        Belum ada permintaan
+                            Belum ada permintaan
                         @endif
                     </td>
                 </tr>
@@ -141,56 +143,120 @@
     </div>
 
     @if($permintaan->hasPages())
-        <div class="mt-4">{{ $permintaan->links() }}</div>
+        <div class="mt-4 px-2 sm:px-0">{{ $permintaan->links() }}</div>
     @endif
 
-    {{-- MODAL CREATE --}}
-    <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
-        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-semibold mb-4">Ajukan Permintaan ATK (Max 5 Item)</h3>
-            <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
-                @csrf
-                <div x-data="{
-                    items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
-                    maxItems: 5
-                }">
-                    <template x-for="(item, index) in items" :key="index">
-                        <div class="mb-4 p-3 border rounded-lg relative">
-                            <button type="button" x-show="items.length > 1" @click="items.splice(index,1)" class="absolute top-2 right-2 text-red-500 hover:text-red-700">&times;</button>
-                            <div class="mb-2">
-                                <label class="block text-sm font-medium text-gray-600 mb-1">Barang</label>
-                                <select x-model="item.id_barang" :name="'items['+index+'][id_barang]'" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
-                                    <option value="">-- Pilih Barang --</option>
-                                    @foreach($barang as $b)
-                                        <option value="{{ $b->id_barang }}">{{ $b->nama_barang }} ({{ $b->satuan }})</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah</label>
-                                <input type="number" step="0.01" x-model="item.jumlah" :name="'items['+index+'][jumlah]'" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-600 mb-1">Keterangan <span class="text-red-500">*</span></label>
-                                <textarea x-model="item.keterangan" :name="'items['+index+'][keterangan]'" rows="2" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+{{-- MODAL CREATE dengan Autocomplete Barang --}}
+<div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+    <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <h3 class="text-base sm:text-lg font-semibold mb-4">Ajukan Permintaan ATK (Max 5 Item)</h3>
+        <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
+            @csrf
+            {{-- Data barang disediakan di level form agar semua item bisa mengakses --}}
+            <div x-data="{
+                items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
+                maxItems: 5,
+                barangList: {{ Js::from($barang->map(fn($b) => ['id' => $b->id_barang, 'nama' => $b->nama_barang, 'satuan' => $b->satuan])) }}
+            }">
+                <template x-for="(item, index) in items" :key="index">
+                    <div class="mb-4 p-3 border rounded-lg relative">
+                        <button type="button" x-show="items.length > 1" @click="items.splice(index,1)" 
+                                class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xl leading-5">&times;</button>
+                        
+                        {{-- Barang dengan autocomplete --}}
+                        <div class="mb-2">
+                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Barang</label>
+                            <div x-data="{
+                                search: '',
+                                selectedId: item.id_barang,
+                                filteredBarang: [],
+                                showDropdown: false,
+                                init() {
+                                    // Jika item sudah punya id_barang (misal saat edit), tampilkan nama
+                                    if (this.selectedId) {
+                                        const brg = this.barangList.find(b => b.id == this.selectedId);
+                                        if (brg) this.search = brg.nama + ' (' + brg.satuan + ')';
+                                    }
+                                },
+                                filter() {
+                                    const term = this.search.toLowerCase();
+                                    this.filteredBarang = term === '' 
+                                        ? this.barangList 
+                                        : this.barangList.filter(b => 
+                                            b.nama.toLowerCase().includes(term) || 
+                                            b.id.toString().includes(term)
+                                          );
+                                    this.showDropdown = true;
+                                },
+                                selectBarang(barang) {
+                                    this.selectedId = barang.id;
+                                    this.search = barang.nama + ' (' + barang.satuan + ')';
+                                    this.showDropdown = false;
+                                    item.id_barang = barang.id;   // update model item
+                                }
+                            }" class="relative">
+                                <input type="text" 
+                                       x-model="search" 
+                                       @input="filter()" 
+                                       @focus="showDropdown = true; filter()" 
+                                       @click.away="showDropdown = false" 
+                                       placeholder="Ketik nama atau kode barang..." 
+                                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                                <input type="hidden" :name="'items['+index+'][id_barang]'" x-model="selectedId" required>
+                                
+                                {{-- Dropdown hasil pencarian --}}
+                                <div x-show="showDropdown && filteredBarang.length > 0" 
+                                     class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    <template x-for="barang in filteredBarang" :key="barang.id">
+                                        <div @click="selectBarang(barang)" 
+                                             class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                             x-text="barang.nama + ' (' + barang.satuan + ')'"></div>
+                                    </template>
+                                </div>
+                                <div x-show="showDropdown && filteredBarang.length === 0" 
+                                     class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg p-2 text-sm text-gray-500">
+                                    Barang tidak ditemukan
+                                </div>
                             </div>
                         </div>
-                    </template>
-                    <button type="button" @click="if(items.length < maxItems) items.push({ id_barang: '', jumlah: 1, keterangan: '' })" :disabled="items.length >= maxItems" class="mb-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-50">+ Tambah Barang (max 5)</button>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Ajukan</button>
-                </div>
-            </form>
-        </div>
+                        
+                        {{-- Jumlah --}}
+                        <div class="mb-2">
+                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Jumlah</label>
+                            <input type="number" step="0.01" x-model="item.jumlah" :name="'items['+index+'][jumlah]'" 
+                                   class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        
+                        {{-- Alasan --}}
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Alasan <span class="text-red-500">*</span></label>
+                            <textarea x-model="item.keterangan" :name="'items['+index+'][keterangan]'" rows="2" required 
+                                      class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </div>
+                </template>
+                
+                <button type="button" 
+                        @click="if(items.length < maxItems) items.push({ id_barang: '', jumlah: 1, keterangan: '' })" 
+                        :disabled="items.length >= maxItems" 
+                        class="mb-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-50">
+                    + Tambah Barang (max 5)
+                </button>
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Ajukan</button>
+            </div>
+        </form>
     </div>
+</div>
 
-    {{-- MODAL DETAIL (tidak berubah, sudah menampilkan nama atasan untuk pending L1) --}}
-    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold mb-4">Detail Permintaan</h3>
-            <table class="w-full">
+    {{-- MODAL DETAIL (Responsif) --}}
+    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 class="text-base sm:text-lg font-semibold mb-4">Detail Permintaan</h3>
+            <table class="w-full text-xs sm:text-sm">
                 <tr><td class="py-2 text-gray-600 w-1/3">No. Permintaan</td><td class="py-2 font-medium">ATK-SC-<span x-text="detailItem.id_permintaan"></span></td></tr>
                 <tr><td class="py-2 text-gray-600">Tanggal</td><td class="py-2 font-medium" x-text="detailItem.tanggal_permintaan ? new Date(detailItem.tanggal_permintaan).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Pemohon</td><td class="py-2 font-medium" x-text="detailItem.pemohon?.name ?? '-'"></td></tr>
@@ -199,7 +265,7 @@
                 </template>
                 <tr><td class="py-2 text-gray-600">Barang</td><td class="py-2 font-medium" x-text="(detailItem.barang?.nama_barang ?? '') + ' (' + (detailItem.barang?.kode_barang ?? '') + ')'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Jumlah</td><td class="py-2 font-medium" x-text="(detailItem.jumlah ?? '') + ' ' + (detailItem.barang?.satuan ?? '')"></td></tr>
-                <tr><td class="py-2 text-gray-600">Keterangan</td><td class="py-2 font-medium" x-text="detailItem.keterangan ?? '-'"></td></tr>
+                <tr><td class="py-2 text-gray-600">Alasan</td><td class="py-2 font-medium" x-text="detailItem.keterangan ?? '-'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Status</td>
                     <td class="py-2">
                         <span class="px-2 py-1 rounded-full text-xs font-semibold" :class="{
@@ -208,14 +274,10 @@
                             'bg-green-100 text-green-800': detailItem.status == 'disetujui',
                             'bg-red-100 text-red-800': detailItem.status == 'ditolak'
                         }">
-                            <span x-show="detailItem.status == 'pending_l1'">
-                                Pending L1 (<span x-text="detailItem.approver_name || '-'"></span>)
-                            </span>
+                            <span x-show="detailItem.status == 'pending_l1'">Pending L1 (<span x-text="detailItem.approver_name || '-'"></span>)</span>
                             <span x-show="detailItem.status == 'pending_admin'">Pending Admin</span>
                             <span x-show="detailItem.status == 'disetujui'">Disetujui</span>
                             <span x-show="detailItem.status == 'ditolak'">Ditolak</span>
-                            <span x-show="!['pending_l1','pending_admin','disetujui','ditolak'].includes(detailItem.status)" 
-                                  x-text="detailItem.status.charAt(0).toUpperCase() + detailItem.status.slice(1)"></span>
                         </span>
                     </td>
                 </tr>
@@ -230,7 +292,7 @@
                 </template>
             </table>
             <div class="mt-6 flex justify-end">
-                <button type="button" @click="detailModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Tutup</button>
+                <button type="button" @click="detailModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Tutup</button>
             </div>
         </div>
     </div>

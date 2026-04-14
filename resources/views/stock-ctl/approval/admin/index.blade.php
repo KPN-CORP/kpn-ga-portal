@@ -12,7 +12,7 @@
     </div>
 
     <div class="bg-white border rounded-xl overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm min-w-[900px]">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="px-4 py-3 text-left">No. Permintaan</th>
@@ -22,7 +22,7 @@
                     <th class="px-4 py-3 text-left">Barang</th>
                     <th class="px-4 py-3 text-left">Jumlah</th>
                     <th class="px-4 py-3 text-left">Keterangan</th>
-                    <th class="px-4 py-3 text-left">Disetujui L1 Oleh</th>
+                    <th class="px-4 py-3 text-left">Disetujui L1</th>
                     <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
@@ -60,13 +60,17 @@
     </div>
 </div>
 
-{{-- Modal Approve --}}
-<div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+{{-- Modal Approve dengan Catatan --}}
+<div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Setujui Permintaan</h3>
-        <p>Setelah disetujui, stok akan berkurang dan permintaan selesai.</p>
+        <p class="text-sm text-gray-600 mb-3">Stok akan berkurang dan pemohon akan menerima notifikasi.</p>
         <form id="approveForm" method="POST">
             @csrf
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-600 mb-1">Catatan (opsional)</label>
+                <textarea name="catatan" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Tambahkan catatan untuk pemohon..."></textarea>
+            </div>
             <div class="mt-6 flex justify-end gap-2">
                 <button type="button" onclick="closeModal('approveModal')" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg">Setujui</button>
@@ -76,7 +80,7 @@
 </div>
 
 {{-- Modal Reject --}}
-<div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+<div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tolak Permintaan</h3>
         <form id="rejectForm" method="POST">
@@ -111,6 +115,14 @@ function showRejectModal(id) {
 function closeModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
     document.getElementById(modalId).classList.remove('flex');
+}
+
+// Tutup modal saat klik di luar
+window.onclick = function(event) {
+    const approveModal = document.getElementById('approveModal');
+    const rejectModal = document.getElementById('rejectModal');
+    if (event.target === approveModal) closeModal('approveModal');
+    if (event.target === rejectModal) closeModal('rejectModal');
 }
 </script>
 @endsection

@@ -7713,3 +7713,387 @@ Stack trace:
 [stacktrace]
 #0 {main}
 "} 
+[2026-04-09 17:05:02] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-09 18:04:38] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-09 19:05:47] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-09 20:04:56] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-09 21:04:33] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-09 22:00:31] local.ERROR: Exception when calling HCIS API: cURL error 28: Operation timed out after 30000 milliseconds with 1869005 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://kpncorporation.hcis.live/api/integration/employees  
+[2026-04-09 22:00:31] local.ERROR: HCIS sync failed: cURL error 28: Operation timed out after 30000 milliseconds with 1869005 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://kpncorporation.hcis.live/api/integration/employees  
+[2026-04-09 23:04:38] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 00:04:28] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 01:04:34] local.INFO: HCIS sync completed {"created":0,"updated":24} 
+[2026-04-10 02:04:54] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 03:04:43] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 04:04:39] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 05:04:50] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 06:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 07:04:35] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 08:04:56] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 09:05:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 10:05:04] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 11:04:49] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 12:05:20] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 13:05:05] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 14:05:36] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 15:05:00] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 16:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 17:05:14] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 18:04:48] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 19:05:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 20:04:36] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 21:04:33] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 22:04:30] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-10 23:04:36] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 00:05:01] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 01:04:29] local.INFO: HCIS sync completed {"created":2,"updated":81} 
+[2026-04-11 02:04:28] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 03:05:00] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 04:04:20] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 05:00:32] local.ERROR: Exception when calling HCIS API: cURL error 28: Operation timed out after 30000 milliseconds with 1237669 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://kpncorporation.hcis.live/api/integration/employees  
+[2026-04-11 05:00:32] local.ERROR: HCIS sync failed: cURL error 28: Operation timed out after 30000 milliseconds with 1237669 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://kpncorporation.hcis.live/api/integration/employees  
+[2026-04-11 06:04:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 07:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 08:04:21] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 09:04:30] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 10:04:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 11:04:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 12:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 13:04:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 14:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 15:04:48] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 16:05:06] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 17:04:50] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 18:04:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 19:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 20:04:48] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 21:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 22:05:07] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-11 23:05:15] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 00:04:39] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 01:05:07] local.INFO: HCIS sync completed {"created":0,"updated":1} 
+[2026-04-12 02:04:40] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 03:04:32] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 04:04:29] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 05:04:39] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 06:04:44] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 07:04:44] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 08:04:37] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 09:04:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 10:04:32] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 11:04:54] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 12:04:51] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 13:04:53] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 14:04:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 15:04:33] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 16:04:27] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 17:04:30] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 18:04:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 19:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 20:04:33] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 21:04:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 22:04:34] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-12 23:04:50] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 00:04:36] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 01:04:52] local.INFO: HCIS sync completed {"created":0,"updated":1} 
+[2026-04-13 02:04:42] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 03:05:02] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 04:04:50] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 05:05:00] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 06:04:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 07:04:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 08:05:04] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 09:05:05] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 10:05:24] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 11:04:51] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 12:06:31] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 13:12:05] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 14:10:19] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 15:05:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 16:09:08] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 17:05:19] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 18:05:12] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 19:04:34] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 20:04:43] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 21:05:09] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 22:05:08] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-13 23:04:26] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 00:05:26] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 01:04:47] local.INFO: HCIS sync completed {"created":7,"updated":3} 
+[2026-04-14 02:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 03:05:06] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 04:05:12] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 05:05:04] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 06:04:42] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 07:04:58] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 08:04:36] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 08:37:04] local.INFO: ApprovalL1 approve dipanggil {"id":"119","user":1} 
+[2026-04-14 08:37:04] local.INFO: Notifikasi dikirim ke admin {"permintaan_id":2,"unit_pemohon":1,"admin_ids":[2,1,39,31,133,187,301,38]} 
+[2026-04-14 08:37:05] local.INFO: Approval L1 berhasil {"id":"119"} 
+[2026-04-14 09:05:08] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 09:12:21] local.INFO: === PHOTO ACCESS ===  
+[2026-04-14 09:12:21] local.INFO: Requested file: foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:12:21] local.INFO: User: Sudetlin  
+[2026-04-14 09:12:21] local.INFO: Checking path: idcard/foto/foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:12:21] local.INFO: Checking path: idcard/bukti_bayar/foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:12:21] local.ERROR: ❌ File not found: foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:19:14] local.INFO: ApprovalL1 approve dipanggil {"id":"119","user":1} 
+[2026-04-14 09:19:15] local.INFO: Approval L1 berhasil dengan revisi jumlah {"id":"119","jumlah_baru":"3"} 
+[2026-04-14 09:46:38] local.INFO: === PHOTO ACCESS ===  
+[2026-04-14 09:46:38] local.INFO: Requested file: foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:46:38] local.INFO: User: Sudetlin  
+[2026-04-14 09:46:38] local.INFO: Checking path: idcard/foto/foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:46:38] local.INFO: Checking path: idcard/bukti_bayar/foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 09:46:38] local.ERROR: ❌ File not found: foto_1776052020_69dc67343d9cc.jpeg  
+[2026-04-14 10:15:22] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 10:38:24] local.ERROR: SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'drms_user_profiles' already exists (Connection: mysql, SQL: create table `drms_user_profiles` (`id` bigint unsigned not null auto_increment primary key, `user_id` bigint unsigned not null, `business_unit_id` int unsigned null, `unit` varchar(255) null, `area` varchar(255) null, `approver_user_id` bigint unsigned null, `is_approver` tinyint(1) not null default '0', `is_drms_user` tinyint(1) not null default '0', `is_drms_admin` tinyint(1) not null default '0', `created_at` timestamp null, `updated_at` timestamp null) default character set utf8mb4 collate 'utf8mb4_unicode_ci') {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42S01): SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'drms_user_profiles' already exists (Connection: mysql, SQL: create table `drms_user_profiles` (`id` bigint unsigned not null auto_increment primary key, `user_id` bigint unsigned not null, `business_unit_id` int unsigned null, `unit` varchar(255) null, `area` varchar(255) null, `approver_user_id` bigint unsigned null, `is_approver` tinyint(1) not null default '0', `is_drms_user` tinyint(1) not null default '0', `is_drms_admin` tinyint(1) not null default '0', `created_at` timestamp null, `updated_at` timestamp null) default character set utf8mb4 collate 'utf8mb4_unicode_ci') at /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php:824)
+[stacktrace]
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(559): Illuminate\\Database\\Connection->run()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Blueprint.php(121): Illuminate\\Database\\Connection->statement()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Builder.php(618): Illuminate\\Database\\Schema\\Blueprint->build()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Builder.php(472): Illuminate\\Database\\Schema\\Builder->build()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Support/Facades/Facade.php(363): Illuminate\\Database\\Schema\\Builder->create()
+#6 /var/www/html/ga-portal/database/migrations/2024_03_18_000001_create_drms_user_profiles_table.php(11): Illuminate\\Support\\Facades\\Facade::__callStatic()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(514): Illuminate\\Database\\Migrations\\Migration@anonymous->up()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(439): Illuminate\\Database\\Migrations\\Migrator->runMethod()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(448): Illuminate\\Database\\Migrations\\Migrator->Illuminate\\Database\\Migrations\\{closure}()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(250): Illuminate\\Database\\Migrations\\Migrator->runMigration()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/View/Components/Task.php(41): Illuminate\\Database\\Migrations\\Migrator->Illuminate\\Database\\Migrations\\{closure}()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(809): Illuminate\\Console\\View\\Components\\Task->render()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(250): Illuminate\\Database\\Migrations\\Migrator->write()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(210): Illuminate\\Database\\Migrations\\Migrator->runUp()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(137): Illuminate\\Database\\Migrations\\Migrator->runPending()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(116): Illuminate\\Database\\Migrations\\Migrator->run()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(666): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->Illuminate\\Database\\Console\\Migrations\\{closure}()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(109): Illuminate\\Database\\Migrations\\Migrator->usingConnection()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(88): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->runMigrations()
+#20 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->handle()
+#21 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#22 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure()
+#23 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#24 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(836): Illuminate\\Container\\BoundMethod::call()
+#25 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate\\Container\\Container->call()
+#26 /var/www/html/ga-portal/vendor/symfony/console/Command/Command.php(318): Illuminate\\Console\\Command->execute()
+#27 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony\\Component\\Console\\Command\\Command->run()
+#28 /var/www/html/ga-portal/vendor/symfony/console/Application.php(1073): Illuminate\\Console\\Command->run()
+#29 /var/www/html/ga-portal/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#30 /var/www/html/ga-portal/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#31 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(197): Symfony\\Component\\Console\\Application->run()
+#32 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle()
+#33 /var/www/html/ga-portal/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
+#34 {main}
+
+[previous exception] [object] (PDOException(code: 42S01): SQLSTATE[42S01]: Base table or view already exists: 1050 Table 'drms_user_profiles' already exists at /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php:570)
+[stacktrace]
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(570): PDOStatement->execute()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(811): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(778): Illuminate\\Database\\Connection->runQueryCallback()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Connection.php(559): Illuminate\\Database\\Connection->run()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Blueprint.php(121): Illuminate\\Database\\Connection->statement()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Builder.php(618): Illuminate\\Database\\Schema\\Blueprint->build()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Schema/Builder.php(472): Illuminate\\Database\\Schema\\Builder->build()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Support/Facades/Facade.php(363): Illuminate\\Database\\Schema\\Builder->create()
+#8 /var/www/html/ga-portal/database/migrations/2024_03_18_000001_create_drms_user_profiles_table.php(11): Illuminate\\Support\\Facades\\Facade::__callStatic()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(514): Illuminate\\Database\\Migrations\\Migration@anonymous->up()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(439): Illuminate\\Database\\Migrations\\Migrator->runMethod()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(448): Illuminate\\Database\\Migrations\\Migrator->Illuminate\\Database\\Migrations\\{closure}()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(250): Illuminate\\Database\\Migrations\\Migrator->runMigration()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/View/Components/Task.php(41): Illuminate\\Database\\Migrations\\Migrator->Illuminate\\Database\\Migrations\\{closure}()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(809): Illuminate\\Console\\View\\Components\\Task->render()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(250): Illuminate\\Database\\Migrations\\Migrator->write()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(210): Illuminate\\Database\\Migrations\\Migrator->runUp()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(137): Illuminate\\Database\\Migrations\\Migrator->runPending()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(116): Illuminate\\Database\\Migrations\\Migrator->run()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Migrations/Migrator.php(666): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->Illuminate\\Database\\Console\\Migrations\\{closure}()
+#20 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(109): Illuminate\\Database\\Migrations\\Migrator->usingConnection()
+#21 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Database/Console/Migrations/MigrateCommand.php(88): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->runMigrations()
+#22 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Illuminate\\Database\\Console\\Migrations\\MigrateCommand->handle()
+#23 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#24 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure()
+#25 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#26 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(836): Illuminate\\Container\\BoundMethod::call()
+#27 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate\\Container\\Container->call()
+#28 /var/www/html/ga-portal/vendor/symfony/console/Command/Command.php(318): Illuminate\\Console\\Command->execute()
+#29 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony\\Component\\Console\\Command\\Command->run()
+#30 /var/www/html/ga-portal/vendor/symfony/console/Application.php(1073): Illuminate\\Console\\Command->run()
+#31 /var/www/html/ga-portal/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#32 /var/www/html/ga-portal/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#33 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(197): Symfony\\Component\\Console\\Application->run()
+#34 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle()
+#35 /var/www/html/ga-portal/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
+#36 {main}
+"} 
+[2026-04-14 11:05:22] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-14 11:12:21] local.ERROR: include(/var/www/html/ga-portal/app/Providers/AppServiceProvider.php): Failed to open stream: No such file or directory {"exception":"[object] (ErrorException(code: 0): include(/var/www/html/ga-portal/app/Providers/AppServiceProvider.php): Failed to open stream: No such file or directory at /var/www/html/ga-portal/vendor/composer/ClassLoader.php:576)
+[stacktrace]
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError()
+#1 /var/www/html/ga-portal/vendor/composer/ClassLoader.php(576): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}()
+#2 /var/www/html/ga-portal/vendor/composer/ClassLoader.php(576): include('...')
+#3 /var/www/html/ga-portal/vendor/composer/ClassLoader.php(427): Composer\\Autoload\\{closure}()
+#4 [internal function]: Composer\\Autoload\\ClassLoader->loadClass()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/RegisterProviders.php(52): class_exists()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/RegisterProviders.php(34): Illuminate\\Foundation\\Bootstrap\\RegisterProviders->mergeAdditionalProviders()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(342): Illuminate\\Foundation\\Bootstrap\\RegisterProviders->bootstrap()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(186): Illuminate\\Foundation\\Application->bootstrapWith()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(170): Illuminate\\Foundation\\Http\\Kernel->bootstrap()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle()
+#12 /var/www/html/ga-portal/public/index.php(20): Illuminate\\Foundation\\Application->handleRequest()
+#13 {main}
+"} 
+[2026-04-14 11:12:21] local.ERROR: Target class [view] does not exist. {"exception":"[object] (Illuminate\\Contracts\\Container\\BindingResolutionException(code: 0): Target class [view] does not exist. at /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1163)
+[stacktrace]
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\\Foundation\\Application->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\\Container\\Container->offsetGet()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\\Routing\\RoutingServiceProvider->Illuminate\\Routing\\{closure}()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\\Foundation\\Application->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\\Foundation\\Exceptions\\Handler->toIlluminateResponse()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\\Foundation\\Exceptions\\Handler->prepareResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\\Foundation\\Exceptions\\Handler->renderExceptionResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(574): Illuminate\\Foundation\\Exceptions\\Handler->render()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(148): Illuminate\\Foundation\\Http\\Kernel->renderException()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle()
+#20 /var/www/html/ga-portal/public/index.php(20): Illuminate\\Foundation\\Application->handleRequest()
+#21 {main}
+
+[previous exception] [object] (ReflectionException(code: -1): Class \"view\" does not exist at /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1161)
+[stacktrace]
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1161): ReflectionClass->__construct()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\\Foundation\\Application->make()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\\Container\\Container->offsetGet()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\\Routing\\RoutingServiceProvider->Illuminate\\Routing\\{closure}()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\\Foundation\\Application->make()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\\Foundation\\Exceptions\\Handler->toIlluminateResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\\Foundation\\Exceptions\\Handler->prepareResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\\Foundation\\Exceptions\\Handler->renderExceptionResponse()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(574): Illuminate\\Foundation\\Exceptions\\Handler->render()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(148): Illuminate\\Foundation\\Http\\Kernel->renderException()
+#20 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1220): Illuminate\\Foundation\\Http\\Kernel->handle()
+#21 /var/www/html/ga-portal/public/index.php(20): Illuminate\\Foundation\\Application->handleRequest()
+#22 {main}
+"} 
+[2026-04-14 11:12:21] local.ERROR: Uncaught ReflectionException: Class "view" does not exist in /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1161
+Stack trace:
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1161): ReflectionClass->__construct()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\Container\Container->build()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\Container\Container->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\Foundation\Application->resolve()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\Container\Container->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\Foundation\Application->make()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\Container\Container->offsetGet()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\Routing\RoutingServiceProvider->Illuminate\Routing\{closure}()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\Container\Container->build()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\Container\Container->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\Foundation\Application->resolve()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\Container\Container->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\Foundation\Application->make()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\Foundation\Exceptions\Handler->toIlluminateResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\Foundation\Exceptions\Handler->prepareResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\Foundation\Exceptions\Handler->renderExceptionResponse()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(221): Illuminate\Foundation\Exceptions\Handler->render()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(198): Illuminate\Foundation\Bootstrap\HandleExceptions->renderHttpResponse()
+#20 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\Foundation\Bootstrap\HandleExceptions->handleException()
+#21 [internal function]: Illuminate\Foundation\Bootstrap\HandleExceptions->Illuminate\Foundation\Bootstrap\{closure}()
+#22 {main}
+
+Next Illuminate\Contracts\Container\BindingResolutionException: Target class [view] does not exist. in /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1163
+Stack trace:
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\Container\Container->build()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\Container\Container->resolve()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\Foundation\Application->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\Container\Container->make()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\Foundation\Application->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\Container\Container->offsetGet()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\Routing\RoutingServiceProvider->Illuminate\Routing\{closure}()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\Container\Container->build()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\Container\Container->resolve()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\Foundation\Application->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\Container\Container->make()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\Foundation\Application->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\Foundation\Exceptions\Handler->toIlluminateResponse()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\Foundation\Exceptions\Handler->prepareResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\Foundation\Exceptions\Handler->renderExceptionResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(221): Illuminate\Foundation\Exceptions\Handler->render()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(198): Illuminate\Foundation\Bootstrap\HandleExceptions->renderHttpResponse()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\Foundation\Bootstrap\HandleExceptions->handleException()
+#20 [internal function]: Illuminate\Foundation\Bootstrap\HandleExceptions->Illuminate\Foundation\Bootstrap\{closure}()
+#21 {main}
+  thrown {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Uncaught ReflectionException: Class \"view\" does not exist in /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1161
+Stack trace:
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1161): ReflectionClass->__construct()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\\Foundation\\Application->make()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\\Container\\Container->offsetGet()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\\Routing\\RoutingServiceProvider->Illuminate\\Routing\\{closure}()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\\Foundation\\Application->make()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\\Foundation\\Exceptions\\Handler->toIlluminateResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\\Foundation\\Exceptions\\Handler->prepareResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\\Foundation\\Exceptions\\Handler->renderExceptionResponse()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(221): Illuminate\\Foundation\\Exceptions\\Handler->render()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(198): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->renderHttpResponse()
+#20 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleException()
+#21 [internal function]: Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}()
+#22 {main}
+
+Next Illuminate\\Contracts\\Container\\BindingResolutionException: Target class [view] does not exist. in /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1163
+Stack trace:
+#0 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#1 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#2 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#3 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#4 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1856): Illuminate\\Foundation\\Application->make()
+#5 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Routing/RoutingServiceProvider.php(177): Illuminate\\Container\\Container->offsetGet()
+#6 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(1154): Illuminate\\Routing\\RoutingServiceProvider->Illuminate\\Routing\\{closure}()
+#7 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(972): Illuminate\\Container\\Container->build()
+#8 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1078): Illuminate\\Container\\Container->resolve()
+#9 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php(903): Illuminate\\Foundation\\Application->resolve()
+#10 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1058): Illuminate\\Container\\Container->make()
+#11 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(138): Illuminate\\Foundation\\Application->make()
+#12 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/helpers.php(851): app()
+#13 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(987): response()
+#14 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(839): Illuminate\\Foundation\\Exceptions\\Handler->toIlluminateResponse()
+#15 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\\Foundation\\Exceptions\\Handler->prepareResponse()
+#16 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\\Foundation\\Exceptions\\Handler->renderExceptionResponse()
+#17 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(221): Illuminate\\Foundation\\Exceptions\\Handler->render()
+#18 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(198): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->renderHttpResponse()
+#19 /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(258): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleException()
+#20 [internal function]: Illuminate\\Foundation\\Bootstrap\\HandleExceptions->Illuminate\\Foundation\\Bootstrap\\{closure}()
+#21 {main}
+  thrown at /var/www/html/ga-portal/vendor/laravel/framework/src/Illuminate/Container/Container.php:1163)
+[stacktrace]
+#0 {main}
+"} 
