@@ -26,8 +26,9 @@
                     <td class="px-6 py-4">{{ $req->requester->name }}</td>
                     <td class="px-6 py-4">{{ \Carbon\Carbon::parse($req->usage_date)->format('d M Y') }}</td>
                     <td class="px-6 py-4">{{ $req->destination }}</td>
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 space-x-2">
                         <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Proses</a>
+                        <button @click="openRejectModal({{ $req->id }})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Tolak</button>
                     </td>
                 </tr>
                 @empty
@@ -78,7 +79,6 @@
                         </span>
                     </td>
                     <td class="px-6 py-4">
-                        {{-- Tombol Detail dengan modal --}}
                         <button @click="openDetailModal({{ json_encode($req->toArray()) }})" class="text-blue-600 hover:underline">Detail</button>
                     </td>
                 </tr>
@@ -94,7 +94,23 @@
         @endif
     </div>
 
-    {{-- MODAL DETAIL --}}
+    {{-- Modal Reject --}}
+    <div x-show="rejectModalOpen" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50" x-cloak>
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">Tolak Permintaan</h2>
+            <form :action="`{{ url('drms/approval/admin') }}/${rejectRequestId}/reject`" method="POST">
+                @csrf
+                @method('PUT')
+                <textarea name="rejection_reason" rows="3" class="w-full border rounded p-2" placeholder="Masukkan alasan penolakan..." required></textarea>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button type="button" @click="rejectModalOpen = false" class="px-4 py-2 bg-gray-300 rounded">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded">Tolak</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- MODAL DETAIL (sama seperti sebelumnya) --}}
     <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4">Detail Permintaan</h3>
@@ -128,53 +144,26 @@
                         </span>
                     </td>
                 </tr>
-                {{-- Approval L1 --}}
                 <template x-if="detailItem.approver_l1">
-                    <tr>
-                        <td class="py-2 text-gray-600">Approval L1</td>
-                        <td class="py-2 font-medium">
-                            <span x-text="detailItem.approver_l1.name"></span>
-                            <span x-show="detailItem.approved_l1_at" class="text-gray-500 text-xs" x-text="'(' + new Date(detailItem.approved_l1_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(/\./g, ':') + ')'"></span>
-                        </td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Approval L1</td><td class="py-2 font-medium" x-text="detailItem.approver_l1.name + (detailItem.approved_l1_at ? ' (' + new Date(detailItem.approved_l1_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ')' : '')"></td></tr>
                 </template>
-                {{-- Approval Admin --}}
                 <template x-if="detailItem.admin">
-                    <tr>
-                        <td class="py-2 text-gray-600">Approval Admin</td>
-                        <td class="py-2 font-medium">
-                            <span x-text="detailItem.admin.name"></span>
-                            <span x-show="detailItem.approved_admin_at" class="text-gray-500 text-xs" x-text="'(' + new Date(detailItem.approved_admin_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(/\./g, ':') + ')'"></span>
-                        </td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Approval Admin</td><td class="py-2 font-medium" x-text="detailItem.admin.name + (detailItem.approved_admin_at ? ' (' + new Date(detailItem.approved_admin_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ')' : '')"></td></tr>
                 </template>
-                {{-- Catatan (rejection_reason) --}}
                 <template x-if="detailItem.rejection_reason">
                     <tr><td class="py-2 text-gray-600">Catatan</td><td class="py-2 font-medium text-red-600" x-text="detailItem.rejection_reason"></td></tr>
                 </template>
-                {{-- Jenis Transportasi --}}
                 <template x-if="detailItem.transport_type">
-                    <tr><td class="py-2 text-gray-600">Jenis Transportasi</td>
-                        <td class="py-2 font-medium" x-text="detailItem.transport_type == 'company_driver' ? 'Driver Perusahaan' : (detailItem.transport_type == 'voucher' ? 'Voucher' : 'Rental')"></td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Jenis Transportasi</td><td class="py-2 font-medium" x-text="detailItem.transport_type == 'company_driver' ? 'Driver Perusahaan' : (detailItem.transport_type == 'voucher' ? 'Voucher' : 'Rental')"></td></tr>
                 </template>
-                {{-- Driver --}}
                 <template x-if="detailItem.driver">
-                    <tr><td class="py-2 text-gray-600">Driver</td>
-                        <td class="py-2 font-medium" x-text="detailItem.driver.name + ' (' + (detailItem.driver.phone || '-') + ')'"></td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Driver</td><td class="py-2 font-medium" x-text="detailItem.driver.name + ' (' + (detailItem.driver.phone || '-') + ')'"></td></tr>
                 </template>
-                {{-- Kendaraan --}}
                 <template x-if="detailItem.vehicle">
-                    <tr><td class="py-2 text-gray-600">Kendaraan</td>
-                        <td class="py-2 font-medium" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Kendaraan</td><td class="py-2 font-medium" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td></tr>
                 </template>
-                {{-- Voucher --}}
                 <template x-if="detailItem.voucher">
-                    <tr><td class="py-2 text-gray-600">Voucher</td>
-                        <td class="py-2 font-medium" x-text="detailItem.voucher.code + ' (' + detailItem.voucher.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(detailItem.voucher.nominal)"></td>
-                    </tr>
+                    <tr><td class="py-2 text-gray-600">Voucher</td><td class="py-2 font-medium" x-text="detailItem.voucher.code + ' (' + detailItem.voucher.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(detailItem.voucher.nominal)"></td></tr>
                 </template>
             </table>
             <div class="mt-6 flex justify-end">
@@ -187,10 +176,15 @@
 <script>
 function approvalAdminModal() {
     return {
+        rejectModalOpen: false,
+        rejectRequestId: null,
         detailModalOpen: false,
         detailItem: {},
+        openRejectModal(id) {
+            this.rejectRequestId = id;
+            this.rejectModalOpen = true;
+        },
         openDetailModal(item) {
-            console.log('Detail item:', item); // untuk debugging
             this.detailItem = item;
             this.detailModalOpen = true;
         }

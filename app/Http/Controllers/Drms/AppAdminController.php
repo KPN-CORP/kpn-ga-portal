@@ -62,7 +62,7 @@ class AppAdminController extends Controller
     }
 
     /**
-     * Proses penentuan transportasi.
+     * Proses penentuan transportasi (setujui).
      */
     public function update(Request $request, $id)
     {
@@ -145,8 +145,52 @@ class AppAdminController extends Controller
         // Notifikasi ke requester
         $driverRequest->requester->notify(new RequestApprovedAdminNotification($driverRequest));
 
-        return redirect()->route('drms.approval.admin.index')
+        return redirect()->route('approval.admin.index')
             ->with('success', 'Request berhasil diproses.');
+    }
+
+    /**
+     * Tolak permintaan (reject by admin)
+     */
+    public function reject(Request $request, $id)
+    {
+        $request->validate([
+            'rejection_reason' => 'required|string',
+        ]);
+
+        $driverRequest = DriverRequest::findOrFail($id);
+        $user = Auth::user();
+
+        // Cek akses
+        if (!$user->isDrmsSuperAdmin()) {
+            if ($driverRequest->requester->business_unit_id != $user->business_unit_id ||
+                $driverRequest->requester->area != $user->area) {
+                abort(403);
+            }
+        }
+
+        // Hanya bisa ditolak jika status masih 'approved_l1' (menunggu admin)
+        if ($driverRequest->status !== 'approved_l1') {
+            return back()->withErrors('Permintaan tidak dapat ditolak karena status sudah diproses.');
+        }
+
+        $driverRequest->update([
+            'status' => 'rejected_admin',
+            'rejection_reason' => $request->rejection_reason,
+            'admin_id' => Auth::id(),
+            'approved_admin_at' => null,
+            // Hapus data transportasi jika ada
+            'transport_type' => null,
+            'driver_id' => null,
+            'vehicle_id' => null,
+            'voucher_id' => null,
+        ]);
+
+        // (Opsional) Kirim notifikasi ke requester bahwa permintaan ditolak
+        // $driverRequest->requester->notify(new RequestRejectedAdminNotification($driverRequest));
+
+        return redirect()->route('approval.admin.index')
+            ->with('success', 'Permintaan driver ditolak.');
     }
 
     /**

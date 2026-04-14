@@ -166,8 +166,8 @@
                     <input type="text" name="destination" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-600 mb-1">Keperluan (opsional)</label>
-                    <textarea name="purpose" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Keperluan <span class="text-red-500">*</span></label>
+                    <textarea name="purpose" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required></textarea>
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
@@ -183,7 +183,17 @@
             <h3 class="text-lg font-semibold mb-4">Detail Permintaan</h3>
             <table class="w-full">
                 <tr><td class="py-2 text-gray-600 w-1/3">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"></td></tr>
-                <tr><td class="py-2 text-gray-600">Pemohon</td><td class="py-2 font-medium" x-text="detailItem.requester?.name ?? '-'"></td></tr>
+                <tr>
+                    <td class="py-2 text-gray-600">Pemohon</td>
+                    <td class="py-2 font-medium">
+                        <span x-text="detailItem.requester?.name ?? '-'"></span>
+                        <template x-if="detailItem.created_at">
+                            <span class="text-gray-500 text-xs ml-1" 
+                                x-text="'(' + new Date(detailItem.created_at).toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) + ')'">
+                            </span>
+                        </template>
+                    </td>
+                </tr>
                 <tr><td class="py-2 text-gray-600">Tanggal Penggunaan</td><td class="py-2 font-medium" x-text="detailItem.usage_date ? new Date(detailItem.usage_date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Jam</td><td class="py-2 font-medium" x-text="(detailItem.start_time || '') + ' - ' + (detailItem.end_time || '')"></td></tr>
                 <tr><td class="py-2 text-gray-600">Lokasi Penjemputan</td><td class="py-2 font-medium" x-text="detailItem.pickup_location"></td></tr>

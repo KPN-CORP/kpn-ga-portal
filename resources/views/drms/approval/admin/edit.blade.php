@@ -21,7 +21,15 @@
     <div class="mb-6 p-4 bg-gray-50 rounded">
         <h2 class="font-semibold mb-2">Detail Permintaan</h2>
         <dl class="grid grid-cols-2 gap-2 text-sm">
-            <dt>Pemohon:</dt><dd>{{ $driverRequest->requester->name }}</dd>
+            <dt>Pemohon:</dt>
+            <dd>
+                {{ $driverRequest->requester->name }}
+                @if($driverRequest->created_at)
+                    <span class="text-gray-500 text-xs ml-1">
+                        ({{ Carbon::parse($driverRequest->created_at)->timezone('Asia/Jakarta')->format('d M Y H:i') }})
+                    </span>
+                @endif
+            </dd>
             <dt>Unit/Area:</dt><dd>{{ $driverRequest->requester->drmsProfile->unit ?? '-' }} / {{ $driverRequest->requester->drmsProfile->area ?? '-' }}</dd>
             <dt>Tanggal:</dt><dd>{{ Carbon::parse($driverRequest->usage_date)->format('d M Y') }}</dd>
             <dt>Jam:</dt><dd>{{ Carbon::parse($driverRequest->start_time)->format('H:i') }} - {{ $driverRequest->end_time ? Carbon::parse($driverRequest->end_time)->format('H:i') : 'Belum ditentukan' }}</dd>

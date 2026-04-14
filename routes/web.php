@@ -400,6 +400,7 @@ Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
         Route::get('/', [AppAdminController::class, 'index'])->name('index');
         Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
         Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
+        Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
     });
 
     // Master Data (hanya admin)

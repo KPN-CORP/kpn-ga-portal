@@ -103,7 +103,7 @@ class LaporanController extends Controller
     }
 
     /**
-     * Generate laporan dalam format CSV (Excel).
+     * Generate laporan dalam format CSV (Excel) dengan tambahan kolom Harga.
      */
     public function excel(Request $request)
     {
@@ -129,19 +129,22 @@ class LaporanController extends Controller
         switch ($request->jenis) {
             case 'stok':
                 $data = $this->getDataStok($request, $access);
-                $headers = ['Area', 'Kode Barang', 'Nama Barang', 'Satuan', 'Stok', 'Stok Minimum', 'Status', 'Update Terakhir'];
+                // Tambahkan kolom Harga setelah Satuan
+                $headers = ['Area', 'Kode Barang', 'Nama Barang', 'Satuan', 'Harga', 'Stok', 'Stok Minimum', 'Status', 'Update Terakhir'];
                 $rows = $this->formatStokRows($data['stok']);
                 $filename = 'laporan_stok_' . date('YmdHis') . '.csv';
                 break;
             case 'mutasi':
                 $data = $this->getDataMutasi($request, $access);
-                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
+                // Tambahkan kolom Harga setelah Satuan
+                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
                 $rows = $this->formatMutasiRows($data['transaksi']);
                 $filename = 'laporan_mutasi_' . date('YmdHis') . '.csv';
                 break;
             case 'permintaan':
                 $data = $this->getDataPermintaan($request, $access);
-                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Status', 'Approver L1', 'Approver Admin'];
+                // Tambahkan kolom Harga setelah Satuan
+                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Status', 'Approver L1', 'Approver Admin'];
                 $rows = $this->formatPermintaanRows($data['permintaan']);
                 $filename = 'laporan_permintaan_' . date('YmdHis') . '.csv';
                 break;
@@ -301,7 +304,7 @@ class LaporanController extends Controller
         return compact('permintaan');
     }
 
-    // ----- Formatting Helpers -----
+    // ----- Formatting Helpers (dengan tambahan Harga) -----
 
     private function formatStokRows($stok)
     {
@@ -311,6 +314,7 @@ class LaporanController extends Controller
                 $item->barang->kode_barang ?? '-',
                 $item->barang->nama_barang ?? '-',
                 $item->barang->satuan ?? '-',
+                number_format($item->barang->harga ?? 0, 2), // HARGA
                 number_format($item->jumlah, 2),
                 number_format($item->stok_minimum, 2),
                 $item->jumlah <= $item->stok_minimum ? 'Menipis' : 'Aman',
@@ -328,6 +332,7 @@ class LaporanController extends Controller
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
+                number_format($item->barang->harga ?? 0, 2), // HARGA
                 $item->areaAsal->nama_area ?? '-',
                 $item->areaTujuan->nama_area ?? '-',
                 $item->keterangan ?? '-',
@@ -342,7 +347,7 @@ class LaporanController extends Controller
             $unit = optional($item->pemohon->profil)->unit ?? '';
             $unitName = $unit ? explode(' (', $unit)[0] : '-';
             return [
-                'G-SC-' . $item->id_permintaan,
+                'ATK-SC-' . $item->id_permintaan,
                 \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i'),
                 $item->pemohon->name ?? '-',
                 $unitName,
@@ -350,6 +355,7 @@ class LaporanController extends Controller
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
+                number_format($item->barang->harga ?? 0, 2), // HARGA
                 $this->getStatusLabel($item->status),
                 $item->approverL1->name ?? '-',
                 $item->approverAdmin->name ?? '-',
