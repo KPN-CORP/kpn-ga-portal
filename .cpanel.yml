@@ -25,4 +25,4 @@ deployment:
     - php artisan view:cache
 
     # Copy public assets to the public_html directory
-    - \cp -rf public/assets public/build public/css public/img public/images public/js public/scss public/vendor /home/hcispanel/public_html/kpn-ga-portal
+    - \cp -rf public/build /home/hcispanel/public_html/kpn-ga-portal
