@@ -16,13 +16,13 @@
 
     {{-- Filter --}}
     <div class="bg-white border rounded-xl p-4">
-        <form method="GET" class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <form method="GET" action="{{ route('stock-ctl.stok.index') }}" class="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
                 <label class="text-sm font-medium text-gray-600">Area Kerja</label>
-                <select name="id_area" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="id_area_kerja" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Area</option>
                     @foreach($areas as $area)
-                        <option value="{{ $area->id_area_kerja }}" {{ request('id_area') == $area->id_area_kerja ? 'selected' : '' }}>
+                        <option value="{{ $area->id_area_kerja }}" {{ request('id_area_kerja') == $area->id_area_kerja ? 'selected' : '' }}>
                             {{ $area->nama_area }}
                         </option>
                     @endforeach
@@ -42,7 +42,7 @@
 
     {{-- Tabel --}}
     <div class="bg-white border rounded-xl overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm min-w-[768px]">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="px-4 py-3 text-left">Area</th>
@@ -66,7 +66,7 @@
                     <td class="px-4 py-3">{{ number_format($item->stok_minimum) }}</td>
                     <td class="px-4 py-3">
                         @if($item->jumlah <= $item->stok_minimum)
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Habis</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Habis / Menipis</span>
                         @else
                             <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Aman</span>
                         @endif

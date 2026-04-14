@@ -17,15 +17,26 @@ class StokController extends Controller
         $access = session('stock_ctl_access');
         $query = Stok::with('barang', 'areaKerja.bisnisUnit');
 
+        // Filter area (gunakan id_area_kerja atau id_area dari request)
+        $areaId = $request->input('id_area_kerja') ?? $request->input('id_area');
+        
         if (!$access['is_super']) {
+            // Non-super hanya bisa melihat area dalam unitnya
             $query->whereHas('areaKerja', function($q) use ($access) {
                 $q->where('id_bisnis_unit', $access['id_bisnis_unit']);
             });
-        } elseif ($request->filled('id_area_kerja')) {
-            // Superadmin bisa filter area, tapi kita perlu pastikan area ada
-            $query->where('id_area_kerja', $request->id_area_kerja);
+            // Jika user memilih area tertentu, pastikan area tersebut masih dalam unitnya
+            if ($areaId) {
+                $query->where('id_area_kerja', $areaId);
+            }
+        } else {
+            // Superadmin: filter area jika ada pilihan
+            if ($areaId) {
+                $query->where('id_area_kerja', $areaId);
+            }
         }
 
+        // Filter pencarian
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('barang', function($q) use ($search) {
@@ -34,12 +45,12 @@ class StokController extends Controller
             });
         }
 
-        $stok = $query->paginate(15);
+        $stok = $query->paginate(15)->withQueryString();
 
         // Dropdown area: hanya area dari unit user (kecuali superadmin)
         $areas = $access['is_super'] 
-            ? AreaKerja::with('bisnisUnit')->get() 
-            : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->get();
+            ? AreaKerja::with('bisnisUnit')->orderBy('nama_area')->get() 
+            : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->orderBy('nama_area')->get();
 
         return view('stock-ctl.stok.index', compact('stok', 'areas'));
     }
