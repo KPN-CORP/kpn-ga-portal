@@ -8097,3 +8097,7 @@ Stack trace:
 [stacktrace]
 #0 {main}
 "} 
+[2026-04-14 11:28:24] local.INFO: ApprovalAdmin approve dipanggil {"id":"119","user":2} 
+[2026-04-14 11:31:27] local.INFO: ApprovalL1 approve dipanggil {"id":"120","user":1} 
+[2026-04-14 11:31:28] local.INFO: Approval L1 berhasil dengan revisi jumlah {"id":"120","jumlah_baru":"5"} 
+[2026-04-14 11:34:43] local.INFO: ApprovalAdmin approve dipanggil {"id":"119","user":1,"request_data":{"_token":"XiABmzWqZzFAuJfNiy81LNd5ulFVkbRyLGXmdGu9","jumlah_setuju":"2","catatan":"ff"}} 

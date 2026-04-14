@@ -37,84 +37,100 @@ class ApprovalAdminController extends Controller
 
     public function approve(Request $request, $id)
     {
-        Log::info('ApprovalAdmin approve dipanggil', ['id' => $id, 'user' => Auth::id()]);
+        Log::info('ApprovalAdmin approve dipanggil', [
+            'id' => $id,
+            'user' => Auth::id(),
+            'request_data' => $request->all()
+        ]);
 
-        // Validasi note (opsional)
         $request->validate([
+            'jumlah_setuju' => 'required|numeric|min:0.01',
             'catatan' => 'nullable|string|max:500'
         ]);
 
         DB::beginTransaction();
         try {
-            $permintaan = Permintaan::with('pemohon', 'areaKerja')->findOrFail($id);
+            $permintaan = Permintaan::with('pemohon', 'barang', 'areaKerja')->findOrFail($id);
             $this->authorizeAdmin($permintaan);
 
-            // Cek stok
+            $jumlahBaru = $request->jumlah_setuju;
+            $satuan = $permintaan->barang->satuan ?? '';
+
+            // Cek stok dengan jumlah baru
             $stok = Stok::where('id_barang', $permintaan->id_barang)
                 ->where('id_area_kerja', $permintaan->id_area_kerja)
                 ->first();
 
-            if (!$stok || $stok->jumlah < $permintaan->jumlah) {
-                return back()->withErrors('Stok tidak mencukupi.');
+            if (!$stok || $stok->jumlah < $jumlahBaru) {
+                throw new \Exception("Stok tidak mencukupi. Tersedia: " . number_format($stok->jumlah ?? 0) . " $satuan, diminta: " . number_format($jumlahBaru) . " $satuan");
             }
 
             // Kurangi stok
-            $stok->decrement('jumlah', $permintaan->jumlah);
+            $stok->decrement('jumlah', $jumlahBaru);
 
             // Catat transaksi
             Transaksi::create([
-                'jenis'          => 'keluar',
-                'id_barang'      => $permintaan->id_barang,
-                'jumlah'         => $permintaan->jumlah,
-                'id_area_asal'   => $permintaan->id_area_kerja,
-                'keterangan'     => 'Dari permintaan #' . $permintaan->id_permintaan . '. Catatan admin: ' . ($request->catatan ?? '-'),
-                'id_user'        => Auth::id(),
-                'no_ref'         => 'PR-' . $permintaan->id_permintaan,
+                'jenis' => 'keluar',
+                'id_barang' => $permintaan->id_barang,
+                'jumlah' => $jumlahBaru,
+                'id_area_asal' => $permintaan->id_area_kerja,
+                'keterangan' => 'Dari permintaan #' . $permintaan->id_permintaan . '. Jumlah direvisi admin.' . ($request->catatan ? " Catatan: " . $request->catatan : ''),
+                'id_user' => Auth::id(),
+                'no_ref' => 'PR-' . $permintaan->id_permintaan,
             ]);
 
             // Update permintaan
             $updateData = [
-                'status'            => Permintaan::STATUS_APPROVED,
+                'jumlah' => $jumlahBaru,
+                'status' => Permintaan::STATUS_APPROVED,
                 'approved_admin_by' => Auth::id(),
                 'approved_admin_at' => now(),
             ];
             if ($request->filled('catatan')) {
                 $updateData['catatan_admin'] = $request->catatan;
             }
+
             $permintaan->update($updateData);
 
-            // Kirim notifikasi ke pemohon (sertakan catatan jika ada)
-            $permintaan->pemohon->notify(new PermintaanDisetujui($permintaan, $request->catatan));
+            // Kirim notifikasi (opsional, sesuaikan dengan notifikasi Anda)
+            if (method_exists($permintaan->pemohon, 'notify')) {
+                $permintaan->pemohon->notify(new PermintaanDisetujui($permintaan, $request->catatan, $jumlahBaru));
+            }
 
             DB::commit();
-            return redirect()->route('stock-ctl.approval.admin.index')->with('success', 'Permintaan disetujui.' . ($request->catatan ? ' Catatan telah dikirim.' : ''));
+
+            return redirect()->route('stock-ctl.approval.admin.index')
+                ->with('success', "Permintaan #{$permintaan->id_permintaan} disetujui. Jumlah: " . number_format($jumlahBaru) . " $satuan" . ($request->catatan ? ". Catatan: {$request->catatan}" : ""));
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('ApprovalAdmin approve gagal', ['error' => $e->getMessage()]);
+            Log::error('ApprovalAdmin approve gagal', [
+                'error' => $e->getMessage(),
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return back()->withErrors('Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 
     public function reject(Request $request, $id)
     {
-        $request->validate([
-            'alasan' => 'required|string'
-        ]);
+        $request->validate(['alasan' => 'required|string']);
 
         try {
             $permintaan = Permintaan::with('pemohon')->findOrFail($id);
             $this->authorizeAdmin($permintaan);
 
             $permintaan->update([
-                'status'           => Permintaan::STATUS_REJECTED,
-                'rejected_by'      => Auth::id(),
-                'rejected_at'      => now(),
-                'alasan_tolak'     => $request->alasan,
+                'status' => Permintaan::STATUS_REJECTED,
+                'rejected_by' => Auth::id(),
+                'rejected_at' => now(),
+                'alasan_tolak' => $request->alasan,
             ]);
 
             $permintaan->pemohon->notify(new PermintaanDitolak($permintaan));
 
-            return redirect()->route('stock-ctl.approval.admin.index')->with('success', 'Permintaan ditolak.');
+            return redirect()->route('stock-ctl.approval.admin.index')
+                ->with('success', 'Permintaan ditolak.');
         } catch (\Exception $e) {
             Log::error('ApprovalAdmin reject gagal', ['error' => $e->getMessage()]);
             return back()->withErrors('Terjadi kesalahan: ' . $e->getMessage());
