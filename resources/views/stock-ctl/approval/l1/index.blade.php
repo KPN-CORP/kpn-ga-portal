@@ -12,7 +12,7 @@
     </div>
 
     <div class="bg-white border rounded-xl overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm min-w-[768px]">
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="px-4 py-3 text-left">Tanggal</th>
@@ -31,11 +31,13 @@
                     <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->areaKerja->nama_area ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
-                    <td class="px-4 py-3">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
+                    <td class="px-4 py-3">
+                        {{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}
+                    </td>
                     <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex gap-2">
-                            <button onclick="showApproveModal({{ $item->id_permintaan }})" 
+                            <button onclick="showApproveModal({{ $item->id_permintaan }}, {{ $item->jumlah }}, '{{ addslashes($item->barang->satuan ?? '') }}')" 
                                     class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
                                 Setujui
                             </button>
@@ -54,13 +56,19 @@
     </div>
 </div>
 
-{{-- Modal Approve --}}
-<div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+{{-- Modal Approve dengan revisi jumlah --}}
+<div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Setujui Permintaan</h3>
-        <p>Setelah disetujui, permintaan akan diteruskan ke GA untuk approval akhir.</p>
+        <p class="text-sm text-gray-600 mb-3">Anda dapat merevisi jumlah yang disetujui (opsional).</p>
         <form id="approveForm" method="POST">
             @csrf
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah Disetujui</label>
+                <input type="number" step="0.01" name="jumlah_setuju" id="approveJumlah" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                <span id="approveSatuan" class="text-xs text-gray-500"></span>
+                <p class="text-xs text-gray-400 mt-1">* Biarkan sesuai permintaan atau ubah sesuai kebutuhan.</p>
+            </div>
             <div class="mt-6 flex justify-end gap-2">
                 <button type="button" onclick="closeModal('approveModal')" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg">Setujui</button>
@@ -70,7 +78,7 @@
 </div>
 
 {{-- Modal Reject --}}
-<div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+<div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tolak Permintaan</h3>
         <form id="rejectForm" method="POST">
@@ -88,9 +96,12 @@
 </div>
 
 <script>
-function showApproveModal(id) {
+function showApproveModal(id, originalJumlah, satuan) {
     const form = document.getElementById('approveForm');
     form.action = "{{ url('stock-ctl/approval/l1') }}/" + id + "/approve";
+    const jumlahInput = document.getElementById('approveJumlah');
+    jumlahInput.value = originalJumlah;
+    document.getElementById('approveSatuan').innerText = satuan ? 'Satuan: ' + satuan : '';
     document.getElementById('approveModal').classList.remove('hidden');
     document.getElementById('approveModal').classList.add('flex');
 }
@@ -105,6 +116,13 @@ function showRejectModal(id) {
 function closeModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
     document.getElementById(modalId).classList.remove('flex');
+}
+
+window.onclick = function(event) {
+    const approveModal = document.getElementById('approveModal');
+    const rejectModal = document.getElementById('rejectModal');
+    if (event.target === approveModal) closeModal('approveModal');
+    if (event.target === rejectModal) closeModal('rejectModal');
 }
 </script>
 @endsection

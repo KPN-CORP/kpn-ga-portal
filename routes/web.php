@@ -338,7 +338,8 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('approval/l1', [ApprovalL1Controller::class, 'index'])->name('approval.l1.index');
         Route::post('approval/l1/{id}/approve', [ApprovalL1Controller::class, 'approve'])->name('approval.l1.approve');
         Route::post('approval/l1/{id}/reject', [ApprovalL1Controller::class, 'reject'])->name('approval.l1.reject');
-
+        Route::post('/stock-ctl/approval/l1/{id}/update-jumlah', [ApprovalL1Controller::class, 'updateJumlah'])->name('stock-ctl.approval.l1.update-jumlah');
+        
         // Approval Admin (hanya admin)
         Route::middleware('stock.ctl:admin')->group(function () {
             Route::get('approval/admin', [ApprovalAdminController::class, 'index'])->name('approval.admin.index');
