@@ -40,6 +40,16 @@
             </dd>
         </div>
         <div class="col-span-2 md:col-span-1">
+            <dt class="text-sm text-gray-500">Tipe Perjalanan</dt>
+            <dd class="font-medium">
+                @if($driverRequest->trip_type === 'round_trip')
+                    <span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Pulang Pergi</span>
+                @else
+                    <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Sekali Jalan</span>
+                @endif
+            </dd>
+        </div>
+        <div class="col-span-2 md:col-span-1">
             <dt class="text-sm text-gray-500">Tanggal Penggunaan</dt>
             <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->usage_date)->format('d M Y') }}</dd>
         </div>
@@ -47,6 +57,22 @@
             <dt class="text-sm text-gray-500">Jam Berangkat</dt>
             <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->start_time)->format('H:i') }}</dd>
         </div>
+        <div class="col-span-2 md:col-span-1">
+            <dt class="text-sm text-gray-500">Jam Selesai (Perkiraan)</dt>
+            <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->end_time)->format('H:i') }}</dd>
+        </div>
+
+        @if($driverRequest->trip_type === 'round_trip')
+        <div class="col-span-2 md:col-span-1">
+            <dt class="text-sm text-gray-500">Tanggal Kembali</dt>
+            <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->return_date)->format('d M Y') }}</dd>
+        </div>
+        <div class="col-span-2 md:col-span-1">
+            <dt class="text-sm text-gray-500">Perkiraan Jam Kembali</dt>
+            <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->return_time)->format('H:i') }}</dd>
+        </div>
+        @endif
+
         <div class="col-span-2">
             <dt class="text-sm text-gray-500">Lokasi Penjemputan</dt>
             <dd class="font-medium">{{ $driverRequest->pickup_location }}</dd>
@@ -63,6 +89,12 @@
             <dt class="text-sm text-gray-500">Pemohon</dt>
             <dd class="font-medium">{{ $driverRequest->requester->name ?? '-' }}</dd>
         </div>
+        @if($driverRequest->created_at)
+        <div class="col-span-2 md:col-span-1">
+            <dt class="text-sm text-gray-500">Tanggal Dibuat</dt>
+            <dd class="font-medium">{{ \Carbon\Carbon::parse($driverRequest->created_at)->timezone('Asia/Jakarta')->format('d M Y H:i') }}</dd>
+        </div>
+        @endif
         @if($driverRequest->approverL1)
         <div class="col-span-2 md:col-span-1">
             <dt class="text-sm text-gray-500">Disetujui/Ditolak Oleh (L1)</dt>
@@ -85,7 +117,7 @@
         @endif
         @if($driverRequest->rejection_reason)
         <div class="col-span-2">
-            <dt class="text-sm text-gray-500">Alasan </dt>
+            <dt class="text-sm text-gray-500">Alasan Penolakan</dt>
             <dd class="text-red-600">{{ $driverRequest->rejection_reason }}</dd>
         </div>
         @endif
