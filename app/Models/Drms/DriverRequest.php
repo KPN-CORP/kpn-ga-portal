@@ -4,6 +4,7 @@ namespace App\Models\Drms;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Carbon\Carbon;
 
 class DriverRequest extends Model
 {
@@ -13,17 +14,22 @@ class DriverRequest extends Model
         'driver_id', 'vehicle_id', 'voucher_id',
         'usage_date', 'start_time', 'end_time', 'pickup_location', 'destination', 'purpose',
         'transport_type', 'status', 'rejection_reason',
-        'approved_l1_at', 'approved_admin_at'
+        'approved_l1_at', 'approved_admin_at',
+        'trip_type', 'return_date', 'return_time',
+        'pickup_maps_link', 'destination_maps_link',
     ];
 
     protected $casts = [
-        'usage_date' => 'date',
-        'start_time' => 'string',
-        'end_time'   => 'string',
+        'usage_date'     => 'date',
+        'return_date'    => 'date',
+        'start_time'     => 'string',
+        'end_time'       => 'string',
+        'return_time'    => 'string',
         'approved_l1_at' => 'datetime',
         'approved_admin_at' => 'datetime',
     ];
 
+    // Relasi tidak diubah, hanya ditampilkan untuk kelengkapan
     public function requester()
     {
         return $this->belongsTo(User::class, 'requester_id');
@@ -54,9 +60,6 @@ class DriverRequest extends Model
         return $this->belongsTo(Voucher::class, 'voucher_id');
     }
 
-    /**
-     * Scope untuk request yang perlu diproses admin (sudah disetujui atasan).
-     */
     public function scopePendingAdmin($query, $businessUnitId, $area = null)
     {
         $query->where('status', 'approved_l1')
@@ -71,28 +74,55 @@ class DriverRequest extends Model
     }
 
     /**
-     * Cek double booking untuk driver atau kendaraan berdasarkan rentang waktu.
+     * Cek tumpang tindih untuk driver/kendaraan pada rentang waktu multi-hari.
      *
-     * @param  string $column  Nama kolom ('driver_id' atau 'vehicle_id')
-     * @param  mixed  $id      ID driver atau kendaraan
-     * @param  string $date    Tanggal penggunaan (Y-m-d)
-     * @param  string $start   Waktu mulai (H:i:s)
-     * @param  string $end     Waktu selesai (H:i:s)
-     * @param  int    $excludeId ID request yang dikecualikan (opsional)
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $column         Nama kolom (driver_id / vehicle_id)
+     * @param int    $id             ID driver/kendaraan
+     * @param string $startDate      Y-m-d
+     * @param string $startTime      H:i:s
+     * @param string $endDate        Y-m-d
+     * @param string $endTime        H:i:s
+     * @param int|null $excludeId    ID request yang dikecualikan (saat update)
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeOverlapping($query, $column, $id, $date, $start, $end, $excludeId = null)
+    public function scopeOverlappingPeriod($query, $column, $id, $startDate, $startTime, $endDate, $endTime, $excludeId = null)
     {
-        if (!$start || !$end) {
-            return $query->whereRaw('1 = 0');
+        if (!$startTime || !$endTime) {
+            return $query->whereRaw('1 = 0'); // tidak mungkin ada konflik jika waktu tidak lengkap
         }
 
         $query->where($column, $id)
-              ->where('usage_date', $date)
               ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1'])
-              ->where(function ($q) use ($start, $end) {
-                  // Gunakan whereTime untuk kolom waktu
-                  $q->whereTime('start_time', '<', $end)
-                    ->whereTime('end_time', '>', $start);
+              ->where(function ($q) use ($startDate, $startTime, $endDate, $endTime) {
+                  // Gabungkan tanggal & waktu menjadi datetime untuk perbandingan yang lebih akurat
+                  $start = Carbon::parse($startDate . ' ' . $startTime);
+                  $end   = Carbon::parse($endDate . ' ' . $endTime);
+
+                  $q->where(function ($sub) use ($start, $end) {
+                      // 1. Request yang usage_date berada di dalam rentang [start, end]
+                      $sub->whereBetween('usage_date', [$start->toDateString(), $end->toDateString()])
+                          // 2. Request dengan return_date berada di dalam rentang (jika ada)
+                          ->orWhere(function ($q2) use ($start, $end) {
+                              $q2->whereNotNull('return_date')
+                                 ->whereBetween('return_date', [$start->toDateString(), $end->toDateString()]);
+                          })
+                          // 3. Request yang melingkupi seluruh rentang (usage_date <= start AND return_date >= end)
+                          ->orWhere(function ($q3) use ($start, $end) {
+                              $q3->where('usage_date', '<=', $start->toDateString())
+                                 ->where(function ($q4) use ($end) {
+                                     $q4->where('return_date', '>=', $end->toDateString())
+                                        ->orWhereNull('return_date'); // jika return_date null, artinya masih berlangsung
+                                 });
+                          });
+                  });
+
+                  // Tambahan: periksa tumpang tindih pada hari yang sama dengan waktu yang tepat
+                  $q->orWhere(function ($qTime) use ($start, $end) {
+                      $qTime->where('usage_date', $start->toDateString())
+                            ->whereTime('start_time', '<', $end->toTimeString())
+                            ->whereTime('end_time', '>', $start->toTimeString());
+                  });
               });
 
         if ($excludeId) {
@@ -103,32 +133,20 @@ class DriverRequest extends Model
     }
 
     /**
-     * Scope lama untuk kompatibilitas (cek driver berdasarkan tanggal saja).
-     * @deprecated Gunakan scopeOverlapping untuk cek berdasarkan waktu.
+     * Wrapper untuk pengecekan tumpang tindih pada satu hari.
      */
-    public function scopeDriverAvailableOnDate($query, $driverId, $date, $excludeId = null)
+    public function scopeOverlapping($query, $column, $id, $date, $start, $end, $excludeId = null)
     {
-        $query->where('driver_id', $driverId)
-              ->where('usage_date', $date)
-              ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1']);
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-        return $query;
+        return $this->scopeOverlappingPeriod($query, $column, $id, $date, $start, $date, $end, $excludeId);
     }
 
-    /**
-     * Scope lama untuk kompatibilitas (cek kendaraan berdasarkan tanggal saja).
-     * @deprecated Gunakan scopeOverlapping untuk cek berdasarkan waktu.
-     */
+    public function scopeDriverAvailableOnDate($query, $driverId, $date, $excludeId = null)
+    {
+        return $this->scopeOverlapping($query, 'driver_id', $driverId, $date, '00:00:00', '23:59:59', $excludeId);
+    }
+
     public function scopeVehicleAvailableOnDate($query, $vehicleId, $date, $excludeId = null)
     {
-        $query->where('vehicle_id', $vehicleId)
-              ->where('usage_date', $date)
-              ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1']);
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-        return $query;
+        return $this->scopeOverlapping($query, 'vehicle_id', $vehicleId, $date, '00:00:00', '23:59:59', $excludeId);
     }
 }

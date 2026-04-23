@@ -31,8 +31,20 @@
                 @endif
             </dd>
             <dt>Unit/Area:</dt><dd>{{ $driverRequest->requester->drmsProfile->unit ?? '-' }} / {{ $driverRequest->requester->drmsProfile->area ?? '-' }}</dd>
+            <dt>Tipe Perjalanan:</dt>
+            <dd>
+                @if($driverRequest->trip_type === 'round_trip')
+                    <span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Pulang Pergi</span>
+                @else
+                    <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Sekali Jalan</span>
+                @endif
+            </dd>
             <dt>Tanggal:</dt><dd>{{ Carbon::parse($driverRequest->usage_date)->format('d M Y') }}</dd>
-            <dt>Jam:</dt><dd>{{ Carbon::parse($driverRequest->start_time)->format('H:i') }} - {{ $driverRequest->end_time ? Carbon::parse($driverRequest->end_time)->format('H:i') : 'Belum ditentukan' }}</dd>
+            <dt>Jam Berangkat:</dt><dd>{{ Carbon::parse($driverRequest->start_time)->format('H:i') }}</dd>
+            <dt>Jam Selesai:</dt><dd>{{ $driverRequest->end_time ? Carbon::parse($driverRequest->end_time)->format('H:i') : 'Belum ditentukan' }}</dd>
+            @if($driverRequest->trip_type === 'round_trip')
+            <dt>Tanggal Kembali:</dt><dd>{{ Carbon::parse($driverRequest->return_date)->format('d M Y') }} ({{ Carbon::parse($driverRequest->return_time)->format('H:i') }})</dd>
+            @endif
             <dt>Penjemputan:</dt><dd>{{ $driverRequest->pickup_location }}</dd>
             <dt>Tujuan:</dt><dd>{{ $driverRequest->destination }}</dd>
             <dt>Keperluan:</dt><dd>{{ $driverRequest->purpose ?? '-' }}</dd>
@@ -152,7 +164,6 @@
     const voucherSelect = document.getElementById('voucher_select');
 
     function setRequiredFields(selected) {
-        // Hapus required dari semua
         driverSelect.required = false;
         vehicleSelect.required = false;
         voucherSelect.required = false;
@@ -163,7 +174,6 @@
         } else if (selected === 'voucher') {
             voucherSelect.required = true;
         }
-        // rental tidak perlu required
     }
 
     function toggleFields() {
@@ -188,7 +198,6 @@
         radio.addEventListener('change', toggleFields);
     });
 
-    // Set initial state berdasarkan old atau nilai yang sudah ada
     toggleFields();
 </script>
 @endsection

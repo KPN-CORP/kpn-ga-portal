@@ -12,7 +12,12 @@ class DriverController extends Controller
 {
     public function index()
     {
-        $drivers = Driver::where('business_unit_id', Auth::user()->business_unit_id)
+        $businessUnitId = Auth::user()->drmsProfile->business_unit_id ?? null;
+        if (!$businessUnitId) {
+            abort(403, 'Anda tidak memiliki unit bisnis.');
+        }
+
+        $drivers = Driver::where('business_unit_id', $businessUnitId)
             ->latest()
             ->get();
         return view('drms.drivers.index', compact('drivers'));
@@ -26,12 +31,12 @@ class DriverController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:20',
+            'name'   => 'required|string|max:255',
+            'phone'  => 'nullable|string|max:20',
             'status' => 'required|in:available,on_trip,off_duty',
         ]);
 
-        $data['business_unit_id'] = Auth::user()->business_unit_id;
+        $data['business_unit_id'] = Auth::user()->drmsProfile->business_unit_id;
 
         Driver::create($data);
 
@@ -41,21 +46,17 @@ class DriverController extends Controller
 
     public function edit(Driver $driver)
     {
-        if ($driver->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
-        }
+        $this->authorize('update', $driver); // Asumsikan ada Policy
         return view('drms.drivers.edit', compact('driver'));
     }
 
     public function update(Request $request, Driver $driver)
     {
-        if ($driver->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
-        }
+        $this->authorize('update', $driver);
 
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:20',
+            'name'   => 'required|string|max:255',
+            'phone'  => 'nullable|string|max:20',
             'status' => 'required|in:available,on_trip,off_duty',
         ]);
 
@@ -67,9 +68,7 @@ class DriverController extends Controller
 
     public function destroy(Driver $driver)
     {
-        if ($driver->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
-        }
+        $this->authorize('delete', $driver);
         $driver->delete();
         return redirect()->route('drms.drivers.index')
             ->with('success', 'Driver dihapus.');
@@ -78,7 +77,11 @@ class DriverController extends Controller
     public function schedule(Request $request)
     {
         $user = Auth::user();
-        $businessUnitId = $user->business_unit_id;
+        $businessUnitId = $user->drmsProfile->business_unit_id ?? null;
+        if (!$businessUnitId) {
+            abort(403);
+        }
+
         $date = $request->get('date', now()->format('Y-m-d'));
 
         $drivers = Driver::where('business_unit_id', $businessUnitId)->get();
@@ -94,23 +97,5 @@ class DriverController extends Controller
             ->groupBy('driver_id');
 
         return view('drms.drivers.schedule', compact('drivers', 'requests'));
-    }
-    public function scopeOverlapping($query, $driverId, $date, $start, $end, $excludeId = null)
-    {
-        $query->where('driver_id', $driverId)
-            ->where('usage_date', $date)
-            ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1'])
-            ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_time', [$start, $end])
-                    ->orWhereBetween('end_time', [$start, $end])
-                    ->orWhere(function ($q2) use ($start, $end) {
-                        $q2->where('start_time', '<=', $start)
-                        ->where('end_time', '>=', $end);
-                    });
-            });
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-        return $query;
     }
 }

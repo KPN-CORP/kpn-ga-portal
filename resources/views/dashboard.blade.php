@@ -18,9 +18,9 @@
         --light-color: #ecf0f1;
         --dark-color: #2c3e50;
         --admin-color: #800a0aff;
-        --stock-color: #e67e22; /* Warna untuk Management Stok */
-        --memo-color: #8e44ad; /* Warna untuk E-Memo */
-        --found-color: #00bcd4; /* Warna untuk FoundDesk */
+        --stock-color: #e67e22;
+        --memo-color: #8e44ad;
+        --found-color: #00bcd4;
     }
     
     body {
@@ -57,10 +57,10 @@
         backdrop-filter: blur(10px);
     }
     
-    /* Menu Grid Styles - Kartu lebih kecil */
+    /* Menu Grid Styles - Kartu lebih kecil (tanpa deskripsi) */
     .menu-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 18px;
         padding: 5px 0;
     }
@@ -149,18 +149,7 @@
         font-size: 1rem;
         font-weight: 600;
         color: var(--dark-color);
-        margin-bottom: 6px;
-    }
-    
-    .menu-desc {
-        font-size: 0.75rem;
-        color: #7f8c8d;
-        line-height: 1.3;
-        max-height: 2.6em;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
+        margin-bottom: 0;
     }
     
     /* Admin Badge */
@@ -265,7 +254,7 @@
         }
         
         .menu-grid {
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
             gap: 15px;
         }
         
@@ -286,10 +275,6 @@
         
         .menu-title {
             font-size: 0.9rem;
-        }
-        
-        .menu-desc {
-            font-size: 0.7rem;
         }
         
         .dashboard-header {
@@ -341,7 +326,6 @@
                         <small class="text-white opacity-80">
                             <i class="fas fa-user me-1"></i>{{ Auth::user()->username }}
                         </small>
-                        <!-- Form Logout -->
                         <form action="{{ route('logout') }}" method="POST" id="logout-form">
                             @csrf
                             <button type="submit" class="logout-btn">
@@ -355,12 +339,11 @@
     </div>
 
     <?php
-    // Definisi menu utama - TAMBAHKAN MENU FOUNDDESK
+    // Definisi menu utama (tanpa desc)
     $menus = [
         'messenger' => [
             'field' => 'messenger_dash',
             'title' => 'E-Messenger',
-            'desc' => '',
             'url' => '/messenger',
             'color' => '#3498db',
             'icon' => 'M9 20l-5.447-2.724A1 1 0 013 16.382V6.618a1 1 0 01.553-.894L9 3m0 17l6 3m-6-3V3m6 20l5.447-2.724A1 1 0 0021 18.382V8.618a1 1 0 00-.553-.894L15 3m0 20V3'
@@ -368,7 +351,6 @@
         'mailing' => [
             'field' => 'ma_room_dash',
             'title' => 'E-Mailing Room',
-            'desc' => '',
             'url' => '/mailing',
             'color' => '#2ecc71',
             'icon' => 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
@@ -376,7 +358,6 @@
         'trackreceipt' => [
             'field' => 'receipt_dash',
             'title' => 'E-Tracking Receipt',
-            'desc' => '',
             'url' => '/track-r',
             'color' => '#9b59b6',
             'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'
@@ -384,7 +365,6 @@
         'idcard' => [
             'field' => 'idcard_dash',
             'title' => 'ID Card',
-            'desc' => '',
             'url' => '/idcard',
             'color' => '#e74c3c',
             'icon' => 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2'
@@ -392,7 +372,6 @@
         'car' => [
             'field' => 'car_dash',
             'title' => 'Car Service',
-            'desc' => '',
             'url' => '/drms/requests',
             'color' => '#16a085',
             'icon' => 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
@@ -400,7 +379,6 @@
         'apart' => [
             'field' => 'apart_dash',
             'title' => 'Apartemen',
-            'desc' => '',
             'url' => 'apartemen',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
@@ -408,15 +386,13 @@
         'receptionist' => [
             'field' => 'receptionist_dash',
             'title' => 'Receptionist',
-            'desc' => '',
             'url' => '#',
             'color' => '#8e44ad',
-           'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5'
+            'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5'
         ],
         'helpdesk' => [
             'field' => 'helpdest_dash',
             'title' => 'GA Helpdesk',
-            'desc' => '',
             'url' => '/help/tiket',
             'color' => '#2980b9',
             'icon' => 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
@@ -424,7 +400,6 @@
         'employees' => [
             'field' => 'employees_dash',
             'title' => 'Employees',
-            'desc' => '',
             'url' => '/employees',
             'color' => '#f39c12',
             'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
@@ -432,46 +407,45 @@
         'reports' => [
             'field' => 'reports_dash',
             'title' => 'GA Reports',
-            'desc' => '',
             'url' => '/work-reports',
             'color' => '#1abc9c',
             'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
         ],
-        // MENU MANAGEMENT STOK - BARU
         'stock' => [
             'field' => 'stock_dash',
             'title' => 'E-Stationery',
-            'desc' => '',
             'url' => '/stock-ctl/permintaan',
             'color' => '#e67e22',
             'icon' => 'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4'
         ],
-        // MENU E-MEMO - BARU
         'ememo' => [
             'field' => 'ememo_dash',
             'title' => 'E-Memo',
-            'desc' => '',
             'url' => '/ememo',
             'color' => '#8e44ad',
             'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
         ],
-        // MENU FOUNDDESK - BARU
         'founddesk' => [
             'field' => 'founddesk_dash',
             'title' => 'Lost and Found',
-            'desc' => '',
             'url' => '/founddesk',
             'color' => '#00bcd4',
             'icon' => 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z M15 10l-3 3m0 0l-3-3m3 3V8'
+        ],
+        // MENU CLAIM SALES & MARKETING (USER)
+        'claim_sales' => [
+            'field' => 'claim_sales_dash',
+            'title' => 'CMT Marketing',
+            'url' => '/claim-sales-marketing', // ganti dengan route sebenarnya
+            'color' => '#f97316',
+            'icon' => 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z'
         ]
     ];
     
-
     $adminMenus = [
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
             'title' => 'GA E-Messenger',
-            'desc' => '',
             'url' => '/messenger/proses',
             'color' => '#3498db',
             'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
@@ -479,7 +453,6 @@
         'mailing_admin' => [
             'field' => 'maroom_admin_dash',
             'title' => 'GA E-Mailing Room',
-            'desc' => '',
             'url' => '/mailing/proses',
             'color' => '#2ecc71',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
@@ -487,7 +460,6 @@
         'apart_admin' => [
             'field' => 'apart_admin_dash',
             'title' => 'GA Apartemen',
-            'desc' => '',
             'url' => '/apartemen/admin/dashboard',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
@@ -495,7 +467,6 @@
         'car_admin' => [
             'field' => 'car_admin_dash',
             'title' => 'GA Car Service',
-            'desc' => '',
             'url' => '/drms/approval/admin',
             'color' => '#16a085',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
@@ -503,28 +474,31 @@
         'helpdesk_admin' => [
             'field' => 'helpdesk_admin_dash',
             'title' => 'GA Helpdesk',
-            'desc' => '',
             'url' => '/help/proses',
             'color' => '#2980b9',
             'icon' => 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
         ],
-        // ADMIN MANAGEMENT STOK - OPSIONAL
         'stock_admin' => [
             'field' => 'stock_admin_dash',
             'title' => 'GA E-Stationery',
-            'desc' => '',
             'url' => '/stock-ctl/dashboard',
             'color' => '#e67e22',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
         ],
-        // ADMIN E-MEMO - OPSIONAL
         'ememo_admin' => [
             'field' => 'ememo_admin_dash',
             'title' => 'GA E-Memo',
-            'desc' => '',
             'url' => '/ememo/admin',
             'color' => '#8e44ad',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
+        ],
+        // MENU CLAIM SALES & MARKETING (ADMIN)
+        'claim_sales_admin' => [
+            'field' => 'claim_sales_admin_dash',
+            'title' => 'CMT Marketing',
+            'url' => '/claim-sales-marketing/admin', // ganti dengan route admin
+            'color' => '#f50b0b',
+            'icon' => 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z'
         ]
     ];
     
@@ -535,15 +509,12 @@
     $delayCounter = 0.1;
     
     if(isset($access) && $access) {
-        // Cek akses menu utama
         foreach($menus as $menu) {
             if(isset($access->{$menu['field']}) && $access->{$menu['field']} == 1) {
                 $hasMainAccess = true;
                 $totalAccess++;
             }
         }
-        
-        // Cek akses menu admin
         foreach($adminMenus as $menu) {
             if(isset($access->{$menu['field']}) && $access->{$menu['field']} == 1) {
                 $hasAdminAccess = true;
@@ -554,11 +525,10 @@
     ?>
     
     @if(isset($access) && $access)
-        <!-- Section Menu Utama (jika ada akses menu utama) -->
         @if($hasMainAccess)
             <h3 class="section-title">Tools</h3>
             <div class="menu-grid">
-                @foreach($menus as $key => $menu)
+                @foreach($menus as $menu)
                     @if(isset($access->{$menu['field']}) && $access->{$menu['field']} == 1)
                         <?php 
                         $animationDelay = $delayCounter . 's';
@@ -572,18 +542,16 @@
                                 </svg>
                             </div>
                             <h3 class="menu-title">{{ $menu['title'] }}</h3>
-                            <p class="menu-desc">{{ $menu['desc'] }}</p>
                         </div>
                     @endif
                 @endforeach
             </div>
         @endif
         
-        <!-- Section Admin (jika ada akses admin) -->
         @if($hasAdminAccess)
             <h3 class="section-title admin-title">Admin</h3>
             <div class="menu-grid">
-                @foreach($adminMenus as $key => $menu)
+                @foreach($adminMenus as $menu)
                     @if(isset($access->{$menu['field']}) && $access->{$menu['field']} == 1)
                         <?php 
                         $animationDelay = $delayCounter . 's';
@@ -598,14 +566,12 @@
                                 </svg>
                             </div>
                             <h3 class="menu-title">{{ $menu['title'] }}</h3>
-                            <p class="menu-desc">{{ $menu['desc'] }}</p>
                         </div>
                     @endif
                 @endforeach
             </div>
         @endif
         
-        <!-- Tampilkan "Tidak Ada Akses" hanya jika TIDAK ADA akses sama sekali -->
         @if(!$hasMainAccess && !$hasAdminAccess)
             <div class="no-access-container">
                 <div class="no-access-icon">
@@ -622,7 +588,6 @@
         @endif
         
     @else
-        <!-- Jika data akses tidak ditemukan -->
         <div class="no-access-container">
             <div class="no-access-icon">
                 <svg width="40" height="40" fill="none" stroke="#e74c3c" stroke-width="2" viewBox="0 0 24 24">
@@ -640,12 +605,6 @@
             </button>
         </div>
     @endif
-    
-    <!-- Footer -->
-    <!-- <div class="mt-4 pt-3 border-top text-center text-muted">
-        <p class="mb-1 small">GA Portal &copy; {{ date('Y') }} - KPN Corporate</p>
-        <small class="text-muted">v3.0.0</small>
-    </div> -->
 </div>
 @endsection
 
@@ -653,28 +612,23 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Update date and time
         function updateDateTime() {
             const now = new Date();
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const dateStr = now.toLocaleDateString('id-ID', options);
-            document.getElementById('current-date').textContent = dateStr;
+            document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', options);
         }
-        
         updateDateTime();
         setInterval(updateDateTime, 60000);
         
-        // Efek klik pada menu item
+        // Efek ripple
         const menuItems = document.querySelectorAll('.menu-item');
         menuItems.forEach(item => {
             item.addEventListener('click', function(e) {
-                // Efek ripple
                 const ripple = document.createElement('span');
                 const rect = this.getBoundingClientRect();
                 const size = Math.max(rect.width, rect.height);
                 const x = e.clientX - rect.left - size / 2;
                 const y = e.clientY - rect.top - size / 2;
-                
                 ripple.style.cssText = `
                     position: absolute;
                     border-radius: 50%;
@@ -687,44 +641,27 @@
                     left: ${x}px;
                     pointer-events: none;
                 `;
-                
-                // Admin item dengan warna berbeda
                 if (this.classList.contains('admin-item')) {
                     ripple.style.background = 'rgba(142, 68, 173, 0.3)';
                 }
-                
                 this.appendChild(ripple);
-                
                 setTimeout(() => {
                     ripple.remove();
                     const onclickAttr = this.getAttribute('onclick');
                     const match = onclickAttr.match(/'(.*?)'/);
-                    if (match && match[1]) {
-                        window.location.href = match[1];
-                    }
+                    if (match && match[1]) window.location.href = match[1];
                 }, 200);
             });
         });
         
-        // Animasi ripple CSS
         const style = document.createElement('style');
-        style.textContent = `
-            @keyframes ripple {
-                to {
-                    transform: scale(3);
-                    opacity: 0;
-                }
-            }
-        `;
+        style.textContent = `@keyframes ripple { to { transform: scale(3); opacity: 0; } }`;
         document.head.appendChild(style);
         
-        // Konfirmasi logout
         const logoutForm = document.getElementById('logout-form');
         if (logoutForm) {
             logoutForm.addEventListener('submit', function(e) {
-                if (!confirm('Anda yakin ingin logout?')) {
-                    e.preventDefault();
-                }
+                if (!confirm('Anda yakin ingin logout?')) e.preventDefault();
             });
         }
     });

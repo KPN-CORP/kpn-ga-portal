@@ -12,9 +12,6 @@ use Illuminate\Support\Facades\Notification;
 
 class AppL1Controller extends Controller
 {
-    /**
-     * Tampilkan daftar request yang perlu disetujui atasan ini.
-     */
     public function index()
     {
         $pendingRequests = DriverRequest::with('requester')
@@ -23,7 +20,6 @@ class AppL1Controller extends Controller
             ->latest()
             ->get();
 
-        // History: semua request yang pernah diproses oleh atasan ini (termasuk yang sudah diproses admin)
         $historyRequests = DriverRequest::with('requester')
             ->where('approver_l1_id', Auth::id())
             ->whereIn('status', ['approved_l1', 'rejected_l1', 'approved_admin', 'rejected_admin'])
@@ -33,9 +29,6 @@ class AppL1Controller extends Controller
         return view('drms.approval.l1.index', compact('pendingRequests', 'historyRequests'));
     }
 
-    /**
-     * Setujui request
-     */
     public function approve($id)
     {
         $driverRequest = DriverRequest::where('approver_l1_id', Auth::id())->findOrFail($id);
@@ -44,10 +37,14 @@ class AppL1Controller extends Controller
             'approved_l1_at' => now(),
         ]);
 
-        // Kirim notifikasi ke admin dengan unit dan area yang sama
         $requester = $driverRequest->requester;
-        $businessUnitId = $requester->business_unit_id;
-        $area = $requester->area;
+        $profile = $requester->drmsProfile;
+        if (!$profile) {
+            return redirect()->back()->withErrors('Profil pemohon tidak lengkap.');
+        }
+
+        $businessUnitId = $profile->business_unit_id;
+        $area = $profile->area;
 
         $admins = User::whereHas('drmsProfile', function ($q) use ($businessUnitId, $area) {
             $q->where('is_drms_admin', true)
@@ -63,9 +60,6 @@ class AppL1Controller extends Controller
             ->with('success', 'Request disetujui.');
     }
 
-    /**
-     * Tolak request dengan alasan
-     */
     public function reject(Request $request, $id)
     {
         $data = $request->validate([
@@ -77,8 +71,6 @@ class AppL1Controller extends Controller
             'status' => 'rejected_l1',
             'rejection_reason' => $data['rejection_reason'],
         ]);
-
-        // Opsional: kirim notifikasi ke requester
 
         return redirect()->route('drms.approval.l1.index')
             ->with('success', 'Request ditolak.');
