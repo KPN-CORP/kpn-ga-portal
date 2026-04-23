@@ -12212,3 +12212,5 @@ Stack trace:
 [2026-04-23 08:04:37] local.INFO: HCIS sync completed {"created":0,"updated":0} 
 [2026-04-23 09:05:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
 [2026-04-23 10:04:56] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-23 11:51:33] local.INFO: Preview lampiran {"lampiran_id":136} 
+[2026-04-23 12:05:17] local.INFO: HCIS sync completed {"created":0,"updated":0} 
