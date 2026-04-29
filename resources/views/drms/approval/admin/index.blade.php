@@ -30,6 +30,7 @@
                     <option value="">Semua Status</option>
                     <option value="approved_admin" {{ request('status')=='approved_admin' ? 'selected' : '' }}>Disetujui</option>
                     <option value="rejected_admin" {{ request('status')=='rejected_admin' ? 'selected' : '' }}>Ditolak</option>
+                    <option value="completed" {{ request('status')=='completed' ? 'selected' : '' }}>Selesai</option>
                 </select>
             </div>
             <div class="lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
@@ -216,8 +217,16 @@
                         $endTime = $req->end_time;
                         $returnDate = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : null;
                         $tujuanFull = $req->pickup_location . ' → ' . $req->destination;
-                        $statusLabels = ['approved_admin'=>'Disetujui','rejected_admin'=>'Ditolak'];
-                        $statusColors = ['approved_admin'=>'bg-green-100 text-green-800','rejected_admin'=>'bg-red-100 text-red-800'];
+                        $statusLabels = [
+                            'approved_admin' => 'Disetujui',
+                            'rejected_admin' => 'Ditolak',
+                            'completed' => 'Selesai'
+                        ];
+                        $statusColors = [
+                            'approved_admin' => 'bg-green-100 text-green-800',
+                            'rejected_admin' => 'bg-red-100 text-red-800',
+                            'completed' => 'bg-blue-100 text-blue-800'
+                        ];
                         $detailData = [
                             'request_no' => $req->request_no,
                             'requester' => ['name' => $req->requester->name],
@@ -264,6 +273,14 @@
                         </td>
                         <td class="px-4 py-3">
                             <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold hover:underline">Detail</button>
+                            @if($req->status === 'approved_admin')
+                                <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-2" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
+                                    @csrf
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold">
+                                        ✅ Selesaikan
+                                    </button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                     @empty
@@ -291,8 +308,16 @@
                     @php
                         $start = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
                         $end = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : $req->end_time;
-                        $statusLabels = ['approved_admin'=>'Disetujui','rejected_admin'=>'Ditolak'];
-                        $statusColors = ['approved_admin'=>'bg-green-100 text-green-800','rejected_admin'=>'bg-red-100 text-red-800'];
+                        $statusLabels = [
+                            'approved_admin' => 'Disetujui',
+                            'rejected_admin' => 'Ditolak',
+                            'completed' => 'Selesai'
+                        ];
+                        $statusColors = [
+                            'approved_admin' => 'bg-green-100 text-green-800',
+                            'rejected_admin' => 'bg-red-100 text-red-800',
+                            'completed' => 'bg-blue-100 text-blue-800'
+                        ];
                         $detailData = [
                             'request_no' => $req->request_no,
                             'requester' => ['name' => $req->requester->name],
@@ -323,6 +348,12 @@
                         <td class="px-3 pt-3 pb-1">{{ $req->pickup_location }}</td>
                         <td class="px-3 pt-3 pb-1 text-right">
                             <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold">Detail</button>
+                            @if($req->status === 'approved_admin')
+                                <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-1" onsubmit="return confirm('Tandai selesai?')">
+                                    @csrf
+                                    <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                     <tr class="bg-gray-50 border-b">

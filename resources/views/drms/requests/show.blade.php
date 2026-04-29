@@ -117,7 +117,7 @@
         @endif
         @if($driverRequest->rejection_reason)
         <div class="col-span-2">
-            <dt class="text-sm text-gray-500">Alasan Penolakan</dt>
+            <dt class="text-sm text-gray-500">Catatan</dt>
             <dd class="text-red-600">{{ $driverRequest->rejection_reason }}</dd>
         </div>
         @endif

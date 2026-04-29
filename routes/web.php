@@ -43,6 +43,7 @@ use App\Http\Controllers\Drms\RequestController;
 use App\Http\Controllers\Drms\AppL1Controller;
 use App\Http\Controllers\Drms\AppAdminController;
 use App\Http\Controllers\Drms\DriverController;
+use App\Http\Controllers\Drms\DriverDashboardController;
 use App\Http\Controllers\Drms\VehicleController;
 use App\Http\Controllers\Drms\VoucherController;
 use App\Http\Controllers\Work\WorkReportController;
@@ -376,42 +377,53 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         });
     });
 
-/*
-|--------------------------------------------------------------------------
-| DRIVER REQUEST MANAGEMENT SYSTEM (DRMS)
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
-    // Request User
-    Route::get('requests', [RequestController::class, 'index'])->name('requests.index');
-    Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
-    Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
-    Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER REQUEST MANAGEMENT SYSTEM (DRMS)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
+        // Request User
+        Route::get('requests', [RequestController::class, 'index'])->name('requests.index');
+        Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
+        Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
+        Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
 
-    // Approval L1
-    Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
-        Route::get('/', [AppL1Controller::class, 'index'])->name('index');
-        Route::post('{id}/approve', [AppL1Controller::class, 'approve'])->name('approve');
-        Route::post('{id}/reject', [AppL1Controller::class, 'reject'])->name('reject');
-    });
+        // Approval L1
+        Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
+            Route::get('/', [AppL1Controller::class, 'index'])->name('index');
+            Route::post('{id}/approve', [AppL1Controller::class, 'approve'])->name('approve');
+            Route::post('{id}/reject', [AppL1Controller::class, 'reject'])->name('reject');
+        });
 
-    // Approval Admin
-    Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
-        Route::get('/', [AppAdminController::class, 'index'])->name('index');
-        Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
-        Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
-        Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
-    });
+        // Approval Admin
+        Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
+            Route::get('/', [AppAdminController::class, 'index'])->name('index');
+            Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
+            Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
+            Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
+            Route::post('{driverRequest}/complete', [AppAdminController::class, 'complete'])->name('complete');
+        });
 
-    // Master Data (hanya admin)
-    Route::middleware(['can:isDrmsAdmin'])->group(function () {
-        // Letakkan route khusus SEBELUM resource
-        Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
-        Route::resource('drivers', DriverController::class);
-        Route::resource('vehicles', VehicleController::class);
-        Route::resource('vouchers', VoucherController::class);
+        // Driver Dashboard (letakkan SEBELUM resource drivers)
+        Route::middleware(['is_driver'])->group(function () {
+            Route::get('/driver/dashboard', [DriverDashboardController::class, 'index'])->name('driver.dashboard');
+            Route::get('/driver/requests/{driverRequest}', [DriverDashboardController::class, 'show'])->name('driver.requests.show');
+            Route::post('/driver/requests/{driverRequest}/complete', [DriverDashboardController::class, 'complete'])->name('driver.requests.complete');
+        });
+
+        Route::get('drivers/dashboard', function () {
+            return redirect()->route('drms.driver.dashboard');
+        });
+
+        // Master Data (hanya admin) – exclude 'show' untuk drivers
+        Route::middleware(['can:isDrmsAdmin'])->group(function () {
+            Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
+            Route::resource('drivers', DriverController::class)->except(['show']);
+            Route::resource('vehicles', VehicleController::class);
+            Route::resource('vouchers', VoucherController::class);
+        });
     });
-});
     /*
     |--------------------------------------------------------------------------
     | APARTEMEN / MESS (UI ONLY - PHASE 1)

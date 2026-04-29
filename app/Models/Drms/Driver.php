@@ -8,7 +8,7 @@ use App\Models\BisnisUnit;
 class Driver extends Model
 {
     protected $table = 'drms_drivers';
-    protected $fillable = ['name', 'phone', 'status', 'business_unit_id'];
+    protected $fillable = ['name', 'phone', 'username', 'status', 'business_unit_id'];
 
     protected $casts = [
         'status' => 'string',
@@ -22,5 +22,10 @@ class Driver extends Model
     public function requests()
     {
         return $this->hasMany(DriverRequest::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'username', 'username');
     }
 }

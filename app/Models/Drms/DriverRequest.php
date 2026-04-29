@@ -29,7 +29,7 @@ class DriverRequest extends Model
         'approved_admin_at' => 'datetime',
     ];
 
-    // Relasi tidak diubah, hanya ditampilkan untuk kelengkapan
+    // Relasi
     public function requester()
     {
         return $this->belongsTo(User::class, 'requester_id');
@@ -74,79 +74,34 @@ class DriverRequest extends Model
     }
 
     /**
-     * Cek tumpang tindih untuk driver/kendaraan pada rentang waktu multi-hari.
+     * Cek tumpang tindih untuk driver/kendaraan pada rentang waktu tertentu.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param string $column         Nama kolom (driver_id / vehicle_id)
-     * @param int    $id             ID driver/kendaraan
-     * @param string $startDate      Y-m-d
-     * @param string $startTime      H:i:s
-     * @param string $endDate        Y-m-d
-     * @param string $endTime        H:i:s
-     * @param int|null $excludeId    ID request yang dikecualikan (saat update)
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  string  $column      'driver_id' atau 'vehicle_id'
+     * @param  int     $id          ID driver/kendaraan
+     * @param  string  $startDate   Y-m-d
+     * @param  string  $startTime   H:i:s
+     * @param  string  $endDate     Y-m-d
+     * @param  string  $endTime     H:i:s
+     * @param  int|null $excludeId  ID request yang dikecualikan
      */
     public function scopeOverlappingPeriod($query, $column, $id, $startDate, $startTime, $endDate, $endTime, $excludeId = null)
     {
         if (!$startTime || !$endTime) {
-            return $query->whereRaw('1 = 0'); // tidak mungkin ada konflik jika waktu tidak lengkap
+            return $query->whereRaw('1 = 0');
         }
 
-        $query->where($column, $id)
-              ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1'])
-              ->where(function ($q) use ($startDate, $startTime, $endDate, $endTime) {
-                  // Gabungkan tanggal & waktu menjadi datetime untuk perbandingan yang lebih akurat
-                  $start = Carbon::parse($startDate . ' ' . $startTime);
-                  $end   = Carbon::parse($endDate . ' ' . $endTime);
+        // Gabungkan tanggal + jam agar bisa dibandingkan langsung
+        $start = $startDate . ' ' . $startTime;
+        $end   = $endDate . ' ' . $endTime;
 
-                  $q->where(function ($sub) use ($start, $end) {
-                      // 1. Request yang usage_date berada di dalam rentang [start, end]
-                      $sub->whereBetween('usage_date', [$start->toDateString(), $end->toDateString()])
-                          // 2. Request dengan return_date berada di dalam rentang (jika ada)
-                          ->orWhere(function ($q2) use ($start, $end) {
-                              $q2->whereNotNull('return_date')
-                                 ->whereBetween('return_date', [$start->toDateString(), $end->toDateString()]);
-                          })
-                          // 3. Request yang melingkupi seluruh rentang (usage_date <= start AND return_date >= end)
-                          ->orWhere(function ($q3) use ($start, $end) {
-                              $q3->where('usage_date', '<=', $start->toDateString())
-                                 ->where(function ($q4) use ($end) {
-                                     $q4->where('return_date', '>=', $end->toDateString())
-                                        ->orWhereNull('return_date'); // jika return_date null, artinya masih berlangsung
-                                 });
-                          });
-                  });
-
-                  // Tambahan: periksa tumpang tindih pada hari yang sama dengan waktu yang tepat
-                  $q->orWhere(function ($qTime) use ($start, $end) {
-                      $qTime->where('usage_date', $start->toDateString())
-                            ->whereTime('start_time', '<', $end->toTimeString())
-                            ->whereTime('end_time', '>', $start->toTimeString());
-                  });
-              });
-
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-
-        return $query;
-    }
-
-    /**
-     * Wrapper untuk pengecekan tumpang tindih pada satu hari.
-     */
-    public function scopeOverlapping($query, $column, $id, $date, $start, $end, $excludeId = null)
-    {
-        return $this->scopeOverlappingPeriod($query, $column, $id, $date, $start, $date, $end, $excludeId);
-    }
-
-    public function scopeDriverAvailableOnDate($query, $driverId, $date, $excludeId = null)
-    {
-        return $this->scopeOverlapping($query, 'driver_id', $driverId, $date, '00:00:00', '23:59:59', $excludeId);
-    }
-
-    public function scopeVehicleAvailableOnDate($query, $vehicleId, $date, $excludeId = null)
-    {
-        return $this->scopeOverlapping($query, 'vehicle_id', $vehicleId, $date, '00:00:00', '23:59:59', $excludeId);
+        return $query->where($column, $id)
+            ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1'])
+            ->whereRaw("
+                CONCAT(usage_date, ' ', start_time) < ?
+                AND CONCAT(COALESCE(return_date, usage_date), ' ', COALESCE(return_time, end_time)) > ?
+            ", [$end, $start])
+            ->when($excludeId, function ($q) use ($excludeId) {
+                $q->where('id', '!=', $excludeId);
+            });
     }
 }

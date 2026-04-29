@@ -46,13 +46,14 @@ class DriverController extends Controller
 
     public function edit(Driver $driver)
     {
-        $this->authorize('update', $driver); // Asumsikan ada Policy
+        // Pastikan driver berada di unit bisnis yang sama dengan user
+        $this->checkBusinessUnit($driver);
         return view('drms.drivers.edit', compact('driver'));
     }
 
     public function update(Request $request, Driver $driver)
     {
-        $this->authorize('update', $driver);
+        $this->checkBusinessUnit($driver);
 
         $data = $request->validate([
             'name'   => 'required|string|max:255',
@@ -68,7 +69,7 @@ class DriverController extends Controller
 
     public function destroy(Driver $driver)
     {
-        $this->authorize('delete', $driver);
+        $this->checkBusinessUnit($driver);
         $driver->delete();
         return redirect()->route('drms.drivers.index')
             ->with('success', 'Driver dihapus.');
@@ -97,5 +98,21 @@ class DriverController extends Controller
             ->groupBy('driver_id');
 
         return view('drms.drivers.schedule', compact('drivers', 'requests'));
+    }
+
+    /**
+     * Cek apakah driver milik business unit user yang sedang login.
+     *
+     * @param  \App\Models\Drms\Driver  $driver
+     * @return void
+     *
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    private function checkBusinessUnit(Driver $driver)
+    {
+        $userBusinessUnitId = Auth::user()->drmsProfile->business_unit_id ?? null;
+        if (!$userBusinessUnitId || $driver->business_unit_id !== $userBusinessUnitId) {
+            abort(403, 'Anda tidak memiliki akses ke driver ini.');
+        }
     }
 }

@@ -9,9 +9,22 @@ use Illuminate\Support\Facades\Auth;
 
 class VoucherController extends Controller
 {
+    /**
+     * Ambil business_unit_id user dari profil DRMS, dengan fallback aman.
+     */
+    private function getUserBusinessUnitId()
+    {
+        $profile = Auth::user()->drmsProfile;
+        if (!$profile || !$profile->business_unit_id) {
+            abort(403, 'Anda tidak memiliki unit bisnis.');
+        }
+        return $profile->business_unit_id;
+    }
+
     public function index()
     {
-        $vouchers = Voucher::where('business_unit_id', Auth::user()->business_unit_id)
+        $businessUnitId = $this->getUserBusinessUnitId();
+        $vouchers = Voucher::where('business_unit_id', $businessUnitId)
             ->latest()
             ->get();
         return view('drms.vouchers.index', compact('vouchers'));
@@ -19,19 +32,23 @@ class VoucherController extends Controller
 
     public function create()
     {
+        // Pastikan user punya business unit (biar tidak error di view jika diperlukan)
+        $this->getUserBusinessUnitId();
         return view('drms.vouchers.create');
     }
 
     public function store(Request $request)
     {
+        $businessUnitId = $this->getUserBusinessUnitId();
+
         $data = $request->validate([
-            'code' => 'required|string|unique:drms_vouchers',
+            'code'    => 'required|string|unique:drms_vouchers',
             'nominal' => 'required|numeric|min:0',
-            'type' => 'required|in:grab,gojek,taxi',
-            'status' => 'required|in:available,used',
+            'type'    => 'required|in:grab,gojek,taxi',
+            'status'  => 'required|in:available,used',
         ]);
 
-        $data['business_unit_id'] = Auth::user()->business_unit_id;
+        $data['business_unit_id'] = $businessUnitId;
 
         Voucher::create($data);
 
@@ -41,23 +58,25 @@ class VoucherController extends Controller
 
     public function edit(Voucher $voucher)
     {
-        if ($voucher->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
+        $businessUnitId = $this->getUserBusinessUnitId();
+        if ($voucher->business_unit_id !== $businessUnitId) {
+            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
         }
         return view('drms.vouchers.edit', compact('voucher'));
     }
 
     public function update(Request $request, Voucher $voucher)
     {
-        if ($voucher->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
+        $businessUnitId = $this->getUserBusinessUnitId();
+        if ($voucher->business_unit_id !== $businessUnitId) {
+            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
         }
 
         $data = $request->validate([
-            'code' => 'required|string|unique:drms_vouchers,code,' . $voucher->id,
+            'code'    => 'required|string|unique:drms_vouchers,code,' . $voucher->id,
             'nominal' => 'required|numeric|min:0',
-            'type' => 'required|in:grab,gojek,taxi',
-            'status' => 'required|in:available,used',
+            'type'    => 'required|in:grab,gojek,taxi',
+            'status'  => 'required|in:available,used',
         ]);
 
         $voucher->update($data);
@@ -68,8 +87,9 @@ class VoucherController extends Controller
 
     public function destroy(Voucher $voucher)
     {
-        if ($voucher->business_unit_id !== Auth::user()->business_unit_id) {
-            abort(403);
+        $businessUnitId = $this->getUserBusinessUnitId();
+        if ($voucher->business_unit_id !== $businessUnitId) {
+            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
         }
         $voucher->delete();
         return redirect()->route('drms.vouchers.index')

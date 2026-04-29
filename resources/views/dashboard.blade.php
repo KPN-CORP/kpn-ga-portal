@@ -442,6 +442,17 @@
         ]
     ];
     
+    // Menu khusus driver (tidak tergantung tb_access_dash)
+    $driverMenu = null;
+    if (Auth::user()->driver) {
+        $driverMenu = [
+            'title' => 'Jadwal Driver',
+            'url' => route('drms.driver.dashboard'),
+            'color' => '#f97316',
+            'icon' => 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+        ];
+    }
+    
     $adminMenus = [
         'messenger_admin' => [
             'field' => 'messenger_admin_dash',
@@ -525,7 +536,7 @@
     ?>
     
     @if(isset($access) && $access)
-        @if($hasMainAccess)
+        @if($hasMainAccess || $driverMenu)
             <h3 class="section-title">Tools</h3>
             <div class="menu-grid">
                 @foreach($menus as $menu)
@@ -545,6 +556,23 @@
                         </div>
                     @endif
                 @endforeach
+
+                {{-- Menu Driver Dashboard --}}
+                @if($driverMenu)
+                    <?php 
+                    $animationDelay = $delayCounter . 's';
+                    $delayCounter += 0.05;
+                    ?>
+                    <div class="menu-item" onclick="window.location.href='{{ $driverMenu['url'] }}'" style="animation-delay: {{ $animationDelay }};">
+                        <div class="icon-box">
+                            <div class="icon-bg" style="background: {{ $driverMenu['color'] }};"></div>
+                            <svg class="icon-svg" fill="none" stroke="{{ $driverMenu['color'] }}" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="{{ $driverMenu['icon'] }}"/>
+                            </svg>
+                        </div>
+                        <h3 class="menu-title">{{ $driverMenu['title'] }}</h3>
+                    </div>
+                @endif
             </div>
         @endif
         
@@ -572,7 +600,7 @@
             </div>
         @endif
         
-        @if(!$hasMainAccess && !$hasAdminAccess)
+        @if(!$hasMainAccess && !$hasAdminAccess && !$driverMenu)
             <div class="no-access-container">
                 <div class="no-access-icon">
                     <svg width="40" height="40" fill="none" stroke="#95a5a6" stroke-width="2" viewBox="0 0 24 24">

@@ -237,10 +237,15 @@ class User extends Authenticatable
         return $this->drmsProfile && $this->drmsProfile->is_drms_admin;
     }
 
+    // public function isDrmsSuperAdmin(): bool
+    // {
+    //     // Cek dari accessMenu (jika ada kolom drms_superadmin) atau dari stock_ctl_superadmin
+    //     return $this->accessMenu && ($this->accessMenu->drms_superadmin || $this->accessMenu->stock_ctl_superadmin);
+    // }
+
     public function isDrmsSuperAdmin(): bool
     {
-        // Cek dari accessMenu (jika ada kolom drms_superadmin) atau dari stock_ctl_superadmin
-        return $this->accessMenu && ($this->accessMenu->drms_superadmin || $this->accessMenu->stock_ctl_superadmin);
+        return $this->accessMenu && $this->accessMenu->drms_superadmin == 1;
     }
 
     /**
@@ -263,6 +268,16 @@ class User extends Authenticatable
     public function isWorkAdmin()
     {
         return $this->accessMenu && $this->accessMenu->work_admin == 1;
+    }
+
+    public function driver()
+    {
+        return $this->hasOne(\App\Models\Drms\Driver::class, 'username', 'username');
+    }
+
+    public function isDriver()
+    {
+        return $this->driver()->exists();
     }
 
     /**
