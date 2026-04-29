@@ -190,4 +190,86 @@ class User extends Authenticatable
     {
         return $this->hasOne(\App\Models\StockCtl\UserProfil::class, 'id_user');
     }
+
+    // =====================================================
+    // RELATIONSHIP & METHODS UNTUK DRMS (DITAMBAHKAN)
+    // =====================================================
+
+    /**
+     * Relasi ke data karyawan dari HCIS (api_emp_hcis)
+     */
+    public function employee()
+    {
+        return $this->belongsTo(\App\Models\ApiEmpHcis::class, 'employee_no', 'employee_id');
+    }
+
+    /**
+     * Mendapatkan bawahan langsung (jika user adalah manager L1)
+     */
+    public function subordinates()
+    {
+        return $this->hasMany(\App\Models\ApiEmpHcis::class, 'manager_l1_id', 'employee_no');
+    }
+    /**
+     * Relasi ke tabel drms_user (opsional, jika menggunakan tabel khusus)
+     */
+    public function drmsUser()
+    {
+        return $this->hasOne(\App\Models\Drms\User::class, 'user_id', 'id');
+    }
+    public function drmsProfile()
+    {
+        return $this->hasOne(\App\Models\Drms\DrmsUserProfile::class, 'user_id');
+    }
+
+    public function isDrmsUser(): bool
+    {
+        return $this->drmsProfile && $this->drmsProfile->is_drms_user;
+    }
+
+    public function isApprover(): bool
+    {
+        return $this->drmsProfile && $this->drmsProfile->is_approver;
+    }
+
+    public function isDrmsAdmin()
+    {
+        return $this->drmsProfile && $this->drmsProfile->is_drms_admin;
+    }
+
+    public function isDrmsSuperAdmin(): bool
+    {
+        // Cek dari accessMenu (jika ada kolom drms_superadmin) atau dari stock_ctl_superadmin
+        return $this->accessMenu && ($this->accessMenu->drms_superadmin || $this->accessMenu->stock_ctl_superadmin);
+    }
+
+    /**
+     * Mendapatkan business unit ID user (dari profile)
+     */
+    public function getBusinessUnitIdAttribute()
+    {
+        return $this->drmsProfile ? $this->drmsProfile->business_unit_id : null;
+    }
+
+    // =====================================================
+    // METHODS UNTUK WORK REPORT (DITAMBAHKAN)
+    // =====================================================
+
+    public function isWorkUser()
+    {
+        return $this->accessMenu && $this->accessMenu->work_user == 1;
+    }
+
+    public function isWorkAdmin()
+    {
+        return $this->accessMenu && $this->accessMenu->work_admin == 1;
+    }
+
+    /**
+     * Mendapatkan area user (dari profile)
+     */
+    public function getAreaAttribute()
+    {
+        return $this->drmsProfile ? $this->drmsProfile->area : null;
+    }
 }

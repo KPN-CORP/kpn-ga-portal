@@ -25,6 +25,7 @@ class DrmsUserProfile extends Model
         'is_approver' => 'boolean',
         'is_drms_user' => 'boolean',
         'is_drms_admin' => 'boolean',
+        'is_drms_superadmin' => 'boolean',
     ];
 
     public function user()

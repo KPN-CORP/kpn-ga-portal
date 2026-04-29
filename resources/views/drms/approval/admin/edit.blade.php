@@ -30,7 +30,8 @@
                     </span>
                 @endif
             </dd>
-            <dt>Unit/Area:</dt><dd>{{ $driverRequest->requester->drmsProfile->unit ?? '-' }} / {{ $driverRequest->requester->drmsProfile->area ?? '-' }}</dd>
+            <dt>Unit/Area:</dt>
+            <dd>{{ $driverRequest->requester->drmsProfile->unit ?? '-' }} / {{ $driverRequest->requester->drmsProfile->area ?? '-' }}</dd>
             <dt>Tipe Perjalanan:</dt>
             <dd>
                 @if($driverRequest->trip_type === 'round_trip')
@@ -112,7 +113,9 @@
                     <select name="driver_id" class="w-full border rounded p-2" id="driver_select">
                         <option value="">-- Pilih Driver --</option>
                         @foreach($drivers as $driver)
-                            <option value="{{ $driver->id }}" {{ old('driver_id', $driverRequest->driver_id) == $driver->id ? 'selected' : '' }}>{{ $driver->name }} ({{ $driver->phone }}) - {{ ucfirst($driver->status) }}</option>
+                            <option value="{{ $driver->id }}" {{ old('driver_id', $driverRequest->driver_id) == $driver->id ? 'selected' : '' }}>
+                                {{ $driver->name }} ({{ $driver->phone }}) - {{ ucfirst($driver->status) }}
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -121,7 +124,9 @@
                     <select name="vehicle_id" class="w-full border rounded p-2" id="vehicle_select">
                         <option value="">-- Pilih Kendaraan --</option>
                         @foreach($vehicles as $vehicle)
-                            <option value="{{ $vehicle->id }}" {{ old('vehicle_id', $driverRequest->vehicle_id) == $vehicle->id ? 'selected' : '' }}>{{ $vehicle->type }} - {{ $vehicle->plate_number }} ({{ $vehicle->capacity }} kursi)</option>
+                            <option value="{{ $vehicle->id }}" {{ old('vehicle_id', $driverRequest->vehicle_id) == $vehicle->id ? 'selected' : '' }}>
+                                {{ $vehicle->type }} - {{ $vehicle->plate_number }} ({{ $vehicle->capacity }} kursi)
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -133,7 +138,9 @@
             <select name="voucher_id" class="w-full border rounded p-2" id="voucher_select">
                 <option value="">-- Pilih Voucher --</option>
                 @foreach($vouchers as $voucher)
-                    <option value="{{ $voucher->id }}" {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}>{{ $voucher->code }} - {{ ucfirst($voucher->type) }} (Rp {{ number_format($voucher->nominal,0,',','.') }})</option>
+                    <option value="{{ $voucher->id }}" {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}>
+                        {{ $voucher->code }} - {{ ucfirst($voucher->type) }} (Rp {{ number_format($voucher->nominal,0,',','.') }})
+                    </option>
                 @endforeach
             </select>
         </div>

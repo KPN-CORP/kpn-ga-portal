@@ -15,28 +15,45 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class TrackRController extends Controller
 {
     /* =========================
-       LIST - HANYA DOKUMEN USER
+       INDEX – DOKUMEN YANG BISA DIAKSES
     ========================= */
-    public function index()
+    public function index(Request $request)
     {
-        // Hanya tampilkan dokumen yang user terlibat
-        $documents = TrackRDocument::with(['pengirim','penerima'])
-            ->where(function($query) {
-                $query->where('pengirim_id', auth()->id())
-                      ->orWhere('penerima_id', auth()->id());
-            })
-            ->orderBy('created_at','desc')
-            ->paginate(15);
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
+            ->where(function($q) {
+                $userId = auth()->id();
+                $q->where('pengirim_id', $userId)
+                  ->orWhereHas('recipients', function($sub) use ($userId) {
+                      $sub->where('user_id', $userId);
+                  });
+            });
+
+        // Pencarian
+        if ($search = $request->input('search')) {
+            $query->where(function($q) use ($search) {
+                $q->where('nomor_dokumen', 'like', "%{$search}%")
+                  ->orWhere('judul', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter status
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
+        }
+
+        $documents = $query->orderBy('created_at', 'desc')
+                         ->paginate(15)
+                         ->withQueryString();
 
         return view('track_r.index', compact('documents'));
     }
 
     /* =========================
-       FORM CREATE
+       CREATE
     ========================= */
     public function create()
     {
-        $users = User::where('id', '!=', auth()->id()) // Jangan tampilkan diri sendiri
+        $users = User::where('id', '!=', auth()->id())
                     ->orderBy('name')
                     ->get();
         return view('track_r.create', compact('users'));
@@ -45,128 +62,102 @@ class TrackRController extends Controller
     /* =========================
        STORE / KIRIM
     ========================= */
-public function store(Request $request)
-{
-    $request->validate([
-        'nomor_dokumen' => 'required|unique:track_r_documents',
-        'judul' => 'required',
-        'penerima_id' => 'required',
-        'keterangan' => 'nullable|string',
-        'foto_dokumen.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx',
-    ]);
-
-    DB::transaction(function () use ($request) {
-        // Parse penerima_id (bisa user ID atau manual)
-        $penerimaId = $request->penerima_id;
-        $isManualUser = false;
-        $manualUserInfo = null;
-        
-        // Check if it's a manual user (format: manual:[id]:[name]:[email])
-        if (strpos($penerimaId, 'manual:') === 0) {
-            $isManualUser = true;
-            $parts = explode(':', $penerimaId);
-            $manualUserInfo = [
-                'id' => $parts[1] ?? null,
-                'name' => $parts[2] ?? 'Unknown',
-                'email' => $parts[3] ?? null,
-            ];
-            // Use a placeholder user ID (you might want to create a temporary user record)
-            $penerimaId = 999999; // Temporary ID for manual users
-        }
-
-        // 1. Buat dokumen
-        $doc = TrackRDocument::create([
-            'nomor_dokumen' => $request->nomor_dokumen,
-            'judul' => $request->judul,
-            'keterangan' => $request->keterangan,
-            'pengirim_id' => auth()->id(),
-            'penerima_id' => $penerimaId,
-            'status' => 'dikirim',
+    public function store(Request $request)
+    {
+        $request->validate([
+            'nomor_dokumen' => 'required|unique:track_r_documents',
+            'judul' => 'required',
+            'penerima_id' => 'required',
+            'keterangan' => 'nullable|string',
+            'foto_dokumen.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx',
         ]);
 
-        // If manual user, store the info in keterangan or separate field
-        if ($isManualUser && $manualUserInfo) {
-            $doc->update([
-                'keterangan' => ($doc->keterangan ?? '') . 
-                               "\n[Penerima Manual: " . $manualUserInfo['name'] . 
-                               ($manualUserInfo['email'] ? " - " . $manualUserInfo['email'] : '') . "]"
+        DB::transaction(function () use ($request) {
+            // Buat dokumen
+            $doc = TrackRDocument::create([
+                'nomor_dokumen' => $request->nomor_dokumen,
+                'judul' => $request->judul,
+                'keterangan' => $request->keterangan,
+                'pengirim_id' => auth()->id(),
+                'penerima_id' => $request->penerima_id,
+                'status' => 'dikirim',
             ]);
-        }
 
-        // 2. Simpan foto jika ada (kode tetap sama)
-        if ($request->hasFile('foto_dokumen')) {
-            $directory = storage_path('app/private/Track/' . $doc->id);
-            
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
+            // Tambahkan penerima awal ke tabel recipients
+            $doc->recipients()->attach($request->penerima_id, [
+                'received_at' => now(),
+            ]);
+
+            // Simpan lampiran
+            if ($request->hasFile('foto_dokumen')) {
+                $directory = storage_path('app/private/Track/' . $doc->id);
+                if (!File::exists($directory)) {
+                    File::makeDirectory($directory, 0755, true);
+                }
+
+                foreach ($request->file('foto_dokumen') as $file) {
+                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $extension = $file->getClientOriginalExtension();
+                    $filename = $originalName . '_' . time() . '_' . uniqid() . '.' . $extension;
+                    $filePath = 'Track/' . $doc->id . '/' . $filename;
+                    Storage::disk('private')->put($filePath, file_get_contents($file));
+
+                    TrackRFoto::create([
+                        'track_r_document_id' => $doc->id,
+                        'nama_file' => $filename,
+                        'path' => $filePath,
+                        'tipe' => $extension,
+                        'ukuran' => $file->getSize(),
+                    ]);
+                }
             }
 
-            foreach ($request->file('foto_dokumen') as $file) {
-                $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $extension = $file->getClientOriginalExtension();
-                $filename = $originalName . '_' . time() . '_' . uniqid() . '.' . $extension;
-                
-                $filePath = 'Track/' . $doc->id . '/' . $filename;
-                
-                Storage::disk('private')->put($filePath, file_get_contents($file));
-                
-                TrackRFoto::create([
-                    'track_r_document_id' => $doc->id,
-                    'nama_file' => $filename,
-                    'path' => $filePath,
-                    'tipe' => $extension,
-                    'ukuran' => $file->getSize(),
-                ]);
-            }
-        }
+            // Log pengiriman
+            TrackRLog::create([
+                'track_r_document_id' => $doc->id,
+                'aksi' => 'kirim',
+                'dari_user_id' => auth()->id(),
+                'ke_user_id' => $request->penerima_id,
+                'catatan' => 'Dokumen dikirim',
+            ]);
+        });
 
-        // 3. Buat log
-        TrackRLog::create([
-            'track_r_document_id' => $doc->id,
-            'aksi' => 'kirim',
-            'dari_user_id' => auth()->id(),
-            'ke_user_id' => $penerimaId,
-            'catatan' => 'Dokumen dikirim',
-        ]);
-    });
-
-    return redirect()->route('track-r.index')->with('success', 'Dokumen berhasil dikirim');
-}
+        return redirect()->route('track-r.index')->with('success', 'Dokumen berhasil dikirim');
+    }
 
     /* =========================
-       DETAIL DENGAN VALIDASI AKSES
+       SHOW – DETAIL (VALIDASI AKSES)
+       TAMBAHAN: passing $users agar form teruskan bisa mencari penerima
     ========================= */
     public function show($id)
     {
         $document = TrackRDocument::with([
-            'logs.dariUser',
-            'logs.keUser',
-            'pengirim',
-            'penerima',
-            'fotos'
+            'logs.dariUser', 'logs.keUser',
+            'pengirim', 'penerima', 'fotos', 'recipients'
         ])->findOrFail($id);
 
-        // Validasi akses
         $this->authorizeDocumentAccess($document);
 
-        return view('track_r.show', compact('document'));
+        // Data user untuk pencarian penerima di form teruskan (kecuali user sendiri)
+        $users = User::where('id', '!=', auth()->id())
+                    ->orderBy('name')
+                    ->get();
+
+        return view('track_r.show', compact('document', 'users'));
     }
 
     /* =========================
-       DOWNLOAD FOTO DENGAN VALIDASI AKSES
+       DOWNLOAD FOTO
     ========================= */
     public function downloadFoto($documentId, $fotoId)
     {
         $document = TrackRDocument::findOrFail($documentId);
-        
-        // Validasi akses
         $this->authorizeDocumentAccess($document);
 
         $foto = TrackRFoto::where('track_r_document_id', $documentId)
                          ->findOrFail($fotoId);
 
         $path = storage_path('app/private/' . $foto->path);
-        
         if (!file_exists($path)) {
             abort(404);
         }
@@ -175,30 +166,26 @@ public function store(Request $request)
     }
 
     /* =========================
-       DELETE FOTO - DISABLE
-       Foto tidak boleh dihapus untuk menjaga keaslian dokumen
+       DELETE FOTO – DISABLED
     ========================= */
     public function deleteFoto($documentId, $fotoId)
     {
-        abort(403, 'Fitur hapus foto tidak diizinkan. Foto dokumen harus tetap tersedia untuk keaslian.');
+        abort(403, 'Fitur hapus foto tidak diizinkan.');
     }
 
     /* =========================
-       TERIMA DENGAN VALIDASI AKSES
+       TERIMA
     ========================= */
     public function terima($id)
     {
         DB::transaction(function () use ($id) {
             $doc = TrackRDocument::findOrFail($id);
 
-            // Hanya penerima yang bisa menerima
             if (auth()->id() !== $doc->penerima_id) {
-                abort(403, 'Hanya penerima yang dapat menerima dokumen');
+                abort(403, 'Hanya penerima saat ini yang dapat menerima dokumen');
             }
 
-            $doc->update([
-                'status' => 'diterima',
-            ]);
+            $doc->update(['status' => 'diterima']);
 
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
@@ -213,20 +200,17 @@ public function store(Request $request)
     }
 
     /* =========================
-       TOLAK DENGAN VALIDASI AKSES
+       TOLAK
     ========================= */
     public function tolak(Request $request, $id)
     {
-        $request->validate([
-            'catatan' => 'required|string|max:500',
-        ]);
+        $request->validate(['catatan' => 'required|string|max:500']);
 
         DB::transaction(function () use ($request, $id) {
             $doc = TrackRDocument::findOrFail($id);
 
-            // Hanya penerima yang bisa menolak
             if (auth()->id() !== $doc->penerima_id) {
-                abort(403, 'Hanya penerima yang dapat menolak dokumen');
+                abort(403, 'Hanya penerima saat ini yang dapat menolak dokumen');
             }
 
             $doc->update(['status' => 'ditolak']);
@@ -243,7 +227,7 @@ public function store(Request $request)
     }
 
     /* =========================
-       TERUSKAN DENGAN VALIDASI AKSES
+       TERUSKAN – TAMBAH PENERIMA BARU, YANG LAMA TETAP ADA
     ========================= */
     public function teruskan(Request $request, $id)
     {
@@ -255,25 +239,23 @@ public function store(Request $request)
         DB::transaction(function () use ($request, $id) {
             $doc = TrackRDocument::findOrFail($id);
 
-            // Hanya penerima yang bisa meneruskan
-            if (auth()->id() !== $doc->penerima_id) {
-                abort(403, 'Hanya penerima yang dapat meneruskan dokumen');
+            // Izin: hanya penerima saat ini atau pengirim
+            if (auth()->id() !== $doc->penerima_id && auth()->id() !== $doc->pengirim_id) {
+                abort(403, 'Anda tidak diizinkan meneruskan dokumen ini');
             }
 
-            if ($doc->status === 'selesai') {
-                abort(403, 'Dokumen sudah selesai');
-            }
-
-            // Pastikan tidak meneruskan ke diri sendiri
-            if ($request->penerima_id == auth()->id()) {
-                abort(403, 'Tidak dapat meneruskan dokumen ke diri sendiri');
-            }
-
+            // Update penerima terbaru & status
             $doc->update([
                 'status' => 'diteruskan',
                 'penerima_id' => $request->penerima_id,
             ]);
 
+            // Tambahkan penerima baru ke history (tanpa hapus yang lama)
+            $doc->recipients()->syncWithoutDetaching([$request->penerima_id => [
+                'received_at' => now(),
+            ]]);
+
+            // Log
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
                 'aksi' => 'teruskan',
@@ -283,35 +265,31 @@ public function store(Request $request)
             ]);
         });
 
-        return back()->with('success', 'Dokumen diteruskan');
+        return back()->with('success', 'Dokumen diteruskan, penerima sebelumnya tetap dapat mengakses.');
     }
 
     /* =========================
-       PDF DENGAN VALIDASI AKSES
+       PDF
     ========================= */
     public function pdf($id)
     {
         $document = TrackRDocument::with([
-            'logs.dariUser',
-            'logs.keUser',
-            'pengirim',
-            'penerima',
-            'fotos'
+            'logs.dariUser', 'logs.keUser',
+            'pengirim', 'penerima', 'fotos', 'recipients'
         ])->findOrFail($id);
 
-        // Validasi akses
         $this->authorizeDocumentAccess($document);
 
         $pdf = Pdf::loadView('track_r.pdf', compact('document'));
-        return $pdf->download('track_r_' . $document->nomor_dokumen . '.pdf');
+        return $pdf->download('tanda_terima_' . $document->nomor_dokumen . '.pdf');
     }
 
     /* =========================
-       PRIVATE METHOD: VALIDASI AKSES DOKUMEN
+       PRIVATE – VALIDASI AKSES (pakai hasAccess)
     ========================= */
     private function authorizeDocumentAccess($document)
     {
-        if (auth()->id() !== $document->pengirim_id && auth()->id() !== $document->penerima_id) {
+        if (!$document->hasAccess(auth()->user())) {
             abort(403, 'Anda tidak memiliki akses ke dokumen ini');
         }
     }
