@@ -16712,3 +16712,31 @@ Stack trace:
 [2026-04-29 13:06:23] local.INFO: HCIS sync completed {"created":0,"updated":0} 
 [2026-04-29 13:24:35] local.INFO: Mencoba menampilkan foto TrackR: {"id":"16","path_db":"Track/41/Simple Elegant Photo-Centric Luxury Boutique Business Card_1774240397_69c0c28de04bb.png","nama_file":"Simple Elegant Photo-Centric Luxury Boutique Business Card_1774240397_69c0c28de04bb.png","document_id":41} 
 [2026-04-29 13:24:35] local.ERROR: Foto TrackR tidak ditemukan untuk ID: 16  
+[2026-04-29 13:30:28] local.INFO: Mencoba menampilkan foto TrackR: {"id":"19","path_db":"Track/44/Screenshot 2025-06-20 170110_1776243989_69df551526f69.png","nama_file":"Screenshot 2025-06-20 170110_1776243989_69df551526f69.png","document_id":44} 
+[2026-04-29 13:30:28] local.ERROR: Foto TrackR tidak ditemukan untuk ID: 19  
+[2026-04-29 14:05:24] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 15:06:01] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 16:05:20] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 17:05:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 17:26:19] local.INFO: Mencoba menampilkan foto TrackR: {"id":"20","path_db":"Track/45/Screenshot 2025-06-24 140738_1776934851_69e9dfc36330b.png","nama_file":"Screenshot 2025-06-24 140738_1776934851_69e9dfc36330b.png","document_id":45} 
+[2026-04-29 17:26:19] local.ERROR: Foto TrackR tidak ditemukan untuk ID: 20  
+[2026-04-29 17:35:13] local.INFO: Mencoba menampilkan foto TrackR: {"id":"23","path_db":"Track/49/ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png","nama_file":"ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png","document_id":49} 
+[2026-04-29 17:35:13] local.INFO: Foto TrackR ditemukan di: /var/www/html/ga-portal/storage/app/private/Track/49/ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png  
+[2026-04-29 17:35:15] local.INFO: Mencoba menampilkan foto TrackR: {"id":"23","path_db":"Track/49/ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png","nama_file":"ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png","document_id":49} 
+[2026-04-29 17:35:15] local.INFO: Foto TrackR ditemukan di: /var/www/html/ga-portal/storage/app/private/Track/49/ChatGPT Image Apr 28, 2026, 03_14_04 PM_1777430455_69f16fb741016.png  
+[2026-04-29 18:04:43] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 19:04:32] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 20:04:43] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 21:05:01] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 22:04:55] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-29 23:04:25] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 00:04:39] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 01:04:41] local.INFO: HCIS sync completed {"created":1,"updated":11} 
+[2026-04-30 02:04:35] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 03:04:41] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 04:04:47] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 05:04:34] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 06:04:30] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 07:04:45] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 08:04:48] local.INFO: HCIS sync completed {"created":0,"updated":0} 
+[2026-04-30 09:04:52] local.INFO: HCIS sync completed {"created":0,"updated":0} 
