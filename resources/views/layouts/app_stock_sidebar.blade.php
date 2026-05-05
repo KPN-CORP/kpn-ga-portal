@@ -64,6 +64,9 @@
             .sidebar.active { transform: translateX(0); }
         }
         .smooth-transition { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+
+        /* ✅ Mencegah kedipan modal dengan x-cloak */
+        [x-cloak] { display: none !important; }
     </style>
     @stack('styles')
 </head>
@@ -213,22 +216,7 @@
                             @endif -->
                         </button>
                         <!-- <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white soft-shadow rounded-lg soft-border py-2 z-50">
-                            <div class="px-4 py-2 soft-border-bottom">
-                                <h3 class="font-medium text-gray-800">Notifikasi</h3>
-                            </div>
-                            <div class="max-h-64 overflow-y-auto">
-                                @forelse($notifications ?? [] as $notif)
-                                    <div class="px-4 py-3 hover:bg-gray-50 border-b last:border-0">
-                                        <p class="text-sm text-gray-700">{{ $notif->data['message'] ?? 'Notifikasi' }}</p>
-                                        <p class="text-xs text-gray-500 mt-1">{{ $notif->created_at->diffForHumans() }}</p>
-                                    </div>
-                                @empty
-                                    <div class="px-4 py-3 text-sm text-gray-500">Tidak ada notifikasi baru</div>
-                                @endforelse
-                            </div>
-                            <a href="{{ url('/notifications') }}" class="block px-4 py-2 text-sm text-center text-blue-500 hover:bg-gray-50 soft-border-top">
-                                Lihat Semua
-                            </a>
+                            ... (notifikasi dropdown)
                         </div> -->
                     </div>
 
