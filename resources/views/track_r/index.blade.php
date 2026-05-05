@@ -16,6 +16,14 @@
                       hover:bg-blue-700 transition">
                 <i class="fas fa-plus mr-1"></i> Kirim Dokumen
             </a>
+
+            {{-- Tombol Download CSV --}}
+            <a href="{{ route('track-r.export', request()->query()) }}"
+               class="flex-1 sm:flex-none inline-flex items-center justify-center
+                      px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold
+                      hover:bg-green-700 transition">
+                <i class="fas fa-download mr-1"></i> Download CSV
+            </a>
         </div>
     </div>
 
@@ -68,7 +76,7 @@
                 @forelse($documents as $doc)
                 @php
                     $userStatus = $doc->statusForUser(auth()->user());
-                    $recipientsCount = $doc->recipients->count();
+                    $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
                 @endphp
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-4 py-3 font-mono font-medium">{{ $doc->nomor_dokumen }}</td>
@@ -91,10 +99,15 @@
                         </span>
                     </td>
                     <td class="px-4 py-3">
-                        @if($recipientsCount > 1)
-                            <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                +{{ $recipientsCount - 1 }} lainnya
-                            </span>
+                        @if($otherRecipients->count() > 0)
+                            <div class="relative inline-block group">
+                                <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full cursor-help">
+                                    +{{ $otherRecipients->count() }} lainnya
+                                </span>
+                                <div class="absolute z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg p-2 mt-1 whitespace-nowrap">
+                                    {{ $otherRecipients->pluck('name')->implode(', ') }}
+                                </div>
+                            </div>
                         @else
                             <span class="text-xs text-gray-400">-</span>
                         @endif
@@ -123,6 +136,7 @@
         @forelse($documents as $doc)
         @php
             $userStatus = $doc->statusForUser(auth()->user());
+            $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
         @endphp
         <div class="bg-white rounded-xl border shadow-sm p-4">
             <div class="flex justify-between items-start">
@@ -137,8 +151,10 @@
             <div class="mt-3 flex flex-col gap-1 text-xs text-gray-600">
                 <div><i class="fas fa-user text-blue-500 mr-1"></i>Pengirim: {{ $doc->pengirim->name ?? '-' }}</div>
                 <div><i class="fas fa-user-check text-green-600 mr-1"></i>Penerima: {{ $doc->penerima->name ?? '-' }}</div>
-                @if($doc->recipients->count() > 1)
-                <div class="text-gray-500">+{{ $doc->recipients->count() - 1 }} penerima lain</div>
+                @if($otherRecipients->count() > 0)
+                    <div class="text-gray-500 truncate" title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
+                        +{{ $otherRecipients->count() }} lainnya: {{ $otherRecipients->pluck('name')->implode(', ') }}
+                    </div>
                 @endif
             </div>
             <div class="mt-3">

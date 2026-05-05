@@ -7,7 +7,6 @@ use App\Http\Middleware\SsoDarwinboxMiddleware;
 use App\Http\Middleware\CheckEmployeesAccess;
 use App\Http\Middleware\CheckSettingAccess;
 
-
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -30,11 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'signed' => \App\Http\Middleware\ValidateSignature::class,
             'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
-            
-            
+
             // Middleware custom Anda
             // 'module.access' => \App\Http\Middleware\ModuleAccessMiddleware::class,
-            
+
             // TAMBAHKAN INI:
             'check.idcard' => \App\Http\Middleware\CheckIDCardAccess::class,
 
@@ -59,7 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'stock.ctl' => \App\Http\Middleware\StockCtlAccess::class,
             'is_driver' => \App\Http\Middleware\IsDriver::class,
         ]);
-        
+
         // Middleware groups
         $middleware->group('web', [
             \App\Http\Middleware\EncryptCookies::class,
@@ -72,4 +70,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();
+    })
+    ->withSchedule(function ($schedule) {
+        // Jadwalkan perintah hapus draft expired setiap jam
+        $schedule->command('memo:delete-expired-drafts')->hourly();
+    })
+    ->create();

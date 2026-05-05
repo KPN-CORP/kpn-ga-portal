@@ -56,14 +56,32 @@
         <div id="suggestions" class="absolute z-10 w-full bg-white border rounded shadow hidden max-h-64 overflow-y-auto"></div>
     </div>
 
+    {{-- FORM EXPORT ALL (POST) menghindari URI terlalu panjang --}}
+    <div class="mb-4 flex justify-end">
+        <form id="exportAllForm" method="POST" action="{{ route('setting.access.exportAll') }}" class="inline">
+            @csrf
+            <input type="hidden" name="usernames" id="exportUsernames">
+            <input type="hidden" name="group" id="exportGroup">
+            <input type="hidden" name="area" id="exportArea">
+            <input type="hidden" name="unit" id="exportUnit">
+            <input type="hidden" name="search" id="exportSearch">
+            <button type="submit" id="exportAllBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow transition">
+                📎 Export All Users (sesuai filter)
+            </button>
+        </form>
+    </div>
+
     @if($username)
-    <form method="POST">
+    <form method="POST" action="{{ route('setting.access.store') }}">
         @csrf
         <input type="hidden" name="username" value="{{ $username }}">
 
         {{-- DASHBOARD --}}
         <div class="bg-white rounded shadow p-4 mb-6">
-            <h2 class="font-bold text-blue-600 mb-4">Dashboard Access</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-blue-600">Dashboard Access</h2>
+                <button type="button" class="select-all-dash text-sm bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded">✅ Select All Dashboard</button>
+            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 @foreach($dashCols as $c)
                     @continue(in_array($c->Field, ['id_access','username_access','bu_access']))
@@ -78,7 +96,10 @@
 
         {{-- MENU --}}
         <div class="bg-white rounded shadow p-4 mb-6">
-            <h2 class="font-bold text-green-600 mb-4">Menu Access</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-green-600">Menu Access</h2>
+                <button type="button" class="select-all-menu text-sm bg-green-100 hover:bg-green-200 px-3 py-1 rounded">✅ Select All Menu</button>
+            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 @foreach($menuCols as $c)
                     @continue(in_array($c->Field, ['id','username']))
@@ -91,7 +112,10 @@
             </div>
         </div>
 
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">💾 Simpan Akses</button>
+        <div class="flex space-x-3">
+            <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">💾 Simpan Akses</button>
+            <a href="{{ route('setting.access.export', ['username' => $username]) }}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded text-center inline-block">📎 Export User Ini</a>
+        </div>
     </form>
     @endif
 </div>
@@ -104,8 +128,10 @@ const filterGroup = document.getElementById('filterGroup');
 const filterArea = document.getElementById('filterArea');
 const filterUnit = document.getElementById('filterUnit');
 const resetBtn = document.getElementById('resetFilter');
+const exportAllForm = document.getElementById('exportAllForm');
 
-function filterUsers() {
+// ========== Fungsi mendapatkan user yang terfilter ==========
+function getFilteredUsers() {
     const q = input.value.toLowerCase().trim();
     const group = filterGroup.value;
     const area = filterArea.value;
@@ -120,8 +146,9 @@ function filterUsers() {
     });
 }
 
+// ========== Update dropdown suggestion ==========
 function updateSuggestions() {
-    const filtered = filterUsers();
+    const filtered = getFilteredUsers();
     box.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -148,6 +175,7 @@ function updateSuggestions() {
     box.classList.remove('hidden');
 }
 
+// Event listener untuk search & filter
 input.addEventListener('keyup', updateSuggestions);
 filterGroup.addEventListener('change', updateSuggestions);
 filterArea.addEventListener('change', updateSuggestions);
@@ -174,7 +202,24 @@ input.addEventListener('focus', function() {
     }
 });
 
-// Checkbox toggle
+// ========== Export All via POST (menghindari URI terlalu panjang) ==========
+document.getElementById('exportAllBtn')?.addEventListener('click', function(e) {
+    e.preventDefault(); // stop default submit, kita isi dulu hidden fields
+    const filtered = getFilteredUsers();
+    if (filtered.length === 0) {
+        alert('Tidak ada user yang sesuai filter.');
+        return;
+    }
+    const usernames = filtered.map(u => u.username_pelanggan);
+    document.getElementById('exportUsernames').value = JSON.stringify(usernames);
+    document.getElementById('exportGroup').value = filterGroup.value;
+    document.getElementById('exportArea').value = filterArea.value;
+    document.getElementById('exportUnit').value = filterUnit.value;
+    document.getElementById('exportSearch').value = input.value.trim();
+    exportAllForm.submit();
+});
+
+// ========== Toggle satu per satu ==========
 document.querySelectorAll('.access-item').forEach(item => {
     const checkbox = item.querySelector('.access-checkbox');
     item.addEventListener('click', (e) => {
@@ -186,6 +231,58 @@ document.querySelectorAll('.access-item').forEach(item => {
         } else {
             item.classList.remove('bg-green-100', 'bg-blue-100', 'border-blue-400');
             item.classList.add('bg-gray-50', 'border-gray-300');
+        }
+    });
+});
+
+// ========== SELECT ALL Dashboard ==========
+document.querySelector('.select-all-dash')?.addEventListener('click', function() {
+    const dashItems = document.querySelectorAll('.bg-white.rounded.shadow.p-4.mb-6:first-child .access-item');
+    let allChecked = true;
+    dashItems.forEach(item => {
+        const cb = item.querySelector('.access-checkbox');
+        if (!cb.checked) allChecked = false;
+    });
+    dashItems.forEach(item => {
+        const cb = item.querySelector('.access-checkbox');
+        if (allChecked) {
+            if (cb.checked) {
+                cb.checked = false;
+                item.classList.remove('bg-blue-100', 'border-blue-400');
+                item.classList.add('bg-gray-50', 'border-gray-300');
+            }
+        } else {
+            if (!cb.checked) {
+                cb.checked = true;
+                item.classList.remove('bg-gray-50', 'border-gray-300');
+                item.classList.add('bg-blue-100', 'border-blue-400');
+            }
+        }
+    });
+});
+
+// ========== SELECT ALL Menu ==========
+document.querySelector('.select-all-menu')?.addEventListener('click', function() {
+    const menuItems = document.querySelectorAll('.bg-white.rounded.shadow.p-4.mb-6:last-child .access-item');
+    let allChecked = true;
+    menuItems.forEach(item => {
+        const cb = item.querySelector('.access-checkbox');
+        if (!cb.checked) allChecked = false;
+    });
+    menuItems.forEach(item => {
+        const cb = item.querySelector('.access-checkbox');
+        if (allChecked) {
+            if (cb.checked) {
+                cb.checked = false;
+                item.classList.remove('bg-green-100', 'border-green-400');
+                item.classList.add('bg-gray-50', 'border-gray-300');
+            }
+        } else {
+            if (!cb.checked) {
+                cb.checked = true;
+                item.classList.remove('bg-gray-50', 'border-gray-300');
+                item.classList.add('bg-green-100', 'border-green-400');
+            }
         }
     });
 });

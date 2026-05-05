@@ -48,6 +48,7 @@ use App\Http\Controllers\Drms\VehicleController;
 use App\Http\Controllers\Drms\VoucherController;
 use App\Http\Controllers\Work\WorkReportController;
 use App\Http\Controllers\Work\WorkReportCategoryController;
+use App\Http\Controllers\Memos\MemosController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -599,12 +600,21 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
     */
     Route::middleware(['auth', 'setting.access'])
         ->get('/setting-access', [SettingAccessController::class, 'index'])
-        ->name('setting-access.index');
+        ->name('setting.access.index');
 
     Route::middleware(['auth', 'setting.access'])
         ->post('/setting-access', [SettingAccessController::class, 'store'])
-        ->name('setting-access.store');
+        ->name('setting.access.store');
 
+    Route::middleware(['auth', 'setting.access'])
+        ->get('/setting-access/export', [SettingAccessController::class, 'export'])
+        ->name('setting.access.export');
+
+    Route::middleware(['auth', 'setting.access'])
+        ->post('/setting-access/export-all', [SettingAccessController::class, 'exportAll'])
+        ->name('setting.access.exportAll');
+
+        
     /*
     |--------------------------------------------------------------------------
     | Infomasi
@@ -671,6 +681,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::post('/{id}/tolak', [TrackRController::class, 'tolak'])->name('track-r.tolak');
         Route::post('/{id}/teruskan', [TrackRController::class, 'teruskan'])->name('track-r.teruskan');
         Route::get('/{id}/pdf', [TrackRController::class, 'pdf'])->name('track-r.pdf');
+        Route::get('track-r/export', [TrackRController::class, 'export'])->name('track-r.export');
         
         // Foto routes
         Route::get('/{document}/foto/{foto}/download', [TrackRController::class, 'downloadFoto'])
@@ -741,6 +752,11 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::get('/photo/{id}/{type}', [FounddeskDispositionController::class, 'showPhoto'])->name('photo');
             Route::patch('/{id}/cancel', [FounddeskDispositionController::class, 'cancel'])->name('cancel');
         });
+    });
+
+    Route::middleware(['auth'])->group(function () {
+        Route::resource('memos', MemosController::class);
+        Route::patch('memos/attachment/{attachment}/checklist', [MemosController::class, 'updateChecklist'])->name('memos.checklist');
     });
     /*
     |--------------------------------------------------------------------------

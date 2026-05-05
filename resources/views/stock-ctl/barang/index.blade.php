@@ -111,6 +111,8 @@
                         <option value="Liter">Liter</option>
                         <option value="Meter">Meter</option>
                         <option value="Roll">Roll</option>
+                        <option value="Roll">Galon</option>
+                        <option value="Roll">Botol</option>
 
                     </select>
                 </div>

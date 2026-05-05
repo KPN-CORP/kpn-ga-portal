@@ -28,6 +28,8 @@
         <option value="liter" {{ old('satuan', $barang->satuan ?? '') == 'liter' ? 'selected' : '' }}>Liter</option>
         <option value="meter" {{ old('satuan', $barang->satuan ?? '') == 'meter' ? 'selected' : '' }}>Meter</option>
         <option value="roll" {{ old('satuan', $barang->satuan ?? '') == 'roll' ? 'selected' : '' }}>Roll</option>
+        <option value="galon" {{ old('satuan', $barang->satuan ?? '') == 'galon' ? 'selected' : '' }}>Galon</option>
+        <option value="botol" {{ old('satuan', $barang->satuan ?? '') == 'botol' ? 'selected' : '' }}>Botol</option>
 
     </select>
 </div>

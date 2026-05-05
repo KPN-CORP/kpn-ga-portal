@@ -63,6 +63,13 @@ class PermintaanController extends Controller
             });
         }
 
+        // ✅ Filter Nama Pemohon (TAMBAHAN)
+        if ($request->filled('pemohon')) {
+            $query->whereHas('pemohon', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->pemohon . '%');
+            });
+        }
+
         if ($request->filled('dari')) {
             $query->whereDate('stock_ctl_permintaan.tanggal_permintaan', '>=', $request->dari);
         }

@@ -28,7 +28,6 @@ class TrackRController extends Controller
                   });
             });
 
-        // Pencarian
         if ($search = $request->input('search')) {
             $query->where(function($q) use ($search) {
                 $q->where('nomor_dokumen', 'like', "%{$search}%")
@@ -36,7 +35,6 @@ class TrackRController extends Controller
             });
         }
 
-        // Filter status
         if ($status = $request->input('status')) {
             $query->where('status', $status);
         }
@@ -73,7 +71,6 @@ class TrackRController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            // Buat dokumen
             $doc = TrackRDocument::create([
                 'nomor_dokumen' => $request->nomor_dokumen,
                 'judul' => $request->judul,
@@ -83,12 +80,10 @@ class TrackRController extends Controller
                 'status' => 'dikirim',
             ]);
 
-            // Tambahkan penerima awal ke tabel recipients
             $doc->recipients()->attach($request->penerima_id, [
                 'received_at' => now(),
             ]);
 
-            // Simpan lampiran
             if ($request->hasFile('foto_dokumen')) {
                 $directory = storage_path('app/private/Track/' . $doc->id);
                 if (!File::exists($directory)) {
@@ -112,7 +107,6 @@ class TrackRController extends Controller
                 }
             }
 
-            // Log pengiriman
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
                 'aksi' => 'kirim',
@@ -126,8 +120,7 @@ class TrackRController extends Controller
     }
 
     /* =========================
-       SHOW – DETAIL (VALIDASI AKSES)
-       TAMBAHAN: passing $users agar form teruskan bisa mencari penerima
+       SHOW – DETAIL
     ========================= */
     public function show($id)
     {
@@ -138,7 +131,6 @@ class TrackRController extends Controller
 
         $this->authorizeDocumentAccess($document);
 
-        // Data user untuk pencarian penerima di form teruskan (kecuali user sendiri)
         $users = User::where('id', '!=', auth()->id())
                     ->orderBy('name')
                     ->get();
@@ -227,7 +219,7 @@ class TrackRController extends Controller
     }
 
     /* =========================
-       TERUSKAN – TAMBAH PENERIMA BARU, YANG LAMA TETAP ADA
+       TERUSKAN
     ========================= */
     public function teruskan(Request $request, $id)
     {
@@ -239,23 +231,19 @@ class TrackRController extends Controller
         DB::transaction(function () use ($request, $id) {
             $doc = TrackRDocument::findOrFail($id);
 
-            // Izin: hanya penerima saat ini atau pengirim
             if (auth()->id() !== $doc->penerima_id && auth()->id() !== $doc->pengirim_id) {
                 abort(403, 'Anda tidak diizinkan meneruskan dokumen ini');
             }
 
-            // Update penerima terbaru & status
             $doc->update([
                 'status' => 'diteruskan',
                 'penerima_id' => $request->penerima_id,
             ]);
 
-            // Tambahkan penerima baru ke history (tanpa hapus yang lama)
             $doc->recipients()->syncWithoutDetaching([$request->penerima_id => [
                 'received_at' => now(),
             ]]);
 
-            // Log
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
                 'aksi' => 'teruskan',
@@ -285,7 +273,80 @@ class TrackRController extends Controller
     }
 
     /* =========================
-       PRIVATE – VALIDASI AKSES (pakai hasAccess)
+       EXPORT CSV – SESUAI FILTER & HAK AKSES
+    ========================= */
+    public function export(Request $request)
+    {
+        $user = auth()->user();
+
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
+            ->where(function ($q) use ($user) {
+                $q->where('pengirim_id', $user->id)
+                  ->orWhereHas('recipients', function ($sub) use ($user) {
+                      $sub->where('user_id', $user->id);
+                  });
+            });
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('nomor_dokumen', 'like', "%{$search}%")
+                  ->orWhere('judul', 'like', "%{$search}%");
+            });
+        }
+
+        $documents = $query->orderBy('created_at', 'desc')->get();
+
+        $filename = 'track_r_documents_' . date('Ymd_His') . '.csv';
+        $handle = fopen('php://temp', 'w+');
+
+        // Header CSV
+        fputcsv($handle, [
+            'Nomor Dokumen',
+            'Judul',
+            'Pengirim',
+            'Penerima Saat Ini',
+            'Status Saya',
+            'Status Global',
+            'Tanggal Kirim',
+            'Jumlah Penerima Lain',
+            'Daftar Penerima Lain'
+        ]);
+
+        foreach ($documents as $doc) {
+            $userStatus = $doc->statusForUser($user);
+            $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
+            $otherNames = $otherRecipients->pluck('name')->implode('; ');
+
+            fputcsv($handle, [
+                $doc->nomor_dokumen,
+                $doc->judul,
+                $doc->pengirim->name ?? '-',
+                $doc->penerima->name ?? '-',
+                $userStatus['label'],
+                $doc->status,
+                $doc->created_at->format('d-m-Y H:i'),
+                max(0, $otherRecipients->count()),
+                $otherNames ?: '-'
+            ]);
+        }
+
+        rewind($handle);
+        $csvContent = stream_get_contents($handle);
+        fclose($handle);
+
+        return response($csvContent, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /* =========================
+       PRIVATE – VALIDASI AKSES
     ========================= */
     private function authorizeDocumentAccess($document)
     {

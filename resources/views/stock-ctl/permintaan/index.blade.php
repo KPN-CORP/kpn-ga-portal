@@ -27,11 +27,17 @@
     {{-- FILTER --}}
     <div id="filterSection" class="bg-white border rounded-xl p-3 sm:p-4 hidden">
         <form method="GET" action="{{ route('stock-ctl.permintaan.index') }}"
-              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
                 <label class="text-xs sm:text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}"
                        placeholder="Cari barang"
+                       class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs sm:text-sm font-medium text-gray-600">Nama Pemohon</label>
+                <input type="text" name="pemohon" value="{{ request('pemohon') }}"
+                       placeholder="Cari nama pemohon"
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
@@ -55,7 +61,7 @@
                 <input type="date" name="sampai" value="{{ request('sampai') }}"
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
+            <div class="lg:col-span-4 flex flex-col sm:flex-row gap-2 justify-end">
                 <button type="submit"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
                     Apply
@@ -130,7 +136,7 @@
                 @empty
                 <tr>
                     <td colspan="7" class="py-10 text-center text-gray-500 text-sm">
-                        @if(request()->hasAny(['search', 'status', 'dari', 'sampai']))
+                        @if(request()->hasAny(['search', 'status', 'dari', 'sampai', 'pemohon']))
                             Data tidak ditemukan
                         @else
                             Belum ada permintaan

@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Exports\UserAccessExport;
+use App\Exports\MultipleUserAccessExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SettingAccessController extends Controller
 {
     public function index(Request $request)
     {
+        // Sama seperti sebelumnya (tidak berubah)
         $username = $request->username;
 
-        // Ambil data dari api_emp_hcis
         $employees = DB::table('api_emp_hcis')
             ->select('employee_id', 'fullname', 'group_company', 'office_area', 'unit')
             ->get();
@@ -26,7 +29,6 @@ class SettingAccessController extends Controller
             ];
         });
 
-        // Ambil dari tb_pelanggan (opsional, jika ada user di luar api_emp_hcis)
         $usersFromPelanggan = DB::table('tb_pelanggan')
             ->select('nama_pelanggan', 'username_pelanggan')
             ->orderBy('nama_pelanggan')
@@ -38,18 +40,15 @@ class SettingAccessController extends Controller
                 return $p;
             });
 
-        // Gabungkan dan unique berdasarkan username_pelanggan
         $users = $usersFromApi->concat($usersFromPelanggan)
             ->unique('username_pelanggan')
             ->sortBy('nama_pelanggan')
             ->values();
 
-        // Nilai unik untuk dropdown filter (dari api_emp_hcis)
         $groupCompanies = $employees->pluck('group_company')->unique()->filter()->values();
         $officeAreas    = $employees->pluck('office_area')->unique()->filter()->values();
         $units          = $employees->pluck('unit')->unique()->filter()->values();
 
-        // Data akses untuk user yang dipilih
         $dashData = null;
         $menuData = null;
         $selectedUserName = '';
@@ -71,7 +70,6 @@ class SettingAccessController extends Controller
             }
         }
 
-        // Kolom tabel akses
         $dashCols = DB::select("SHOW COLUMNS FROM tb_access_dash");
         $menuCols = DB::select("SHOW COLUMNS FROM tb_access_menu");
 
@@ -91,7 +89,7 @@ class SettingAccessController extends Controller
 
     public function store(Request $request)
     {
-        // sama seperti sebelumnya
+        // Sama seperti sebelumnya
         $username = $request->username;
 
         $dashCols = DB::select("SHOW COLUMNS FROM tb_access_dash");
@@ -117,5 +115,60 @@ class SettingAccessController extends Controller
         );
 
         return redirect()->back()->with('success', 'Akses berhasil disimpan');
+    }
+
+    // Export single user (tetap)
+    public function export(Request $request)
+    {
+        $username = $request->query('username');
+        if (!$username) {
+            return redirect()->back()->with('error', 'Username tidak ditemukan.');
+        }
+        return Excel::download(new UserAccessExport($username), 'user_access_' . $username . '.xlsx');
+    }
+
+    // Export multiple users berdasarkan filter
+    public function exportAll(Request $request)
+    {
+        // Ambil data dari POST, bukan query string
+        $usernames = [];
+        if ($request->has('usernames')) {
+            $usernames = json_decode($request->usernames, true);
+        } else {
+            // Fallback: gunakan filter yang dikirim
+            $group = $request->input('group', '');
+            $area  = $request->input('area', '');
+            $unit  = $request->input('unit', '');
+            $search = $request->input('search', '');
+
+            $query = DB::table('api_emp_hcis')
+                ->select('employee_id as username');
+            
+            if ($group) $query->where('group_company', $group);
+            if ($area)  $query->where('office_area', $area);
+            if ($unit)  $query->where('unit', $unit);
+            if ($search && strlen($search) >= 3) {
+                $query->where(function($q) use ($search) {
+                    $q->where('fullname', 'like', "%{$search}%")
+                    ->orWhere('employee_id', 'like', "%{$search}%");
+                });
+            }
+            
+            $usernames = $query->pluck('username')->toArray();
+            
+            // Cari juga dari tb_pelanggan jika diperlukan
+            $queryPel = DB::table('tb_pelanggan')->select('username_pelanggan as username');
+            if ($search && strlen($search) >= 3) {
+                $queryPel->where('nama_pelanggan', 'like', "%{$search}%")
+                        ->orWhere('username_pelanggan', 'like', "%{$search}%");
+            }
+            $usernames = array_unique(array_merge($usernames, $queryPel->pluck('username')->toArray()));
+        }
+        
+        if (empty($usernames)) {
+            return redirect()->back()->with('error', 'Tidak ada user yang dipilih untuk diexport.');
+        }
+        
+        return Excel::download(new MultipleUserAccessExport($usernames), 'all_users_access_' . date('Y-m-d') . '.xlsx');
     }
 }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Apartemen - GA Portal</title>
+    <title>E-Memo System - @yield('title', 'Dashboard')</title>
     <link rel="shortcut icon" href="{{ asset('KPN123.png') }}" type="image/x-icon">
 
     <!-- Fonts & Icons -->
@@ -14,15 +14,17 @@
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Alpine.js for dropdowns (retained for potential future use, but management dropdown removed) -->
+    <!-- Alpine.js for dropdowns -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- SheetJS, PDF.js, Tesseract untuk AI -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
         html { zoom: 0.8; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; }
         .soft-border { border-color: rgba(229,231,235,0.5) !important; }
         .soft-border-bottom { border-bottom-color: rgba(229,231,235,0.5) !important; }
         .soft-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); }
@@ -61,6 +63,7 @@
             .sidebar.active { transform: translateX(0); }
         }
         .smooth-transition { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+        [x-cloak] { display: none !important; }
     </style>
     @stack('styles')
 </head>
@@ -76,133 +79,39 @@
                     <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6 opacity-90">
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-gray-800">Apartemen</h1>
-                    <p class="text-sm text-gray-500 opacity-80">GA Portal</p>
+                    <h1 class="text-xl font-bold text-gray-800">GA Portal</h1>
+                    <p class="text-sm text-gray-500 opacity-80">E-Memo</p>
                 </div>
             </div>
 
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    {{-- ########################## --}}
-                    {{-- FORCE ADMIN VIEW FOR TESTING --}}
-                    {{-- Ganti @if(true) dengan kondisi role sebenarnya --}}
-                    {{-- ########################## --}}
-                    @if(true)   {{-- Ganti dengan kondisi asli: auth()->user()->can('apartemen.admin') ?? false --}}
-                        {{-- ADMIN MENU (Tanpa dropdown) --}}
-                        
-                        {{-- Dashboard GA (main GA dashboard) --}}
-                        @if(Route::has('dashboard'))
-                        <li>
-                            <a href="{{ route('dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        @endif
+                    {{-- Dashboard E-Memo --}}
+                    <li>
+                        <a href="{{ route('dashboard') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
+                            <span>Dashboard GA</span>
+                        </a>
+                    </li>
 
-                        {{-- Daftar menu manajemen apartemen (langsung, tanpa dropdown) --}}
-                        @php
-                            $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
-                        @endphp
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-chart-pie mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard Admin</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.index') }}" 
-                               class="sidebar-link flex items-center justify-between p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.index') ? 'active' : '' }}">
-                                <span class="flex items-center">
-                                    <i class="fas fa-inbox mr-3 text-gray-500 opacity-70"></i>
-                                    <span>Permintaan</span>
-                                </span>
-                                @if($pendingCount > 0)
-                                    <span class="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-2">{{ $pendingCount }}</span>
-                                @endif
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.apartemen') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.apartemen*') ? 'active' : '' }}">
-                                <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
-                                <span>Unit</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.monitoring') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.monitoring') ? 'active' : '' }}">
-                                <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
-                                <span>Penghuni Aktif</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.history') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.history') ? 'active' : '' }}">
-                                <i class="fas fa-history mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat</span>
-                            </a>
-                        </li>
-
-                        {{-- Opsional: QR Code & Laporan --}}
-                        @if(Route::has('apartemen.admin.access-codes'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.access-codes') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.access-codes*') ? 'active' : '' }}">
-                                <i class="fas fa-qrcode mr-3 text-gray-500 opacity-70"></i>
-                                <span>QR Code Akses</span>
-                            </a>
-                        </li>
-                        @endif
-
-                        @if(Route::has('apartemen.admin.report'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.report') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.report') ? 'active' : '' }}">
-                                <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
-                                <span>Laporan</span>
-                            </a>
-                        </li>
-                        @endif
-                    @else
-                        {{-- USER MENU (tetap seperti semula) --}}
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-check-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Status Aktif</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.requests') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
-                                <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat Permintaan</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.create') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
-                                <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Pengajuan Baru</span>
-                            </a>
-                        </li>
-                    @endif
+                    {{-- Menu E-Memo --}}
+                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">E-Memo</li>
+                    <li>
+                        <a href="{{ route('memos.index') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('memos.index') ? 'active' : '' }}">
+                            <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
+                            <span>Semua Memo</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('memos.create') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('memos.create') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
+                            <span>Buat Memo Baru</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -217,10 +126,14 @@
                     <div>
                         <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'User' }}</h3>
                         <p class="text-xs text-gray-500 opacity-70">
-                            @if(auth()->user()->can('apartemen.admin') ?? false)
-                                Admin Apartemen
+                            @if(auth()->user() && auth()->user()->isMemoSuperadmin())
+                                Superadmin E-Memo
+                            @elseif(auth()->user() && auth()->user()->isMemoAdmin())
+                                Admin E-Memo
+                            @elseif(auth()->user() && auth()->user()->isMemoUser())
+                                User E-Memo
                             @else
-                                Penghuni
+                                User
                             @endif
                         </p>
                     </div>
@@ -245,18 +158,13 @@
                 </div>
 
                 <div class="flex items-center space-x-4">
-                    <!-- Notifications placeholder -->
+                    <!-- Notifications (opsional) -->
                     <div class="relative">
                         <button id="notif-button" class="relative text-gray-600 hover:text-gray-800 focus:outline-none smooth-transition">
                             <i class="fas fa-bell text-xl opacity-80"></i>
                         </button>
-                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white soft-shadow rounded-lg soft-border py-2 z-50">
-                            <div class="px-4 py-2 soft-border-bottom">
-                                <h3 class="font-medium text-gray-800">Notifikasi</h3>
-                            </div>
-                            <div class="max-h-64 overflow-y-auto">
-                                <div class="px-4 py-3 text-sm text-gray-500">Belum ada notifikasi</div>
-                            </div>
+                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-white soft-shadow rounded-lg soft-border py-2 z-50">
+                            <div class="px-4 py-2 text-sm text-gray-500">Tidak ada notifikasi</div>
                         </div>
                     </div>
 
@@ -292,7 +200,7 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Scripts Sidebar & Dropdown -->
     <script>
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.getElementById('overlay');
