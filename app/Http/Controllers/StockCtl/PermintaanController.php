@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\StockCtl;
 
 use App\Http\Controllers\Controller;
@@ -63,7 +64,7 @@ class PermintaanController extends Controller
             });
         }
 
-        // ✅ Filter Nama Pemohon (TAMBAHAN)
+        // Filter Nama Pemohon
         if ($request->filled('pemohon')) {
             $query->whereHas('pemohon', function($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->pemohon . '%');
@@ -82,9 +83,8 @@ class PermintaanController extends Controller
                             ->paginate(15)
                             ->withQueryString();
 
-        // ========== TAMBAHKAN: nama atasan (approver L1) untuk setiap permintaan ==========
+        // Tambahkan nama atasan (approver L1) untuk setiap permintaan
         foreach ($permintaan as $item) {
-            // Ambil profil pemohon untuk mendapatkan id_approver (atasan)
             $profil = UserProfil::where('id_user', $item->id_user_pemohon)->first();
             if ($profil && $profil->id_approver) {
                 $approver = User::find($profil->id_approver);
@@ -93,10 +93,19 @@ class PermintaanController extends Controller
                 $item->approver_name = '-';
             }
         }
-        // ==================================================================================
 
-        // Ambil semua barang untuk dropdown modal create
-        $barang = Barang::all();
+        // ========== FILTER BARANG BERDASARKAN UNIT USER ==========
+        $userUnitId = $access['id_bisnis_unit'] ?? null;
+
+        if ($access['is_super']) {
+            // Superadmin bisa melihat semua barang (untuk keperluan manajemen)
+            $barang = Barang::all();
+        } else {
+            // Tentukan apakah user dari MSL (unit id = 6) atau bukan
+            $isMslOnly = ($userUnitId == 6) ? 1 : 0;
+            $barang = Barang::where('is_msl_only', $isMslOnly)->get();
+        }
+        // =========================================================
 
         return view('stock-ctl.permintaan.index', compact('permintaan', 'barang'));
     }
@@ -123,6 +132,22 @@ class PermintaanController extends Controller
         ]);
 
         $user = Auth::user();
+        $access = session('stock_ctl_access');
+        $userUnitId = $access['id_bisnis_unit'] ?? null;
+
+        // ========== VALIDASI HAK AKSES BARANG ==========
+        if (!$access['is_super']) {
+            $isMslOnly = ($userUnitId == 6) ? 1 : 0;
+            $allowedBarangIds = Barang::where('is_msl_only', $isMslOnly)->pluck('id_barang')->toArray();
+
+            foreach ($request->items as $item) {
+                if (!in_array($item['id_barang'], $allowedBarangIds)) {
+                    return back()->withErrors(['msg' => 'Anda tidak diizinkan meminta barang ini.']);
+                }
+            }
+        }
+        // ================================================
+
         $profil = UserProfil::where('id_user', $user->id)->first();
         if (!$profil || !$profil->id_area_kerja) {
             return back()->withErrors('Profil area kerja belum diatur. Silakan hubungi admin.');

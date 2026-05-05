@@ -35,7 +35,7 @@
                     <p class="text-xs text-gray-500 mt-1">Foto sebelum saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_before" accept="image/*" capture="camera" class="mt-1 block w-full" id="photo_before">
+            <input type="file" name="photo_before" accept="image/*"  class="mt-1 block w-full" id="photo_before">
             <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_before')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -51,7 +51,7 @@
                     <p class="text-xs text-gray-500 mt-1">Foto sesudah saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_after" accept="image/*" capture="camera" class="mt-1 block w-full" id="photo_after">
+            <input type="file" name="photo_after" accept="image/*"  class="mt-1 block w-full" id="photo_after">
             <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_after')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
