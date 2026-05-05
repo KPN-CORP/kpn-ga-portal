@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const day = String(now.getDate()).padStart(2, '0');
         const counter = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         
-        return `Inter${year}${month}${day}${counter}`;
+        return `Intern${year}${month}${day}${counter}`;
     }
     
     // Fungsi untuk generate nomor kartu magang

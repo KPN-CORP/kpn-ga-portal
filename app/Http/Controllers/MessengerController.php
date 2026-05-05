@@ -725,7 +725,7 @@ class MessengerController extends Controller
             }
 
             // Nomor transaksi & waktu
-            $noTransaksi = 'TRX' . date('YmdHis') . rand(100, 999);
+            $noTransaksi = 'GA' . date('YmdHis');
             $waktu = "Pengiriman Dibuat &nbsp;&nbsp;(" . date('d-m-Y H:i:s') . ")";
 
             // Insert data
