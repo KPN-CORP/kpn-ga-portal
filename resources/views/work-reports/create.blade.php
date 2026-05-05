@@ -26,9 +26,9 @@
             @enderror
         </div>
 
-        <!-- Foto Sebelum (dengan kamera HP) -->
+        <!-- Foto Progres (dengan kamera HP) -->
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Foto Sebelum (opsional)</label>
+            <label class="block text-sm font-medium text-gray-700">Foto Progres (opsional)</label>
             <input type="file" name="photo_before" accept="image/*"  class="mt-1 block w-full" id="photo_before">
             <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_before')
@@ -36,9 +36,9 @@
             @enderror
         </div>
 
-        <!-- Foto Sesudah (dengan kamera HP) -->
+        <!-- Foto Selesai (dengan kamera HP) -->
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Foto Sesudah (opsional)</label>
+            <label class="block text-sm font-medium text-gray-700">Foto Selesai (opsional)</label>
             <input type="file" name="photo_after" accept="image/*"  class="mt-1 block w-full" id="photo_after">
             <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
             @error('photo_after')

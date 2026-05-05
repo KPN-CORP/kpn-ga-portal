@@ -26,13 +26,13 @@
             @enderror
         </div>
 
-        <!-- Foto Sebelum (with preview & kamera HP) -->
+        <!-- Foto Progres (with preview & kamera HP) -->
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Foto Sebelum (opsional)</label>
+            <label class="block text-sm font-medium text-gray-700">Foto Progres (opsional)</label>
             @if($workReport->photo_before)
                 <div class="mb-2">
-                    <img src="{{ route('private.storage', $workReport->photo_before) }}" class="h-32 object-cover rounded" alt="Foto sebelum">
-                    <p class="text-xs text-gray-500 mt-1">Foto sebelum saat ini</p>
+                    <img src="{{ route('private.storage', $workReport->photo_before) }}" class="h-32 object-cover rounded" alt="Foto Progres">
+                    <p class="text-xs text-gray-500 mt-1">Foto Progres saat ini</p>
                 </div>
             @endif
             <input type="file" name="photo_before" accept="image/*"  class="mt-1 block w-full" id="photo_before">
@@ -42,13 +42,13 @@
             @enderror
         </div>
 
-        <!-- Foto Sesudah (with preview & kamera HP) -->
+        <!-- Foto Selesai (with preview & kamera HP) -->
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Foto Sesudah (opsional)</label>
+            <label class="block text-sm font-medium text-gray-700">Foto Selesai (opsional)</label>
             @if($workReport->photo_after)
                 <div class="mb-2">
-                    <img src="{{ route('private.storage', $workReport->photo_after) }}" class="h-32 object-cover rounded" alt="Foto sesudah">
-                    <p class="text-xs text-gray-500 mt-1">Foto sesudah saat ini</p>
+                    <img src="{{ route('private.storage', $workReport->photo_after) }}" class="h-32 object-cover rounded" alt="Foto Selesai">
+                    <p class="text-xs text-gray-500 mt-1">Foto Selesai saat ini</p>
                 </div>
             @endif
             <input type="file" name="photo_after" accept="image/*"  class="mt-1 block w-full" id="photo_after">

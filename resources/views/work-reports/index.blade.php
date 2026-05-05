@@ -75,10 +75,10 @@
                 <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50">
                     @if($report->photo_before)
                         <div>
-                            <p class="text-xs text-gray-500 mb-1">Sebelum</p>
+                            <p class="text-xs text-gray-500 mb-1">Progres</p>
                             <img src="{{ route('private.storage', $report->photo_before) }}" 
                                  class="w-full h-32 object-cover rounded cursor-pointer report-image" 
-                                 alt="Foto sebelum">
+                                 alt="Foto Progres">
                         </div>
                     @else
                         <div class="bg-gray-100 h-32 flex items-center justify-center text-gray-400 rounded">
@@ -87,10 +87,10 @@
                     @endif
                     @if($report->photo_after)
                         <div>
-                            <p class="text-xs text-gray-500 mb-1">Sesudah</p>
+                            <p class="text-xs text-gray-500 mb-1">Selesai</p>
                             <img src="{{ route('private.storage', $report->photo_after) }}" 
                                  class="w-full h-32 object-cover rounded cursor-pointer report-image" 
-                                 alt="Foto sesudah">
+                                 alt="Foto Selesai">
                         </div>
                     @else
                         <div class="bg-gray-100 h-32 flex items-center justify-center text-gray-400 rounded">
