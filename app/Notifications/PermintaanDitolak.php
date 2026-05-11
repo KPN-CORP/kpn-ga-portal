@@ -25,7 +25,7 @@ class PermintaanDitolak extends Notification
     {
         return [
             'id_permintaan' => $this->permintaan->id_permintaan,
-            'message' => 'Permintaan ATK Anda ditolak. Alasan: ' . $this->permintaan->rejection_reason,
+            'message' => 'Permintaan Anda ditolak. Alasan: ' . $this->permintaan->rejection_reason,
             'url' => route('stock-ctl.permintaan.show', $this->permintaan->id_permintaan),
         ];
     }

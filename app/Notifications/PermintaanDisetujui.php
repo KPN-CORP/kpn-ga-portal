@@ -25,7 +25,7 @@ class PermintaanDisetujui extends Notification
     {
         return [
             'id_permintaan' => $this->permintaan->id_permintaan,
-            'message' => 'Permintaan ATK Anda telah disetujui.',
+            'message' => 'Permintaan Anda telah disetujui.',
             'url' => route('stock-ctl.permintaan.show', $this->permintaan->id_permintaan),
         ];
     }

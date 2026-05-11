@@ -1,5 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
+@section('styles')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+@endsection
+
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="approvalL1Modal()">
     {{-- Header --}}
@@ -28,8 +34,8 @@
                 <label class="text-sm font-medium text-gray-600">Status History</label>
                 <select name="status" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
                     <option value="">Semua Status</option>
-                    <option value="approved_l1" {{ request('status')=='approved_l1' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="rejected_l1" {{ request('status')=='rejected_l1' ? 'selected' : '' }}>Ditolak</option>
+                    <option value="approved_l1" {{ request('status')=='approved_l1' ? 'selected' : '' }}>Disetujui (L1)</option>
+                    <option value="rejected_l1" {{ request('status')=='rejected_l1' ? 'selected' : '' }}>Ditolak (L1)</option>
                     <option value="approved_admin" {{ request('status')=='approved_admin' ? 'selected' : '' }}>Disetujui GA</option>
                     <option value="rejected_admin" {{ request('status')=='rejected_admin' ? 'selected' : '' }}>Ditolak GA</option>
                 </select>
@@ -357,8 +363,8 @@
         @endif
     </div>
 
-    {{-- MODAL REJECT --}}
-    <div x-show="rejectModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    {{-- MODAL REJECT (ditambah style="display: none;" untuk mencegah kedipan) --}}
+    <div x-show="rejectModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 class="text-lg font-semibold mb-4">Tolak Permintaan</h2>
             <form :action="`{{ url('drms/approval/l1') }}/${rejectRequestId}/reject`" method="POST">
@@ -372,8 +378,8 @@
         </div>
     </div>
 
-    {{-- MODAL DETAIL --}}
-    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    {{-- MODAL DETAIL (ditambah style="display: none;" untuk mencegah kedipan) --}}
+    <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
             <table class="w-full text-sm border-collapse">

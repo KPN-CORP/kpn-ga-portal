@@ -3,7 +3,7 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 class="text-xl font-semibold text-gray-800">Stok ATK</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Stok</h2>
         <div class="flex gap-2">
             <a href="{{ route('stock-ctl.stok.awal') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">
                 <i class="fas fa-plus mr-1"></i> Stok Awal

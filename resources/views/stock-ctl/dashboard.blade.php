@@ -3,7 +3,7 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
     <div>
-        <h2 class="text-xl font-semibold text-gray-800">Dashboard ATK</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Dashboard Supplies</h2>
         @php $access = session('stock_ctl_access', []); @endphp
         @if($access['is_super'] ?? false)
             <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">

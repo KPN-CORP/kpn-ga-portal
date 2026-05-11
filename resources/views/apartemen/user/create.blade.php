@@ -56,6 +56,30 @@
     </form>
 </div>
 
+<style>
+#suggestions-dropdown {
+    position: absolute;
+    width: calc(100% - 2.5rem); /* sesuaikan dengan padding kiri icon */
+    left: 2.5rem; /* agar sejajar dengan input bukan icon */
+    max-height: 12rem;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    margin-top: 0.25rem;
+    z-index: 100;
+}
+#suggestions-dropdown div {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+#suggestions-dropdown div:hover {
+    background-color: #eff6ff;
+}
+</style>
+
 <script>
 const MAX = 15;
 
@@ -181,5 +205,84 @@ apartemenForm.addEventListener('submit', e => {
 });
 
 document.addEventListener('DOMContentLoaded', generate);
+
+/* ========= AUTOCOMPLETE ========= */
+let currentAutocomplete = null; // indeks penghuni yang sedang diketik
+
+function removeSuggestions() {
+    const old = document.getElementById('suggestions-dropdown');
+    if (old) old.remove();
+}
+
+function showSuggestions(list, inputElement) {
+    removeSuggestions();
+    if (!list.length) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'suggestions-dropdown';
+
+    list.forEach(emp => {
+        const item = document.createElement('div');
+        // Tampilkan nama & ID
+        item.textContent = `${emp.fullname} - ${emp.employee_id}`;
+        item.onclick = () => {
+            const i = currentAutocomplete;
+            // Isi field terkait
+            const namaInput = document.querySelector(`[name="penghuni[${i}][nama]"]`);
+            const idInput = document.querySelector(`[name="penghuni[${i}][id_karyawan]"]`);
+            const unitInput = document.querySelector(`[name="penghuni[${i}][unit_kerja]"]`);
+
+            if (namaInput) namaInput.value = emp.fullname;
+            if (idInput) idInput.value = emp.employee_id;
+            if (unitInput) unitInput.value = emp.group_company || '';
+
+            removeSuggestions();
+        };
+        dropdown.appendChild(item);
+    });
+
+    inputElement.parentNode.appendChild(dropdown);
+}
+
+// Delegasi event input untuk semua field [nama]
+document.addEventListener('input', function(e) {
+    if (e.target.name && e.target.name.includes('[nama]')) {
+        const input = e.target;
+        const val = input.value.trim();
+        const match = input.name.match(/penghuni\[(\d+)\]\[nama\]/);
+        if (!match) return;
+
+        const idx = parseInt(match[1]);
+        currentAutocomplete = idx;
+
+        if (val.length >= 3) {
+            fetch(`/employee/search?q=${encodeURIComponent(val)}`)
+                .then(res => res.json())
+                .then(data => {
+                    // Pastikan masih fokus pada input yang sama
+                    if (currentAutocomplete === idx) {
+                        showSuggestions(data, input);
+                    }
+                })
+                .catch(err => console.error('Autocomplete error:', err));
+        } else {
+            removeSuggestions();
+        }
+    }
+});
+
+// Sembunyikan dropdown saat klik di luar
+document.addEventListener('click', function(e) {
+    if (!e.target.name || !e.target.name.includes('[nama]')) {
+        removeSuggestions();
+    }
+});
+
+// Saat generate ulang, hapus dropdown
+const originalGenerate = generate;
+generate = function() {
+    removeSuggestions();
+    originalGenerate();
+};
 </script>
 @endsection

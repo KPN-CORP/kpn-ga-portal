@@ -7,15 +7,16 @@ use App\Models\User;
 use App\Models\ApiEmpHcis;
 use App\Models\BisnisUnit;
 use App\Models\Drms\DrmsUserProfile;
+use Illuminate\Support\Facades\DB;
 
 class SyncDrmsUserProfiles extends Command
 {
     protected $signature = 'drms:sync-profiles';
-    protected $description = 'Sinkronisasi data user untuk DRMS ke tabel drms_user_profiles';
+    protected $description = 'Sinkronisasi data user untuk DRMS ke tabel drms_user_profiles (dengan override approver)';
 
     public function handle()
     {
-        $this->info('Mulai sinkronisasi...');
+        $this->info('Mulai sinkronisasi dengan override approver...');
 
         $users = User::all();
         $bar = $this->output->createProgressBar(count($users));
@@ -32,17 +33,29 @@ class SyncDrmsUserProfiles extends Command
                 $businessUnitId = $unit?->id_bisnis_unit;
             }
 
-            // Cari approver (atasan) dari manager_l1_id
+            // === OVERRIDE APPROVER ===
+            // Cek apakah ada override untuk user ini di tabel stock_ctl_approver_override
+            $override = DB::table('stock_ctl_approver_override')
+                ->where('id_user', $user->id)
+                ->first();
+
             $approverUserId = null;
-            if ($hcis && $hcis->manager_l1_id) {
-                $approver = User::where('employee_no', $hcis->manager_l1_id)->first();
-                $approverUserId = $approver?->id;
+            if ($override && $override->id_approver) {
+                // Gunakan override jika ada
+                $approverUserId = $override->id_approver;
+                $this->line("  [OVERRIDE] User {$user->username} menggunakan approver override ID: {$approverUserId}");
+            } else {
+                // Tidak ada override, cari approver dari manager_l1_id seperti biasa
+                if ($hcis && $hcis->manager_l1_id) {
+                    $approver = User::where('employee_no', $hcis->manager_l1_id)->first();
+                    $approverUserId = $approver?->id;
+                }
             }
 
             // Apakah user ini memiliki bawahan? (is_approver)
             $isApprover = $hcis && ApiEmpHcis::where('manager_l1_id', $user->employee_no)->exists();
 
-            // Ambil flag akses dari tb_access_menu
+            // Ambil flag akses dari tb_access_menu (relasi accessMenu)
             $access = $user->accessMenu;
             $isDrmsUser = $access && $access->drms_user;
             $isDrmsAdmin = $access && $access->drms_admin;

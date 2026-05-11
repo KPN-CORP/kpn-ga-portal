@@ -11,41 +11,195 @@ use App\Notifications\RequestApprovedAdminNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
 
 class AppAdminController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan halaman approval admin dengan filter pencarian, status, dan tanggal.
+     */
+    public function index(Request $request)
     {
         $user = Auth::user();
         $profile = $user->drmsProfile;
-        if (!$profile) {
+
+        // Superadmin bisa akses semua tanpa profil DRMS
+        if (!$user->isDrmsSuperAdmin() && !$profile) {
             abort(403, 'Profil DRMS tidak ditemukan.');
         }
 
-        $businessUnitId = $profile->business_unit_id;
-        $area = $profile->area;
+        $businessUnitId = $profile->business_unit_id ?? null;
+        $area = $profile->area ?? null;
 
-        $pendingRequests = DriverRequest::with('requester')
-            ->pendingAdmin($businessUnitId, $area)
-            ->latest()
-            ->get();
+        // ------------------- PENDING REQUESTS -------------------
+        if ($user->isDrmsSuperAdmin()) {
+            $pendingRequests = DriverRequest::with('requester')
+                ->where('status', 'approved_l1')
+                ->latest()
+                ->get();
+        } else {
+            $pendingRequests = DriverRequest::with('requester')
+                ->pendingAdmin($businessUnitId, $area)
+                ->latest()
+                ->get();
+        }
 
-        // History sekarang mencakup approved_admin, rejected_admin, dan completed
-        $historyRequests = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher'])
-            ->where('admin_id', $user->id)
-            ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed'])
-            ->latest()
-            ->paginate(10);
+        // ------------------- HISTORY REQUESTS (dengan filter) -------------------
+        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher']);
+
+        if ($user->isDrmsSuperAdmin()) {
+            $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
+        } else {
+            $historyQuery->where('admin_id', $user->id)
+                ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
+        }
+
+        // Filter status
+        if ($request->filled('status') && in_array($request->status, ['approved_admin', 'rejected_admin', 'completed'])) {
+            $historyQuery->where('status', $request->status);
+        }
+
+        // Filter pencarian (request_no, pemohon, lokasi, tujuan, keperluan)
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $historyQuery->where(function ($q) use ($searchTerm) {
+                $q->where('request_no', 'LIKE', $searchTerm)
+                  ->orWhere('pickup_location', 'LIKE', $searchTerm)
+                  ->orWhere('destination', 'LIKE', $searchTerm)
+                  ->orWhere('purpose', 'LIKE', $searchTerm)
+                  ->orWhereHas('requester', function ($q2) use ($searchTerm) {
+                      $q2->where('name', 'LIKE', $searchTerm);
+                  });
+            });
+        }
+
+        // Filter rentang tanggal (usage_date)
+        if ($request->filled('date_from')) {
+            $historyQuery->whereDate('usage_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $historyQuery->whereDate('usage_date', '<=', $request->date_to);
+        }
+
+        $historyRequests = $historyQuery->latest()->paginate(10)->appends($request->query());
 
         return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests'));
     }
 
+    /**
+     * Export data history ke CSV berdasarkan filter yang sedang aktif.
+     */
+    public function export(Request $request)
+    {
+        $user = Auth::user();
+        $profile = $user->drmsProfile;
+
+        // Bangun query sama seperti di index (tanpa pagination)
+        $exportQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher']);
+
+        if ($user->isDrmsSuperAdmin()) {
+            $exportQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
+        } else {
+            $exportQuery->where('admin_id', $user->id)
+                ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
+        }
+
+        // Filter status
+        if ($request->filled('status') && in_array($request->status, ['approved_admin', 'rejected_admin', 'completed'])) {
+            $exportQuery->where('status', $request->status);
+        }
+
+        // Filter pencarian
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $exportQuery->where(function ($q) use ($searchTerm) {
+                $q->where('request_no', 'LIKE', $searchTerm)
+                  ->orWhere('pickup_location', 'LIKE', $searchTerm)
+                  ->orWhere('destination', 'LIKE', $searchTerm)
+                  ->orWhere('purpose', 'LIKE', $searchTerm)
+                  ->orWhereHas('requester', function ($q2) use ($searchTerm) {
+                      $q2->where('name', 'LIKE', $searchTerm);
+                  });
+            });
+        }
+
+        // Filter tanggal
+        if ($request->filled('date_from')) {
+            $exportQuery->whereDate('usage_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $exportQuery->whereDate('usage_date', '<=', $request->date_to);
+        }
+
+        $requests = $exportQuery->latest()->get();
+
+        // Buat CSV
+        $filename = 'laporan_approval_admin_' . date('Ymd_His') . '.csv';
+        $handle = fopen('php://temp', 'w+');
+
+        // Header CSV
+        fputcsv($handle, [
+            'No. Request',
+            'Pemohon',
+            'Tanggal Penggunaan',
+            'Jam Mulai',
+            'Jam Selesai',
+            'Tipe Perjalanan',
+            'Tanggal Kembali',
+            'Lokasi Jemput',
+            'Tujuan',
+            'Keperluan',
+            'Jenis Transportasi',
+            'Driver',
+            'Kendaraan',
+            'Voucher',
+            'Status',
+            'Disetujui Atasan (Tanggal)',
+            'Diproses GA (Tanggal)',
+            'Alasan Penolakan'
+        ]);
+
+        foreach ($requests as $req) {
+            fputcsv($handle, [
+                $req->request_no,
+                $req->requester->name ?? '-',
+                $req->usage_date ? $req->usage_date->format('d-m-Y') : '-',
+                $req->start_time,
+                $req->end_time,
+                $req->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan',
+                $req->return_date ? $req->return_date->format('d-m-Y') : '-',
+                $req->pickup_location,
+                $req->destination,
+                $req->purpose,
+                $req->transport_type ? ucfirst(str_replace('_', ' ', $req->transport_type)) : '-',
+                $req->driver->name ?? '-',
+                $req->vehicle->plate_number ?? '-',
+                $req->voucher->code ?? '-',
+                $req->status === 'approved_admin' ? 'Disetujui' : ($req->status === 'rejected_admin' ? 'Ditolak' : 'Selesai'),
+                $req->approved_l1_at ? $req->approved_l1_at->format('d-m-Y H:i') : '-',
+                $req->approved_admin_at ? $req->approved_admin_at->format('d-m-Y H:i') : '-',
+                $req->rejection_reason ?? '-'
+            ]);
+        }
+
+        rewind($handle);
+        $csvContent = stream_get_contents($handle);
+        fclose($handle);
+
+        return Response::make($csvContent, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    /**
+     * Menampilkan form proses approval admin.
+     */
     public function edit($id)
     {
         $driverRequest = DriverRequest::with('requester.drmsProfile')->findOrFail($id);
         $user = Auth::user();
 
-        // Otorisasi: superadmin bisa proses apa saja, admin biasa harus sesuai unit & area
         if (!$user->isDrmsSuperAdmin()) {
             $requesterProfile = $driverRequest->requester->drmsProfile;
             $adminProfile = $user->drmsProfile;
@@ -57,7 +211,6 @@ class AppAdminController extends Controller
             }
         }
 
-        // Superadmin melihat SEMUA driver & kendaraan yang tersedia (lintas unit)
         if ($user->isDrmsSuperAdmin()) {
             $drivers = Driver::where('status', 'available')->get();
             $vehicles = Vehicle::where('status', 'available')->get();
@@ -70,7 +223,6 @@ class AppAdminController extends Controller
                 ->get();
         }
 
-        // Voucher tetap dibatasi unit admin (bisa diubah sesuai kebutuhan)
         $vouchers = Voucher::where('business_unit_id', $user->drmsProfile->business_unit_id)
             ->where('status', 'available')
             ->get();
@@ -78,12 +230,14 @@ class AppAdminController extends Controller
         return view('drms.approval.admin.edit', compact('driverRequest', 'drivers', 'vehicles', 'vouchers'));
     }
 
+    /**
+     * Memproses approval admin (setujui).
+     */
     public function update(Request $request, $id)
     {
         $driverRequest = DriverRequest::findOrFail($id);
         $user = Auth::user();
 
-        // Otorisasi
         if (!$user->isDrmsSuperAdmin()) {
             $requesterProfile = $driverRequest->requester->drmsProfile;
             $adminProfile = $user->drmsProfile;
@@ -103,7 +257,6 @@ class AppAdminController extends Controller
             'keterangan'     => 'nullable|string',
         ]);
 
-        // Simpan resource lama sebelum diubah
         $oldDriverId  = $driverRequest->driver_id;
         $oldVehicleId = $driverRequest->vehicle_id;
         $oldVoucherId = $driverRequest->voucher_id;
@@ -156,7 +309,6 @@ class AppAdminController extends Controller
 
         DB::beginTransaction();
         try {
-            // Update request
             $driverRequest->update([
                 'transport_type'    => $data['transport_type'],
                 'driver_id'         => $data['driver_id'] ?? null,
@@ -168,7 +320,6 @@ class AppAdminController extends Controller
                 'rejection_reason'  => $data['keterangan'] ?? null,
             ]);
 
-            // Reset resource lama jika sudah tidak digunakan lagi
             if ($oldDriverId && $oldDriverId != ($data['driver_id'] ?? null)) {
                 Driver::where('id', $oldDriverId)->update(['status' => 'available']);
             }
@@ -179,7 +330,6 @@ class AppAdminController extends Controller
                 Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
             }
 
-            // Set resource baru
             if (!empty($data['driver_id'])) {
                 Driver::where('id', $data['driver_id'])->update(['status' => 'on_trip']);
             }
@@ -201,16 +351,16 @@ class AppAdminController extends Controller
         }
     }
 
+    /**
+     * Menolak permintaan oleh admin.
+     */
     public function reject(Request $request, $id)
     {
-        $request->validate([
-            'rejection_reason' => 'required|string',
-        ]);
+        $request->validate(['rejection_reason' => 'required|string']);
 
         $driverRequest = DriverRequest::findOrFail($id);
         $user = Auth::user();
 
-        // Otorisasi
         if (!$user->isDrmsSuperAdmin()) {
             $requesterProfile = $driverRequest->requester->drmsProfile;
             $adminProfile = $user->drmsProfile;
@@ -226,7 +376,6 @@ class AppAdminController extends Controller
             return back()->withErrors('Permintaan tidak dapat ditolak karena status sudah diproses.');
         }
 
-        // Simpan resource lama untuk di-reset
         $oldDriverId  = $driverRequest->driver_id;
         $oldVehicleId = $driverRequest->vehicle_id;
         $oldVoucherId = $driverRequest->voucher_id;
@@ -244,16 +393,9 @@ class AppAdminController extends Controller
                 'voucher_id'       => null,
             ]);
 
-            // Reset resource lama ke available
-            if ($oldDriverId) {
-                Driver::where('id', $oldDriverId)->update(['status' => 'available']);
-            }
-            if ($oldVehicleId) {
-                Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
-            }
-            if ($oldVoucherId) {
-                Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
-            }
+            if ($oldDriverId) Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+            if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
+            if ($oldVoucherId) Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
 
             DB::commit();
             return redirect()->route('drms.approval.admin.index')
@@ -265,13 +407,12 @@ class AppAdminController extends Controller
     }
 
     /**
-     * Tandai permintaan sebagai selesai oleh admin.
+     * Menandai permintaan sebagai selesai oleh admin.
      */
     public function complete(DriverRequest $driverRequest)
     {
         $user = Auth::user();
 
-        // Otorisasi
         if (!$user->isDrmsSuperAdmin()) {
             $requesterProfile = $driverRequest->requester->drmsProfile;
             $adminProfile = $user->drmsProfile;
@@ -291,11 +432,9 @@ class AppAdminController extends Controller
         try {
             $driverRequest->update(['status' => 'completed']);
 
-            // Bebaskan driver
             if ($driverRequest->driver_id) {
                 Driver::where('id', $driverRequest->driver_id)->update(['status' => 'available']);
             }
-            // Bebaskan kendaraan
             if ($driverRequest->vehicle_id) {
                 Vehicle::where('id', $driverRequest->vehicle_id)->update(['status' => 'available']);
             }

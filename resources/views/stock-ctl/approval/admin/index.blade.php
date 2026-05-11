@@ -60,12 +60,15 @@
     </div>
 </div>
 
-{{-- Modal Approve --}}
+{{-- Modal Approve (AJAX version) --}}
 <div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Setujui Permintaan</h3>
         <p class="text-sm text-gray-600 mb-3">Anda dapat mengubah jumlah yang disetujui.</p>
-        <form id="approveForm" method="POST">
+        
+        <div id="approveError" class="hidden mb-3 p-2 bg-red-100 text-red-800 rounded text-sm"></div>
+        
+        <form id="approveForm">
             @csrf
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah Disetujui</label>
@@ -78,13 +81,13 @@
             </div>
             <div class="mt-6 flex justify-end gap-2">
                 <button type="button" onclick="closeModal('approveModal')" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg">Setujui</button>
+                <button type="submit" id="approveSubmitBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Setujui</button>
             </div>
         </form>
     </div>
 </div>
 
-{{-- Modal Reject --}}
+{{-- Modal Reject (tetap pakai form biasa, karena tidak perlu AJAX) --}}
 <div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tolak Permintaan</h3>
@@ -104,11 +107,31 @@
 
 <script>
 function showApproveModal(id, originalJumlah, satuan) {
+    // Set form action dan data-id
     const form = document.getElementById('approveForm');
     form.action = "{{ url('stock-ctl/approval/admin') }}/" + id + "/approve";
+    form.setAttribute('data-id', id);
+    
     const jumlahInput = document.getElementById('approveJumlah');
     jumlahInput.value = originalJumlah;
     document.getElementById('approveSatuan').innerText = satuan ? 'Satuan: ' + satuan : '';
+    
+    // Reset error message
+    const errorDiv = document.getElementById('approveError');
+    errorDiv.classList.add('hidden');
+    errorDiv.innerText = '';
+    
+    // Optional: cek stok awal (tanpa submit) untuk peringatan dini
+    fetch("{{ url('stock-ctl/approval/admin/cek-stok') }}/" + id)
+        .then(res => res.json())
+        .then(data => {
+            if (data.tersedia < originalJumlah) {
+                errorDiv.innerText = `⚠️ Peringatan: Stok tersedia hanya ${data.tersedia} ${satuan}, tidak cukup untuk permintaan ${originalJumlah} ${satuan}. Anda dapat mengurangi jumlah.`;
+                errorDiv.classList.remove('hidden');
+            }
+        })
+        .catch(err => console.error('Gagal cek stok:', err));
+    
     document.getElementById('approveModal').classList.remove('hidden');
     document.getElementById('approveModal').classList.add('flex');
 }
@@ -131,5 +154,49 @@ window.onclick = function(event) {
     if (event.target === approveModal) closeModal('approveModal');
     if (event.target === rejectModal) closeModal('rejectModal');
 }
+
+// Submit approve via AJAX
+document.getElementById('approveForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const url = form.action;
+    const formData = new FormData(form);
+    const submitBtn = document.getElementById('approveSubmitBtn');
+    const errorDiv = document.getElementById('approveError');
+    
+    // Disable button & show loading
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Memproses...';
+    errorDiv.classList.add('hidden');
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Sukses, redirect ke halaman index
+            window.location.href = "{{ route('stock-ctl.approval.admin.index') }}";
+        } else {
+            // Tampilkan pesan error di modal
+            errorDiv.innerText = data.message || 'Terjadi kesalahan. Silakan coba lagi.';
+            errorDiv.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Setujui';
+        }
+    })
+    .catch(error => {
+        errorDiv.innerText = 'Error koneksi. Periksa jaringan Anda.';
+        errorDiv.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Setujui';
+    });
+});
 </script>
 @endsection

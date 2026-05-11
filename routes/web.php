@@ -49,6 +49,7 @@ use App\Http\Controllers\Drms\VoucherController;
 use App\Http\Controllers\Work\WorkReportController;
 use App\Http\Controllers\Work\WorkReportCategoryController;
 use App\Http\Controllers\Memos\MemosController;
+use App\Http\Controllers\Apartemen\EmployeeSearchController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -347,6 +348,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::get('approval/admin', [ApprovalAdminController::class, 'index'])->name('approval.admin.index');
             Route::post('approval/admin/{id}/approve', [ApprovalAdminController::class, 'approve'])->name('approval.admin.approve');
             Route::post('approval/admin/{id}/reject', [ApprovalAdminController::class, 'reject'])->name('approval.admin.reject');
+             Route::get('approval/admin/cek-stok/{id}', [ApprovalAdminController::class, 'cekStok'])->name('approval.admin.cek-stok');
         });
 
         // Admin (stok, barang, transaksi, opname)
@@ -361,6 +363,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::post('transaksi/keluar', [TransaksiController::class, 'storeKeluar'])->name('transaksi.keluar.store');
             Route::get('transaksi/transfer', [TransaksiController::class, 'createTransfer'])->name('transaksi.transfer');
             Route::post('transaksi/transfer', [TransaksiController::class, 'storeTransfer'])->name('transaksi.transfer.store');
+            Route::get('cek-stok', [App\Http\Controllers\StockCtl\TransaksiController::class, 'cekStok'])->name('cek-stok');
             Route::resource('opname', OpnameController::class);
             Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
             Route::post('laporan/pdf', [LaporanController::class, 'pdf'])->name('laporan.pdf');
@@ -400,6 +403,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         // Approval Admin
         Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
             Route::get('/', [AppAdminController::class, 'index'])->name('index');
+            Route::get('export', [AppAdminController::class, 'export'])->name('export');
             Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
             Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
             Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
@@ -649,6 +653,8 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
     Route::middleware(CheckIDCardAccess::class . ':proses')->group(function () {
         Route::post('/idcard/{id}/approve', [IDCardController::class, 'approve'])->name('idcard.approve');
         Route::post('/idcard/{id}/reject', [IDCardController::class, 'reject'])->name('idcard.reject');
+        Route::get('/idcard/{id}/edit', [IDCardController::class, 'edit'])->name('idcard.edit');
+        Route::put('/idcard/{id}', [IDCardController::class, 'update'])->name('idcard.update');
     });
 
     /*
@@ -666,6 +672,8 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             ->name('employees.show')
             ->middleware('employees.access:emp_show');
     });
+
+    Route::get('/employee/search', [EmployeeSearchController::class, 'search'])->name('employee.search');
 
     /*
     |--------------------------------------------------------------------------

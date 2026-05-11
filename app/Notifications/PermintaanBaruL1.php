@@ -25,7 +25,7 @@ class PermintaanBaruL1 extends Notification
     {
         return [
             'id_permintaan' => $this->permintaan->id_permintaan,
-            'message' => 'Permintaan ATK baru dari ' . $this->permintaan->pemohon->name . ' memerlukan approval Anda.',
+            'message' => 'Permintaan baru dari ' . $this->permintaan->pemohon->name . ' memerlukan approval Anda.',
             'url' => route('stock-ctl.approval.l1.index'),
         ];
     }

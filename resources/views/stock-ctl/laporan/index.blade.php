@@ -3,7 +3,7 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
     <div>
-        <h2 class="text-xl font-semibold text-gray-800">Laporan ATK</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Laporan</h2>
     </div>
 
     <div class="bg-white border rounded-xl p-6">

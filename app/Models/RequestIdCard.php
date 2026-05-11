@@ -42,52 +42,43 @@ class RequestIdCard extends Model
         'updated_at' => 'datetime'
     ];
 
-    // Aktifkan timestamps karena kolom ada di database
     public $timestamps = true;
 
-    // Relasi ke user yang membuat
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // Relasi ke user yang approve
     public function approvedByUser()
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    // Relasi ke user yang reject
     public function rejectedByUser()
     {
         return $this->belongsTo(User::class, 'rejected_by');
     }
 
-    // Relasi ke bisnis unit
     public function bisnisUnit()
     {
         return $this->belongsTo(BisnisUnit::class, 'bisnis_unit_id', 'id_bisnis_unit');
     }
 
-    // Accessor untuk status
     public function getStatusTextAttribute()
     {
         $statuses = [
-            'pending' => 'Menunggu',
+            'pending'  => 'Menunggu',
             'approved' => 'Disetujui',
             'rejected' => 'Ditolak'
         ];
-        
         return $statuses[$this->status] ?? $this->status;
     }
 
-    // Accessor untuk kategori
     public function getKategoriTextAttribute()
     {
         return str_replace('_', ' ', ucfirst($this->kategori));
     }
 
-    // Cek apakah bisa diproses
     public function getCanProcessAttribute()
     {
         return $this->status === 'pending';

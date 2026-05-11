@@ -12,12 +12,39 @@ use Illuminate\Support\Facades\DB;
 
 class RequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $requests = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher'])
-            ->where('requester_id', auth()->id())
-            ->latest()
-            ->paginate(10);
+        $query = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher'])
+            ->where('requester_id', auth()->id());
+
+        // Filter pencarian (request_no, pickup_location, destination, purpose)
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('request_no', 'LIKE', $search)
+                  ->orWhere('pickup_location', 'LIKE', $search)
+                  ->orWhere('destination', 'LIKE', $search)
+                  ->orWhere('purpose', 'LIKE', $search);
+            });
+        }
+
+        // Filter status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter tanggal dari
+        if ($request->filled('dari')) {
+            $query->whereDate('usage_date', '>=', $request->dari);
+        }
+
+        // Filter tanggal sampai
+        if ($request->filled('sampai')) {
+            $query->whereDate('usage_date', '<=', $request->sampai);
+        }
+
+        $requests = $query->latest()->paginate(10)->appends($request->query());
+
         return view('drms.requests.index', compact('requests'));
     }
 
@@ -46,7 +73,6 @@ class RequestController extends Controller
             $rules['return_date'] = 'required|date|after_or_equal:usage_date';
         }
 
-        // Sebelum validasi, bersihkan input yang mungkin mengandung spasi
         $request->merge([
             'start_hour'   => trim($request->input('start_hour', '')),
             'start_minute' => trim($request->input('start_minute', '')),
@@ -56,7 +82,6 @@ class RequestController extends Controller
 
         $data = $request->validate($rules);
 
-        // Format waktu
         $start_time = sprintf('%02d:%02d', (int)$data['start_hour'], (int)$data['start_minute']);
         $end_time   = sprintf('%02d:%02d', (int)$data['end_hour'], (int)$data['end_minute']);
 

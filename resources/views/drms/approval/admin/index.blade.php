@@ -1,5 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
+@section('styles')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+@endsection
+
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="approvalAdminModal()">
     {{-- Header --}}
@@ -11,6 +17,10 @@
             </span>
         </div>
         <div class="flex gap-2 w-full sm:w-auto">
+            <a href="{{ route('drms.approval.admin.export', request()->query()) }}" 
+               class="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition text-center">
+                📥 Export CSV
+            </a>
             <button id="toggleFilterBtn" class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
                 Filters
             </button>
@@ -33,7 +43,15 @@
                     <option value="completed" {{ request('status')=='completed' ? 'selected' : '' }}>Selesai</option>
                 </select>
             </div>
-            <div class="lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
+            <div>
+                <label class="text-sm font-medium text-gray-600">Tanggal Dari</label>
+                <input type="date" name="date_from" value="{{ request('date_from') }}" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-600">Tanggal Sampai</label>
+                <input type="date" name="date_to" value="{{ request('date_to') }}" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div class="lg:col-span-4 flex flex-col sm:flex-row gap-2 justify-end">
                 <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Apply</button>
                 <a href="{{ route('drms.approval.admin.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 text-center">Reset</a>
             </div>
@@ -389,7 +407,7 @@
     </div>
 
     {{-- MODAL REJECT --}}
-    <div x-show="rejectModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    <div x-show="rejectModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 class="text-lg font-semibold mb-4">Tolak Permintaan</h2>
             <form :action="`{{ url('drms/approval/admin') }}/${rejectRequestId}/reject`" method="POST">
@@ -405,7 +423,7 @@
     </div>
 
     {{-- MODAL DETAIL --}}
-    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
             <table class="w-full text-sm border-collapse">

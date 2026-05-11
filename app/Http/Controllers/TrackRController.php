@@ -39,6 +39,13 @@ class TrackRController extends Controller
             $query->where('status', $status);
         }
 
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->to);
+        }
+
         $documents = $query->orderBy('created_at', 'desc')
                          ->paginate(15)
                          ->withQueryString();
@@ -299,6 +306,14 @@ class TrackRController extends Controller
             });
         }
 
+        // Filter tanggal (created_at)
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->to);
+        }
+
         $documents = $query->orderBy('created_at', 'desc')->get();
 
         $filename = 'track_r_documents_' . date('Ymd_His') . '.csv';
@@ -313,6 +328,7 @@ class TrackRController extends Controller
             'Status Saya',
             'Status Global',
             'Tanggal Kirim',
+            'Tanggal Update',
             'Jumlah Penerima Lain',
             'Daftar Penerima Lain'
         ]);
@@ -330,6 +346,7 @@ class TrackRController extends Controller
                 $userStatus['label'],
                 $doc->status,
                 $doc->created_at->format('d-m-Y H:i'),
+                $doc->updated_at->format('d-m-Y H:i'),
                 max(0, $otherRecipients->count()),
                 $otherNames ?: '-'
             ]);

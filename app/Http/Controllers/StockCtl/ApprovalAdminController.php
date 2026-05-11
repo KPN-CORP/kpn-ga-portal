@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\StockCtl;
 
 use App\Http\Controllers\Controller;
@@ -35,6 +36,19 @@ class ApprovalAdminController extends Controller
         return view('stock-ctl.approval.admin.index', compact('permintaan', 'pendingCount'));
     }
 
+    /**
+     * Cek stok untuk permintaan (AJAX)
+     */
+    public function cekStok($id)
+    {
+        $permintaan = Permintaan::findOrFail($id);
+        $stok = Stok::where('id_barang', $permintaan->id_barang)
+                    ->where('id_area_kerja', $permintaan->id_area_kerja)
+                    ->first();
+        $tersedia = $stok ? $stok->jumlah : 0;
+        return response()->json(['tersedia' => $tersedia]);
+    }
+
     public function approve(Request $request, $id)
     {
         Log::info('ApprovalAdmin approve dipanggil', [
@@ -62,7 +76,8 @@ class ApprovalAdminController extends Controller
                 ->first();
 
             if (!$stok || $stok->jumlah < $jumlahBaru) {
-                throw new \Exception("Stok tidak mencukupi. Tersedia: " . number_format($stok->jumlah ?? 0) . " $satuan, diminta: " . number_format($jumlahBaru) . " $satuan");
+                $tersedia = $stok ? $stok->jumlah : 0;
+                throw new \Exception("Tidak dapat menyetujui karena stok barang tidak mencukupi. Tersedia: " . number_format($tersedia) . " $satuan, diminta: " . number_format($jumlahBaru) . " $satuan");
             }
 
             // Kurangi stok
@@ -99,6 +114,10 @@ class ApprovalAdminController extends Controller
 
             DB::commit();
 
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Permintaan disetujui.']);
+            }
+
             return redirect()->route('stock-ctl.approval.admin.index')
                 ->with('success', "Permintaan #{$permintaan->id_permintaan} disetujui. Jumlah: " . number_format($jumlahBaru) . " $satuan" . ($request->catatan ? ". Catatan: {$request->catatan}" : ""));
         } catch (\Exception $e) {
@@ -108,6 +127,11 @@ class ApprovalAdminController extends Controller
                 'id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
+            
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
+            
             return back()->withErrors('Terjadi kesalahan: ' . $e->getMessage());
         }
     }

@@ -3,7 +3,7 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans max-w-2xl">
     <div>
-        <h2 class="text-xl font-semibold text-gray-800">Ajukan Permintaan ATK</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Ajukan Permintaan</h2>
     </div>
 
     <div class="bg-white border rounded-xl p-6">

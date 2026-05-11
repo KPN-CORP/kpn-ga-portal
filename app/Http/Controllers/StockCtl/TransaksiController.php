@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\StockCtl;
 
 use App\Http\Controllers\Controller;
@@ -150,13 +151,17 @@ class TransaksiController extends Controller
     {
         $access = session('stock_ctl_access');
         $barang = Barang::all();
-        // Hanya tampilkan area dari unit user (kecuali superadmin)
         $areas = $access['is_super'] 
             ? AreaKerja::with('bisnisUnit')->get() 
             : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->get();
         return view('stock-ctl.transaksi.transfer', compact('barang', 'areas'));
     }
 
+    /**
+     * Menangani transfer stok antar area
+     * - Mengecek stok sebelum transaksi, jika tidak cukup redirect back dengan pesan error
+     * - Jika stok cukup, proses dalam transaction
+     */
     public function storeTransfer(Request $request)
     {
         $request->validate([
@@ -174,39 +179,74 @@ class TransaksiController extends Controller
             if (!$areaAsal || $areaAsal->id_bisnis_unit != $access['id_bisnis_unit']) {
                 abort(403, 'Area asal tidak sesuai dengan unit Anda.');
             }
-            // Validasi area tujuan harus satu unit
             if (!$areaTujuan || $areaTujuan->id_bisnis_unit != $access['id_bisnis_unit']) {
                 abort(403, 'Area tujuan harus berada dalam unit yang sama.');
             }
         }
 
-        DB::transaction(function () use ($request) {
-            $stokAsal = Stok::where('id_barang', $request->id_barang)
-                ->where('id_area_kerja', $request->id_area_asal)
-                ->first();
+        // Cek stok SEBELUM transaksi (agar bisa redirect dengan error, bukan exception)
+        $stokAsal = Stok::where('id_barang', $request->id_barang)
+                        ->where('id_area_kerja', $request->id_area_asal)
+                        ->first();
 
-            if (!$stokAsal || $stokAsal->jumlah < $request->jumlah) {
-                throw new \Exception('Stok di area asal tidak mencukupi.');
-            }
+        if (!$stokAsal || $stokAsal->jumlah < $request->jumlah) {
+            $stokTersedia = $stokAsal ? $stokAsal->jumlah : 0;
+            return redirect()->back()
+                             ->with('error', "Stok di area asal tidak mencukupi. Tersedia: {$stokTersedia}")
+                             ->withInput();
+        }
 
-            $stokAsal->decrement('jumlah', $request->jumlah);
+        // Proses transfer dalam transaction
+        try {
+            DB::transaction(function () use ($request) {
+                // Kurangi stok asal
+                Stok::where('id_barang', $request->id_barang)
+                    ->where('id_area_kerja', $request->id_area_asal)
+                    ->decrement('jumlah', $request->jumlah);
 
-            Stok::updateOrCreate(
-                ['id_barang' => $request->id_barang, 'id_area_kerja' => $request->id_area_tujuan],
-                ['jumlah' => DB::raw('jumlah + ' . $request->jumlah)]
-            );
+                // Tambah stok tujuan
+                Stok::updateOrCreate(
+                    ['id_barang' => $request->id_barang, 'id_area_kerja' => $request->id_area_tujuan],
+                    ['jumlah' => DB::raw('jumlah + ' . $request->jumlah)]
+                );
 
-            Transaksi::create([
-                'jenis'          => 'transfer',
-                'id_barang'      => $request->id_barang,
-                'jumlah'         => $request->jumlah,
-                'id_area_asal'   => $request->id_area_asal,
-                'id_area_tujuan' => $request->id_area_tujuan,
-                'keterangan'     => $request->keterangan,
-                'id_user'        => Auth::id(),
-            ]);
-        });
+                // Catat transaksi
+                Transaksi::create([
+                    'jenis'          => 'transfer',
+                    'id_barang'      => $request->id_barang,
+                    'jumlah'         => $request->jumlah,
+                    'id_area_asal'   => $request->id_area_asal,
+                    'id_area_tujuan' => $request->id_area_tujuan,
+                    'keterangan'     => $request->keterangan,
+                    'id_user'        => Auth::id(),
+                ]);
+            });
 
-        return redirect()->route('stock-ctl.stok.index')->with('success', 'Transfer berhasil.');
+            return redirect()->route('stock-ctl.stok.index')
+                             ->with('success', 'Transfer berhasil.');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                             ->with('error', 'Gagal melakukan transfer: ' . $e->getMessage())
+                             ->withInput();
+        }
+    }
+
+    /**
+     * AJAX endpoint untuk mengambil jumlah stok barang di area tertentu
+     */
+    public function cekStok(Request $request)
+    {
+        $request->validate([
+            'id_barang' => 'required|exists:stock_ctl_barang,id_barang',
+            'id_area'   => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
+        ]);
+
+        $stok = Stok::where('id_barang', $request->id_barang)
+                    ->where('id_area_kerja', $request->id_area)
+                    ->first();
+
+        $jumlah = $stok ? $stok->jumlah : 0;
+
+        return response()->json(['stok' => $jumlah]);
     }
 }

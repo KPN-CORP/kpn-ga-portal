@@ -226,7 +226,6 @@
                                 
                                 $durationText = implode(' ', $durationParts);
                                 
-                                // Jika hasil 0, berarti 1 hari
                                 if (empty($durationText)) {
                                     $durationText = '1 hari';
                                 }
@@ -250,7 +249,6 @@
                                     $cardStatus = 'Expired';
                                     $cardStatusClass = 'bg-red-100 text-red-800';
                                 } elseif ($today >= date('Y-m-d', strtotime($data->masa_berlaku))) {
-                                    // Hitung hari tersisa
                                     $daysLeft = floor((strtotime($expiryDate) - strtotime($today)) / (60 * 60 * 24));
                                     
                                     if ($daysLeft <= 7) {
@@ -270,42 +268,6 @@
                             {{ $cardStatus }}
                         </span>
                     </div>
-                    
-                    <!-- Periode -->
-                    <!-- @if(!empty($data->masa_berlaku) || !empty($data->sampai_tanggal))
-                    <div class="md:col-span-2 space-y-1">
-                        <p class="text-sm text-gray-500">Periode Magang</p>
-                        <div class="bg-gray-50 border border-gray-200 rounded p-3">
-                            <div class="flex flex-col md:flex-row items-center justify-between gap-2">
-                                <div class="text-center flex-1">
-                                    <p class="text-xs text-gray-500">Mulai</p>
-                                    <p class="font-medium text-gray-800">
-                                        @if(!empty($data->masa_berlaku))
-                                            {{ date('d-m-Y', strtotime($data->masa_berlaku)) }}
-                                        @else
-                                            <span class="text-gray-400">-</span>
-                                        @endif
-                                    </p>
-                                </div>
-                                <div class="mx-2 md:mx-4">
-                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-                                    </svg>
-                                </div>
-                                <div class="text-center flex-1">
-                                    <p class="text-xs text-gray-500">Selesai</p>
-                                    <p class="font-medium text-gray-800">
-                                        @if(!empty($data->sampai_tanggal))
-                                            {{ date('d-m-Y', strtotime($data->sampai_tanggal)) }}
-                                        @else
-                                            <span class="text-gray-400">-</span>
-                                        @endif
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    @endif -->
                 @else
                     <!-- Untuk Non-Magang: Tanggal Join -->
                     @if (!empty($data->tanggal_join))
@@ -379,6 +341,17 @@
     <div class="mt-8 pt-6 border-t border-gray-200">
         <h3 class="text-lg font-medium text-gray-800 mb-4">Action</h3>
         <div class="bg-gray-50 rounded-lg p-6">
+            <!-- Tombol Edit Data -->
+            <div class="mb-4 flex space-x-3">
+                <a href="{{ route('idcard.edit', $data->id) }}" 
+                   class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Edit Data
+                </a>
+            </div>
+            
             <!-- Form Approve -->
             <form action="{{ route('idcard.approve', $data->id) }}" method="POST" class="mb-6" id="approveForm">
             @csrf
@@ -397,7 +370,6 @@
                         required>
                     <p class="text-xs text-gray-500 mt-1">Wajib diisi untuk kategori Magang</p>
                     
-                    <!-- Tampilkan warning jika nomor kartu sudah digunakan -->
                     @if($data->nomor_kartu)
                         <div class="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
                             <p>⚠️ Nomor kartu saat ini: <strong>{{ $data->nomor_kartu }}</strong></p>

@@ -1,5 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
+@section('styles')
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+@endsection
+
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans" 
      x-data="requestModal()" 
@@ -7,7 +13,7 @@
      
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h2 class="text-xl font-semibold text-gray-800">My Driver Requests</h2>
+            <h2 class="text-xl font-semibold text-gray-800">My Requests</h2>
             <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                 Personal Requests
             </span>
@@ -22,7 +28,7 @@
         </div>
     </div>
 
-    {{-- Filter --}}
+    {{-- Filter Section --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('drms.requests.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -131,8 +137,6 @@
                         @endif
                     </td>
                     <td class="px-4 py-3">
-                        <!-- <div class="font-medium">{{ $item->destination }}</div>
-                        <div class="text-xs text-gray-500">{{ $tujuanFull }}</div> -->
                         <div class="font-medium">{{ $tujuanFull }}</div>
                     </td>
                     <td class="px-4 py-3">
@@ -159,7 +163,7 @@
         </table>
     </div>
 
-    {{-- ========== MOBILE & TABLET (TABLE DENGAN PEMISAH GRUP) ========== --}}
+    {{-- MOBILE & TABLET --}}
     <div class="block md:hidden bg-white border rounded-xl overflow-hidden">
         <table class="w-full text-xs border-collapse">
             <thead class="bg-gray-50 text-gray-600">
@@ -185,7 +189,7 @@
                         'rejected_admin' => 'Ditolak GA',
                         'completed' => 'Selesai'
                     ];
-                    $detailData = [ /* sama seperti di atas, isi ulang untuk mobile */ 
+                    $detailData = [
                         'request_no' => $item->request_no,
                         'requester' => ['name' => $item->requester->name],
                         'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d/m/Y H:i') : null,
@@ -209,7 +213,6 @@
                         'voucher' => $item->voucher ? ['code' => $item->voucher->code, 'type' => $item->voucher->type, 'nominal' => $item->voucher->nominal] : null,
                     ];
                 @endphp
-                {{-- Baris 1 --}}
                 <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
                     <td class="px-3 pt-3 pb-1 font-mono font-semibold">{{ $item->request_no }}</td>
                     <td class="px-3 pt-3 pb-1">{{ $start }}</td>
@@ -218,7 +221,6 @@
                         <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold">Detail</button>
                     </td>
                 </tr>
-                {{-- Baris 2 --}}
                 <tr class="bg-gray-50 border-b">
                     <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
                         {{ $item->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan' }}
@@ -241,15 +243,15 @@
                 </tr>
                 @endforelse
             </tbody>
-         </table>
+        </table>
     </div>
 
     @if($requests->hasPages())
         <div class="mt-4">{{ $requests->links() }}</div>
     @endif
 
-    {{-- MODAL CREATE --}}
-    <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    {{-- MODAL CREATE (Dengan style="display: none;" untuk mencegah kedipan) --}}
+    <div x-show="createModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4">Buat Permintaan Driver</h3>
             @if($errors->any())
@@ -354,8 +356,8 @@
         </div>
     </div>
 
-    {{-- MODAL DETAIL (diperbaiki, tidak ada @forelse di dalamnya) --}}
-    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" x-cloak>
+    {{-- MODAL DETAIL (Dengan style="display: none;" untuk mencegah kedipan) --}}
+    <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
             <table class="w-full text-sm border-collapse">

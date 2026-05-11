@@ -371,14 +371,14 @@
         ],
         'car' => [
             'field' => 'car_dash',
-            'title' => 'Car Service',
+            'title' => 'E-Vehicle Service',
             'url' => '/drms/requests',
             'color' => '#16a085',
             'icon' => 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
         ],
         'apart' => [
             'field' => 'apart_dash',
-            'title' => 'Apartemen',
+            'title' => 'Apartment Services',
             'url' => 'apartemen',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
@@ -470,14 +470,14 @@
         ],
         'apart_admin' => [
             'field' => 'apart_admin_dash',
-            'title' => 'GA Apartemen',
+            'title' => 'GA Apartment Services',
             'url' => '/apartemen/admin/dashboard',
             'color' => '#d35400',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
         ],
         'car_admin' => [
             'field' => 'car_admin_dash',
-            'title' => 'GA Car Service',
+            'title' => 'GA E-Vehicle Service',
             'url' => '/drms/approval/admin',
             'color' => '#16a085',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'

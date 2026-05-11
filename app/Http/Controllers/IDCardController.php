@@ -12,243 +12,196 @@ use Illuminate\Support\Facades\Validator;
 class IDCardController extends Controller
 {
     /**
-     * Helper untuk mengecek akses proses
+     * Helper untuk mengecek akses proses (approve/reject/edit)
      */
     private function canProcessIDCard()
     {
         $user = Auth::user();
-        return $user->username == 'admin' || 
+        return $user->username == 'admin' ||
                DB::table('tb_access_menu')
                    ->where('username', $user->username)
                    ->where('proses_idcard', 1)
                    ->exists();
     }
 
-    public function index(Request $req) 
-        {
-            // Cek apakah user memiliki akses khusus dari tb_access_menu
-            $hasSpecialAccess = $this->canProcessIDCard();
-            
-            $bisnisUnits = DB::table('tb_bisnis_unit')->get();
+    // ==================== LIST ====================
+    public function index(Request $req)
+    {
+        $hasSpecialAccess = $this->canProcessIDCard();
+        $bisnisUnits = DB::table('tb_bisnis_unit')->get();
+        $query = RequestIdCard::orderBy('created_at', 'desc');
 
-            $query = RequestIdCard::orderBy('created_at','desc');
-            
-            // Jika tidak punya akses khusus, hanya tampilkan data user sendiri
-            if (!$hasSpecialAccess) {
-                $query->where('user_id', Auth::id());
-            }
-
-            // PERBAIKAN: Pisahkan pencarian search dan nomor_kartu
-            if ($req->search) {
-                $query->where(function($q) use ($req) {
-                    $q->where('nama', 'like', "%{$req->search}%")
-                    ->orWhere('nik', 'like', "%{$req->search}%")
-                    ->orWhere('kategori', 'like', "%{$req->search}%");
-                    // HAPUS: ->orWhere('nomor_kartu', 'like', "%{$req->search}%");
-                });
-            }
-
-            // PENCARIAN NOMOR KARTU TERPISAH - HANYA CARI DI FIELD nomor_kartu
-            if ($req->nomor_kartu) {
-                $query->where('nomor_kartu', 'like', "%{$req->nomor_kartu}%");
-                // HANYA di field nomor_kartu, tidak mencampur dengan field lain
-            }
-
-            if ($req->status && $req->status != 'all') {
-                $query->where('status', $req->status);
-            }
-
-            // Filter bisnis unit hanya untuk user dengan akses khusus
-            if ($hasSpecialAccess && $req->bisnis_unit_id && $req->bisnis_unit_id != 'all') {
-                $query->where('bisnis_unit_id', $req->bisnis_unit_id);
-            }
-
-            if ($req->kategori && $req->kategori != 'all') {
-                $query->where('kategori', $req->kategori);
-            }
-
-            // FILTER PERIODE
-            if ($req->periode && $req->periode != 'all') {
-                $today = now()->format('Y-m-d');
-                
-                switch ($req->periode) {
-                    case 'masa_aktif':
-                        $query->where('masa_berlaku', '<=', $today)
-                            ->where('sampai_tanggal', '>=', $today);
-                        break;
-                        
-                    case 'masa_tidak_aktif':
-                        $query->where(function($q) use ($today) {
-                            $q->where('masa_berlaku', '>', $today)
-                            ->orWhere('sampai_tanggal', '<', $today);
-                        });
-                        break;
-                        
-                    case 'masa_habis_segera':
-                        $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
-                        $query->where('sampai_tanggal', '>=', $today)
-                            ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
-                        break;
-                }
-            }
-
-            $perPage = $req->get('per_page', 10);
-            
-            // PERBAIKAN DI SINI: Tambahkan withQueryString()
-            $data = $query->paginate($perPage)->withQueryString();
-
-            $statusLabels = [
-                'pending' => 'Menunggu',
-                'approved' => 'Disetujui',
-                'rejected' => 'Ditolak'
-            ];
-
-            // Kategori labels untuk filter
-            $kategoriLabels = [
-                'karyawan_baru' => 'Karyawan Baru',
-                'karyawan_mutasi' => 'Karyawan Mutasi',
-                'ganti_kartu' => 'Ganti Kartu',
-                'magang' => 'Magang',
-                'magang_extend' => 'Magang Extend'
-            ];
-
-            return view('idcard.list', [
-                'data' => $data,
-                'bisnisUnits' => $bisnisUnits,
-                'statusLabels' => $statusLabels,
-                'kategoriLabels' => $kategoriLabels,
-                'hasSpecialAccess' => $hasSpecialAccess
-            ]);
+        if (!$hasSpecialAccess) {
+            $query->where('user_id', Auth::id());
         }
 
-    public function create() {
+        if ($req->search) {
+            $query->where(function ($q) use ($req) {
+                $q->where('nama', 'like', "%{$req->search}%")
+                  ->orWhere('nik', 'like', "%{$req->search}%")
+                  ->orWhere('kategori', 'like', "%{$req->search}%");
+            });
+        }
+
+        if ($req->nomor_kartu) {
+            $query->where('nomor_kartu', 'like', "%{$req->nomor_kartu}%");
+        }
+
+        if ($req->status && $req->status != 'all') {
+            $query->where('status', $req->status);
+        }
+
+        if ($hasSpecialAccess && $req->bisnis_unit_id && $req->bisnis_unit_id != 'all') {
+            $query->where('bisnis_unit_id', $req->bisnis_unit_id);
+        }
+
+        if ($req->kategori && $req->kategori != 'all') {
+            $query->where('kategori', $req->kategori);
+        }
+
+        if ($req->periode && $req->periode != 'all') {
+            $today = now()->format('Y-m-d');
+            switch ($req->periode) {
+                case 'masa_aktif':
+                    $query->where('masa_berlaku', '<=', $today)
+                          ->where('sampai_tanggal', '>=', $today);
+                    break;
+                case 'masa_tidak_aktif':
+                    $query->where(function ($q) use ($today) {
+                        $q->where('masa_berlaku', '>', $today)
+                          ->orWhere('sampai_tanggal', '<', $today);
+                    });
+                    break;
+                case 'masa_habis_segera':
+                    $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
+                    $query->where('sampai_tanggal', '>=', $today)
+                          ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
+                    break;
+            }
+        }
+
+        $perPage = $req->get('per_page', 10);
+        $data = $query->paginate($perPage)->withQueryString();
+
+        $statusLabels = [
+            'pending'  => 'Menunggu',
+            'approved' => 'Disetujui',
+            'rejected' => 'Ditolak'
+        ];
+
+        $kategoriLabels = [
+            'karyawan_baru'   => 'Karyawan Baru',
+            'karyawan_mutasi' => 'Karyawan Mutasi',
+            'ganti_kartu'     => 'Ganti Kartu',
+            'magang'          => 'Magang',
+            'magang_extend'   => 'Magang Extend'
+        ];
+
+        return view('idcard.list', compact('data', 'bisnisUnits', 'statusLabels', 'kategoriLabels', 'hasSpecialAccess'));
+    }
+
+    // ==================== CREATE FORM ====================
+    public function create()
+    {
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
         return view('idcard.request', compact('bisnisUnits'));
     }
 
-    public function store(Request $req) 
+    // ==================== STORE (dengan validasi NIK yang memperbolehkan duplicate asal tidak pending) ====================
+    public function store(Request $req)
     {
-        // Set max file size - TAMBAHKAN UNTUK HANDLE 10MB
         ini_set('upload_max_filesize', '50M');
         ini_set('post_max_size', '55M');
         ini_set('max_execution_time', '300');
-        
+
         \Log::info('ID Card Store Request:', $req->all());
-        \Log::info('Kategori selected: ' . $req->kategori);
-        
-        // VALIDASI BERDASARKAN KATEGORI
+
+        $kategori = $req->kategori;
+
         $validationRules = [
-            'nik' => 'required|string|max:50',
-            'nama' => 'required|string|max:100',
+            'nik'      => 'required|string|max:50',
+            'nama'     => 'required|string|max:100',
             'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend',
             'bisnis_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'keterangan' => 'required|string|max:255'
         ];
-        
-        $kategori = $req->kategori;
-        
-        // Kategori yang memerlukan tanggal join dan foto
+
+        // Validasi NIK: hanya dilarang jika ada request PENDING dengan NIK yang sama (kecuali magang_extend)
+        if ($kategori !== 'magang_extend') {
+            $validationRules['nik'] = [
+                'required',
+                'string',
+                'max:50',
+                function ($attribute, $value, $fail) {
+                    $pendingExists = RequestIdCard::where('nik', $value)
+                        ->where('status', 'pending')
+                        ->exists();
+                    if ($pendingExists) {
+                        $fail('Masih ada request ID Card dengan NIK ini yang sedang menunggu diproses. Selesaikan request sebelumnya terlebih dahulu.');
+                    }
+                }
+            ];
+        }
+
         if (in_array($kategori, ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'])) {
             $validationRules['tanggal_join'] = 'required|date';
-            $validationRules['foto'] = 'required|image|mimes:jpg,jpeg,png|max:10240'; // 10MB
+            $validationRules['foto'] = 'required|image|mimes:jpg,jpeg,png|max:10240';
         }
-        
-        // Kategori yang memerlukan masa berlaku dan sampai tanggal
+
         if (in_array($kategori, ['magang', 'magang_extend'])) {
             $validationRules['masa_berlaku'] = 'required|date';
             $validationRules['sampai_tanggal'] = 'required|date|after:masa_berlaku';
-            
-            // PERBAIKAN: Untuk magang_extend, nomor kartu tidak harus unique
+
             if ($kategori === 'magang') {
-                $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu';
+                $validationRules['nomor_kartu'] = [
+                    'required',
+                    'string',
+                    'max:50',
+                    function ($attribute, $value, $fail) {
+                        $pendingExists = RequestIdCard::where('nomor_kartu', $value)
+                            ->where('status', 'pending')
+                            ->exists();
+                        if ($pendingExists) {
+                            $fail('Nomor kartu sudah digunakan pada request magang yang masih pending.');
+                        }
+                    }
+                ];
             } else {
                 $validationRules['nomor_kartu'] = 'required|string|max:50';
             }
         }
-        
-        // Validasi NIK unik (untuk mencegah duplikat)
-        // PERBAIKAN: Untuk magang_extend, NIK tidak harus unique (karena extend dari data lama)
-        if ($kategori !== 'magang_extend') {
-            $validationRules['nik'] = 'required|string|max:50|unique:request_idcard,nik';
-        }
-        
-        // Khusus ganti kartu memerlukan bukti bayar
+
         if ($kategori === 'ganti_kartu') {
-            $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:10240'; // 10MB
+            $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:10240';
         }
-        
-        // Custom error messages
+
         $customMessages = [
             'foto.max' => 'Ukuran foto maksimal 10MB. Kompres foto Anda terlebih dahulu.',
-            'bukti_bayar.max' => 'Ukuran bukti bayar maksimal 10MB. Kompres file Anda terlebih dahulu.',
+            'bukti_bayar.max' => 'Ukuran bukti bayar maksimal 10MB.',
             'foto.image' => 'File harus berupa gambar (JPG, JPEG, PNG)',
-            'nik.unique' => 'NIK sudah terdaftar. Untuk Magang Extend, gunakan NIK yang sama dengan data sebelumnya.',
-            'nomor_kartu.unique' => 'Nomor kartu sudah digunakan. Untuk Magang Extend, gunakan nomor kartu yang sama.',
             'sampai_tanggal.after' => 'Sampai Tanggal harus setelah Masa Berlaku.',
         ];
-        
+
         $validator = Validator::make($req->all(), $validationRules, $customMessages);
-        
         if ($validator->fails()) {
-            \Log::error('Validation failed: ', $validator->errors()->toArray());
             return back()->withErrors($validator)->withInput();
         }
-        
+
         try {
-            // UPLOAD FOTO - untuk kategori yang memerlukan foto
             $filename = null;
             if (in_array($kategori, ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu']) && $req->hasFile('foto')) {
                 $foto = $req->file('foto');
                 $filename = 'foto_' . time() . '_' . uniqid() . '.' . $foto->getClientOriginalExtension();
-                
-                \Log::info("=== UPLOAD FOTO DEBUG ===");
-                \Log::info("Original filename: " . $foto->getClientOriginalName());
-                \Log::info("Generated filename: " . $filename);
-                
-                // Simpan menggunakan Storage facade dengan disk 'private'
-                $path = $foto->storeAs('idcard/foto', $filename, 'private');
-                
-                \Log::info("Storage path: {$path}");
-                
-                // Verifikasi file tersimpan
-                $disk = Storage::disk('private');
-                if ($disk->exists('idcard/foto/' . $filename)) {
-                    \Log::info("✓ File successfully saved");
-                } else {
-                    \Log::error("✗ File NOT saved");
-                }
-                
-                \Log::info("=== END UPLOAD DEBUG ===");
+                $foto->storeAs('idcard/foto', $filename, 'private');
             }
-            
-            // UPLOAD BUKTI BAYAR - khusus ganti kartu
+
             $buktiBayarName = null;
             if ($kategori === 'ganti_kartu' && $req->hasFile('bukti_bayar')) {
                 $buktiBayar = $req->file('bukti_bayar');
-                $ext = $buktiBayar->getClientOriginalExtension();
-                $buktiBayarName = 'bukti_' . time() . '_' . uniqid() . '.' . $ext;
-                
-                \Log::info("=== UPLOAD BUKTI BAYAR DEBUG ===");
-                \Log::info("Original filename: " . $buktiBayar->getClientOriginalName());
-                \Log::info("Generated filename: " . $buktiBayarName);
-                
-                // Simpan menggunakan Storage facade dengan disk 'private'
-                $path = $buktiBayar->storeAs('idcard/bukti_bayar', $buktiBayarName, 'private');
-                
-                \Log::info("Storage path: {$path}");
-                
-                // Verifikasi file tersimpan
-                $disk = Storage::disk('private');
-                if ($disk->exists('idcard/bukti_bayar/' . $buktiBayarName)) {
-                    \Log::info("✓ File successfully saved");
-                } else {
-                    \Log::error("✗ File NOT saved");
-                }
-                
-                \Log::info("=== END BUKTI BAYAR DEBUG ===");
+                $buktiBayarName = 'bukti_' . time() . '_' . uniqid() . '.' . $buktiBayar->getClientOriginalExtension();
+                $buktiBayar->storeAs('idcard/bukti_bayar', $buktiBayarName, 'private');
             }
-            
-            // DATA UNTUK DISIMPAN - SESUAI STRUKTUR DATABASE
+
             $dataToCreate = [
                 'nik' => $req->nik,
                 'nama' => $req->nama,
@@ -266,355 +219,371 @@ class IDCardController extends Controller
                 'created_at' => now(),
                 'updated_at' => now()
             ];
-            
-            \Log::info("Data to create for kategori {$kategori}: ", $dataToCreate);
-            
+
             DB::beginTransaction();
-            
-            try {
-                $requestIdCard = RequestIdCard::create($dataToCreate);
-                $idRequest = $requestIdCard->id;
-                
-                DB::table('request_idcard_logs')->insert([
-                    'request_id' => $idRequest,
-                    'action' => 'created',
-                    'action_by' => Auth::id(),
-                    'notes' => 'Request ID Card dibuat - Kategori: ' . $kategori,
-                    'created_at' => now()
-                ]);
-                
-                DB::commit();
-                
-                return redirect()->route('idcard')->with('success', 'Request ID Card berhasil dibuat!');
-                
-            } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error("Error saving to database: " . $e->getMessage());
-                return back()->with('error', 'Gagal menyimpan ke database: ' . $e->getMessage())->withInput();
-            }
-            
+            $requestIdCard = RequestIdCard::create($dataToCreate);
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $requestIdCard->id,
+                'action' => 'created',
+                'action_by' => Auth::id(),
+                'notes' => 'Request ID Card dibuat - Kategori: ' . $kategori,
+                'created_at' => now()
+            ]);
+            DB::commit();
+
+            return redirect()->route('idcard')->with('success', 'Request ID Card berhasil dibuat!');
         } catch (\Exception $e) {
-            \Log::error("Error in store method: " . $e->getMessage());
+            DB::rollBack();
+            \Log::error("Error in store: " . $e->getMessage());
             return back()->with('error', 'Gagal menyimpan request: ' . $e->getMessage())->withInput();
         }
     }
 
-    public function detail($id) {
-        // AMBIL DATA DENGAN JOIN UNTUK approved_by DAN rejected_by
+    // ==================== DETAIL ====================
+    public function detail($id)
+    {
         $data = DB::table('request_idcard')
-            ->select(
-                'request_idcard.*', 
-                'users.name as user_name',
+            ->select('request_idcard.*', 'users.name as user_name',
                 'approved_user.name as approved_by_name',
-                'rejected_user.name as rejected_by_name'
-            )
+                'rejected_user.name as rejected_by_name')
             ->leftJoin('users', 'request_idcard.user_id', '=', 'users.id')
             ->leftJoin('users as approved_user', 'request_idcard.approved_by', '=', 'approved_user.id')
             ->leftJoin('users as rejected_user', 'request_idcard.rejected_by', '=', 'rejected_user.id')
             ->where('request_idcard.id', $id)
             ->first();
 
-        if (!$data) {
-            abort(404);
-        }
-        
-        // CEK AKSES: user hanya bisa lihat detail data mereka sendiri
-        // kecuali punya akses khusus di tb_access_menu
-        $canView = false;
-        
-        // Cek apakah user punya akses khusus
+        if (!$data) abort(404);
+
         $hasSpecialAccess = $this->canProcessIDCard();
-        
-        if ($hasSpecialAccess) {
-            $canView = true;
-        } elseif ($data->user_id == Auth::id()) {
-            // User bisa lihat data mereka sendiri
-            $canView = true;
-        }
-        
+        $canView = $hasSpecialAccess || ($data->user_id == Auth::id());
         if (!$canView) {
-            return redirect()->route('idcard')->with('error', 'Anda tidak memiliki akses untuk melihat detail ini.');
+            return redirect()->route('idcard')->with('error', 'Anda tidak memiliki akses.');
         }
 
-        $bisnisUnit = DB::table('tb_bisnis_unit')
-            ->where('id_bisnis_unit', $data->bisnis_unit_id)
-            ->first();
-
+        $bisnisUnit = DB::table('tb_bisnis_unit')->where('id_bisnis_unit', $data->bisnis_unit_id)->first();
         $data->bisnis_unit_nama = $bisnisUnit->nama_bisnis_unit ?? '-';
-        
-        // Konversi kategori ke label yang lebih user-friendly
+
         $kategoriLabels = [
-            'karyawan_baru' => 'Karyawan Baru',
+            'karyawan_baru'   => 'Karyawan Baru',
             'karyawan_mutasi' => 'Karyawan Mutasi',
-            'ganti_kartu' => 'Ganti Kartu',
-            'magang' => 'Magang',
-            'magang_extend' => 'Magang Extend'
+            'ganti_kartu'     => 'Ganti Kartu',
+            'magang'          => 'Magang',
+            'magang_extend'   => 'Magang Extend'
         ];
         $data->kategori_label = $kategoriLabels[$data->kategori] ?? $data->kategori;
-        
-        // Ambil logs
+
         $logs = DB::table('request_idcard_logs')
             ->select('request_idcard_logs.*', 'users.name as action_by_name')
             ->leftJoin('users', 'request_idcard_logs.action_by', '=', 'users.id')
             ->where('request_idcard_logs.request_id', $id)
-            ->orderBy('request_idcard_logs.created_at', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get();
-        
-        // CEK AKSES UNTUK PROSES (approve/reject)
-        $canProses = $this->canProcessIDCard();
-        
+
+        $canProses = $hasSpecialAccess;
         $isPending = ($data->status == 'pending');
-        
+
         return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending'));
     }
 
-    /**
-     * MENAMPILKAN FOTO - VERSI YANG DIPERBAIKI
-     */
+    // ==================== EDIT FORM (ADMIN ONLY) ====================
+    public function edit($id)
+    {
+        if (!$this->canProcessIDCard()) {
+            return redirect()->route('idcard')->with('error', 'Anda tidak memiliki akses untuk mengedit.');
+        }
+
+        $data = RequestIdCard::findOrFail($id);
+        if ($data->status !== 'pending') {
+            return redirect()->route('idcard.detail', $id)->with('error', 'Request yang sudah diproses tidak dapat diedit.');
+        }
+
+        $bisnisUnits = DB::table('tb_bisnis_unit')->get();
+        return view('idcard.edit', compact('data', 'bisnisUnits'));
+    }
+
+    // ==================== UPDATE (ADMIN ONLY) ====================
+    public function update(Request $req, $id)
+    {
+        if (!$this->canProcessIDCard()) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk mengedit.');
+        }
+
+        $item = RequestIdCard::findOrFail($id);
+        if ($item->status !== 'pending') {
+            return back()->with('error', 'Request yang sudah diproses tidak dapat diedit.');
+        }
+
+        $kategori = $req->kategori;
+
+        $validationRules = [
+            'nik'      => 'required|string|max:50',
+            'nama'     => 'required|string|max:100',
+            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend',
+            'bisnis_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
+            'keterangan' => 'required|string|max:255'
+        ];
+
+        // Validasi NIK (ignore current id, hanya cek pending lainnya)
+        if ($kategori !== 'magang_extend') {
+            $validationRules['nik'] = [
+                'required',
+                'string',
+                'max:50',
+                function ($attribute, $value, $fail) use ($id) {
+                    $pendingExists = RequestIdCard::where('nik', $value)
+                        ->where('status', 'pending')
+                        ->where('id', '!=', $id)
+                        ->exists();
+                    if ($pendingExists) {
+                        $fail('Masih ada request lain dengan NIK ini yang sedang pending.');
+                    }
+                }
+            ];
+        }
+
+        if (in_array($kategori, ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'])) {
+            $validationRules['tanggal_join'] = 'required|date';
+            $validationRules['foto'] = 'nullable|image|mimes:jpg,jpeg,png|max:10240';
+        }
+
+        if (in_array($kategori, ['magang', 'magang_extend'])) {
+            $validationRules['masa_berlaku'] = 'required|date';
+            $validationRules['sampai_tanggal'] = 'required|date|after:masa_berlaku';
+            if ($kategori === 'magang') {
+                $validationRules['nomor_kartu'] = [
+                    'required',
+                    'string',
+                    'max:50',
+                    function ($attribute, $value, $fail) use ($id) {
+                        $pendingExists = RequestIdCard::where('nomor_kartu', $value)
+                            ->where('status', 'pending')
+                            ->where('id', '!=', $id)
+                            ->exists();
+                        if ($pendingExists) {
+                            $fail('Nomor kartu sudah digunakan pada request magang pending lain.');
+                        }
+                    }
+                ];
+            } else {
+                $validationRules['nomor_kartu'] = 'required|string|max:50';
+            }
+        }
+
+        if ($kategori === 'ganti_kartu') {
+            $validationRules['bukti_bayar'] = 'nullable|mimes:jpg,jpeg,png,pdf|max:10240';
+        }
+
+        $validator = Validator::make($req->all(), $validationRules);
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Upload foto baru jika ada
+            if ($req->hasFile('foto')) {
+                if ($item->foto && Storage::disk('private')->exists('idcard/foto/' . $item->foto)) {
+                    Storage::disk('private')->delete('idcard/foto/' . $item->foto);
+                }
+                $filename = 'foto_' . time() . '_' . uniqid() . '.' . $req->file('foto')->getClientOriginalExtension();
+                $req->file('foto')->storeAs('idcard/foto', $filename, 'private');
+                $item->foto = $filename;
+            }
+
+            // Upload bukti bayar baru jika ada
+            if ($req->hasFile('bukti_bayar')) {
+                if ($item->bukti_bayar && Storage::disk('private')->exists('idcard/bukti_bayar/' . $item->bukti_bayar)) {
+                    Storage::disk('private')->delete('idcard/bukti_bayar/' . $item->bukti_bayar);
+                }
+                $buktiName = 'bukti_' . time() . '_' . uniqid() . '.' . $req->file('bukti_bayar')->getClientOriginalExtension();
+                $req->file('bukti_bayar')->storeAs('idcard/bukti_bayar', $buktiName, 'private');
+                $item->bukti_bayar = $buktiName;
+            }
+
+            // Update field
+            $item->nik = $req->nik;
+            $item->nama = $req->nama;
+            $item->kategori = $kategori;
+            $item->bisnis_unit_id = $req->bisnis_unit_id;
+            $item->keterangan = $req->keterangan;
+
+            if (in_array($kategori, ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'])) {
+                $item->tanggal_join = $req->tanggal_join;
+                $item->masa_berlaku = null;
+                $item->sampai_tanggal = null;
+                $item->nomor_kartu = null;
+            }
+
+            if (in_array($kategori, ['magang', 'magang_extend'])) {
+                $item->masa_berlaku = $req->masa_berlaku;
+                $item->sampai_tanggal = $req->sampai_tanggal;
+                $item->nomor_kartu = $req->nomor_kartu;
+                $item->tanggal_join = null;
+                // Hapus foto jika sebelumnya ada (karena magang tidak pakai foto)
+                if ($item->foto && Storage::disk('private')->exists('idcard/foto/' . $item->foto)) {
+                    Storage::disk('private')->delete('idcard/foto/' . $item->foto);
+                }
+                $item->foto = null;
+            }
+
+            $item->updated_at = now();
+            $item->save();
+
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $id,
+                'action' => 'updated',
+                'action_by' => Auth::id(),
+                'notes' => 'Request ID Card diedit oleh admin',
+                'created_at' => now()
+            ]);
+
+            DB::commit();
+            return redirect()->route('idcard.detail', $id)->with('success', 'Data request berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error("Update error: " . $e->getMessage());
+            return back()->with('error', 'Gagal mengupdate: ' . $e->getMessage());
+        }
+    }
+
+    // ==================== PHOTO ====================
     public function photo($filename)
     {
-        if (!Auth::check()) {
-            abort(403, 'Unauthorized');
-        }
+        if (!Auth::check()) abort(403);
 
         $user = Auth::user();
-        $username = $user->username;
-        
-        \Log::info("=== PHOTO ACCESS ===");
-        \Log::info("Requested file: {$filename}");
-        \Log::info("User: {$username}");
-        
-        // Cari data yang memiliki file ini (untuk validasi akses)
         $data = DB::table('request_idcard')
-            ->where(function($query) use ($filename) {
-                $query->where('foto', $filename)
-                      ->orWhere('bukti_bayar', $filename);
-            })
-            ->first();
-        
-        if (!$data) {
-            \Log::error("File not found in database: {$filename}");
-            abort(404, 'File tidak ditemukan');
-        }
-        
-        // Cek apakah user punya akses
-        $canView = false;
-        
-        // User bisa lihat jika:
-        // 1. Punya akses khusus, atau
-        // 2. Ini adalah data miliknya sendiri
-        if ($this->canProcessIDCard() || $data->user_id == $user->id) {
-            $canView = true;
-        }
-        
-        if (!$canView) {
-            \Log::warning("Unauthorized access attempt: {$filename} by {$username}");
-            abort(403, 'Anda tidak memiliki akses untuk melihat file ini');
-        }
+            ->where(function ($q) use ($filename) {
+                $q->where('foto', $filename)->orWhere('bukti_bayar', $filename);
+            })->first();
 
-        // Cari file menggunakan Storage facade
+        if (!$data) abort(404);
+
+        $canView = $this->canProcessIDCard() || $data->user_id == $user->id;
+        if (!$canView) abort(403);
+
         $disk = Storage::disk('private');
         $paths = [
             'idcard/foto/' . $filename,
             'idcard/bukti_bayar/' . $filename,
         ];
-        
         $foundPath = null;
-        
         foreach ($paths as $path) {
-            \Log::info("Checking path: {$path}");
             if ($disk->exists($path)) {
                 $foundPath = $disk->path($path);
-                \Log::info("✓ File found: {$path}");
                 break;
             }
         }
-        
-        if (!$foundPath) {
-            \Log::error("❌ File not found: {$filename}");
-            abort(404, "File tidak ditemukan: {$filename}");
-        }
+        if (!$foundPath) abort(404);
 
-        $mimeType = mime_content_type($foundPath);
-        
-        $headers = [
-            'Content-Type' => $mimeType,
+        $mime = mime_content_type($foundPath);
+        return response()->file($foundPath, [
+            'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . basename($foundPath) . '"',
-            'Cache-Control' => 'private, max-age=3600',
-        ];
-
-        \Log::info("Returning file with MIME: {$mimeType}");
-        \Log::info("=== END PHOTO ACCESS ===");
-        
-        return response()->file($foundPath, $headers);
+        ]);
     }
 
-    public function approve(Request $req, $id) {
-    // VALIDASI AKSES
+    // ==================== APPROVE ====================
+    public function approve(Request $req, $id)
+    {
         if (!$this->canProcessIDCard()) {
             return back()->with('error', 'Anda tidak memiliki akses untuk melakukan approval!');
         }
-        
-        try {
-            $item = RequestIdCard::findOrFail($id);
-            
-            if ($item->status != 'pending') {
-                return back()->with('error', 'Request sudah diproses.');
-            }
-            
-            // VALIDASI KHUSUS UNTUK MAGANG & MAGANG_EXTEND
-            if (in_array($item->kategori, ['magang', 'magang_extend'])) {
-                $validationRules = [];
-                
-                // Validasi nomor kartu wajib untuk kategori magang
-                $validationRules['nomor_kartu'] = 'required|string|max:50';
-                
-                // Untuk magang biasa, nomor kartu harus unique
-                if ($item->kategori === 'magang') {
-                    $validationRules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu,' . $id;
-                }
-                
-                // Validasi tanggal jika perlu
-                if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
-                    $validationRules['sampai_tanggal'] = 'date|after:masa_berlaku';
-                }
-                
-                $validator = Validator::make($req->all(), $validationRules, [
-                    'nomor_kartu.required' => 'Nomor kartu wajib diisi untuk kategori Magang',
-                    'nomor_kartu.unique' => 'Nomor kartu sudah digunakan',
-                    'sampai_tanggal.after' => 'Sampai tanggal harus setelah masa berlaku',
-                ]);
-                
-                if ($validator->fails()) {
-                    return back()->withErrors($validator)->withInput();
-                }
-            }
-            
-            DB::beginTransaction();
-            
-            try {
-                // UPDATE NOMOR KARTU UNTUK MAGANG & MAGANG_EXTEND
-                if (in_array($item->kategori, ['magang', 'magang_extend'])) {
-                    $item->nomor_kartu = $req->nomor_kartu;
-                    
-                    // Update tanggal jika diinput
-                    if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
-                        $item->sampai_tanggal = $req->sampai_tanggal;
-                    }
-                }
-                
-                $item->status = 'approved';
-                $item->approved_by = Auth::id();
-                $item->approved_at = now();
-                $item->rejected_by = null;
-                $item->rejected_at = null;
-                $item->rejection_reason = null;
-                $item->updated_at = now();
-                
-                $item->save();
-                
-                // Log activity dengan detail nomor kartu
-                $logNotes = 'Request ID Card disetujui';
-                if (in_array($item->kategori, ['magang', 'magang_extend'])) {
-                    $logNotes .= ' - Nomor Kartu: ' . $req->nomor_kartu;
-                }
-                
-                DB::table('request_idcard_logs')->insert([
-                    'request_id' => $id,
-                    'action' => 'approved',
-                    'action_by' => Auth::id(),
-                    'notes' => $logNotes,
-                    'created_at' => now()
-                ]);
-                
-                DB::commit();
-                
-                return back()->with('success', 'Request telah disetujui.');
-                
-            } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error("Error approving: " . $e->getMessage());
-                return back()->with('error', 'Gagal menyetujui: ' . $e->getMessage());
-            }
-            
-        } catch (\Exception $e) {
-            \Log::error('Error in approve method: ' . $e->getMessage());
-            return back()->with('error', 'Error: ' . $e->getMessage());
-        }
-    }
 
-    public function reject(Request $req, $id) {
-        // VALIDASI AKSES
-        if (!$this->canProcessIDCard()) {
-            return back()->with('error', 'Anda tidak memiliki akses untuk melakukan penolakan!');
+        $item = RequestIdCard::findOrFail($id);
+        if ($item->status != 'pending') {
+            return back()->with('error', 'Request sudah diproses.');
         }
-        
-        try {
-            $item = RequestIdCard::findOrFail($id);
-            
-            if ($item->status != 'pending') {
-                return back()->with('error', 'Request sudah diproses.');
+
+        if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+            $rules = [];
+            if ($item->kategori === 'magang') {
+                $rules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu,' . $id;
+            } else {
+                $rules['nomor_kartu'] = 'required|string|max:50';
             }
-            
-            $validator = Validator::make($req->all(), [
-                'rejection_reason' => 'required|string|min:5|max:500'
-            ], [
-                'rejection_reason.required' => 'Alasan penolakan wajib diisi',
-                'rejection_reason.min' => 'Alasan minimal 5 karakter',
-                'rejection_reason.max' => 'Alasan maksimal 500 karakter'
-            ]);
-            
+            if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
+                $rules['sampai_tanggal'] = 'date|after:masa_berlaku';
+            }
+            $validator = Validator::make($req->all(), $rules);
             if ($validator->fails()) {
                 return back()->withErrors($validator)->withInput();
             }
-            
-            DB::beginTransaction();
-            
-            try {
-                $item->status = 'rejected';
-                $item->rejection_reason = $req->rejection_reason;
-                $item->rejected_by = Auth::id();
-                $item->rejected_at = now();
-                $item->approved_by = null;
-                $item->approved_at = null;
-                $item->updated_at = now();
-                
-                $item->save();
-                
-                // Log activity
-                DB::table('request_idcard_logs')->insert([
-                    'request_id' => $id,
-                    'action' => 'rejected',
-                    'action_by' => Auth::id(),
-                    'notes' => 'Request ID Card ditolak: ' . $req->rejection_reason,
-                    'created_at' => now()
-                ]);
-                
-                DB::commit();
-                
-                return back()->with('error', 'Request telah ditolak.');
-                
-            } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error("Error rejecting: " . $e->getMessage());
-                return back()->with('error', 'Gagal menolak: ' . $e->getMessage());
+        }
+
+        DB::beginTransaction();
+        try {
+            if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+                $item->nomor_kartu = $req->nomor_kartu;
+                if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
+                    $item->sampai_tanggal = $req->sampai_tanggal;
+                }
             }
-            
+            $item->status = 'approved';
+            $item->approved_by = Auth::id();
+            $item->approved_at = now();
+            $item->rejected_by = null;
+            $item->rejected_at = null;
+            $item->rejection_reason = null;
+            $item->save();
+
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $id,
+                'action' => 'approved',
+                'action_by' => Auth::id(),
+                'notes' => 'Request ID Card disetujui',
+                'created_at' => now()
+            ]);
+            DB::commit();
+            return back()->with('success', 'Request telah disetujui.');
         } catch (\Exception $e) {
-            \Log::error('Error in reject method: ' . $e->getMessage());
-            return back()->with('error', 'Error: ' . $e->getMessage());
+            DB::rollBack();
+            return back()->with('error', 'Gagal menyetujui: ' . $e->getMessage());
         }
     }
-    
-    // Method untuk menampilkan logs (opsional)
-    public function logs($id) {
-        $logs = DB::table('request_idcard_logs')
-            ->select('request_idcard_logs.*', 'users.name as action_by_name')
-            ->leftJoin('users', 'request_idcard_logs.action_by', '=', 'users.id')
-            ->where('request_idcard_logs.request_id', $id)
-            ->orderBy('request_idcard_logs.created_at', 'desc')
-            ->get();
-            
-        return response()->json($logs);
+
+    // ==================== REJECT ====================
+    public function reject(Request $req, $id)
+    {
+        if (!$this->canProcessIDCard()) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk melakukan penolakan!');
+        }
+
+        $item = RequestIdCard::findOrFail($id);
+        if ($item->status != 'pending') {
+            return back()->with('error', 'Request sudah diproses.');
+        }
+
+        $validator = Validator::make($req->all(), [
+            'rejection_reason' => 'required|string|min:5|max:500'
+        ]);
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        DB::beginTransaction();
+        try {
+            $item->status = 'rejected';
+            $item->rejection_reason = $req->rejection_reason;
+            $item->rejected_by = Auth::id();
+            $item->rejected_at = now();
+            $item->approved_by = null;
+            $item->approved_at = null;
+            $item->save();
+
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $id,
+                'action' => 'rejected',
+                'action_by' => Auth::id(),
+                'notes' => 'Request ID Card ditolak: ' . $req->rejection_reason,
+                'created_at' => now()
+            ]);
+            DB::commit();
+            return back()->with('error', 'Request telah ditolak.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menolak: ' . $e->getMessage());
+        }
     }
 }
