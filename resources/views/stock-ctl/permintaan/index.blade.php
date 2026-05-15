@@ -5,7 +5,7 @@
     {{-- HEADER --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-2 sm:px-0">
         <div>
-            <h2 class="text-lg sm:text-xl font-semibold text-gray-800">E-Stationery</h2>
+            <h2 class="text-lg sm:text-xl font-semibold text-gray-800">Request</h2>
             <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                 Personal Requests
             </span>
@@ -155,7 +155,7 @@
 {{-- MODAL CREATE dengan Autocomplete Barang --}}
 <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
     <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h3 class="text-base sm:text-lg font-semibold mb-4">Supplies Request (Max 5 Item)</h3>
+        <h3 class="text-base sm:text-lg font-semibold mb-4">New Request (Max 5 Item)</h3>
         <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
             @csrf
             {{-- Data barang disediakan di level form agar semua item bisa mengakses --}}

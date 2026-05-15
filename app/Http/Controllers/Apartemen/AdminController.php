@@ -33,21 +33,18 @@ class AdminController extends Controller
             'penghuni_aktif' => ApartemenPenghuni::where('status', 'AKTIF')->count(),
         ];
 
-        // Permintaan pending terbaru
         $pendingRequests = ApartemenRequest::with(['user', 'penghuni'])
             ->where('status', 'PENDING')
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
 
-        // Penghuni yang akan selesai dalam 7 hari
         $upcomingCheckouts = ApartemenAssign::with(['unit.apartemen', 'penghuni'])
             ->where('status', 'AKTIF')
             ->whereBetween('tanggal_selesai', [now(), now()->addDays(7)])
             ->orderBy('tanggal_selesai')
             ->get();
 
-        // Unit dalam maintenance
         $maintenanceUnits = ApartemenUnit::with('apartemen')
             ->where('status', 'MAINTENANCE')
             ->get();
@@ -62,7 +59,6 @@ class AdminController extends Controller
 
     public function calendarEvents()
     {
-        // Events untuk penempatan unit (apartemen)
         $assignments = ApartemenAssign::with('unit.apartemen')
             ->where('status', 'AKTIF')
             ->get();
@@ -73,8 +69,8 @@ class AdminController extends Controller
             $events[] = [
                 'title' => "Unit {$assign->unit->nomor_unit} ({$assign->unit->apartemen->nama_apartemen})",
                 'start' => $assign->tanggal_mulai->toDateString(),
-                'end'   => $assign->tanggal_selesai->addDay()->toDateString(), // end exclusive
-                'color' => '#3b82f6', // blue
+                'end'   => $assign->tanggal_selesai->addDay()->toDateString(),
+                'color' => '#3b82f6',
                 'extendedProps' => [
                     'type' => 'unit',
                     'unit_id' => $assign->unit_id,
@@ -83,7 +79,6 @@ class AdminController extends Controller
             ];
         }
 
-        // Events untuk booking fasilitas yang sudah disetujui atau check-in
         $bookings = FasilitasBooking::with('fasilitas', 'user')
             ->whereIn('status', ['APPROVED', 'CHECKED_IN'])
             ->get();
@@ -93,7 +88,7 @@ class AdminController extends Controller
                 'title' => "{$booking->fasilitas->nama_fasilitas} ({$booking->user->name})",
                 'start' => "{$booking->tanggal_booking->toDateString()}T{$booking->jam_mulai}",
                 'end'   => "{$booking->tanggal_booking->toDateString()}T{$booking->jam_selesai}",
-                'color' => '#10b981', // green
+                'color' => '#10b981',
                 'extendedProps' => [
                     'type' => 'facility',
                     'booking_id' => $booking->id,
@@ -104,14 +99,13 @@ class AdminController extends Controller
 
         return response()->json($events);
     }
-    // INDEX - KHUSUS MENAMPILKAN DATA PENDING SAJA
+
     public function index(Request $request)
     {
         $query = ApartemenRequest::with(['user', 'penghuni'])
             ->where('status', 'PENDING')
             ->orderBy('created_at', 'desc');
 
-        // Filter tanggal
         if ($request->filled('tanggal_mulai')) {
             $query->whereDate('created_at', '>=', $request->tanggal_mulai);
         }
@@ -120,7 +114,6 @@ class AdminController extends Controller
             $query->whereDate('created_at', '<=', $request->tanggal_selesai);
         }
 
-        // Search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -138,15 +131,12 @@ class AdminController extends Controller
         return view('apartemen.admin.index', compact('requests'));
     }
 
-    // APPROVE/REVIEW REQUEST - TAMPILKAN SEMUA UNIT NON-MAINTENANCE
     public function approve($id)
     {
         $request = ApartemenRequest::with(['penghuni', 'user'])
             ->where('status', 'PENDING')
             ->findOrFail($id);
 
-        // Tampilkan semua unit yang tidak dalam maintenance (READY atau TERISI)
-        // Unit TERISI tetap ditampilkan karena mungkin bisa digunakan untuk periode berbeda
         $availableUnits = ApartemenUnit::with('apartemen')
             ->where('status', '!=', 'MAINTENANCE')
             ->get();
@@ -154,7 +144,9 @@ class AdminController extends Controller
         return view('apartemen.admin.approve', compact('request', 'availableUnits'));
     }
 
-    // PROCESS APPROVAL - VERSI PARSIAL & PER-UNIT DATES
+    // =================================================================
+    // PROSES APPROVAL - DENGAN PENGECUALIAN OVERLAP DI HARI YANG SAMA
+    // =================================================================
     public function approveProcess(Request $request, $id)
     {
         Log::info('=== APPROVE PROCESS START ===');
@@ -170,7 +162,6 @@ class AdminController extends Controller
         DB::beginTransaction();
         try {
             if ($action === 'approve') {
-                // Validasi per unit (tanpa validasi semua penghuni harus tercover)
                 $request->validate([
                     'penempatan' => 'required|array|min:1',
                     'penempatan.*.unit_id' => 'required|exists:tb_apartemen_unit,id',
@@ -181,10 +172,6 @@ class AdminController extends Controller
 
                 Log::info('Penempatan data received:', $request->penempatan);
                 
-                // HAPUS validasi "semua penghuni harus tercover" – sekarang approval parsial diperbolehkan
-                // (blok kode yang memeriksa $selisih dihapus)
-                
-                // Validasi kapasitas unit dan cek bentrok tanggal PER UNIT
                 foreach ($request->penempatan as $item) {
                     $unit = ApartemenUnit::find($item['unit_id']);
                     $jumlahPenghuni = count($item['penghuni_ids']);
@@ -194,24 +181,40 @@ class AdminController extends Controller
                         return back()->with('error', "Unit {$unit->nomor_unit} kapasitas tidak mencukupi! (Kapasitas: {$unit->kapasitas}, Ditempatkan: {$jumlahPenghuni})");
                     }
                     
-                    // CEK BENTROK TANGGAL per unit
-                    $bentrok = ApartemenAssign::where('unit_id', $unit->id)
+                    // CEK BENTROK TANGGAL dengan pengecualian boundary
+                    $bentrok = false;
+                    $existingAssigns = ApartemenAssign::where('unit_id', $unit->id)
                         ->where('status', 'AKTIF')
-                        ->where(function($query) use ($item) {
-                            $query->whereBetween('tanggal_mulai', [$item['tanggal_mulai'], $item['tanggal_selesai']])
-                                  ->orWhereBetween('tanggal_selesai', [$item['tanggal_mulai'], $item['tanggal_selesai']])
-                                  ->orWhere(function($q) use ($item) {
-                                      $q->where('tanggal_mulai', '<=', $item['tanggal_mulai'])
-                                        ->where('tanggal_selesai', '>=', $item['tanggal_selesai']);
-                                  });
-                        })
-                        ->exists();
+                        ->get();
+                    
+                    foreach ($existingAssigns as $existing) {
+                        $newStart = $item['tanggal_mulai'];
+                        $newEnd   = $item['tanggal_selesai'];
+                        $existStart = $existing->tanggal_mulai->toDateString();
+                        $existEnd   = $existing->tanggal_selesai->toDateString();
+
+                        // Cek overlap normal
+                        $overlap = ($newStart <= $existEnd && $newEnd >= $existStart);
+
+                        if ($overlap) {
+                            // PENGECUALIAN: jika hanya bersinggungan di satu tanggal (boundary)
+                            $isBoundaryMatch = ($newEnd == $existStart) || ($newStart == $existEnd);
+                            if ($isBoundaryMatch) {
+                                // Diizinkan karena bisa diatur jam (check-out 12:00, check-in 14:00)
+                                Log::info("Boundary overlap diizinkan untuk unit {$unit->nomor_unit}: baru {$newStart}-{$newEnd}, existing {$existStart}-{$existEnd}");
+                                continue;
+                            } else {
+                                $bentrok = true;
+                                break;
+                            }
+                        }
+                    }
 
                     if ($bentrok) {
                         return back()->with('error', "Unit {$unit->nomor_unit} sudah ditempati pada periode {$item['tanggal_mulai']} s/d {$item['tanggal_selesai']}!");
                     }
                     
-                    // Unit status tetap perlu dicek untuk memastikan tidak maintenance
+                    // Unit status tetap dicek (tidak boleh maintenance)
                     if ($unit->status == 'MAINTENANCE') {
                         return back()->with('error', "Unit {$unit->nomor_unit} sedang dalam maintenance!");
                     }
@@ -231,7 +234,7 @@ class AdminController extends Controller
                     // Update status unit menjadi TERISI
                     $unit->update(['status' => 'TERISI']);
                     
-                    // Buat assign untuk unit ini (menggunakan tanggal dari item)
+                    // Buat assign untuk unit ini
                     $assign = ApartemenAssign::create([
                         'request_id' => $apartemenRequest->id,
                         'unit_id' => $unit->id,
@@ -243,7 +246,6 @@ class AdminController extends Controller
                     
                     // Buat penghuni untuk setiap ID yang dipilih
                     foreach ($item['penghuni_ids'] as $penghuniId) {
-                        // Ambil data penghuni dari request
                         $reqPenghuni = $apartemenRequest->penghuni->where('id', $penghuniId)->first();
                         
                         if ($reqPenghuni) {
@@ -264,7 +266,6 @@ class AdminController extends Controller
                 
                 DB::commit();
 
-                // Hitung jumlah yang ditempatkan untuk pesan sukses
                 $totalPenghuni = $apartemenRequest->penghuni->count();
                 $jumlahDitempatkan = collect($request->penempatan)->sum(fn($item) => count($item['penghuni_ids']));
                 $pesan = "Permintaan berhasil disetujui. $jumlahDitempatkan dari $totalPenghuni penghuni telah ditempatkan.";
@@ -273,12 +274,10 @@ class AdminController extends Controller
                     ->with('success', $pesan);
                 
             } elseif ($action === 'reject') {
-                // Validasi untuk reject
                 $request->validate([
                     'reject_reason' => 'required|string|min:5|max:500'
                 ]);
 
-                // Reject request
                 $apartemenRequest->update([
                     'status' => 'REJECTED',
                     'reject_reason' => $request->reject_reason,
@@ -301,9 +300,7 @@ class AdminController extends Controller
         }
     }
 
-    /**
-     * CHECK-IN PENGHUNI
-     */
+    // CHECK-IN PENGHUNI
     public function checkin($id)
     {
         try {
@@ -311,7 +308,6 @@ class AdminController extends Controller
             
             DB::beginTransaction();
             
-            // Ambil data penghuni dengan assign
             $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen'])
                 ->where('id', $id)
                 ->where('status', 'AKTIF')
@@ -320,34 +316,28 @@ class AdminController extends Controller
             
             Log::info('Penghuni ditemukan: ' . $penghuni->nama);
             
-            // Validasi assign
             if (!$penghuni->assign) {
                 throw new \Exception('Penghuni tidak memiliki data penempatan');
             }
             
             $assign = $penghuni->assign;
             
-            // Validasi status assign
             if ($assign->status != 'AKTIF') {
                 throw new \Exception('Penempatan tidak aktif');
             }
             
-            // Validasi apakah sudah check-in
             if ($assign->checkin_at) {
                 throw new \Exception('Penghuni sudah melakukan check-in pada ' . $assign->checkin_at->format('d/m/Y H:i'));
             }
             
-            // Validasi tanggal mulai
             if ($assign->tanggal_mulai > now()) {
                 throw new \Exception('Belum waktunya check-in. Tanggal mulai: ' . $assign->tanggal_mulai->format('d/m/Y'));
             }
             
-            // Update checkin_at
             $assign->update([
                 'checkin_at' => now()
             ]);
             
-            // Catat history
             ApartemenHistory::create([
                 'nama' => $penghuni->nama,
                 'id_karyawan' => $penghuni->id_karyawan,
@@ -384,7 +374,6 @@ class AdminController extends Controller
         $query = ApartemenPenghuni::with(['assign.unit.apartemen'])
             ->where('status', 'AKTIF');
 
-        // Filter search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -394,14 +383,12 @@ class AdminController extends Controller
             });
         }
 
-        // Filter apartemen
         if ($request->filled('apartemen_id')) {
             $query->whereHas('assign.unit', function($q) use ($request) {
                 $q->where('apartemen_id', $request->apartemen_id);
             });
         }
 
-        // Filter berdasarkan status check-in
         if ($request->filled('checkin_status')) {
             if ($request->checkin_status == 'sudah_checkin') {
                 $query->whereHas('assign', function($q) {
@@ -414,7 +401,6 @@ class AdminController extends Controller
             }
         }
 
-        // Filter berdasarkan status
         if ($request->filled('status')) {
             if ($request->status == 'belum_aktif') {
                 $query->whereHas('assign', function($q) {
@@ -432,7 +418,6 @@ class AdminController extends Controller
             }
         }
 
-        // Sort
         $sort = $request->filled('sort') ? $request->sort : 'nama_asc';
         switch ($sort) {
             case 'nama_desc':
@@ -462,7 +447,6 @@ class AdminController extends Controller
             
             DB::beginTransaction();
             
-            // 1. Cari penghuni dengan LOCK
             $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen', 'assign.penghuni'])
                 ->where('id', $id)
                 ->where('status', 'AKTIF')
@@ -478,41 +462,34 @@ class AdminController extends Controller
                 'assign_id' => $penghuni->assign_id
             ]);
             
-            // 2. Cek assign
             if (!$penghuni->assign) {
                 throw new \Exception('Penghuni tidak memiliki data penempatan');
             }
             
             $assign = $penghuni->assign;
             
-            // 3. Validasi status assign
             if ($assign->status != 'AKTIF') {
                 throw new \Exception('Status penempatan tidak aktif');
             }
             
-            // 4. Validasi apakah sudah check-in
             if (!$assign->checkin_at) {
                 throw new \Exception('Penghuni belum melakukan check-in. Tidak bisa check-out.');
             }
             
-            // 5. Hitung penghuni aktif SEBELUM checkout
             $activeBefore = $assign->penghuni()
                 ->where('status', 'AKTIF')
                 ->count();
             
             Log::info('Active penghuni before checkout', ['count' => $activeBefore]);
             
-            // 6. Update status penghuni
             $penghuni->update(['status' => 'SELESAI']);
             
-            // 7. Hitung penghuni aktif SETELAH checkout
             $activeAfter = $assign->penghuni()
                 ->where('status', 'AKTIF')
                 ->count();
             
             Log::info('Active penghuni after checkout', ['count' => $activeAfter]);
             
-            // 8. Jika ini penghuni TERAKHIR, update assign ke SELESAI dan unit ke READY
             if ($activeAfter == 0) {
                 Log::info('Last penghuni, updating assign and unit');
                 
@@ -524,7 +501,6 @@ class AdminController extends Controller
                 }
             }
             
-            // 9. Catat history dengan nilai ENUM yang valid
             $historyData = [
                 'nama' => $penghuni->nama,
                 'id_karyawan' => $penghuni->id_karyawan,
@@ -568,7 +544,6 @@ class AdminController extends Controller
     {
         $query = ApartemenHistory::orderBy('created_at', 'desc');
 
-        // Filter tanggal
         if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
             $query->whereBetween('created_at', [
                 $request->tanggal_mulai,
@@ -576,12 +551,10 @@ class AdminController extends Controller
             ]);
         }
 
-        // Filter status
         if ($request->filled('status_selesai')) {
             $query->where('status_selesai', $request->status_selesai);
         }
 
-        // Tambahkan search filter
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -616,10 +589,8 @@ class AdminController extends Controller
         return view('apartemen.admin.apartemen', compact('apartemen'));
     }
 
-    // APARTEMEN DETAIL
     public function apartemenDetail($id, Request $request)
     {
-        // Load apartemen dengan count unit berdasarkan status
         $apartemen = Apartemen::withCount([
             'units as units_count',
             'units as units_ready' => function ($query) {
@@ -633,18 +604,15 @@ class AdminController extends Controller
             }
         ])->findOrFail($id);
 
-        // Query units dengan pencarian
         $unitsQuery = ApartemenUnit::where('apartemen_id', $id)
             ->withCount(['assigns as active_assignments' => function($q) {
                 $q->where('status', 'AKTIF');
             }]);
 
-        // Filter search jika ada
         if ($request->filled('search')) {
             $unitsQuery->where('nomor_unit', 'like', '%' . $request->search . '%');
         }
 
-        // Filter status jika ada
         if ($request->filled('status')) {
             $unitsQuery->where('status', $request->status);
         }
@@ -654,7 +622,6 @@ class AdminController extends Controller
         return view('apartemen.admin.apartemen-detail', compact('apartemen', 'units'));
     }
 
-    // DETAIL REQUEST
     public function detail($id)
     {
         $request = ApartemenRequest::with([
@@ -662,7 +629,6 @@ class AdminController extends Controller
             'penghuni'
         ])->findOrFail($id);
 
-        // Jika sudah di-approve, ambil unit yang ditempati
         $units = collect();
         if ($request->status == 'APPROVED') {
             $units = ApartemenAssign::where('request_id', $request->id)
@@ -675,7 +641,6 @@ class AdminController extends Controller
         return view('apartemen.admin.detail', compact('request', 'units'));
     }
     
-    // STORE APARTEMEN
     public function storeApartemen(Request $request)
     {
         try {
@@ -701,7 +666,6 @@ class AdminController extends Controller
         }
     }
 
-    // STORE UNIT
     public function storeUnit(Request $request)
     {
         try {
@@ -712,7 +676,6 @@ class AdminController extends Controller
                 'status' => 'required|in:READY,MAINTENANCE'
             ]);
 
-            // Cek nomor unit duplikat dalam apartemen yang sama
             $existingUnit = ApartemenUnit::where('apartemen_id', $validated['apartemen_id'])
                 ->where('nomor_unit', $validated['nomor_unit'])
                 ->first();
@@ -734,7 +697,6 @@ class AdminController extends Controller
         }
     }
 
-    // DELETE UNIT
     public function deleteUnit(Request $request)
     {
         try {
@@ -751,7 +713,6 @@ class AdminController extends Controller
                 ], 404);
             }
             
-            // Cek apakah unit sedang digunakan
             if ($unit->status == 'TERISI') {
                 return response()->json([
                     'success' => false,
@@ -776,7 +737,6 @@ class AdminController extends Controller
         }
     }
 
-    // SET MAINTENANCE
     public function setMaintenance(Request $request)
     {
         try {
@@ -795,7 +755,6 @@ class AdminController extends Controller
                 ], 404);
             }
 
-            // Cek jika unit sedang terisi, tidak bisa diubah ke maintenance
             if ($validated['status'] == 'MAINTENANCE' && $unit->status == 'TERISI') {
                 return response()->json([
                     'success' => false,
@@ -824,13 +783,10 @@ class AdminController extends Controller
     }
 
     // REPORT
-// REPORT
-public function report(Request $request)
+    public function report(Request $request)
     {
-        // Query untuk mengambil data history (sama seperti method history)
         $query = ApartemenHistory::orderBy('created_at', 'desc');
 
-        // Filter tanggal
         if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
             $query->whereBetween('created_at', [
                 $request->tanggal_mulai,
@@ -838,12 +794,10 @@ public function report(Request $request)
             ]);
         }
 
-        // Filter status
         if ($request->filled('status_selesai')) {
             $query->where('status_selesai', $request->status_selesai);
         }
 
-        // Search filter
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -856,7 +810,6 @@ public function report(Request $request)
 
         $histories = $query->paginate(10);
 
-        // Kirim data ke view report
         return view('apartemen.admin.report', compact('histories'));
     }
 

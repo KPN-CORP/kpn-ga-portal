@@ -11,7 +11,8 @@ use App\Notifications\RequestApprovedAdminNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\AdminHistoryExport;
 
 class AppAdminController extends Controller
 {
@@ -87,14 +88,24 @@ class AppAdminController extends Controller
     }
 
     /**
-     * Export data history ke CSV berdasarkan filter yang sedang aktif.
+     * Export data history ke Excel (.xlsx) hanya jika ada filter yang aktif.
      */
     public function export(Request $request)
     {
         $user = Auth::user();
         $profile = $user->drmsProfile;
 
-        // Bangun query sama seperti di index (tanpa pagination)
+        // Cek apakah ada filter yang aktif
+        $hasFilter = $request->filled('search') 
+            || $request->filled('status') 
+            || $request->filled('date_from') 
+            || $request->filled('date_to');
+
+        if (!$hasFilter) {
+            return redirect()->back()->withErrors('Harap terapkan filter terlebih dahulu sebelum download laporan.');
+        }
+
+        // Bangun query export sama seperti di index
         $exportQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher']);
 
         if ($user->isDrmsSuperAdmin()) {
@@ -131,69 +142,14 @@ class AppAdminController extends Controller
             $exportQuery->whereDate('usage_date', '<=', $request->date_to);
         }
 
-        $requests = $exportQuery->latest()->get();
-
-        // Buat CSV
-        $filename = 'laporan_approval_admin_' . date('Ymd_His') . '.csv';
-        $handle = fopen('php://temp', 'w+');
-
-        // Header CSV
-        fputcsv($handle, [
-            'No. Request',
-            'Pemohon',
-            'Tanggal Penggunaan',
-            'Jam Mulai',
-            'Jam Selesai',
-            'Tipe Perjalanan',
-            'Tanggal Kembali',
-            'Lokasi Jemput',
-            'Tujuan',
-            'Keperluan',
-            'Jenis Transportasi',
-            'Driver',
-            'Kendaraan',
-            'Voucher',
-            'Status',
-            'Disetujui Atasan (Tanggal)',
-            'Diproses GA (Tanggal)',
-            'Alasan Penolakan'
-        ]);
-
-        foreach ($requests as $req) {
-            fputcsv($handle, [
-                $req->request_no,
-                $req->requester->name ?? '-',
-                $req->usage_date ? $req->usage_date->format('d-m-Y') : '-',
-                $req->start_time,
-                $req->end_time,
-                $req->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan',
-                $req->return_date ? $req->return_date->format('d-m-Y') : '-',
-                $req->pickup_location,
-                $req->destination,
-                $req->purpose,
-                $req->transport_type ? ucfirst(str_replace('_', ' ', $req->transport_type)) : '-',
-                $req->driver->name ?? '-',
-                $req->vehicle->plate_number ?? '-',
-                $req->voucher->code ?? '-',
-                $req->status === 'approved_admin' ? 'Disetujui' : ($req->status === 'rejected_admin' ? 'Ditolak' : 'Selesai'),
-                $req->approved_l1_at ? $req->approved_l1_at->format('d-m-Y H:i') : '-',
-                $req->approved_admin_at ? $req->approved_admin_at->format('d-m-Y H:i') : '-',
-                $req->rejection_reason ?? '-'
-            ]);
-        }
-
-        rewind($handle);
-        $csvContent = stream_get_contents($handle);
-        fclose($handle);
-
-        return Response::make($csvContent, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ]);
+        // Export ke Excel
+        $filename = 'laporan_approval_admin_' . date('Ymd_His') . '.xlsx';
+        return Excel::download(new AdminHistoryExport($exportQuery), $filename);
     }
 
     /**
      * Menampilkan form proses approval admin.
+     * Driver dan kendaraan yang sedang on_trip/in_use tetapi tidak bentrok jadwal akan ditampilkan.
      */
     public function edit($id)
     {
@@ -211,19 +167,57 @@ class AppAdminController extends Controller
             }
         }
 
-        if ($user->isDrmsSuperAdmin()) {
-            $drivers = Driver::where('status', 'available')->get();
-            $vehicles = Vehicle::where('status', 'available')->get();
-        } else {
-            $drivers = Driver::where('business_unit_id', $user->drmsProfile->business_unit_id)
-                ->where('status', 'available')
-                ->get();
-            $vehicles = Vehicle::where('business_unit_id', $user->drmsProfile->business_unit_id)
-                ->where('status', 'available')
-                ->get();
-        }
+        $businessUnitId = $user->drmsProfile->business_unit_id;
 
-        $vouchers = Voucher::where('business_unit_id', $user->drmsProfile->business_unit_id)
+        // Driver: available atau on_trip yang tidak bentrok
+        $drivers = Driver::where('business_unit_id', $businessUnitId)
+            ->where(function ($q) use ($driverRequest) {
+                $q->where('status', 'available')
+                  ->orWhere(function ($sub) use ($driverRequest) {
+                      $sub->where('status', 'on_trip')
+                          ->whereNotExists(function ($exists) use ($driverRequest) {
+                              $exists->select(DB::raw(1))
+                                  ->from('drms_requests')
+                                  ->whereColumn('drms_requests.driver_id', 'drms_drivers.id')
+                                  ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
+                                  ->where('drms_requests.id', '!=', $driverRequest->id)
+                                  ->whereRaw("
+                                      CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
+                                      AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
+                                  ", [
+                                      $driverRequest->return_date . ' ' . $driverRequest->end_time,
+                                      $driverRequest->usage_date . ' ' . $driverRequest->start_time
+                                  ]);
+                          });
+                  });
+            })
+            ->get();
+
+        // Kendaraan: available atau in_use yang tidak bentrok
+        $vehicles = Vehicle::where('business_unit_id', $businessUnitId)
+            ->where(function ($q) use ($driverRequest) {
+                $q->where('status', 'available')
+                  ->orWhere(function ($sub) use ($driverRequest) {
+                      $sub->where('status', 'in_use')
+                          ->whereNotExists(function ($exists) use ($driverRequest) {
+                              $exists->select(DB::raw(1))
+                                  ->from('drms_requests')
+                                  ->whereColumn('drms_requests.vehicle_id', 'drms_vehicles.id')
+                                  ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
+                                  ->where('drms_requests.id', '!=', $driverRequest->id)
+                                  ->whereRaw("
+                                      CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
+                                      AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
+                                  ", [
+                                      $driverRequest->return_date . ' ' . $driverRequest->end_time,
+                                      $driverRequest->usage_date . ' ' . $driverRequest->start_time
+                                  ]);
+                          });
+                  });
+            })
+            ->get();
+
+        $vouchers = Voucher::where('business_unit_id', $businessUnitId)
             ->where('status', 'available')
             ->get();
 
@@ -320,6 +314,7 @@ class AppAdminController extends Controller
                 'rejection_reason'  => $data['keterangan'] ?? null,
             ]);
 
+            // Update status lama
             if ($oldDriverId && $oldDriverId != ($data['driver_id'] ?? null)) {
                 Driver::where('id', $oldDriverId)->update(['status' => 'available']);
             }
@@ -330,6 +325,7 @@ class AppAdminController extends Controller
                 Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
             }
 
+            // Update status baru
             if (!empty($data['driver_id'])) {
                 Driver::where('id', $data['driver_id'])->update(['status' => 'on_trip']);
             }
@@ -340,6 +336,7 @@ class AppAdminController extends Controller
                 Voucher::where('id', $data['voucher_id'])->update(['status' => 'used']);
             }
 
+            // Kirim notifikasi ke pemohon
             $driverRequest->requester->notify(new RequestApprovedAdminNotification($driverRequest));
 
             DB::commit();

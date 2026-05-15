@@ -9,6 +9,7 @@ use Carbon\Carbon;
 class DriverRequest extends Model
 {
     protected $table = 'drms_requests';
+    
     protected $fillable = [
         'request_no', 'requester_id', 'approver_l1_id', 'admin_id',
         'driver_id', 'vehicle_id', 'voucher_id',
@@ -60,6 +61,10 @@ class DriverRequest extends Model
         return $this->belongsTo(Voucher::class, 'voucher_id');
     }
 
+    /**
+     * Scope untuk menampilkan request yang menunggu approval admin
+     * berdasarkan business unit dan area.
+     */
     public function scopePendingAdmin($query, $businessUnitId, $area = null)
     {
         $query->where('status', 'approved_l1')
@@ -74,7 +79,8 @@ class DriverRequest extends Model
     }
 
     /**
-     * Cek tumpang tindih untuk driver/kendaraan pada rentang waktu tertentu.
+     * Cek tumpang tindih (overlap) untuk driver atau kendaraan pada rentang waktu tertentu.
+     * Digunakan saat admin akan menyetujui request untuk memastikan tidak ada double booking.
      *
      * @param  string  $column      'driver_id' atau 'vehicle_id'
      * @param  int     $id          ID driver/kendaraan
@@ -82,7 +88,8 @@ class DriverRequest extends Model
      * @param  string  $startTime   H:i:s
      * @param  string  $endDate     Y-m-d
      * @param  string  $endTime     H:i:s
-     * @param  int|null $excludeId  ID request yang dikecualikan
+     * @param  int|null $excludeId  ID request yang dikecualikan (untuk edit)
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeOverlappingPeriod($query, $column, $id, $startDate, $startTime, $endDate, $endTime, $excludeId = null)
     {
@@ -90,7 +97,6 @@ class DriverRequest extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        // Gabungkan tanggal + jam agar bisa dibandingkan langsung
         $start = $startDate . ' ' . $startTime;
         $end   = $endDate . ' ' . $endTime;
 

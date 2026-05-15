@@ -128,14 +128,14 @@
         {{-- Upcoming Checkouts --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Check-out Mendatang (7 hari)</h3>
+                <h3 class="text-lg font-semibold text-gray-800">Info Mendatang (7 hari)</h3>
             </div>
             <div class="p-4">
                 @if($upcomingCheckouts->count() > 0)
                     <div class="space-y-3">
                         @foreach($upcomingCheckouts as $assign)
                         @php
-                            $hari = now()->diffInDays($assign->tanggal_selesai, false);
+                            $hari = ceil(now()->diffInDays($assign->tanggal_selesai, false));
                             $warna = $hari <= 2 ? 'text-red-600' : ($hari <= 5 ? 'text-orange-600' : 'text-yellow-600');
                         @endphp
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
