@@ -24,18 +24,19 @@
                             <th class="px-4 py-2 text-left">Waktu</th>
                             <th class="px-4 py-2 text-left">Tujuan</th>
                             <th class="px-4 py-2 text-left">Pemohon</th>
+                            <th class="px-4 py-2 text-left">BU Pemohon</th> <!-- Added -->
                             <th class="px-4 py-2 text-left">Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($driverRequests as $req)
                             @php
-                                // Gabungkan tanggal dan jam dengan aman
                                 $start = \Carbon\Carbon::parse($req->usage_date->format('Y-m-d') . ' ' . $req->start_time);
                                 $end = $req->end_time ? \Carbon\Carbon::parse($req->usage_date->format('Y-m-d') . ' ' . $req->end_time) : null;
                                 $now = now();
+                                $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
 
-                                // Tentukan status dinamis
+                                // Determine status
                                 if ($req->status == 'completed') {
                                     $statusText = 'Selesai';
                                     $statusColor = 'bg-gray-500';
@@ -50,7 +51,6 @@
                                         $statusText = 'Selesai (Belum Diupdate)';
                                         $statusColor = 'bg-yellow-500';
                                     } else {
-                                        // Jika tidak ada end_time, asumsikan perjalanan 2 jam setelah start
                                         $estimatedEnd = $start->copy()->addHours(2);
                                         if ($now->between($start, $estimatedEnd)) {
                                             $statusText = 'Dalam Perjalanan';
@@ -67,13 +67,14 @@
                             @endphp
                             <tr class="border-t">
                                 <td class="px-4 py-2">
-                                {{ $start->format('H:i') }}
-                                @if($req->end_time)
-                                    - {{ \Carbon\Carbon::parse($req->end_time)->format('H:i') }}
-                                @endif
-                            </td>
+                                    {{ $start->format('H:i') }}
+                                    @if($req->end_time)
+                                        - {{ \Carbon\Carbon::parse($req->end_time)->format('H:i') }}
+                                    @endif
+                                </td>
                                 <td class="px-4 py-2">{{ $req->destination }}</td>
                                 <td class="px-4 py-2">{{ $req->requester->name }}</td>
+                                <td class="px-4 py-2">{{ $buPemohon }}</td>
                                 <td class="px-4 py-2">
                                     <span class="text-white text-xs px-2 py-1 rounded {{ $statusColor }}">
                                         {{ $statusText }}

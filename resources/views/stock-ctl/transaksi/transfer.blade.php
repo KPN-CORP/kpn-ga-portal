@@ -29,7 +29,7 @@
                     <option value="">-- Pilih Area Asal --</option>
                     @foreach($areas as $area)
                         <option value="{{ $area->id_area_kerja }}" {{ old('id_area_asal') == $area->id_area_kerja ? 'selected' : '' }}>
-                            {{ $area->nama_area }}
+                            {{ $area->nama_area }} ({{ $area->bisnisUnit->nama_bisnis_unit ?? '-' }})
                         </option>
                     @endforeach
                 </select>
@@ -42,7 +42,7 @@
                     <option value="">-- Pilih Area Tujuan --</option>
                     @foreach($areas as $area)
                         <option value="{{ $area->id_area_kerja }}" {{ old('id_area_tujuan') == $area->id_area_kerja ? 'selected' : '' }}>
-                            {{ $area->nama_area }}
+                            {{ $area->nama_area }} ({{ $area->bisnisUnit->nama_bisnis_unit ?? '-' }})
                         </option>
                     @endforeach
                 </select>
@@ -89,7 +89,6 @@
 </div>
 
 <script>
-    // Fungsi untuk mengambil stok via AJAX
     function fetchStok() {
         const idBarang = document.getElementById('id_barang').value;
         const idAreaAsal = document.getElementById('id_area_asal').value;
@@ -101,14 +100,12 @@
             return;
         }
 
-        // Tampilkan loading
         stokSpan.innerText = 'Loading...';
 
         fetch(`{{ route('stock-ctl.cek-stok') }}?id_barang=${idBarang}&id_area=${idAreaAsal}`)
             .then(response => response.json())
             .then(data => {
                 stokSpan.innerText = data.stok;
-                // Validasi client-side
                 if (jumlahInput.value && parseFloat(jumlahInput.value) > data.stok) {
                     jumlahInput.setCustomValidity('Jumlah melebihi stok tersedia');
                 } else {
@@ -121,14 +118,10 @@
             });
     }
 
-    // Event listener saat dropdown berubah
     document.getElementById('id_barang').addEventListener('change', fetchStok);
     document.getElementById('id_area_asal').addEventListener('change', fetchStok);
-
-    // Saat halaman dimuat, jalankan fetch jika ada old value terpilih
     document.addEventListener('DOMContentLoaded', fetchStok);
 
-    // Validasi realtime saat jumlah diubah
     document.getElementById('jumlah').addEventListener('input', function() {
         const stokTersedia = parseFloat(document.getElementById('stok_tersedia').innerText);
         if (!isNaN(stokTersedia) && this.value && parseFloat(this.value) > stokTersedia) {

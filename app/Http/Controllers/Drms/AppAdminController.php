@@ -7,10 +7,14 @@ use App\Models\Drms\Driver;
 use App\Models\Drms\DriverRequest;
 use App\Models\Drms\Vehicle;
 use App\Models\Drms\Voucher;
+use App\Models\BisnisUnit;
+use App\Models\User;  // <-- IMPORTANT: tambahkan ini
 use App\Notifications\RequestApprovedAdminNotification;
+use App\Notifications\RequestForwardedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\AdminHistoryExport;
 
@@ -34,13 +38,13 @@ class AppAdminController extends Controller
 
         // ------------------- PENDING REQUESTS -------------------
         if ($user->isDrmsSuperAdmin()) {
-            $pendingRequests = DriverRequest::with('requester')
+            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit')
                 ->where('status', 'approved_l1')
                 ->latest()
                 ->get();
         } else {
-            $pendingRequests = DriverRequest::with('requester')
-                ->pendingAdmin($businessUnitId, $area)
+            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit')
+                ->pendingForAdmin($businessUnitId, $area)
                 ->latest()
                 ->get();
         }
@@ -84,7 +88,10 @@ class AppAdminController extends Controller
 
         $historyRequests = $historyQuery->latest()->paginate(10)->appends($request->query());
 
-        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests'));
+        // Ambil semua business unit untuk dropdown forward modal
+        $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
+
+        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits'));
     }
 
     /**
@@ -157,17 +164,11 @@ class AppAdminController extends Controller
         $user = Auth::user();
 
         if (!$user->isDrmsSuperAdmin()) {
-            $requesterProfile = $driverRequest->requester->drmsProfile;
-            $adminProfile = $user->drmsProfile;
-
-            if (!$adminProfile ||
-                $requesterProfile->business_unit_id != $adminProfile->business_unit_id ||
-                $requesterProfile->area != $adminProfile->area) {
-                abort(403);
-            }
+            $this->authorizeAdminAccess($driverRequest);
         }
 
-        $businessUnitId = $user->drmsProfile->business_unit_id;
+        // Tentukan business unit ID yang berlaku (current BU atau BU requester)
+        $businessUnitId = $driverRequest->current_business_unit_id ?? $driverRequest->requester->drmsProfile->business_unit_id;
 
         // Driver: available atau on_trip yang tidak bentrok
         $drivers = Driver::where('business_unit_id', $businessUnitId)
@@ -221,7 +222,9 @@ class AppAdminController extends Controller
             ->where('status', 'available')
             ->get();
 
-        return view('drms.approval.admin.edit', compact('driverRequest', 'drivers', 'vehicles', 'vouchers'));
+        $allBusinessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
+
+        return view('drms.approval.admin.edit', compact('driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits'));
     }
 
     /**
@@ -233,14 +236,7 @@ class AppAdminController extends Controller
         $user = Auth::user();
 
         if (!$user->isDrmsSuperAdmin()) {
-            $requesterProfile = $driverRequest->requester->drmsProfile;
-            $adminProfile = $user->drmsProfile;
-
-            if (!$adminProfile ||
-                $requesterProfile->business_unit_id != $adminProfile->business_unit_id ||
-                $requesterProfile->area != $adminProfile->area) {
-                abort(403);
-            }
+            $this->authorizeAdminAccess($driverRequest);
         }
 
         $data = $request->validate([
@@ -359,14 +355,7 @@ class AppAdminController extends Controller
         $user = Auth::user();
 
         if (!$user->isDrmsSuperAdmin()) {
-            $requesterProfile = $driverRequest->requester->drmsProfile;
-            $adminProfile = $user->drmsProfile;
-
-            if (!$adminProfile ||
-                $requesterProfile->business_unit_id != $adminProfile->business_unit_id ||
-                $requesterProfile->area != $adminProfile->area) {
-                abort(403);
-            }
+            $this->authorizeAdminAccess($driverRequest);
         }
 
         if ($driverRequest->status !== 'approved_l1') {
@@ -411,14 +400,7 @@ class AppAdminController extends Controller
         $user = Auth::user();
 
         if (!$user->isDrmsSuperAdmin()) {
-            $requesterProfile = $driverRequest->requester->drmsProfile;
-            $adminProfile = $user->drmsProfile;
-
-            if (!$adminProfile ||
-                $requesterProfile->business_unit_id != $adminProfile->business_unit_id ||
-                $requesterProfile->area != $adminProfile->area) {
-                abort(403);
-            }
+            $this->authorizeAdminAccess($driverRequest);
         }
 
         if ($driverRequest->status !== 'approved_admin') {
@@ -442,6 +424,108 @@ class AppAdminController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal menyelesaikan permintaan.');
+        }
+    }
+
+    /**
+     * Mengalihkan permintaan ke business unit lain.
+     */
+    public function forward(Request $request, $id)
+    {
+        $driverRequest = DriverRequest::findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user->isDrmsSuperAdmin()) {
+            $this->authorizeAdminAccess($driverRequest);
+        }
+
+        if ($driverRequest->status !== 'approved_l1') {
+            return back()->withErrors('Hanya permintaan dengan status approved_l1 yang bisa dialihkan.');
+        }
+
+        $request->validate([
+            'target_business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        $targetBuId = $request->target_business_unit_id;
+
+        // Cek apakah target BU memiliki admin aktif
+        $targetAdmins = User::whereHas('drmsProfile', function ($q) use ($targetBuId) {
+            $q->where('is_drms_admin', true)
+              ->where('business_unit_id', $targetBuId);
+        })->get();
+
+        if ($targetAdmins->isEmpty()) {
+            return back()->withErrors('Target Business Unit tidak memiliki admin aktif.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Simpan data lama untuk dikembalikan jika perlu
+            $oldDriverId = $driverRequest->driver_id;
+            $oldVehicleId = $driverRequest->vehicle_id;
+            $oldVoucherId = $driverRequest->voucher_id;
+
+            // Set current business unit
+            if (!$driverRequest->original_business_unit_id) {
+                $driverRequest->original_business_unit_id = $driverRequest->requester->drmsProfile->business_unit_id;
+            }
+            $driverRequest->current_business_unit_id = $targetBuId;
+            $driverRequest->forwarded_by_user_id = $user->id;
+            $driverRequest->forwarded_at = now();
+
+            // Reset data assignment karena akan diproses ulang oleh admin BU tujuan
+            $driverRequest->admin_id = null;
+            $driverRequest->driver_id = null;
+            $driverRequest->vehicle_id = null;
+            $driverRequest->voucher_id = null;
+            $driverRequest->transport_type = null;
+            $driverRequest->status = 'approved_l1';
+            $driverRequest->approved_admin_at = null;
+            $driverRequest->rejection_reason = null;
+
+            $driverRequest->save();
+
+            // Update status driver/kendaraan/voucher lama menjadi available
+            if ($oldDriverId) Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+            if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
+            if ($oldVoucherId) Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+
+            // Kirim notifikasi ke semua admin BU tujuan
+            Notification::send($targetAdmins, new RequestForwardedNotification($driverRequest, $user, $request->note));
+
+            DB::commit();
+
+            return redirect()->route('drms.approval.admin.index')
+                ->with('success', "Permintaan berhasil dialihkan ke Business Unit tujuan.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors('Gagal mengalihkan permintaan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Helper untuk mengecek apakah admin memiliki akses terhadap request tertentu.
+     * Berdasarkan current_business_unit_id atau BU requester.
+     *
+     * @param DriverRequest $driverRequest
+     * @throws \Illuminate\Auth\Access\AuthorizationException
+     */
+    private function authorizeAdminAccess(DriverRequest $driverRequest)
+    {
+        $user = Auth::user();
+        $adminProfile = $user->drmsProfile;
+
+        if (!$adminProfile) {
+            abort(403, 'Profil admin tidak ditemukan.');
+        }
+
+        $requesterBu = $driverRequest->requester->drmsProfile->business_unit_id ?? null;
+        $currentBu = $driverRequest->current_business_unit_id ?? $requesterBu;
+
+        if ($adminProfile->business_unit_id != $currentBu) {
+            abort(403, 'Anda tidak memiliki akses ke permintaan ini.');
         }
     }
 }

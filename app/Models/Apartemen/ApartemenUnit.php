@@ -12,10 +12,12 @@ class ApartemenUnit extends Model
     protected $table = 'tb_apartemen_unit';
     protected $fillable = [
         'apartemen_id',
+        'bisnis_unit_id',
         'nomor_unit',
         'kapasitas',
         'status',
-        'catatan'
+        'catatan',
+        'gambar_360'
     ];
 
     protected $casts = [
@@ -29,6 +31,12 @@ class ApartemenUnit extends Model
     public function apartemen()
     {
         return $this->belongsTo(Apartemen::class, 'apartemen_id');
+    }
+
+    // Relasi ke bisnis unit
+    public function bisnisUnit()
+    {
+        return $this->belongsTo(BisnisUnit::class, 'bisnis_unit_id', 'id_bisnis_unit');
     }
 
     // Relasi ke assigns (assignment/penempatan)

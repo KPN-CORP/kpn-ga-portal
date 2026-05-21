@@ -24,7 +24,9 @@
                     <select name="id_area" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua Area</option>
                         @foreach($areas as $area)
-                            <option value="{{ $area->id_area_kerja }}">{{ $area->nama_area }}</option>
+                            <option value="{{ $area->id_area_kerja }}">
+                                {{ $area->nama_area }} ({{ $area->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -84,7 +86,13 @@
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-2">{{ $h->dicetak_pada->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
                             <td class="px-4 py-2">{{ ucfirst($h->jenis) }}</td>
-                            <td class="px-4 py-2">{{ $h->area->nama_area ?? 'Semua Area' }}</td>
+                            <td class="px-4 py-2">
+                                @if($h->area)
+                                    {{ $h->area->nama_area }} ({{ $h->area->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                                @else
+                                    Semua Area
+                                @endif
+                            </td>
                             <td class="px-4 py-2">{{ $h->barang->nama_barang ?? 'Semua Barang' }}</td>
                             <td class="px-4 py-2">
                                 @if($h->tanggal_awal && $h->tanggal_akhir)

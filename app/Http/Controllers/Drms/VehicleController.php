@@ -10,11 +10,15 @@ use Illuminate\Support\Facades\Auth;
 class VehicleController extends Controller
 {
     /**
-     * Ambil business_unit_id user dari profil DRMS, dengan fallback aman.
+     * Ambil business_unit_id user dari profil DRMS, dengan fallback untuk superadmin.
      */
     private function getUserBusinessUnitId()
     {
-        $profile = Auth::user()->drmsProfile;
+        $user = Auth::user();
+        if ($user->isDrmsSuperAdmin()) {
+            return null; // Superadmin tidak terikat BU
+        }
+        $profile = $user->drmsProfile;
         if (!$profile || !$profile->business_unit_id) {
             abort(403, 'Anda tidak memiliki unit bisnis.');
         }
@@ -23,22 +27,26 @@ class VehicleController extends Controller
 
     public function index()
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        $vehicles = Vehicle::where('business_unit_id', $businessUnitId)
-            ->latest()
-            ->get();
+        $user = Auth::user();
+        if ($user->isDrmsSuperAdmin()) {
+            $vehicles = Vehicle::latest()->get();
+        } else {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            $vehicles = Vehicle::where('business_unit_id', $businessUnitId)->latest()->get();
+        }
         return view('drms.vehicles.index', compact('vehicles'));
     }
 
     public function create()
     {
-        $this->getUserBusinessUnitId(); // memastikan user valid
+        // Memastikan user valid (superadmin tidak perlu BU, tapi harus tahu)
+        $this->getUserBusinessUnitId();
         return view('drms.vehicles.create');
     }
 
     public function store(Request $request)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
+        $user = Auth::user();
 
         $data = $request->validate([
             'type'         => 'required|string|max:255',
@@ -47,7 +55,12 @@ class VehicleController extends Controller
             'status'       => 'required|in:available,in_use,maintenance',
         ]);
 
-        $data['business_unit_id'] = $businessUnitId;
+        if ($user->isDrmsSuperAdmin()) {
+            // Superadmin bisa memilih business_unit_id (tambahkan di form)
+            $data['business_unit_id'] = $request->business_unit_id ?? null;
+        } else {
+            $data['business_unit_id'] = $this->getUserBusinessUnitId();
+        }
 
         Vehicle::create($data);
 
@@ -57,18 +70,24 @@ class VehicleController extends Controller
 
     public function edit(Vehicle $vehicle)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($vehicle->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($vehicle->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+            }
         }
         return view('drms.vehicles.edit', compact('vehicle'));
     }
 
     public function update(Request $request, Vehicle $vehicle)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($vehicle->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($vehicle->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+            }
         }
 
         $data = $request->validate([
@@ -86,9 +105,12 @@ class VehicleController extends Controller
 
     public function destroy(Vehicle $vehicle)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($vehicle->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($vehicle->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke kendaraan ini.');
+            }
         }
         $vehicle->delete();
         return redirect()->route('drms.vehicles.index')

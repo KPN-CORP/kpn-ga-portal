@@ -10,11 +10,15 @@ use Illuminate\Support\Facades\Auth;
 class VoucherController extends Controller
 {
     /**
-     * Ambil business_unit_id user dari profil DRMS, dengan fallback aman.
+     * Ambil business_unit_id user dari profil DRMS, dengan fallback untuk superadmin.
      */
     private function getUserBusinessUnitId()
     {
-        $profile = Auth::user()->drmsProfile;
+        $user = Auth::user();
+        if ($user->isDrmsSuperAdmin()) {
+            return null;
+        }
+        $profile = $user->drmsProfile;
         if (!$profile || !$profile->business_unit_id) {
             abort(403, 'Anda tidak memiliki unit bisnis.');
         }
@@ -23,23 +27,25 @@ class VoucherController extends Controller
 
     public function index()
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        $vouchers = Voucher::where('business_unit_id', $businessUnitId)
-            ->latest()
-            ->get();
+        $user = Auth::user();
+        if ($user->isDrmsSuperAdmin()) {
+            $vouchers = Voucher::latest()->get();
+        } else {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            $vouchers = Voucher::where('business_unit_id', $businessUnitId)->latest()->get();
+        }
         return view('drms.vouchers.index', compact('vouchers'));
     }
 
     public function create()
     {
-        // Pastikan user punya business unit (biar tidak error di view jika diperlukan)
         $this->getUserBusinessUnitId();
         return view('drms.vouchers.create');
     }
 
     public function store(Request $request)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
+        $user = Auth::user();
 
         $data = $request->validate([
             'code'    => 'required|string|unique:drms_vouchers',
@@ -48,7 +54,11 @@ class VoucherController extends Controller
             'status'  => 'required|in:available,used',
         ]);
 
-        $data['business_unit_id'] = $businessUnitId;
+        if ($user->isDrmsSuperAdmin()) {
+            $data['business_unit_id'] = $request->business_unit_id ?? null;
+        } else {
+            $data['business_unit_id'] = $this->getUserBusinessUnitId();
+        }
 
         Voucher::create($data);
 
@@ -58,18 +68,24 @@ class VoucherController extends Controller
 
     public function edit(Voucher $voucher)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($voucher->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($voucher->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+            }
         }
         return view('drms.vouchers.edit', compact('voucher'));
     }
 
     public function update(Request $request, Voucher $voucher)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($voucher->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($voucher->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+            }
         }
 
         $data = $request->validate([
@@ -87,9 +103,12 @@ class VoucherController extends Controller
 
     public function destroy(Voucher $voucher)
     {
-        $businessUnitId = $this->getUserBusinessUnitId();
-        if ($voucher->business_unit_id !== $businessUnitId) {
-            abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+        $user = Auth::user();
+        if (!$user->isDrmsSuperAdmin()) {
+            $businessUnitId = $this->getUserBusinessUnitId();
+            if ($voucher->business_unit_id !== $businessUnitId) {
+                abort(403, 'Anda tidak memiliki akses ke voucher ini.');
+            }
         }
         $voucher->delete();
         return redirect()->route('drms.vouchers.index')

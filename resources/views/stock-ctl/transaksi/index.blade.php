@@ -68,8 +68,20 @@
                     </td>
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
-                    <td class="px-4 py-3">{{ $item->areaAsal->nama_area ?? '-' }}</td>
-                    <td class="px-4 py-3">{{ $item->areaTujuan->nama_area ?? '-' }}</td>
+                    <td class="px-4 py-3">
+                        @if($item->areaAsal)
+                            {{ $item->areaAsal->nama_area }} ({{ $item->areaAsal->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td class="px-4 py-3">
+                        @if($item->areaTujuan)
+                            {{ $item->areaTujuan->nama_area }} ({{ $item->areaTujuan->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->user->name ?? '-' }}</td>
                 </tr>

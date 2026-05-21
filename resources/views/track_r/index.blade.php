@@ -70,20 +70,20 @@
         </form>
     </div>
 
-    {{-- ========== DESKTOP TABLE ========== --}}
+    {{-- ========== DESKTOP TABLE (FIXED LAYOUT, TIDAK PERLU SCROLL HORIZONTAL) ========== --}}
     <div class="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full table-fixed">
                 <thead>
                     <tr class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-200">
-                        <th class="px-5 py-3.5 text-left">No Dokumen</th>
-                        <th class="px-5 py-3.5 text-left">Judul</th>
-                        <th class="px-5 py-3.5 text-left">Pengirim</th>
-                        <th class="px-5 py-3.5 text-left">Tgl Kirim</th>
-                        <th class="px-5 py-3.5 text-left">Penerima</th>
-                        <th class="px-5 py-3.5 text-left">Status</th>
-                        <th class="px-5 py-3.5 text-left">Update</th>
-                        <th class="px-5 py-3.5 text-right">Aksi</th>
+                        <th class="w-[12%] px-5 py-3.5 text-left">No Dokumen</th>
+                        <th class="w-[30%] px-5 py-3.5 text-left">Judul</th>
+                        <th class="w-[15%] px-5 py-3.5 text-left">Pengirim</th>
+                        <th class="w-[10%] px-5 py-3.5 text-left">Tgl Kirim</th>
+                        <th class="w-[18%] px-5 py-3.5 text-left">Penerima</th>
+                        <th class="w-[8%] px-5 py-3.5 text-left">Status</th>
+                        <th class="w-[7%] px-5 py-3.5 text-left">Update</th>
+                        <th class="w-[10%] px-5 py-3.5 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -93,18 +93,20 @@
                             $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
                         @endphp
                         <tr class="hover:bg-blue-50/40 transition">
-                            {{-- No Dokumen --}}
-                            <td class="px-5 py-4 font-mono font-semibold text-gray-800 whitespace-nowrap">
+                            {{-- No Dokumen (nowrap) --}}
+                            <td class="px-5 py-4 font-mono font-semibold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" title="{{ $doc->nomor_dokumen }}">
                                 {{ $doc->nomor_dokumen }}
                             </td>
-                            {{-- Judul --}}
-                            <td class="px-5 py-4 max-w-[220px]">
-                                <div class="font-medium text-gray-700 truncate" title="{{ $doc->judul }}">
+
+                            {{-- Judul (wrap) --}}
+                            <td class="px-5 py-4 break-words">
+                                <div class="font-medium text-gray-700">
                                     {{ $doc->judul }}
                                 </div>
                             </td>
-                            {{-- Pengirim --}}
-                            <td class="px-5 py-4 whitespace-nowrap">
+
+                            {{-- Pengirim (wrap) --}}
+                            <td class="px-5 py-4 break-words">
                                 <div class="flex items-center gap-2">
                                     <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                                         <i class="fas fa-user text-blue-600 text-xs"></i>
@@ -112,13 +114,15 @@
                                     <span class="text-gray-700">{{ $doc->pengirim->name ?? '-' }}</span>
                                 </div>
                             </td>
-                            {{-- Tgl Kirim --}}
+
+                            {{-- Tgl Kirim (nowrap) --}}
                             <td class="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
                                 {{ $doc->created_at->format('d/m/Y H:i') }}
                             </td>
-                            {{-- Penerima --}}
-                            <td class="px-5 py-4 whitespace-nowrap">
-                                <div class="flex items-center gap-2">
+
+                            {{-- Penerima (wrap, dengan flex-wrap untuk badge) --}}
+                            <td class="px-5 py-4 break-words">
+                                <div class="flex items-center gap-2 flex-wrap">
                                     <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                                         <i class="fas fa-user-check text-green-600 text-xs"></i>
                                     </div>
@@ -133,18 +137,21 @@
                                     </div>
                                 </div>
                             </td>
-                            {{-- Status --}}
-                            <td class="px-5 py-4">
+
+                            {{-- Status (nowrap) --}}
+                            <td class="px-5 py-4 whitespace-nowrap">
                                 <span class="px-2.5 py-1 rounded-full text-xs font-semibold border {{ $userStatus['color'] }}">
                                     {{ $userStatus['label'] }}
                                 </span>
                             </td>
-                            {{-- Update --}}
+
+                            {{-- Update (nowrap) --}}
                             <td class="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
                                 {{ $doc->updated_at->format('d/m/Y H:i') }}
                             </td>
-                            {{-- Aksi --}}
-                            <td class="px-5 py-4 text-right">
+
+                            {{-- Aksi (nowrap) --}}
+                            <td class="px-5 py-4 text-right whitespace-nowrap">
                                 <a href="{{ route('track-r.show', $doc->id) }}"
                                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition">
                                     <i class="fas fa-eye text-xs"></i> Detail
@@ -165,7 +172,7 @@
         </div>
     </div>
 
-    {{-- ========== MOBILE LIST ========== --}}
+    {{-- ========== MOBILE LIST (TIDAK BERUBAH) ========== --}}
     <div class="block sm:hidden space-y-2">
         @forelse($documents as $doc)
             @php
@@ -173,7 +180,6 @@
                 $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
             @endphp
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 transition space-y-2">
-                {{-- No Dokumen + Status (inline) --}}
                 <div class="flex justify-between items-start">
                     <div class="font-mono font-bold text-gray-800">
                         {{ $doc->nomor_dokumen }}
@@ -182,27 +188,19 @@
                         {{ $userStatus['label'] }}
                     </span>
                 </div>
-
-                {{-- Judul --}}
                 <div class="font-medium text-gray-800 text-sm leading-snug">
                     {{ $doc->judul }}
                 </div>
-
-                {{-- Pengirim --}}
                 <div class="flex items-center gap-2 text-xs">
                     <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
                         <i class="fas fa-user text-blue-600 text-xs"></i>
                     </div>
                     <span class="text-gray-700 font-medium">{{ $doc->pengirim->name ?? '-' }}</span>
                 </div>
-
-                {{-- Tgl Kirim + Update --}}
                 <div class="flex gap-3 text-xs text-gray-500">
                     <span><i class="far fa-calendar-alt mr-1"></i> {{ $doc->created_at->format('d/m/Y H:i') }}</span>
                     <span><i class="far fa-clock mr-1"></i> {{ $doc->updated_at->format('H:i') }}</span>
                 </div>
-
-                {{-- Penerima --}}
                 <div class="flex items-center gap-2 text-xs">
                     <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
                         <i class="fas fa-user-check text-green-600 text-xs"></i>
@@ -214,8 +212,6 @@
                         </span>
                     @endif
                 </div>
-
-                {{-- Tombol Detail --}}
                 <div class="flex justify-end pt-1">
                     <a href="{{ route('track-r.show', $doc->id) }}"
                        class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition">

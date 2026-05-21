@@ -9,9 +9,9 @@
         th { background-color: #f2f2f2; border: 1px solid #000; padding: 6px; text-align: left; }
         td { border: 1px solid #000; padding: 6px; }
         .header { margin-bottom: 20px; }
-        .header h2 { margin: 0; }
         .filter { margin-bottom: 10px; font-size: 11px; color: #555; }
         .text-right { text-align: right; }
+        .total-row { background-color: #f2f2f2; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -24,6 +24,10 @@
         </div>
     </div>
 
+    @php
+        $grandTotal = 0;
+    @endphp
+
     <table>
         <thead>
             <tr>
@@ -32,6 +36,8 @@
                 <th>Nama Barang</th>
                 <th>Satuan</th>
                 <th class="text-right">Stok</th>
+                <th class="text-right">Harga (Rp)</th>
+                <th class="text-right">Nilai (Rp)</th>
                 <th class="text-right">Stok Minimum</th>
                 <th>Status</th>
                 <th>Update Terakhir</th>
@@ -39,20 +45,36 @@
         </thead>
         <tbody>
             @forelse($stok as $item)
+            @php
+                $harga = $item->barang->harga ?? 0;
+                $nilai = $item->jumlah * $harga;
+                $grandTotal += $nilai;
+            @endphp
             <tr>
                 <td>{{ $item->areaKerja->nama_area ?? '-' }} ({{ $item->areaKerja->bisnisUnit->nama_bisnis_unit ?? '-' }})</td>
                 <td>{{ $item->barang->kode_barang ?? '-' }}</td>
                 <td>{{ $item->barang->nama_barang ?? '-' }}</td>
                 <td>{{ $item->barang->satuan ?? '-' }}</td>
                 <td class="text-right">{{ number_format($item->jumlah) }}</td>
+                <td class="text-right">{{ number_format($harga, 2) }}</td>
+                <td class="text-right">{{ number_format($nilai, 2) }}</td>
                 <td class="text-right">{{ number_format($item->stok_minimum) }}</td>
                 <td>{{ $item->jumlah <= $item->stok_minimum ? 'Menipis' : 'Aman' }}</td>
                 <td>{{ $item->last_update ? \Carbon\Carbon::parse($item->last_update)->format('d M Y H:i') : '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="8" style="text-align: center;">Tidak ada data</td></tr>
+            <tr><td colspan="10" style="text-align: center;">Tidak ada data</td></tr>
             @endforelse
         </tbody>
+        @if($stok->count())
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="6" class="text-right"><strong>Total Nilai Stok:</strong></td>
+                <td class="text-right"><strong>{{ number_format($grandTotal, 2) }}</strong></td>
+                <td colspan="3"></td>
+            </tr>
+        </tfoot>
+        @endif
     </table>
 </body>
 </html>

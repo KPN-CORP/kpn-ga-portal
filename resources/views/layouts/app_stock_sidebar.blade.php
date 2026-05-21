@@ -18,54 +18,24 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
-        html{
-            zoom:0.8;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-        }
+        html { zoom: 0.8; }
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; }
         .soft-border { border-color: rgba(229,231,235,0.5) !important; }
         .soft-border-bottom { border-bottom-color: rgba(229,231,235,0.5) !important; }
         .soft-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); }
         .soft-shadow-sidebar { box-shadow: 1px 0 8px rgba(0,0,0,0.03), 2px 0 4px rgba(0,0,0,0.01); }
-        .sidebar-link {
-            transition: all 0.3s ease;
-        }
-        .sidebar-link:hover {
-            background-color: rgba(248,250,252,0.8);
-            transform: translateX(3px);
-        }
-        .sidebar-link.active {
-            background-color: rgba(59,130,246,0.1);
-            border-left: 3px solid rgba(59,130,246,0.5);
-            font-weight: 500;
-        }
-        .header-soft {
-            border-bottom: 1px solid rgba(229,231,235,0.4);
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0,0,0,0.15);
-            z-index: 50;
-        }
+        .sidebar-link { transition: all 0.3s ease; }
+        .sidebar-link:hover { background-color: rgba(248,250,252,0.8); transform: translateX(3px); }
+        .sidebar-link.active { background-color: rgba(59,130,246,0.1); border-left: 3px solid rgba(59,130,246,0.5); font-weight: 500; }
+        .header-soft { border-bottom: 1px solid rgba(229,231,235,0.4); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .overlay { display: none; position: fixed; inset: 0; background-color: rgba(0,0,0,0.15); z-index: 50; }
         .overlay.active { display: block; }
-        .sidebar {
-            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-        }
+        .sidebar { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); z-index: 60; }
             .sidebar.active { transform: translateX(0); }
         }
         .smooth-transition { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-
-        /* ✅ Mencegah kedipan modal dengan x-cloak */
         [x-cloak] { display: none !important; }
     </style>
     @stack('styles')
@@ -90,56 +60,82 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    {{-- Dashboard GA Portal --}}
+                    {{-- Dashboard GA --}}
                     <li>
-                        <a href="{{ route('dashboard') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        <a href="{{ route('dashboard') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
                             <span>Dashboard GA</span>
                         </a>
                     </li>
 
-                    {{-- Menu ATK dari provider --}}
                     @if(!empty($access))
-                        <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock Management</li>
-                        
-                        {{-- Loop menu ATK dari $atkMenu --}}
-                        @foreach($atkMenu as $menu)
-                            @if(isset($menu['submenu']))
-                                {{-- Dropdown --}}
-                                <li x-data="{ open: false }" class="relative">
-                                    <button @click="open = !open" class="sidebar-link flex items-center justify-between w-full p-3 rounded-lg text-gray-700">
-                                        <span class="flex items-center">
-                                            <i class="{{ $menu['icon'] }} mr-3 text-gray-500 opacity-70"></i>
-                                            <span>{{ $menu['title'] }}</span>
-                                        </span>
-                                        <i class="fas fa-chevron-down text-xs transition-transform" :class="{ 'rotate-180': open }"></i>
-                                    </button>
-                                    <ul x-show="open" x-collapse class="pl-8 space-y-1 mt-1">
-                                        @foreach($menu['submenu'] as $sub)
-                                        <li>
-                                            <a href="{{ $sub['url'] }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->url() == $sub['url'] ? 'active' : '' }}">
-                                                {{ $sub['title'] }}
-                                            </a>
-                                        </li>
-                                        @endforeach
-                                    </ul>
-                                </li>
-                            @else
-                                <li>
-                                    <a href="{{ $menu['url'] }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->url() == $menu['url'] ? 'active' : '' }}">
-                                        <i class="{{ $menu['icon'] }} mr-3 text-gray-500 opacity-70"></i>
-                                        <span>{{ $menu['title'] }}</span>
-                                    </a>
-                                </li>
-                            @endif
-                        @endforeach
+                        {{-- ===================== MANAGEMENT (DROPDOWN) ===================== --}}
+                        {{-- Hanya untuk admin atau superadmin --}}
+                        @if(($access['is_admin'] ?? false) || ($access['is_super'] ?? false))
+                        <li x-data="{ open: false }" class="relative">
+                            <button @click="open = !open" class="sidebar-link flex items-center justify-between w-full p-3 rounded-lg text-gray-700">
+                                <span class="flex items-center">
+                                    <i class="fas fa-boxes mr-3 text-gray-500 opacity-70"></i>
+                                    <span>Management</span>
+                                </span>
+                                <i class="fas fa-chevron-down text-xs transition-transform" :class="{ 'rotate-180': open }"></i>
+                            </button>
+                            <ul x-show="open" x-collapse class="pl-8 space-y-1 mt-1">
+                                {{-- Superadmin hanya --}}
+                                @if($access['is_super'] ?? false)
+                                    <li><a href="{{ route('stock-ctl.area.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.area.*') ? 'active' : '' }}">Area Kerja</a></li>
+                                    <li><a href="{{ route('stock-ctl.user-profil.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.user-profil.*') ? 'active' : '' }}">User Profil</a></li>
+                                @endif
+                                {{-- Admin & superadmin bisa lihat Barang, Stok, Opname, Laporan --}}
+                                <li><a href="{{ route('stock-ctl.barang.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.barang.*') ? 'active' : '' }}">Barang</a></li>
+                                <li><a href="{{ route('stock-ctl.stok.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.stok.*') ? 'active' : '' }}">Stok</a></li>
+                                <li><a href="{{ route('stock-ctl.opname.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.opname.*') ? 'active' : '' }}">Opname</a></li>
+                                <li><a href="{{ route('stock-ctl.laporan.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50 {{ request()->routeIs('stock-ctl.laporan.*') ? 'active' : '' }}">Laporan</a></li>
+                            </ul>
+                        </li>
+                        @endif
 
-                        {{-- Approval L1 (hanya untuk atasan) --}}
+                        {{-- ===================== TRANSAKSI (DROPDOWN) ===================== --}}
+                        {{-- Hanya untuk admin atau superadmin --}}
+                        @if(($access['is_admin'] ?? false) || ($access['is_super'] ?? false))
+                        <li x-data="{ open: false }" class="relative">
+                            <button @click="open = !open" class="sidebar-link flex items-center justify-between w-full p-3 rounded-lg text-gray-700">
+                                <span class="flex items-center">
+                                    <i class="fas fa-exchange-alt mr-3 text-gray-500 opacity-70"></i>
+                                    <span>Transaksi</span>
+                                </span>
+                                <i class="fas fa-chevron-down text-xs transition-transform" :class="{ 'rotate-180': open }"></i>
+                            </button>
+                            <ul x-show="open" x-collapse class="pl-8 space-y-1 mt-1">
+                                <li><a href="{{ route('stock-ctl.transaksi.masuk') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50">Barang Masuk</a></li>
+                                <li><a href="{{ route('stock-ctl.transaksi.keluar') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50">Barang Keluar</a></li>
+                                <li><a href="{{ route('stock-ctl.transaksi.transfer') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50">Transfer</a></li>
+                                {{-- Permintaan Antar Unit hanya untuk admin/superadmin jika route ada --}}
+                                @if(($access['is_admin'] ?? false) || ($access['is_super'] ?? false))
+                                    @php $antarRouteExists = Route::has('stock-ctl.antar-unit.index'); @endphp
+                                    @if($antarRouteExists)
+                                        <li><a href="{{ route('stock-ctl.antar-unit.index') }}" class="sidebar-link block p-2 rounded-lg text-gray-600 hover:bg-gray-50">Permintaan Antar Unit</a></li>
+                                    @endif
+                                @endif
+                            </ul>
+                        </li>
+                        @endif
+
+                        {{-- ===================== PERMINTAAN SAYA ===================== --}}
+                        {{-- Semua user yang punya akses stock (user, admin, superadmin) --}}
+                        @if(($access['is_user'] ?? false) || ($access['is_admin'] ?? false) || ($access['is_super'] ?? false))
+                        <li>
+                            <a href="{{ route('stock-ctl.permintaan.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.permintaan.index') ? 'active' : '' }}">
+                                <i class="fas fa-shopping-cart mr-3 text-gray-500 opacity-70"></i>
+                                <span>Permintaan Saya</span>
+                            </a>
+                        </li>
+                        @endif
+
+                        {{-- ===================== APPROVAL L1 ===================== --}}
                         @if($isApprover)
                         <li>
-                            <a href="{{ route('stock-ctl.approval.l1.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.approval.l1.*') ? 'active' : '' }}">
+                            <a href="{{ route('stock-ctl.approval.l1.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.approval.l1.*') ? 'active' : '' }}">
                                 <i class="fas fa-user-check mr-3 text-gray-500 opacity-70"></i>
                                 <span>Approval L1</span>
                                 @if($pendingL1Count > 0)
@@ -149,16 +145,41 @@
                         </li>
                         @endif
 
-                        {{-- Approval Admin --}}
-                        @if(($access['is_admin'] ?? false) && $pendingAdminCount > 0)
+                        {{-- ===================== APPROVAL ADMIN ===================== --}}
+                        @if(($access['is_admin'] ?? false))
                         <li>
-                            <a href="{{ route('stock-ctl.approval.admin.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.approval.admin.*') ? 'active' : '' }}">
+                            <a href="{{ route('stock-ctl.approval.admin.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.approval.admin.*') ? 'active' : '' }}">
                                 <i class="fas fa-check-double mr-3 text-gray-500 opacity-70"></i>
                                 <span>Approval Admin</span>
-                                <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingAdminCount }}</span>
+                                @if($pendingAdminCount > 0)
+                                    <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingAdminCount }}</span>
+                                @endif
                             </a>
                         </li>
+                        @endif
+
+                        {{-- ===================== APPROVAL ANTAR UNIT ===================== --}}
+                        @if(($access['is_admin'] ?? false) || ($access['is_super'] ?? false))
+                            @php
+                                $antarUnitApprovalRouteExists = Route::has('stock-ctl.antar-unit.approval');
+                                $pendingAntarUnitCount = 0;
+                                if ($antarUnitApprovalRouteExists) {
+                                    $pendingAntarUnitCount = \App\Models\StockCtl\AntarUnitRequest::where('status', 'pending')
+                                        ->where('id_bisnis_unit_tujuan', $access['id_bisnis_unit'] ?? 0)
+                                        ->count();
+                                }
+                            @endphp
+                            @if($antarUnitApprovalRouteExists)
+                            <li>
+                                <a href="{{ route('stock-ctl.antar-unit.approval') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('stock-ctl.antar-unit.approval') ? 'active' : '' }}">
+                                    <i class="fas fa-globe mr-3 text-gray-500 opacity-70"></i>
+                                    <span>Approval Antar Unit</span>
+                                    @if($pendingAntarUnitCount > 0)
+                                        <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingAntarUnitCount }}</span>
+                                    @endif
+                                </a>
+                            </li>
+                            @endif
                         @endif
                     @endif
                 </ul>
@@ -197,36 +218,20 @@
                     </button>
                     <div class="ml-4">
                         @hasSection('breadcrumb')
-                            <div class="text-sm text-gray-500 opacity-80 mt-1">
-                                @yield('breadcrumb')
-                            </div>
+                            <div class="text-sm text-gray-500 opacity-80 mt-1">@yield('breadcrumb')</div>
                         @endif
                     </div>
                 </div>
-
                 <div class="flex items-center space-x-4">
-                    <!-- Notifications -->
                     <div class="relative">
                         <button id="notif-button" class="relative text-gray-600 hover:text-gray-800 focus:outline-none smooth-transition">
                             <i class="fas fa-bell text-xl opacity-80"></i>
-                            <!-- @if(isset($unreadNotifications) && $unreadNotifications > 0)
-                                <span class="absolute -top-1 -right-1 bg-red-400 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center soft-shadow">
-                                    {{ $unreadNotifications }}
-                                </span>
-                            @endif -->
                         </button>
-                        <!-- <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white soft-shadow rounded-lg soft-border py-2 z-50">
-                            ... (notifikasi dropdown)
-                        </div> -->
                     </div>
-
-                    <!-- User Dropdown -->
                     <div class="relative">
                         <button id="user-menu-button" class="flex items-center space-x-2 focus:outline-none smooth-transition hover:text-gray-800">
                             <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center soft-border">
-                                <span class="font-semibold text-blue-600 text-sm opacity-90">
-                                    {{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}
-                                </span>
+                                <span class="font-semibold text-blue-600 text-sm opacity-90">{{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}</span>
                             </div>
                             <span class="hidden md:inline text-gray-700 opacity-90">{{ auth()->user()->name ?? 'Admin' }}</span>
                             <i class="fas fa-chevron-down text-gray-500 text-sm opacity-70"></i>
@@ -245,14 +250,12 @@
                     </div>
                 </div>
             </header>
-
             <main class="p-6">
                 @yield('content')
             </main>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script>
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.getElementById('overlay');
@@ -274,7 +277,7 @@
         });
 
         document.getElementById('notif-button')?.addEventListener('click', () => {
-            document.getElementById('notif-dropdown').classList.toggle('hidden');
+            document.getElementById('notif-dropdown')?.classList.toggle('hidden');
         });
 
         document.addEventListener('click', (e) => {
@@ -282,13 +285,12 @@
             const userDropdown = document.getElementById('user-dropdown');
             const notifBtn = document.getElementById('notif-button');
             const notifDropdown = document.getElementById('notif-dropdown');
-
             if (userBtn && !userBtn.contains(e.target) && !userDropdown.contains(e.target)) userDropdown.classList.add('hidden');
-            if (notifBtn && !notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) notifDropdown.classList.add('hidden');
+            if (notifBtn && !notifBtn.contains(e.target) && !notifDropdown?.contains(e.target)) notifDropdown.classList.add('hidden');
         });
 
         window.addEventListener('resize', () => {
-            if(window.innerWidth >= 768){
+            if (window.innerWidth >= 768) {
                 sidebar.classList.remove('active');
                 overlay.classList.remove('active');
                 document.body.style.overflow = '';
@@ -297,7 +299,7 @@
 
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', () => {
-                if(window.innerWidth < 768){
+                if (window.innerWidth < 768) {
                     sidebar.classList.remove('active');
                     overlay.classList.remove('active');
                     document.body.style.overflow = '';
@@ -305,7 +307,6 @@
             });
         });
     </script>
-
     @stack('scripts')
 </body>
 </html>

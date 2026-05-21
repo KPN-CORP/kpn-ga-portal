@@ -19,6 +19,7 @@
                     <th class="px-4 py-2">Plat Nomor</th>
                     <th class="px-4 py-2">Kapasitas</th>
                     <th class="px-4 py-2">Status</th>
+                    <th class="px-4 py-2">Business Unit</th> <!-- Added -->
                     <th class="px-4 py-2">Aksi</th>
                 </tr>
             </thead>
@@ -33,6 +34,7 @@
                             {{ ucfirst(str_replace('_', ' ', $vehicle->status)) }}
                         </span>
                     </td>
+                    <td class="px-4 py-2">{{ $vehicle->businessUnit->nama_bisnis_unit ?? $vehicle->business_unit_id ?? '-' }}</td>
                     <td class="px-4 py-2">
                         <a href="{{ route('drms.vehicles.edit', $vehicle) }}" class="text-blue-600">Edit</a>
                         <form action="{{ route('drms.vehicles.destroy', $vehicle) }}" method="POST" class="inline" onsubmit="return confirm('Yakin?')">

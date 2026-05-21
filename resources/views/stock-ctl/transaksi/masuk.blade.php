@@ -16,7 +16,7 @@
                     <option value="">-- Pilih Area --</option>
                     @foreach($areas as $area)
                         <option value="{{ $area->id_area_kerja }}" {{ old('id_area_tujuan') == $area->id_area_kerja ? 'selected' : '' }}>
-                            {{ $area->nama_area }}
+                            {{ $area->nama_area }} ({{ $area->bisnisUnit->nama_bisnis_unit ?? '-' }})
                         </option>
                     @endforeach
                 </select>

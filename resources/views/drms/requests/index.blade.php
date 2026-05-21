@@ -239,7 +239,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="4" class="py-6 text-center text-gray-500">Belum ada data</td>
+                    <td colspan="4" class="py-6 text-center text-gray-500">Belum ada数据</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -250,7 +250,7 @@
         <div class="mt-4">{{ $requests->links() }}</div>
     @endif
 
-    {{-- MODAL CREATE (Dengan style="display: none;" untuk mencegah kedipan) --}}
+    {{-- MODAL CREATE --}}
     <div x-show="createModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4">Buat Permintaan Driver</h3>
@@ -329,7 +329,7 @@
                     </div>
                     <div class="mt-2 text-gray-500 text-xs flex items-center gap-1">
                         <span>🔗</span>
-                        <input type="url" name="pickup_maps_link" value="{{ old('pickup_maps_link') }}" class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" placeholder="Link Google Maps (opsional)">
+                        <input type="url" name="pickup_maps_link" id="pickup_maps_link" value="{{ old('pickup_maps_link') }}" class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" placeholder="Link Google Maps (wajib)" required>
                     </div>
                 </div>
                 <!-- Tujuan -->
@@ -341,7 +341,7 @@
                     </div>
                     <div class="mt-2 text-gray-500 text-xs flex items-center gap-1">
                         <span>🔗</span>
-                        <input type="url" name="destination_maps_link" value="{{ old('destination_maps_link') }}" class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" placeholder="Link Google Maps (opsional)">
+                        <input type="url" name="destination_maps_link" id="destination_maps_link" value="{{ old('destination_maps_link') }}" class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" placeholder="Link Google Maps (wajib)" required>
                     </div>
                 </div>
                 <div class="mb-4">
@@ -356,7 +356,7 @@
         </div>
     </div>
 
-    {{-- MODAL DETAIL (Dengan style="display: none;" untuk mencegah kedipan) --}}
+    {{-- MODAL DETAIL --}}
     <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
@@ -441,10 +441,27 @@ function openMaps(address) {
     }
 }
 
+function autoFillMapsLink(addressInputId, linkInputId) {
+    const addressInput = document.getElementById(addressInputId);
+    const linkInput = document.getElementById(linkInputId);
+    if (!addressInput || !linkInput) return;
+
+    addressInput.addEventListener('blur', function() {
+        const address = this.value.trim();
+        // Isi link hanya jika kolom link masih kosong (belum diisi manual)
+        if (address !== '' && linkInput.value.trim() === '') {
+            linkInput.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('toggleFilterBtn')?.addEventListener('click', () => {
         document.getElementById('filterSection').classList.toggle('hidden');
     });
+
+    autoFillMapsLink('pickup_location', 'pickup_maps_link');
+    autoFillMapsLink('destination', 'destination_maps_link');
 });
 </script>
 @endsection

@@ -351,4 +351,9 @@ class User extends Authenticatable
     {
         return $this->isMemoAdmin();
     }
+
+    public function isFeedbackAdmin()
+    {
+        return \App\Models\Feedbacks\FeedbackAdmin::where('user_id', $this->id)->exists();
+    }
 }

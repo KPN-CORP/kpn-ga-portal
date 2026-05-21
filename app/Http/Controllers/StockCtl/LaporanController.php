@@ -21,7 +21,7 @@ class LaporanController extends Controller
 
         $areas = $access['is_super']
             ? AreaKerja::with('bisnisUnit')->get()
-            : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->get();
+            : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->with('bisnisUnit')->get();
 
         $barang = Barang::orderBy('nama_barang')->get();
 
@@ -103,7 +103,7 @@ class LaporanController extends Controller
     }
 
     /**
-     * Generate laporan dalam format CSV (Excel) dengan tambahan kolom Harga.
+     * Generate laporan dalam format CSV (Excel) dengan tambahan kolom Harga dan Nilai.
      */
     public function excel(Request $request)
     {
@@ -129,22 +129,19 @@ class LaporanController extends Controller
         switch ($request->jenis) {
             case 'stok':
                 $data = $this->getDataStok($request, $access);
-                // Tambahkan kolom Harga setelah Satuan
-                $headers = ['Area', 'Kode Barang', 'Nama Barang', 'Satuan', 'Harga', 'Stok', 'Stok Minimum', 'Status', 'Update Terakhir'];
+                $headers = ['Area', 'Kode Barang', 'Nama Barang', 'Satuan', 'Stok', 'Harga (Rp)', 'Nilai (Rp)', 'Stok Minimum', 'Status', 'Update Terakhir'];
                 $rows = $this->formatStokRows($data['stok']);
                 $filename = 'laporan_stok_' . date('YmdHis') . '.csv';
                 break;
             case 'mutasi':
                 $data = $this->getDataMutasi($request, $access);
-                // Tambahkan kolom Harga setelah Satuan
-                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
+                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Harga (Rp)', 'Nilai (Rp)', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
                 $rows = $this->formatMutasiRows($data['transaksi']);
                 $filename = 'laporan_mutasi_' . date('YmdHis') . '.csv';
                 break;
             case 'permintaan':
                 $data = $this->getDataPermintaan($request, $access);
-                // Tambahkan kolom Harga setelah Satuan
-                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Harga', 'Status', 'Approver L1', 'Approver Admin'];
+                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Harga (Rp)', 'Nilai (Rp)', 'Status', 'Approver L1', 'Approver Admin'];
                 $rows = $this->formatPermintaanRows($data['permintaan']);
                 $filename = 'laporan_permintaan_' . date('YmdHis') . '.csv';
                 break;
@@ -155,15 +152,35 @@ class LaporanController extends Controller
         // Simpan history
         $this->saveHistory($request);
 
-        // Generate CSV
-        return Response::streamDownload(function () use ($headers, $rows) {
+        // Generate CSV dengan tambahan baris total
+        return Response::streamDownload(function () use ($headers, $rows, $request) {
             $output = fopen('php://output', 'w');
             // Tambahkan BOM agar UTF-8 terbaca di Excel
             fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, $headers);
+
+            $totalNilai = 0;
             foreach ($rows as $row) {
                 fputcsv($output, $row);
+                // Ambil nilai dari kolom "Nilai" berdasarkan jenis laporan
+                if ($request->jenis == 'stok') {
+                    $totalNilai += floatval(str_replace(',', '', $row[6])); // kolom Nilai index 6
+                } elseif ($request->jenis == 'mutasi') {
+                    $totalNilai += floatval(str_replace(',', '', $row[6])); // kolom Nilai index 6
+                } elseif ($request->jenis == 'permintaan') {
+                    $totalNilai += floatval(str_replace(',', '', $row[9])); // kolom Nilai index 9
+                }
             }
+
+            // Tambah baris total
+            if ($request->jenis == 'stok') {
+                fputcsv($output, ['', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
+            } elseif ($request->jenis == 'mutasi') {
+                fputcsv($output, ['', '', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
+            } elseif ($request->jenis == 'permintaan') {
+                fputcsv($output, ['', '', '', '', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
+            }
+
             fclose($output);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
@@ -173,14 +190,18 @@ class LaporanController extends Controller
      */
     private function saveHistory($request)
     {
+        $access = session('stock_ctl_access');
+        $idBisnisUnit = $access['id_bisnis_unit'] ?? null;
+
         LaporanHistory::create([
-            'id_user'       => auth()->id(),
-            'jenis'         => $request->jenis,
-            'id_area'       => $request->id_area,
-            'id_barang'     => $request->id_barang,
-            'tanggal_awal'  => $request->tanggal_awal,
-            'tanggal_akhir' => $request->tanggal_akhir,
-            'nama_file'     => 'laporan_' . $request->jenis . '_' . date('YmdHis') . '.pdf',
+            'id_user'        => auth()->id(),
+            'id_bisnis_unit' => $idBisnisUnit, // tambahkan ini
+            'jenis'          => $request->jenis,
+            'id_area'        => $request->id_area,
+            'id_barang'      => $request->id_barang,
+            'tanggal_awal'   => $request->tanggal_awal,
+            'tanggal_akhir'  => $request->tanggal_akhir,
+            'nama_file'      => 'laporan_' . $request->jenis . '_' . date('YmdHis') . '.pdf',
         ]);
     }
 
@@ -190,14 +211,11 @@ class LaporanController extends Controller
     public function history()
     {
         $access = session('stock_ctl_access');
-        $query = LaporanHistory::with('user', 'area', 'barang');
+        $query = LaporanHistory::with('user', 'area.bisnisUnit', 'barang');
 
         if (!$access['is_super']) {
-            $query->where(function($q) use ($access) {
-                $q->whereHas('area', function($sub) use ($access) {
-                    $sub->where('id_bisnis_unit', $access['id_bisnis_unit']);
-                })->orWhereNull('id_area');
-            });
+            // Hanya tampilkan riwayat yang dibuat oleh unit user yang sama
+            $query->where('id_bisnis_unit', $access['id_bisnis_unit']);
         }
 
         $histories = $query->orderBy('dicetak_pada', 'desc')->paginate(20);
@@ -230,7 +248,7 @@ class LaporanController extends Controller
 
     private function getDataMutasi($request, $access)
     {
-        $query = Transaksi::with('barang', 'areaAsal', 'areaTujuan', 'user');
+        $query = Transaksi::with('barang', 'areaAsal.bisnisUnit', 'areaTujuan.bisnisUnit', 'user');
 
         if (!$access['is_super']) {
             $query->where(function ($q) use ($access) {
@@ -270,7 +288,7 @@ class LaporanController extends Controller
         $query = Permintaan::with(
                 'pemohon.profil',
                 'barang',
-                'areaKerja',
+                'areaKerja.bisnisUnit',
                 'approverL1',
                 'approverAdmin'
             );
@@ -304,18 +322,21 @@ class LaporanController extends Controller
         return compact('permintaan');
     }
 
-    // ----- Formatting Helpers (dengan tambahan Harga) -----
+    // ----- Formatting Helpers (dengan tambahan Harga dan Nilai) -----
 
     private function formatStokRows($stok)
     {
         return $stok->map(function ($item) {
+            $harga = $item->barang->harga ?? 0;
+            $nilai = $item->jumlah * $harga;
             return [
-                $item->areaKerja->nama_area ?? '-',
+                ($item->areaKerja->nama_area ?? '-') . ' (' . ($item->areaKerja->bisnisUnit->nama_bisnis_unit ?? '-') . ')',
                 $item->barang->kode_barang ?? '-',
                 $item->barang->nama_barang ?? '-',
                 $item->barang->satuan ?? '-',
-                number_format($item->barang->harga ?? 0, 2), // HARGA
                 number_format($item->jumlah, 2),
+                number_format($harga, 2),
+                number_format($nilai, 2),
                 number_format($item->stok_minimum, 2),
                 $item->jumlah <= $item->stok_minimum ? 'Menipis' : 'Aman',
                 $item->last_update ? \Carbon\Carbon::parse($item->last_update)->format('d M Y H:i') : '-',
@@ -326,15 +347,18 @@ class LaporanController extends Controller
     private function formatMutasiRows($transaksi)
     {
         return $transaksi->map(function ($item) {
+            $harga = $item->barang->harga ?? 0;
+            $nilai = $item->jumlah * $harga;
             return [
                 \Carbon\Carbon::parse($item->tanggal)->format('d M Y H:i'),
                 ucfirst($item->jenis),
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
-                number_format($item->barang->harga ?? 0, 2), // HARGA
-                $item->areaAsal->nama_area ?? '-',
-                $item->areaTujuan->nama_area ?? '-',
+                number_format($harga, 2),
+                number_format($nilai, 2),
+                $item->areaAsal ? ($item->areaAsal->nama_area . ' (' . ($item->areaAsal->bisnisUnit->nama_bisnis_unit ?? '-') . ')') : '-',
+                $item->areaTujuan ? ($item->areaTujuan->nama_area . ' (' . ($item->areaTujuan->bisnisUnit->nama_bisnis_unit ?? '-') . ')') : '-',
                 $item->keterangan ?? '-',
                 $item->user->name ?? '-',
             ];
@@ -346,16 +370,20 @@ class LaporanController extends Controller
         return $permintaan->map(function ($item) {
             $unit = optional($item->pemohon->profil)->unit ?? '';
             $unitName = $unit ? explode(' (', $unit)[0] : '-';
+            $harga = $item->barang->harga ?? 0;
+            // Hanya status 'disetujui' yang dihitung nilainya
+            $nilai = ($item->status == 'disetujui') ? ($item->jumlah * $harga) : 0;
             return [
-                'ATK-SC-' . $item->id_permintaan,
+                'G-SC-' . $item->id_permintaan,
                 \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i'),
                 $item->pemohon->name ?? '-',
                 $unitName,
-                $item->areaKerja->nama_area ?? '-',
+                $item->areaKerja ? ($item->areaKerja->nama_area . ' (' . ($item->areaKerja->bisnisUnit->nama_bisnis_unit ?? '-') . ')') : '-',
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
-                number_format($item->barang->harga ?? 0, 2), // HARGA
+                number_format($harga, 2),
+                number_format($nilai, 2),
                 $this->getStatusLabel($item->status),
                 $item->approverL1->name ?? '-',
                 $item->approverAdmin->name ?? '-',

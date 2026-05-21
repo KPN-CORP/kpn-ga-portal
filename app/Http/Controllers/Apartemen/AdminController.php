@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Apartemen\FasilitasBooking;
+use App\Models\Apartemen\BisnisUnit;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -612,14 +614,16 @@ class AdminController extends Controller
         if ($request->filled('search')) {
             $unitsQuery->where('nomor_unit', 'like', '%' . $request->search . '%');
         }
-
         if ($request->filled('status')) {
             $unitsQuery->where('status', $request->status);
         }
 
         $units = $unitsQuery->orderBy('nomor_unit')->paginate(10);
+        
+        // Ambil semua bisnis unit untuk dropdown
+        $bisnisUnits = BisnisUnit::all();
 
-        return view('apartemen.admin.apartemen-detail', compact('apartemen', 'units'));
+        return view('apartemen.admin.apartemen-detail', compact('apartemen', 'units', 'bisnisUnits'));
     }
 
     public function detail($id)
@@ -671,29 +675,27 @@ class AdminController extends Controller
         try {
             $validated = $request->validate([
                 'apartemen_id' => 'required|exists:tb_apartemen,id',
-                'nomor_unit' => 'required|string|max:20',
+                'nomor_unit' => 'required|string|max:50|unique:tb_apartemen_unit,nomor_unit,NULL,id,apartemen_id,' . $request->apartemen_id,
                 'kapasitas' => 'required|integer|min:1',
-                'status' => 'required|in:READY,MAINTENANCE'
+                'status' => 'required|in:READY,TERISI,MAINTENANCE',
+                'bisnis_unit_id' => 'nullable|exists:tb_bisnis_unit,id_bisnis_unit',
+                'gambar_360' => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
+                'catatan' => 'nullable|string|max:500'
             ]);
 
-            $existingUnit = ApartemenUnit::where('apartemen_id', $validated['apartemen_id'])
-                ->where('nomor_unit', $validated['nomor_unit'])
-                ->first();
-
-            if ($existingUnit) {
-                return back()->withInput()
-                    ->with('error', 'Nomor unit sudah digunakan di apartemen ini');
+            if ($request->hasFile('gambar_360')) {
+                $path = $request->file('gambar_360')->store('unit_360', 'public');
+                $validated['gambar_360'] = $path;
             }
 
-            ApartemenUnit::create($validated);
+            $unit = ApartemenUnit::create($validated);
 
-            return back()->with('success', 'Unit berhasil ditambahkan');
-            
+            // Setelah create, langsung redirect ke halaman edit unit yang baru
+            return redirect()->route('apartemen.admin.apartemen.detail', $unit->apartemen_id)
+            ->with('success', 'Unit berhasil ditambahkan');
         } catch (\Exception $e) {
             Log::error('Error storing unit: ' . $e->getMessage());
-            
-            return back()->withInput()
-                ->with('error', 'Gagal menambahkan unit: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Gagal menambahkan unit: ' . $e->getMessage());
         }
     }
 
@@ -857,5 +859,64 @@ class AdminController extends Controller
             'data' => $units,
             'total_maintenance' => $units->count(),
         ];
+    }
+
+    // =================================================================
+    // METHOD UNTUK BISNIS UNIT & GAMBAR 360° (BARU)
+    // =================================================================
+
+    /**
+     * Mengambil data unit untuk form edit (AJAX)
+     */
+    public function getUnitEditData($id)
+    {
+        $unit = ApartemenUnit::findOrFail($id);
+        return response()->json($unit);
+    }
+    
+    public function editUnitForm($id)
+    {
+        $unit = ApartemenUnit::with('apartemen')->findOrFail($id);
+        $bisnisUnits = BisnisUnit::all();
+        return view('apartemen.admin.unit-edit', compact('unit', 'bisnisUnits'));
+    }
+
+    /**
+     * Memperbarui data unit (termasuk upload gambar 360)
+     */
+    public function updateUnit(Request $request, $id)
+    {
+        $unit = ApartemenUnit::findOrFail($id);
+
+        $validated = $request->validate([
+            'nomor_unit'   => 'required|string|max:50',
+            'kapasitas'    => 'required|integer|min:1',
+            'status'       => 'required|in:READY,TERISI,MAINTENANCE',
+            'bisnis_unit_id' => 'nullable|exists:tb_bisnis_unit,id_bisnis_unit',
+            'gambar_360'   => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
+            'catatan'      => 'nullable|string|max:500'
+        ]);
+
+        if ($request->hasFile('gambar_360')) {
+            if ($unit->gambar_360 && Storage::disk('public')->exists($unit->gambar_360)) {
+                Storage::disk('public')->delete($unit->gambar_360);
+            }
+            $path = $request->file('gambar_360')->store('unit_360', 'public');
+            $validated['gambar_360'] = $path;
+        } else {
+            unset($validated['gambar_360']);
+        }
+
+        $unit->update($validated);
+
+        // Setelah update, tetap di halaman edit yang sama
+         return redirect()->route('apartemen.admin.apartemen.detail', $unit->apartemen_id)
+        ->with('success', 'Unit berhasil diperbarui');
+    }
+
+    public function createUnitForm($apartemen_id)
+    {
+        $bisnisUnits = BisnisUnit::all();
+        return view('apartemen.admin.unit-edit', compact('bisnisUnits', 'apartemen_id'));
     }
 }

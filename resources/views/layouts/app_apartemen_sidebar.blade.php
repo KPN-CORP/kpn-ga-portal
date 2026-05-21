@@ -14,8 +14,12 @@
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Alpine.js for dropdowns -->
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Pannellum untuk 360° -->
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
 
     <style>
         html { zoom: 0.8; }
@@ -84,77 +88,56 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    {{-- ########################## --}}
-                    {{-- FORCE ADMIN VIEW FOR TESTING --}}
-                    {{-- Change to @if(true) to always see admin menu --}}
-                    {{-- ########################## --}}
-                    @if(true)   {{-- Ganti dengan kondisi asli: auth()->user()->can('apartemen.admin') ?? false --}}
-                        {{-- ADMIN MENU --}}
-                        {{-- Dashboard GA (main GA dashboard) --}}
+                    @if(true)
+                        {{-- ADMIN MENU (sementara) --}}
                         @if(Route::has('dashboard'))
                         <li>
-                            <a href="{{ route('dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                                 <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         @endif
-
-                        {{-- Status Aktif (user view) --}}
                         <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
                                 <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
                                 <span>Status Aktif</span>
                             </a>
                         </li>
-
-                        {{-- Riwayat Permintaan (user view) --}}
                         <li>
-                            <a href="{{ route('apartemen.user.requests') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.requests') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
                                 <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
                                 <span>Riwayat Permintaan</span>
                             </a>
                         </li>
-
-                        {{-- Pengajuan Baru (user view) --}}
                         <li>
-                            <a href="{{ route('apartemen.user.create') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.create') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
                                 <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
                                 <span>Pengajuan Baru</span>
                             </a>
                         </li>
-
-                        
                     @else
-                        {{-- USER MENU --}}
+                        {{-- USER MENU (asli) --}}
                         <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
                                 <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
                                 <i class="fas fa-check-circle mr-3 text-gray-500 opacity-70"></i>
                                 <span>Status Aktif</span>
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('apartemen.user.requests') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.requests') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
                                 <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
                                 <span>Riwayat Permintaan</span>
                             </a>
                         </li>
                         <li>
-                            <a href="{{ route('apartemen.user.create') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
+                            <a href="{{ route('apartemen.user.create') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
                                 <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
                                 <span>Pengajuan Baru</span>
                             </a>
@@ -249,7 +232,15 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    {{-- MODAL 360° DENGAN NOMOR UNIT --}}
+    <div id="modal360" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50">
+        <div class="relative w-full h-full">
+            <button onclick="close360Modal()" class="absolute top-4 right-4 text-white text-3xl z-10 hover:text-gray-300 transition">&times;</button>
+            <div id="panorama-container" style="width:100%; height:100%;"></div>
+            <div id="unit-number-display" class="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-md text-sm font-mono z-10"></div>
+        </div>
+    </div>
+
     <script>
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.getElementById('overlay');
@@ -301,6 +292,35 @@
                 }
             });
         });
+
+        // Fungsi global untuk membuka modal 360 dengan nomor unit
+        let currentViewer = null;
+        window.open360Modal = function(imageUrl, unitNumber) {
+            const modal = document.getElementById('modal360');
+            modal.classList.remove('hidden');
+            
+            const unitDisplay = document.getElementById('unit-number-display');
+            if (unitNumber) {
+                unitDisplay.textContent = 'Unit: ' + unitNumber;
+                unitDisplay.classList.remove('hidden');
+            } else {
+                unitDisplay.classList.add('hidden');
+            }
+            
+            if (currentViewer) currentViewer.destroy();
+            currentViewer = pannellum.viewer('panorama-container', {
+                type: 'equirectangular',
+                panorama: imageUrl,
+                autoLoad: true,
+                showZoomCtrl: true,
+                mouseZoom: true,
+                compass: true
+            });
+        };
+        window.close360Modal = function() {
+            if (currentViewer) currentViewer.destroy();
+            document.getElementById('modal360').classList.add('hidden');
+        };
     </script>
 
     @stack('scripts')

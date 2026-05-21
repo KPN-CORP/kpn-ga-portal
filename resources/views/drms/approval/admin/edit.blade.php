@@ -159,6 +159,42 @@
             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Proses</button>
         </div>
     </form>
+
+    {{-- Tombol Forward ke BU Lain --}}
+    <div class="mt-6 pt-4 border-t">
+        <button type="button" onclick="openForwardModal()"
+                class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">
+            ➡️ Forward ke Business Unit Lain
+        </button>
+    </div>
+</div>
+
+{{-- Modal Forward --}}
+<div id="forwardModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50" style="display: none;">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Alihkan ke Business Unit Lain</h3>
+        <form method="POST" action="{{ route('drms.approval.admin.forward', $driverRequest->id) }}">
+            @csrf
+            @method('PUT')
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Business Unit Tujuan</label>
+                <select name="target_business_unit_id" class="w-full border rounded-lg px-3 py-2 text-sm" required>
+                    <option value="">-- Pilih BU --</option>
+                    @foreach($allBusinessUnits as $bu)
+                        <option value="{{ $bu->id_bisnis_unit }}">{{ $bu->nama_bisnis_unit }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
+                <textarea name="note" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Tambahkan catatan untuk admin BU tujuan..."></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeForwardModal()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm">Forward</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -206,5 +242,16 @@
     });
 
     toggleFields();
+
+    // Forward Modal functions
+    function openForwardModal() {
+        document.getElementById('forwardModal').classList.remove('hidden');
+        document.getElementById('forwardModal').style.display = 'flex';
+    }
+
+    function closeForwardModal() {
+        document.getElementById('forwardModal').classList.add('hidden');
+        document.getElementById('forwardModal').style.display = 'none';
+    }
 </script>
 @endsection

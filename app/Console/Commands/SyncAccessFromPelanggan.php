@@ -61,7 +61,7 @@ class SyncAccessFromPelanggan extends Command
                     'ma_room_dash'          => 0,
                     'receipt_dash'          => 1,
                     'idcard_dash'           => 0,
-                    'car_dash'              => 0,
+                    'car_dash'              => 1,
                     'apart_dash'            => 0,
                     'receptionist_dash'     => 0,
                     'helpdest_dash'         => 1,

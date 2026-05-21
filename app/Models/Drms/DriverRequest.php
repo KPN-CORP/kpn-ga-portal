@@ -18,6 +18,9 @@ class DriverRequest extends Model
         'approved_l1_at', 'approved_admin_at',
         'trip_type', 'return_date', 'return_time',
         'pickup_maps_link', 'destination_maps_link',
+        // Kolom baru untuk forward ke BU lain
+        'current_business_unit_id', 'original_business_unit_id',
+        'forwarded_by_user_id', 'forwarded_at',
     ];
 
     protected $casts = [
@@ -28,6 +31,7 @@ class DriverRequest extends Model
         'return_time'    => 'string',
         'approved_l1_at' => 'datetime',
         'approved_admin_at' => 'datetime',
+        'forwarded_at'   => 'datetime',
     ];
 
     // Relasi
@@ -62,8 +66,55 @@ class DriverRequest extends Model
     }
 
     /**
+     * Relasi ke business unit yang sedang menangani request (jika di-forward)
+     */
+    public function currentBusinessUnit()
+    {
+        return $this->belongsTo(\App\Models\BisnisUnit::class, 'current_business_unit_id', 'id_bisnis_unit');
+    }
+
+    /**
+     * Relasi ke business unit asal request (dari pemohon)
+     */
+    public function originalBusinessUnit()
+    {
+        return $this->belongsTo(\App\Models\BisnisUnit::class, 'original_business_unit_id', 'id_bisnis_unit');
+    }
+
+    /**
+     * Relasi ke user yang melakukan forward
+     */
+    public function forwardedBy()
+    {
+        return $this->belongsTo(User::class, 'forwarded_by_user_id');
+    }
+
+    /**
      * Scope untuk menampilkan request yang menunggu approval admin
-     * berdasarkan business unit dan area.
+     * berdasarkan business unit dan area, dengan mempertimbangkan current_business_unit_id.
+     */
+    public function scopePendingForAdmin($query, $businessUnitId, $area = null)
+    {
+        $query->where('status', 'approved_l1')
+              ->where(function ($q) use ($businessUnitId, $area) {
+                  // 1. Jika current_business_unit_id terisi, gunakan itu
+                  $q->where('current_business_unit_id', $businessUnitId)
+                    // 2. Jika belum di-forward, gunakan BU requester
+                    ->orWhere(function ($sub) use ($businessUnitId, $area) {
+                        $sub->whereNull('current_business_unit_id')
+                            ->whereHas('requester.drmsProfile', function ($q2) use ($businessUnitId, $area) {
+                                $q2->where('business_unit_id', $businessUnitId);
+                                if ($area) {
+                                    $q2->where('area', $area);
+                                }
+                            });
+                    });
+              });
+    }
+
+    /**
+     * Scope untuk menampilkan request yang menunggu approval admin
+     * (versi lama, hanya berdasarkan BU requester). Masih dipertahankan untuk kompatibilitas.
      */
     public function scopePendingAdmin($query, $businessUnitId, $area = null)
     {

@@ -128,7 +128,7 @@
                             <span>Informasi</span>
                         </a>
                     </li>
-                    <li>
+                    <!-- <li>
                         <a href="{{ url('/no-access') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->is('maintenance*') ? 'active' : '' }}">
                             <i class="fas fa-tools mr-3 text-gray-500 opacity-70"></i>
                             <span>Maintenance</span>
@@ -145,19 +145,19 @@
                             <i class="fas fa-cog mr-3 text-gray-500 opacity-70"></i>
                             <span>Pengaturan</span>
                         </a>
-                    </li>
+                    </li> -->
                 </ul>
 
                 <div class="my-6 soft-border-top"></div>
 
-                <ul class="space-y-1">
+                <!-- <ul class="space-y-1">
                     <li>
                         <a href="{{ url('/help/tiket') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->is('help*') ? 'active' : '' }}">
                             <i class="fas fa-question-circle mr-3 text-gray-500 opacity-70"></i>
                             <span>Bantuan & Feedback</span>
                         </a>
                     </li>
-                </ul>
+                </ul> -->
             </nav>
 
             <!-- User Profile -->

@@ -23,7 +23,7 @@
                     <option value="">Semua Area</option>
                     @foreach($areas as $area)
                         <option value="{{ $area->id_area_kerja }}" {{ request('id_area_kerja') == $area->id_area_kerja ? 'selected' : '' }}>
-                            {{ $area->nama_area }}
+                            {{ $area->nama_area }} ({{ $area->bisnisUnit->nama_bisnis_unit ?? '-' }})
                         </option>
                     @endforeach
                 </select>
@@ -58,7 +58,10 @@
             <tbody class="divide-y">
                 @forelse($stok as $item)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3">{{ $item->areaKerja->nama_area ?? '-' }}</td>
+                    <td class="px-4 py-3">
+                        {{ $item->areaKerja->nama_area ?? '-' }} 
+                        ({{ $item->areaKerja->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                    </td>
                     <td class="px-4 py-3">{{ $item->barang->kode_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ number_format($item->jumlah) }}</td>

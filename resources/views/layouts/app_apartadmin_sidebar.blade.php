@@ -14,8 +14,12 @@
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Alpine.js for dropdowns (retained for potential future use, but management dropdown removed) -->
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Pannellum untuk 360° -->
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
 
     <style>
         html { zoom: 0.8; }
@@ -84,14 +88,8 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    {{-- ########################## --}}
-                    {{-- FORCE ADMIN VIEW FOR TESTING --}}
-                    {{-- Ganti @if(true) dengan kondisi role sebenarnya --}}
-                    {{-- ########################## --}}
-                    @if(true)   {{-- Ganti dengan kondisi asli: auth()->user()->can('apartemen.admin') ?? false --}}
-                        {{-- ADMIN MENU (Tanpa dropdown) --}}
-                        
-                        {{-- Dashboard GA (main GA dashboard) --}}
+                    @if(true)   {{-- Ganti dengan kondisi role admin --}}
+                        {{-- ADMIN MENU --}}
                         @if(Route::has('dashboard'))
                         <li>
                             <a href="{{ route('dashboard') }}" 
@@ -102,7 +100,6 @@
                         </li>
                         @endif
 
-                        {{-- Daftar menu manajemen apartemen (langsung, tanpa dropdown) --}}
                         @php
                             $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
                         @endphp
@@ -152,7 +149,6 @@
                             </a>
                         </li>
 
-                        {{-- Opsional: QR Code & Laporan --}}
                         @if(Route::has('apartemen.admin.access-codes'))
                         <li>
                             <a href="{{ route('apartemen.admin.access-codes') }}" 
@@ -173,7 +169,7 @@
                         </li>
                         @endif
                     @else
-                        {{-- USER MENU (tetap seperti semula) --}}
+                        {{-- USER MENU (jika bukan admin) --}}
                         <li>
                             <a href="{{ route('apartemen.user.index') }}" 
                                class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
@@ -292,6 +288,18 @@
         </div>
     </div>
 
+    {{-- MODAL 360° UNTUK ADMIN --}}
+    <div id="modal360" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50">
+        <div class="relative w-full h-full">
+            <button onclick="close360Modal()" class="absolute top-4 right-4 text-white text-3xl z-10 hover:text-gray-300 transition">&times;</button>
+            <div id="panorama-container" style="width:100%; height:100%;"></div>
+            {{-- Tampilkan nomor unit di pojok kiri bawah --}}
+            <div id="unit-number-display" class="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-md text-sm font-mono z-10">
+                <!-- Nomor unit akan diisi lewat JavaScript -->
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         const sidebar = document.querySelector('.sidebar');
@@ -344,6 +352,36 @@
                 }
             });
         });
+
+        // Fungsi global untuk membuka modal 360°
+        let currentViewer = null;
+        window.open360Modal = function(imageUrl, unitNumber) {
+            const modal = document.getElementById('modal360');
+            modal.classList.remove('hidden');
+            
+            // Tampilkan nomor unit
+            const unitDisplay = document.getElementById('unit-number-display');
+            if (unitNumber) {
+                unitDisplay.textContent = 'Unit: ' + unitNumber;
+                unitDisplay.classList.remove('hidden');
+            } else {
+                unitDisplay.classList.add('hidden');
+            }
+            
+            if (currentViewer) currentViewer.destroy();
+            currentViewer = pannellum.viewer('panorama-container', {
+                type: 'equirectangular',
+                panorama: imageUrl,
+                autoLoad: true,
+                showZoomCtrl: true,
+                mouseZoom: true,
+                compass: true
+            });
+        };
+        window.close360Modal = function() {
+            if (currentViewer) currentViewer.destroy();
+            document.getElementById('modal360').classList.add('hidden');
+        };
     </script>
 
     @stack('scripts')

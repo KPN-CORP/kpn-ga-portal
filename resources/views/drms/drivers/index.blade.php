@@ -18,6 +18,7 @@
                     <th class="px-6 py-3 text-left">Nama</th>
                     <th class="px-6 py-3 text-left">Telepon</th>
                     <th class="px-6 py-3 text-left">Status</th>
+                    <th class="px-6 py-3 text-left">Business Unit</th> <!-- Added -->
                     <th class="px-6 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
@@ -38,6 +39,7 @@
                             {{ ucfirst(str_replace('_', ' ', $driver->status)) }}
                         </span>
                     </td>
+                    <td class="px-6 py-4">{{ $driver->businessUnit->nama_bisnis_unit ?? $driver->business_unit_id ?? '-' }}</td>
                     <td class="px-6 py-4 space-x-2">
                         <a href="{{ route('drms.drivers.edit', $driver) }}" class="text-blue-600 hover:underline">Edit</a>
                         <form action="{{ route('drms.drivers.destroy', $driver) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">

@@ -11,6 +11,7 @@
         .header { margin-bottom: 20px; }
         .filter { margin-bottom: 10px; font-size: 11px; color: #555; }
         .text-right { text-align: right; }
+        .total-row { background-color: #f2f2f2; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -23,17 +24,23 @@
         </div>
     </div>
 
+    @php
+        $grandTotal = 0;
+    @endphp
+
     <table>
         <thead>
             <tr>
                 <th>No. Permintaan</th>
                 <th>Tanggal</th>
                 <th>Pemohon</th>
-                <th>Unit</th> {{-- Kolom baru --}}
+                <th>Unit</th>
                 <th>Area</th>
                 <th>Barang</th>
                 <th class="text-right">Jumlah</th>
                 <th>Satuan</th>
+                <th class="text-right">Harga (Rp)</th>
+                <th class="text-right">Nilai (Rp)</th>
                 <th>Status</th>
                 <th>Approver L1</th>
                 <th>Approver Admin</th>
@@ -41,6 +48,12 @@
         </thead>
         <tbody>
             @forelse($permintaan as $item)
+            @php
+                $harga = $item->barang->harga ?? 0;
+                // Hanya status 'disetujui' yang dihitung nilainya, selain itu 0
+                $nilai = ($item->status == 'disetujui') ? ($item->jumlah * $harga) : 0;
+                $grandTotal += $nilai;
+            @endphp
             <tr>
                 <td>G-SC-{{ $item->id_permintaan }}</td>
                 <td>{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}</td>
@@ -52,10 +65,18 @@
                         -
                     @endif
                 </td>
-                <td>{{ $item->areaKerja->nama_area ?? '-' }}</td>
+                <td>
+                    @if($item->areaKerja)
+                        {{ $item->areaKerja->nama_area }} ({{ $item->areaKerja->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ $item->barang->nama_barang ?? '-' }}</td>
                 <td class="text-right">{{ number_format($item->jumlah) }}</td>
                 <td>{{ $item->barang->satuan ?? '-' }}</td>
+                <td class="text-right">{{ number_format($harga, 2) }}</td>
+                <td class="text-right">{{ number_format($nilai, 2) }}</td>
                 <td>
                     @if($item->status == 'pending_l1') Menunggu L1
                     @elseif($item->status == 'pending_admin') Menunggu Admin
@@ -66,9 +87,18 @@
                 <td>{{ $item->approverAdmin->name ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="11" style="text-align: center;">Tidak ada data</td></tr>
+            <tr><td colspan="13" style="text-align: center;">Tidak ada数据</td></tr>
             @endforelse
         </tbody>
+        @if($permintaan->count())
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="9" class="text-right"><strong>Total Nilai (Hanya Disetujui):</strong></td>
+                <td class="text-right"><strong>{{ number_format($grandTotal, 2) }}</strong></td>
+                <td colspan="3"></td>
+            </tr>
+        </tfoot>
+        @endif
     </table>
 </body>
 </html>

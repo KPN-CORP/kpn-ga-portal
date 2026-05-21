@@ -11,6 +11,7 @@
         .header { margin-bottom: 20px; }
         .filter { margin-bottom: 10px; font-size: 11px; color: #555; }
         .text-right { text-align: right; }
+        .total-row { background-color: #f2f2f2; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -23,6 +24,10 @@
         </div>
     </div>
 
+    @php
+        $grandTotal = 0;
+    @endphp
+
     <table>
         <thead>
             <tr>
@@ -31,6 +36,8 @@
                 <th>Barang</th>
                 <th class="text-right">Jumlah</th>
                 <th>Satuan</th>
+                <th class="text-right">Harga (Rp)</th>
+                <th class="text-right">Nilai (Rp)</th>
                 <th>Area Asal</th>
                 <th>Area Tujuan</th>
                 <th>Keterangan</th>
@@ -39,21 +46,49 @@
         </thead>
         <tbody>
             @forelse($transaksi as $item)
+            @php
+                $harga = $item->barang->harga ?? 0;
+                $nilai = $item->jumlah * $harga;
+                $grandTotal += $nilai;
+            @endphp
             <tr>
                 <td>{{ \Carbon\Carbon::parse($item->tanggal)->format('d M Y H:i') }}</td>
                 <td>{{ ucfirst($item->jenis) }}</td>
                 <td>{{ $item->barang->nama_barang ?? '-' }}</td>
                 <td class="text-right">{{ number_format($item->jumlah) }}</td>
                 <td>{{ $item->barang->satuan ?? '-' }}</td>
-                <td>{{ $item->areaAsal->nama_area ?? '-' }}</td>
-                <td>{{ $item->areaTujuan->nama_area ?? '-' }}</td>
+                <td class="text-right">{{ number_format($harga, 2) }}</td>
+                <td class="text-right">{{ number_format($nilai, 2) }}</td>
+                <td>
+                    @if($item->areaAsal)
+                        {{ $item->areaAsal->nama_area }} ({{ $item->areaAsal->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                    @else
+                        -
+                    @endif
+                </td>
+                <td>
+                    @if($item->areaTujuan)
+                        {{ $item->areaTujuan->nama_area }} ({{ $item->areaTujuan->bisnisUnit->nama_bisnis_unit ?? '-' }})
+                    @else
+                        -
+                    @endif
+                </td>
                 <td>{{ $item->keterangan ?? '-' }}</td>
                 <td>{{ $item->user->name ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" style="text-align: center;">Tidak ada data</td></tr>
+            <tr><td colspan="11" style="text-align: center;">Tidak ada data</td></tr>
             @endforelse
         </tbody>
+        @if($transaksi->count())
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="6" class="text-right"><strong>Total Nilai Transaksi:</strong></td>
+                <td class="text-right"><strong>{{ number_format($grandTotal, 2) }}</strong></td>
+                <td colspan="4"></td>
+            </tr>
+        </tfoot>
+        @endif
     </table>
 </body>
 </html>

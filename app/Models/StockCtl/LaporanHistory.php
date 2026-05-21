@@ -12,6 +12,7 @@ class LaporanHistory extends Model
 
     protected $fillable = [
         'id_user',
+        'id_bisnis_unit',
         'jenis',
         'id_area',
         'id_barang',

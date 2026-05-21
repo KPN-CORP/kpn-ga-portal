@@ -73,6 +73,7 @@
                         <th class="px-4 py-3 text-left">Pemohon</th>
                         <th class="px-4 py-3 text-left">Tanggal</th>
                         <th class="px-4 py-3 text-left">Perjalanan</th>
+                        <th class="px-4 py-3 text-left">Request BU</th>
                         <th class="px-4 py-3 text-left">Aksi</th>
                     </tr>
                 </thead>
@@ -83,6 +84,7 @@
                         $endTime = $req->end_time;
                         $returnDate = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : null;
                         $tujuanFull = $req->pickup_location . ' → ' . $req->destination;
+                        $currentBuName = $req->currentBusinessUnit->nama_bisnis_unit ?? ($req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-');
                         $detailData = [
                             'request_no' => $req->request_no,
                             'requester' => ['name' => $req->requester->name],
@@ -121,14 +123,20 @@
                             @endif
                         </td>
                         <td class="px-4 py-3">{{ $tujuanFull }}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                                {{ $currentBuName }}
+                            </span>
+                        </td>
                         <td class="px-4 py-3 space-x-2 whitespace-nowrap">
                             <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Proses</a>
                             <button @click="openRejectModal({{ $req->id }})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold">Tolak</button>
+                            <button @click="openForwardModal({{ $req->id }})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-semibold">Forward</button>
                         </td>
                     </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-10 text-center text-gray-500">Tidak ada permintaan yang perlu diproses.</td>
+                            <td colspan="6" class="px-4 py-10 text-center text-gray-500">Tidak ada permintaan yang perlu diproses.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -182,6 +190,7 @@
                         <td class="px-3 pt-3 pb-1 text-right">
                             <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">Proses</a>
                             <button @click="openRejectModal({{ $req->id }})" class="bg-red-500 text-white px-2 py-1 rounded text-xs">Tolak</button>
+                            <button @click="openForwardModal({{ $req->id }})" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Forward</button>
                         </td>
                     </tr>
                     <tr class="bg-gray-50 border-b">
@@ -221,6 +230,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left">No. Request</th>
                         <th class="px-4 py-3 text-left">Pemohon</th>
+                        <th class="px-4 py-3 text-left">BU Pemohon</th> <!-- Added column -->
                         <th class="px-4 py-3 text-left">Tanggal</th>
                         <th class="px-4 py-3 text-left">Perjalanan</th>
                         <th class="px-4 py-3 text-left">Jenis</th>
@@ -235,6 +245,7 @@
                         $endTime = $req->end_time;
                         $returnDate = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : null;
                         $tujuanFull = $req->pickup_location . ' → ' . $req->destination;
+                        $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
                         $statusLabels = [
                             'approved_admin' => 'Disetujui',
                             'rejected_admin' => 'Ditolak',
@@ -272,6 +283,7 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 font-mono">{{ $req->request_no }}</td>
                         <td class="px-4 py-3">{{ $req->requester->name }}</td>
+                        <td class="px-4 py-3">{{ $buPemohon }}</td> <!-- Cell added -->
                         <td class="px-4 py-3">
                             @if($req->trip_type === 'round_trip')
                                 {{ $startDateTime }}
@@ -303,7 +315,7 @@
                     </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-10 text-center text-gray-500">Belum ada history.</td>
+                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">Belum ada history.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -326,6 +338,7 @@
                     @php
                         $start = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
                         $end = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : $req->end_time;
+                        $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
                         $statusLabels = [
                             'approved_admin' => 'Disetujui',
                             'rejected_admin' => 'Ditolak',
@@ -390,6 +403,12 @@
                             </span>
                         </td>
                     </tr>
+                    <!-- Additional row for BU Pemohon on mobile -->
+                    <tr class="bg-gray-50 border-b">
+                        <td colspan="4" class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
+                            <span class="font-medium">BU Pemohon:</span> {{ $buPemohon }}
+                        </td>
+                    </tr>
                     @empty
                         <tr>
                             <td colspan="4" class="py-6 text-center text-gray-500">Belum ada history</td>
@@ -422,13 +441,41 @@
         </div>
     </div>
 
+    {{-- MODAL FORWARD --}}
+    <div x-show="forwardModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-lg font-semibold mb-4">Alihkan ke Business Unit Lain</h2>
+            <form :action="`{{ url('drms/approval/admin') }}/${forwardRequestId}/forward`" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Business Unit Tujuan</label>
+                    <select name="target_business_unit_id" class="w-full border rounded-lg px-3 py-2 text-sm" required>
+                        <option value="">-- Pilih BU --</option>
+                        @foreach($businessUnits as $bu)
+                            <option value="{{ $bu->id_bisnis_unit }}">{{ $bu->nama_bisnis_unit }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
+                    <textarea name="note" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Tambahkan catatan untuk admin BU tujuan..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" @click="forwardModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm">Forward</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- MODAL DETAIL --}}
     <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
             <table class="w-full text-sm border-collapse">
                 <tbody>
-                    <tr class="border-b border-gray-100"><td class="py-2 w-1/3 text-gray-500 font-medium">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"></td></tr>
+                    <tr class="border-b border-gray-100"><td class="py-2 w-1/3 text-gray-500 font-medium">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"><tr></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Pemohon</td><td class="py-2"><span x-text="detailItem.requester?.name ?? '-'"></span><span x-show="detailItem.created_at" class="text-gray-400 text-xs ml-1" x-text="'(' + detailItem.created_at + ')'"></span></td></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tipe Perjalanan</td><td class="py-2" x-text="detailItem.trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan'"></td></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tanggal &amp; Jam</td>
@@ -485,11 +532,17 @@ function approvalAdminModal() {
     return {
         rejectModalOpen: false,
         rejectRequestId: null,
+        forwardModalOpen: false,
+        forwardRequestId: null,
         detailModalOpen: false,
         detailItem: {},
         openRejectModal(id) {
             this.rejectRequestId = id;
             this.rejectModalOpen = true;
+        },
+        openForwardModal(id) {
+            this.forwardRequestId = id;
+            this.forwardModalOpen = true;
         },
         openDetailModal(item) {
             this.detailItem = item;

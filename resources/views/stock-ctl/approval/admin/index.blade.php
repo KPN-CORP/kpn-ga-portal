@@ -32,7 +32,12 @@
                     <td class="px-4 py-3 font-mono text-sm">G-SC-{{ $item->id_permintaan }}</td>
                     <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}</td>
                     <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>
-                    <td class="px-4 py-3">{{ $item->areaKerja->nama_area ?? '-' }}</td>
+                    <td class="px-4 py-3">
+                        {{ $item->areaKerja->nama_area ?? '-' }}
+                        @if($item->areaKerja && $item->areaKerja->bisnisUnit)
+                            ({{ $item->areaKerja->bisnisUnit->nama_bisnis_unit }})
+                        @endif
+                    </td>
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
                     <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
@@ -87,7 +92,7 @@
     </div>
 </div>
 
-{{-- Modal Reject (tetap pakai form biasa, karena tidak perlu AJAX) --}}
+{{-- Modal Reject --}}
 <div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tolak Permintaan</h3>
@@ -107,7 +112,6 @@
 
 <script>
 function showApproveModal(id, originalJumlah, satuan) {
-    // Set form action dan data-id
     const form = document.getElementById('approveForm');
     form.action = "{{ url('stock-ctl/approval/admin') }}/" + id + "/approve";
     form.setAttribute('data-id', id);
@@ -116,12 +120,10 @@ function showApproveModal(id, originalJumlah, satuan) {
     jumlahInput.value = originalJumlah;
     document.getElementById('approveSatuan').innerText = satuan ? 'Satuan: ' + satuan : '';
     
-    // Reset error message
     const errorDiv = document.getElementById('approveError');
     errorDiv.classList.add('hidden');
     errorDiv.innerText = '';
     
-    // Optional: cek stok awal (tanpa submit) untuk peringatan dini
     fetch("{{ url('stock-ctl/approval/admin/cek-stok') }}/" + id)
         .then(res => res.json())
         .then(data => {
@@ -155,7 +157,6 @@ window.onclick = function(event) {
     if (event.target === rejectModal) closeModal('rejectModal');
 }
 
-// Submit approve via AJAX
 document.getElementById('approveForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -165,7 +166,6 @@ document.getElementById('approveForm').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('approveSubmitBtn');
     const errorDiv = document.getElementById('approveError');
     
-    // Disable button & show loading
     submitBtn.disabled = true;
     submitBtn.innerText = 'Memproses...';
     errorDiv.classList.add('hidden');
@@ -181,10 +181,8 @@ document.getElementById('approveForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Sukses, redirect ke halaman index
             window.location.href = "{{ route('stock-ctl.approval.admin.index') }}";
         } else {
-            // Tampilkan pesan error di modal
             errorDiv.innerText = data.message || 'Terjadi kesalahan. Silakan coba lagi.';
             errorDiv.classList.remove('hidden');
             submitBtn.disabled = false;

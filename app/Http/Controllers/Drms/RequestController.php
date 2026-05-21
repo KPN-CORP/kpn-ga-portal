@@ -17,7 +17,6 @@ class RequestController extends Controller
         $query = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher'])
             ->where('requester_id', auth()->id());
 
-        // Filter pencarian (request_no, pickup_location, destination, purpose)
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
             $query->where(function ($q) use ($search) {
@@ -28,17 +27,14 @@ class RequestController extends Controller
             });
         }
 
-        // Filter status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter tanggal dari
         if ($request->filled('dari')) {
             $query->whereDate('usage_date', '>=', $request->dari);
         }
 
-        // Filter tanggal sampai
         if ($request->filled('sampai')) {
             $query->whereDate('usage_date', '<=', $request->sampai);
         }
@@ -65,8 +61,8 @@ class RequestController extends Controller
             'pickup_location'       => 'required|string|max:255',
             'destination'           => 'required|string|max:255',
             'purpose'               => 'required|string',
-            'pickup_maps_link'      => 'nullable|string|max:500',
-            'destination_maps_link' => 'nullable|string|max:500',
+            'pickup_maps_link'      => 'required|string|max:500',
+            'destination_maps_link' => 'required|string|max:500',
         ];
 
         if ($request->trip_type === 'round_trip') {
@@ -80,7 +76,12 @@ class RequestController extends Controller
             'end_minute'   => trim($request->input('end_minute', '')),
         ]);
 
-        $data = $request->validate($rules);
+        $messages = [
+            'pickup_maps_link.required'      => 'Link Google Maps untuk lokasi penjemputan wajib diisi.',
+            'destination_maps_link.required' => 'Link Google Maps untuk tujuan wajib diisi.',
+        ];
+
+        $data = $request->validate($rules, $messages);
 
         $start_time = sprintf('%02d:%02d', (int)$data['start_hour'], (int)$data['start_minute']);
         $end_time   = sprintf('%02d:%02d', (int)$data['end_hour'], (int)$data['end_minute']);

@@ -17,6 +17,7 @@
                     <th class="px-4 py-2 text-left">Nominal</th>
                     <th class="px-4 py-2 text-left">Tipe</th>
                     <th class="px-4 py-2 text-left">Status</th>
+                    <th class="px-4 py-2 text-left">Business Unit</th> <!-- Added -->
                     <th class="px-4 py-2 text-left">Aksi</th>
                 </tr>
             </thead>
@@ -32,6 +33,7 @@
                         @endphp
                         <span class="px-2 py-1 rounded-full text-xs {{ $statusColor }}">{{ ucfirst($v->status) }}</span>
                     </td>
+                    <td class="px-4 py-2">{{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}</td>
                     <td class="px-4 py-2">
                         <a href="{{ route('drms.vouchers.edit', $v) }}" class="text-blue-600 hover:underline">Edit</a>
                         <form action="{{ route('drms.vouchers.destroy', $v) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
@@ -43,7 +45,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="5" class="px-4 py-6 text-center text-gray-500">Belum ada voucher.</td>
+                    <td colspan="6" class="px-4 py-6 text-center text-gray-500">Belum ada voucher.</td>
                 </tr>
                 @endforelse
             </tbody>
