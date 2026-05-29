@@ -1,53 +1,94 @@
+@php
+    // Helper functions untuk status dengan warna solid (menggunakan label)
+    if (!function_exists('statusColorClass')) {
+        function statusColorClass($statusLabel) {
+            $label = strtolower(trim($statusLabel));
+            if (str_contains($label, 'kirim')) return 'bg-blue-600 text-white border-blue-700';
+            if (str_contains($label, 'terima')) return 'bg-emerald-600 text-white border-emerald-700';
+            if (str_contains($label, 'tolak')) return 'bg-rose-600 text-white border-rose-700';
+            if (str_contains($label, 'terus')) return 'bg-amber-600 text-white border-amber-700';
+            // fallback berdasarkan kata kunci lain
+            return 'bg-purple-600 text-white border-purple-700';
+        }
+    }
+
+    if (!function_exists('statusIcon')) {
+        function statusIcon($statusLabel) {
+            $label = strtolower(trim($statusLabel));
+            if (str_contains($label, 'kirim')) return 'fas fa-paper-plane';
+            if (str_contains($label, 'terima')) return 'fas fa-check-circle';
+            if (str_contains($label, 'tolak')) return 'fas fa-times-circle';
+            if (str_contains($label, 'terus')) return 'fas fa-share';
+            return 'fas fa-tag';
+        }
+    }
+@endphp
+
 @extends('layouts.app-sidebar')
 
 @section('content')
-<div class="space-y-6 text-sm text-gray-800 font-sans">
+<div class="space-y-8 text-gray-800 font-sans antialiased">
 
-    {{-- HEADER --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    {{-- HEADER MODERN --}}
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
         <div>
-            <h2 class="text-xl font-semibold text-gray-800">Track R – Dokumen</h2>
-            <p class="text-xs text-gray-500">Daftar dokumen yang dapat Anda akses</p>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                Track R – Dokumen
+            </h1>
+            <p class="text-sm text-slate-500 mt-1.5">
+                Kelola dan pantau semua dokumen dalam satu tampilan modern
+            </p>
         </div>
-        <div class="flex gap-2 w-full sm:w-auto">
+        <div class="flex gap-3">
             <a href="{{ route('track-r.create') }}"
-               class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
-                <i class="fas fa-plus mr-1.5"></i> Kirim Dokumen
+               class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-200 hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
+                <i class="fas fa-plus text-xs"></i> Kirim Dokumen
             </a>
             <a href="{{ route('track-r.export', request()->query()) }}"
-               class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition shadow-sm">
-                <i class="fas fa-download mr-1.5"></i> CSV
+               class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all duration-200">
+                <i class="fas fa-download text-xs text-emerald-600"></i> CSV
             </a>
         </div>
     </div>
 
-    {{-- FILTER & PENCARIAN --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-        <form method="GET" class="flex flex-wrap items-end gap-3">
-            <div class="relative flex-1 min-w-[200px]">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                <input type="text" name="search" value="{{ request('search') }}"
-                       placeholder="Cari nomor atau judul..."
-                       class="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+    {{-- FILTER CARD --}}
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-xl shadow-slate-100 p-5 transition-all">
+        <form method="GET" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+                    Cari dokumen
+                </label>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" name="search" value="{{ request('search') }}"
+                           placeholder="Nomor atau judul dokumen..."
+                           class="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-slate-50/50">
+                </div>
             </div>
 
-            <div class="flex gap-2 items-end">
+            <div class="flex gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Dari</label>
+                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+                        Dari tanggal
+                    </label>
                     <input type="date" name="from" value="{{ request('from') }}"
-                           class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                           class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-slate-50/50">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Sampai</label>
+                    <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+                        Sampai tanggal
+                    </label>
                     <input type="date" name="to" value="{{ request('to') }}"
-                           class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
+                           class="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-slate-50/50">
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Status</label>
-                <select name="status" class="border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua</option>
+                <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5">
+                    Status
+                </label>
+                <select name="status" class="border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-slate-50/50 pr-8">
+                    <option value="">Semua status</option>
                     <option value="dikirim" @selected(request('status') == 'dikirim')>Dikirim</option>
                     <option value="diterima" @selected(request('status') == 'diterima')>Diterima</option>
                     <option value="ditolak" @selected(request('status') == 'ditolak')>Ditolak</option>
@@ -57,171 +98,171 @@
 
             <div class="flex gap-2 items-end">
                 <button type="submit"
-                        class="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
-                    <i class="fas fa-filter mr-1"></i> Terapkan
+                        class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-200 hover:shadow-lg transition-all duration-200">
+                    <i class="fas fa-sliders-h mr-1.5"></i> Terapkan
                 </button>
                 @if(request('search') || request('status') || request('from') || request('to'))
-                <a href="{{ route('track-r.index') }}"
-                   class="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition flex items-center">
-                    <i class="fas fa-times mr-1"></i> Reset
-                </a>
+                    <a href="{{ route('track-r.index') }}"
+                       class="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all flex items-center gap-1">
+                        <i class="fas fa-undo-alt text-xs"></i> Reset
+                    </a>
                 @endif
             </div>
         </form>
     </div>
 
-    {{-- ========== DESKTOP TABLE (FIXED LAYOUT, TIDAK PERLU SCROLL HORIZONTAL) ========== --}}
-    <div class="hidden sm:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full table-fixed">
-                <thead>
-                    <tr class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-200">
-                        <th class="w-[12%] px-5 py-3.5 text-left">No Dokumen</th>
-                        <th class="w-[30%] px-5 py-3.5 text-left">Judul</th>
-                        <th class="w-[15%] px-5 py-3.5 text-left">Pengirim</th>
-                        <th class="w-[10%] px-5 py-3.5 text-left">Tgl Kirim</th>
-                        <th class="w-[18%] px-5 py-3.5 text-left">Penerima</th>
-                        <th class="w-[8%] px-5 py-3.5 text-left">Status</th>
-                        <th class="w-[7%] px-5 py-3.5 text-left">Update</th>
-                        <th class="w-[10%] px-5 py-3.5 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($documents as $doc)
-                        @php
-                            $userStatus = $doc->statusForUser(auth()->user());
-                            $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
-                        @endphp
-                        <tr class="hover:bg-blue-50/40 transition">
-                            {{-- No Dokumen (nowrap) --}}
-                            <td class="px-5 py-4 font-mono font-semibold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" title="{{ $doc->nomor_dokumen }}">
-                                {{ $doc->nomor_dokumen }}
-                            </td>
-
-                            {{-- Judul (wrap) --}}
-                            <td class="px-5 py-4 break-words">
-                                <div class="font-medium text-gray-700">
-                                    {{ $doc->judul }}
-                                </div>
-                            </td>
-
-                            {{-- Pengirim (wrap) --}}
-                            <td class="px-5 py-4 break-words">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                                        <i class="fas fa-user text-blue-600 text-xs"></i>
-                                    </div>
-                                    <span class="text-gray-700">{{ $doc->pengirim->name ?? '-' }}</span>
-                                </div>
-                            </td>
-
-                            {{-- Tgl Kirim (nowrap) --}}
-                            <td class="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
-                                {{ $doc->created_at->format('d/m/Y H:i') }}
-                            </td>
-
-                            {{-- Penerima (wrap, dengan flex-wrap untuk badge) --}}
-                            <td class="px-5 py-4 break-words">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                                        <i class="fas fa-user-check text-green-600 text-xs"></i>
-                                    </div>
-                                    <div class="leading-tight">
-                                        <span class="text-gray-700">{{ $doc->penerima->name ?? '-' }}</span>
-                                        @if($otherRecipients->count() > 0)
-                                            <span class="text-xs text-gray-500 ml-1 bg-gray-100 px-1.5 py-0.5 rounded-full cursor-default"
-                                                  title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
-                                                +{{ $otherRecipients->count() }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-
-                            {{-- Status (nowrap) --}}
-                            <td class="px-5 py-4 whitespace-nowrap">
-                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border {{ $userStatus['color'] }}">
-                                    {{ $userStatus['label'] }}
-                                </span>
-                            </td>
-
-                            {{-- Update (nowrap) --}}
-                            <td class="px-5 py-4 text-xs text-gray-600 whitespace-nowrap">
-                                {{ $doc->updated_at->format('d/m/Y H:i') }}
-                            </td>
-
-                            {{-- Aksi (nowrap) --}}
-                            <td class="px-5 py-4 text-right whitespace-nowrap">
-                                <a href="{{ route('track-r.show', $doc->id) }}"
-                                   class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition">
-                                    <i class="fas fa-eye text-xs"></i> Detail
-                                </a>
-                            </td>
+    {{-- TABEL DESKTOP --}}
+    <div class="hidden sm:block">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-100 overflow-hidden transition-all">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="px-6 py-4 text-left">No Dokumen</th>
+                            <th class="px-6 py-4 text-left">Judul</th>
+                            <th class="px-6 py-4 text-left">Pengirim</th>
+                            <th class="px-6 py-4 text-left">Tgl Kirim</th>
+                            <th class="px-6 py-4 text-left">Penerima</th>
+                            <th class="px-6 py-4 text-left">Status</th>
+                            <th class="px-6 py-4 text-left">Update</th>
+                            <th class="px-6 py-4 text-right">Aksi</th>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="text-center py-16 text-gray-500">
-                                <i class="fas fa-inbox text-4xl mb-3 text-gray-300 block"></i>
-                                <p class="font-medium">Tidak ada dokumen ditemukan</p>
-                                <p class="text-xs text-gray-400 mt-1">Coba ubah filter atau kirim dokumen baru.</p>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse($documents as $doc)
+                            @php
+                                $userStatus = $doc->statusForUser(auth()->user());
+                                // Ambil label status, jika tidak ada gunakan string kosong
+                                $statusLabel = is_array($userStatus) ? ($userStatus['label'] ?? '') : (string) $userStatus;
+                                if (empty($statusLabel)) {
+                                    $statusLabel = 'Unknown';
+                                }
+                                $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
+                            @endphp
+                            <tr class="group hover:bg-slate-50/60 transition duration-150">
+                                <td class="px-6 py-4 font-mono text-sm font-semibold text-slate-700 whitespace-nowrap">
+                                    {{ $doc->nomor_dokumen }}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-medium text-slate-800 line-clamp-1">
+                                        {{ $doc->judul }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                                            <i class="fas fa-user text-blue-600 text-xs"></i>
+                                        </div>
+                                        <span class="text-sm text-slate-700">{{ $doc->pengirim->name ?? '-' }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                    {{ $doc->created_at->format('d/m/Y H:i') }}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center">
+                                            <i class="fas fa-user-check text-emerald-600 text-xs"></i>
+                                        </div>
+                                        <div class="text-sm">
+                                            <span class="text-slate-700">{{ $doc->penerima->name ?? '-' }}</span>
+                                            @if($otherRecipients->count() > 0)
+                                                <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1.5 cursor-help"
+                                                      title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
+                                                    +{{ $otherRecipients->count() }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }}">
+                                        <i class="{{ statusIcon($statusLabel) }} text-[11px]"></i>
+                                        {{ $statusLabel }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                    {{ $doc->updated_at->format('d/m/Y H:i') }}
+                                </td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <a href="{{ route('track-r.show', $doc->id) }}"
+                                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all">
+                                        <i class="fas fa-eye text-xs"></i> Detail
+                                    </a>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="text-center py-20 text-slate-500">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <i class="fas fa-folder-open text-5xl text-slate-300"></i>
+                                        <p class="font-medium">Tidak ada dokumen</p>
+                                        <p class="text-xs text-slate-400">Coba ubah filter atau kirim dokumen baru</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    {{-- ========== MOBILE LIST (TIDAK BERUBAH) ========== --}}
-    <div class="block sm:hidden space-y-2">
+    {{-- MOBILE CARDS --}}
+    <div class="block sm:hidden space-y-4">
         @forelse($documents as $doc)
             @php
                 $userStatus = $doc->statusForUser(auth()->user());
+                $statusLabel = is_array($userStatus) ? ($userStatus['label'] ?? '') : (string) $userStatus;
+                if (empty($statusLabel)) {
+                    $statusLabel = 'Unknown';
+                }
                 $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
             @endphp
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-blue-300 transition space-y-2">
-                <div class="flex justify-between items-start">
-                    <div class="font-mono font-bold text-gray-800">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-lg p-5 transition hover:shadow-xl hover:border-blue-200">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="font-mono text-sm font-bold bg-slate-100 px-2 py-1 rounded-lg text-slate-700">
                         {{ $doc->nomor_dokumen }}
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold border {{ $userStatus['color'] }}">
-                        {{ $userStatus['label'] }}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }}">
+                        <i class="{{ statusIcon($statusLabel) }} text-[11px]"></i>
+                        {{ $statusLabel }}
                     </span>
                 </div>
-                <div class="font-medium text-gray-800 text-sm leading-snug">
-                    {{ $doc->judul }}
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                    <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                        <i class="fas fa-user text-blue-600 text-xs"></i>
+                <h3 class="text-base font-semibold text-slate-800 mb-3 leading-tight">{{ $doc->judul }}</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i class="fas fa-user text-blue-600 text-xs"></i>
+                        </div>
+                        <span class="text-slate-700">{{ $doc->pengirim->name ?? '-' }}</span>
                     </div>
-                    <span class="text-gray-700 font-medium">{{ $doc->pengirim->name ?? '-' }}</span>
-                </div>
-                <div class="flex gap-3 text-xs text-gray-500">
-                    <span><i class="far fa-calendar-alt mr-1"></i> {{ $doc->created_at->format('d/m/Y H:i') }}</span>
-                    <span><i class="far fa-clock mr-1"></i> {{ $doc->updated_at->format('H:i') }}</span>
-                </div>
-                <div class="flex items-center gap-2 text-xs">
-                    <div class="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                        <i class="fas fa-user-check text-green-600 text-xs"></i>
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center">
+                            <i class="fas fa-user-check text-emerald-600 text-xs"></i>
+                        </div>
+                        <span class="text-slate-700">{{ $doc->penerima->name ?? '-' }}</span>
+                        @if($otherRecipients->count() > 0)
+                            <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                +{{ $otherRecipients->count() }}
+                            </span>
+                        @endif
                     </div>
-                    <span class="text-gray-700">{{ $doc->penerima->name ?? '-' }}</span>
-                    @if($otherRecipients->count() > 0)
-                        <span class="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                            +{{ $otherRecipients->count() }}
-                        </span>
-                    @endif
+                    <div class="flex gap-3 text-slate-500 text-xs pt-1">
+                        <span><i class="far fa-calendar-alt mr-1"></i> {{ $doc->created_at->format('d/m/Y H:i') }}</span>
+                        <span><i class="far fa-clock mr-1"></i> Update: {{ $doc->updated_at->format('H:i') }}</span>
+                    </div>
                 </div>
-                <div class="flex justify-end pt-1">
+                <div class="flex justify-end mt-4">
                     <a href="{{ route('track-r.show', $doc->id) }}"
-                       class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition">
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all">
                         <i class="fas fa-eye"></i> Detail
                     </a>
                 </div>
             </div>
         @empty
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-                <i class="fas fa-inbox text-3xl mb-2 text-gray-300 block"></i>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-lg p-10 text-center text-slate-500">
+                <i class="fas fa-inbox text-4xl mb-3 text-slate-300"></i>
                 <p>Tidak ada dokumen ditemukan</p>
             </div>
         @endforelse
@@ -229,12 +270,53 @@
 
     {{-- PAGINATION --}}
     @if($documents->hasPages())
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-600">
-        <div>Menampilkan {{ $documents->firstItem() }} – {{ $documents->lastItem() }} dari {{ $documents->total() }} dokumen</div>
-        <div class="mt-2 sm:mt-0">{{ $documents->links() }}</div>
-    </div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
+            <div class="text-sm text-slate-500 bg-slate-50/50 px-4 py-2 rounded-full self-start">
+                <i class="fas fa-file-alt mr-1.5 text-slate-400"></i>
+                Menampilkan {{ $documents->firstItem() }} – {{ $documents->lastItem() }} dari {{ $documents->total() }} dokumen
+            </div>
+            <div class="pagination-modern">
+                {{ $documents->links() }}
+            </div>
+        </div>
     @elseif($documents->count() > 0)
-    <div class="text-center text-sm text-gray-500 py-1">Total {{ $documents->count() }} dokumen</div>
+        <div class="text-center text-sm text-slate-500 py-3 bg-slate-50 rounded-full">
+            <i class="fas fa-check-circle text-emerald-500 mr-1"></i> Total {{ $documents->count() }} dokumen
+        </div>
     @endif
 </div>
+
+<style>
+    /* Custom pagination modern */
+    .pagination-modern nav div,
+    .pagination-modern nav[role="navigation"] {
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-modern .flex.items-center.justify-between {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .pagination-modern .relative.z-0.inline-flex {
+        box-shadow: none;
+        gap: 0.5rem;
+    }
+    .pagination-modern .relative.inline-flex.items-center {
+        @apply px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all;
+    }
+    .pagination-modern span.relative.inline-flex.items-center {
+        @apply border-blue-200 bg-blue-50 text-blue-700 font-semibold;
+    }
+    .pagination-modern .relative.inline-flex.items-center svg {
+        @apply w-4 h-4;
+    }
+    @media (max-width: 640px) {
+        .pagination-modern .relative.z-0.inline-flex {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+    }
+</style>
 @endsection

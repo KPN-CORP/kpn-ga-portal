@@ -2,122 +2,64 @@
 
 @section('title', 'Feedback Saya')
 
-@section('head')
-<style>
-    .feedback-card {
-        transition: all 0.3s ease;
-        border: none;
-        border-radius: 20px;
-        background: linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%);
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.02);
-    }
-    .feedback-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 30px -12px rgba(0,0,0,0.15);
-    }
-    .status-badge {
-        padding: 5px 12px;
-        border-radius: 50px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-    }
-    .status-open { background: #10b981; color: white; }
-    .status-closed { background: #6b7280; color: white; }
-    .reply-count {
-        background: #eef2ff;
-        color: #4f46e5;
-        border-radius: 50px;
-        padding: 2px 10px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .btn-create {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        border: none;
-        border-radius: 12px;
-        padding: 10px 24px;
-        font-weight: 600;
-        transition: all 0.3s;
-    }
-    .btn-create:hover {
-        transform: scale(1.02);
-        box-shadow: 0 10px 20px -5px #4f46e580;
-    }
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        background: white;
-        border-radius: 30px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="container py-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+<div class="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <div class="flex justify-between items-center mb-6">
         <div>
-            <h2 class="fw-bold" style="color: #1e293b;">
-                <i class="fas fa-comment-dots me-2 text-primary"></i>Feedback Saya
-            </h2>
-            <p class="text-muted">Kelola saran dan masukan Anda untuk perusahaan</p>
+            <h1 class="text-2xl font-semibold text-gray-800">Feedback Saya</h1>
+            <p class="text-sm text-gray-500">Percakapan dengan Admin</p>
         </div>
-        <a href="{{ route('feedbacks.create') }}" class="btn btn-create text-white">
-            <i class="fas fa-plus me-2"></i>Buat Feedback Baru
+        <a href="{{ route('feedbacks.create') }}" 
+           class="bg-green-600 hover:bg-green-700 text-white rounded-full p-3 shadow-md transition">
+            <i class="fas fa-plus text-lg"></i>
         </a>
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show rounded-4 border-0 shadow-sm" role="alert">
-            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <div class="mb-4 p-3 bg-green-100 text-green-700 rounded-xl text-sm">{{ session('success') }}</div>
     @endif
 
     @if($feedbacks->count())
-        <div class="row g-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             @foreach($feedbacks as $fb)
-                <div class="col-md-6 col-lg-4">
-                    <div class="card feedback-card h-100">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <span class="status-badge {{ $fb->status == 'open' ? 'status-open' : 'status-closed' }}">
-                                    <i class="fas {{ $fb->status == 'open' ? 'fa-circle' : 'fa-lock' }} me-1 fa-xs"></i>
-                                    {{ ucfirst($fb->status) }}
-                                </span>
-                                <span class="reply-count">
-                                    <i class="far fa-comment me-1"></i>{{ $fb->replies->count() }} balasan
-                                </span>
+                @php
+                    $unreadCount = $fb->replies->where('user_id', '!=', auth()->id())->where('is_read', false)->count();
+                    $lastReply = $fb->replies->last();
+                    $lastMessage = $lastReply->message ?? 'Tidak ada pesan';
+                    $lastTime = $lastReply ? $lastReply->created_at : $fb->created_at;
+                @endphp
+                <a href="{{ route('feedbacks.show', $fb->id) }}" class="block border-b border-gray-100 hover:bg-gray-50 transition">
+                    <div class="flex items-center gap-3 p-4">
+                        <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-user text-gray-500 text-xl"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline">
+                                <h3 class="font-semibold text-gray-800 truncate">{{ $fb->subject }}</h3>
+                                <span class="text-xs text-gray-400">{{ $lastTime->format('d/m/Y') }}</span>
                             </div>
-                            <h5 class="card-title fw-semibold mb-2">{{ $fb->subject }}</h5>
-                            <p class="card-text text-muted small mb-3">
-                                {{ Str::limit($fb->replies->first()->message ?? 'Tidak ada pesan', 80) }}
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center mt-auto">
-                                <small class="text-muted">
-                                    <i class="far fa-calendar-alt me-1"></i>
-                                    {{ $fb->created_at->format('d M Y') }}
-                                </small>
-                                <a href="{{ route('feedbacks.show', $fb->id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                    Lihat <i class="fas fa-arrow-right ms-1"></i>
-                                </a>
+                            <div class="flex justify-between items-center mt-0.5">
+                                <p class="text-sm text-gray-500 truncate">
+                                    {{ Str::limit($lastMessage, 50) }}
+                                </p>
+                                @if($unreadCount > 0)
+                                    <span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $unreadCount }}</span>
+                                @elseif($fb->status == 'open')
+                                    <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Open</span>
+                                @else
+                                    <span class="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">Closed</span>
+                                @endif
                             </div>
                         </div>
                     </div>
-                </div>
+                </a>
             @endforeach
         </div>
     @else
-        <div class="empty-state">
-            <div class="mb-4">
-                <i class="fas fa-inbox fa-4x text-muted"></i>
-            </div>
-            <h4 class="fw-semibold text-secondary">Belum ada feedback</h4>
-            <p class="text-muted">Mulai berikan saran atau masukan Anda sekarang.</p>
-            <a href="{{ route('feedbacks.create') }}" class="btn btn-primary rounded-pill px-4 mt-2">
-                <i class="fas fa-pen me-2"></i>Buat Feedback
-            </a>
+        <div class="text-center py-16 bg-gray-50 rounded-2xl">
+            <i class="fas fa-inbox text-5xl text-gray-300 mb-3"></i>
+            <p class="text-gray-500">Belum ada feedback</p>
+            <a href="{{ route('feedbacks.create') }}" class="inline-block mt-3 bg-green-600 text-white px-4 py-2 rounded-full text-sm">Buat Feedback</a>
         </div>
     @endif
 </div>

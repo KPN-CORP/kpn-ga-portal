@@ -504,6 +504,11 @@
                             </div>
                             <div class="ml-3 sm:ml-4 flex-1">
                                 <p class="text-xs sm:text-sm text-gray-900 break-words">{{ $transaksi->alamat_asal }}</p>
+                                @if($transaksi->maps_asal)
+                                    <a href="{{ $transaksi->maps_asal }}" target="_blank" class="text-blue-600 text-xs hover:underline inline-flex items-center mt-1">
+                                        <i class="fas fa-map-marker-alt mr-1"></i> Link Maps
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -527,6 +532,11 @@
                             </div>
                             <div class="ml-3 sm:ml-4 flex-1">
                                 <p class="text-xs sm:text-sm text-gray-900 break-words">{{ $transaksi->alamat_tujuan }}</p>
+                                @if($transaksi->maps_tujuan)
+                                    <a href="{{ $transaksi->maps_tujuan }}" target="_blank" class="text-blue-600 text-xs hover:underline inline-flex items-center mt-1">
+                                        <i class="fas fa-map-marker-alt mr-1"></i> Link Maps
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     </div>

@@ -54,6 +54,8 @@ use App\Http\Controllers\StockCtl\AntarUnitRequestController;
 use App\Http\Controllers\StockCtl\AntarUnitApprovalController;
 use App\Http\Controllers\Feedbacks\FeedbackController;
 use App\Http\Controllers\Feedbacks\AdminFeedbackController;
+use App\Http\Controllers\Drms\VehicleMapController;
+use App\Http\Controllers\Task_M\TaskMonitorController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -401,7 +403,6 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::post('/{id}/reject', [AntarUnitApprovalController::class, 'reject'])->name('antar-unit.reject');
         });
     });
-
     /*
     |--------------------------------------------------------------------------
     | DRIVER REQUEST MANAGEMENT SYSTEM (DRMS)
@@ -432,7 +433,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
         });
 
-        // Driver Dashboard (letakkan SEBELUM resource drivers)
+        // Driver Dashboard
         Route::middleware(['is_driver'])->group(function () {
             Route::get('/driver/dashboard', [DriverDashboardController::class, 'index'])->name('driver.dashboard');
             Route::get('/driver/requests/{driverRequest}', [DriverDashboardController::class, 'show'])->name('driver.requests.show');
@@ -443,11 +444,19 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             return redirect()->route('drms.driver.dashboard');
         });
 
-        // Master Data (hanya admin) – exclude 'show' untuk drivers
+        // ======================== PETA GPS (letakkan sebelum resource) ========================
+        Route::get('vehicles/map', [VehicleMapController::class, 'index'])
+            ->name('vehicles.map')
+            ->middleware('can:superadmin');
+
+        Route::get('vehicles/{vehicle}/map', [VehicleMapController::class, 'show'])
+            ->name('vehicles.map.single');
+
+        // Master Data (hanya admin)
         Route::middleware(['can:isDrmsAdmin'])->group(function () {
             Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
             Route::resource('drivers', DriverController::class)->except(['show']);
-            Route::resource('vehicles', VehicleController::class);
+            Route::resource('vehicles', VehicleController::class);  // resource setelah route peta
             Route::resource('vouchers', VoucherController::class);
         });
     });
@@ -704,6 +713,20 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/{id}', [AdminFeedbackController::class, 'show'])->name('show');
         Route::post('/{id}/reply', [AdminFeedbackController::class, 'reply'])->name('reply');
         Route::patch('/{id}/toggle-status', [AdminFeedbackController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    Route::prefix('task-m')->name('task-m.')->middleware('auth')->group(function () {
+        Route::get('/', [TaskMonitorController::class, 'index'])->name('index');
+        Route::get('/user/{userId}/projects', [TaskMonitorController::class, 'userProjects'])->name('user.projects');
+        Route::post('/', [TaskMonitorController::class, 'store'])->name('store');
+        Route::get('/{id}', [TaskMonitorController::class, 'show'])->name('show');
+        Route::put('/{id}', [TaskMonitorController::class, 'update'])->name('update');
+        Route::delete('/{id}', [TaskMonitorController::class, 'destroy'])->name('destroy');
+
+        Route::post('/{projectId}/units', [TaskMonitorController::class, 'addUnit'])->name('add-unit');
+        Route::patch('/{projectId}/units/{unitId}/status', [TaskMonitorController::class, 'updateUnitStatus'])->name('update-unit-status');
+        Route::put('/{projectId}/units/{unitId}/description', [TaskMonitorController::class, 'updateUnitDescription'])->name('update-unit-description');
+        Route::delete('/{projectId}/units/{unitId}', [TaskMonitorController::class, 'deleteUnit'])->name('delete-unit');
     });
     /*
     |--------------------------------------------------------------------------

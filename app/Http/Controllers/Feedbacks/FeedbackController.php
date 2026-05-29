@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/Feedbacks/FeedbackController.php
 
 namespace App\Http\Controllers\Feedbacks;
 
@@ -17,6 +18,7 @@ class FeedbackController extends Controller
     public function index()
     {
         $feedbacks = Feedback::where('user_id', auth()->id())
+                            ->with('replies')
                             ->orderBy('created_at', 'desc')
                             ->get();
         return view('feedbacks.index', compact('feedbacks'));
@@ -55,6 +57,16 @@ class FeedbackController extends Controller
         $feedback = Feedback::where('user_id', auth()->id())
                             ->with('replies.user')
                             ->findOrFail($id);
+        
+        // Mark as read for replies from admin (not mine)
+        FeedbackReply::where('feedback_id', $feedback->id)
+            ->where('user_id', '!=', auth()->id())
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
+
         return view('feedbacks.show', compact('feedback'));
     }
 

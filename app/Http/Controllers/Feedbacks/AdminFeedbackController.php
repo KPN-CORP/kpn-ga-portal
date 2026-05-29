@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/Feedbacks/AdminFeedbackController.php
 
 namespace App\Http\Controllers\Feedbacks;
 
@@ -17,7 +18,7 @@ class AdminFeedbackController extends Controller
 
     public function index()
     {
-        $feedbacks = Feedback::with('user')
+        $feedbacks = Feedback::with('user', 'replies')
                             ->orderBy('created_at', 'desc')
                             ->get();
         return view('feedbacks.admin.index', compact('feedbacks'));
@@ -26,6 +27,16 @@ class AdminFeedbackController extends Controller
     public function show($id)
     {
         $feedback = Feedback::with('replies.user', 'user')->findOrFail($id);
+        
+        // Mark as read for replies from user (not admin)
+        FeedbackReply::where('feedback_id', $feedback->id)
+            ->where('user_id', '!=', auth()->id())
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
+
         return view('feedbacks.admin.show', compact('feedback'));
     }
 
@@ -45,7 +56,7 @@ class AdminFeedbackController extends Controller
         }
 
         return redirect()->route('feedbacks.admin.show', $feedback->id)
-                         ->with('success', 'Balasan admin terkirim.');
+                         ->with('success', 'Balasan admin terkirir.');
     }
 
     public function toggleStatus($id)

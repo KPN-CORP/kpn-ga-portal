@@ -200,11 +200,21 @@
     <div>
         <p class="font-semibold mb-1">Alamat Asal</p>
         <p>{{ $row->alamat_asal }}</p>
+        @if($row->maps_asal)
+            <a href="{{ $row->maps_asal }}" target="_blank" class="text-blue-600 text-xs hover:underline inline-flex items-center mt-1">
+                <i class="fas fa-map-marker-alt mr-1"></i> Link Maps
+            </a>
+        @endif
     </div>
 
     <div>
         <p class="font-semibold mb-1">Alamat Tujuan</p>
         <p>{{ $row->alamat_tujuan }}</p>
+        @if($row->maps_tujuan)
+            <a href="{{ $row->maps_tujuan }}" target="_blank" class="text-blue-600 text-xs hover:underline inline-flex items-center mt-1">
+                <i class="fas fa-map-marker-alt mr-1"></i> Link Maps
+            </a>
+        @endif
     </div>
 
     <div class="col-span-3">

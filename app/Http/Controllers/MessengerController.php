@@ -655,7 +655,7 @@ class MessengerController extends Controller
      ===================================================== */
     public function store(Request $request)
     {
-        // Validasi
+        // Validasi (sama seperti kode asli)
         $validator = Validator::make($request->all(), [
             'jenis_barang' => 'required|in:paket,dokumen',
             'deskripsi' => 'required|string|max:500',
@@ -664,23 +664,17 @@ class MessengerController extends Controller
             'penerima' => 'required|string|max:100',
             'no_hp_penerima' => 'required|string|max:13|regex:/^[0-9]{10,13}$/',
             'foto_barang' => 'required|file|max:20480|mimes:jpg,jpeg,png,pdf,doc,docx',
-        ], [
-            'no_hp_penerima.regex' => 'Nomor HP harus 10-13 digit angka',
-            'foto_barang.max' => 'Ukuran file maksimal 20MB',
-            'foto_barang.mimes' => 'Format file harus: JPG, PNG, PDF, DOC, DOCX'
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         try {
             $userId = Auth::id();
             $user = Auth::user();
 
-            // Cari pelanggan berdasarkan id_login, buat baru jika tidak ada
+            // Cari pelanggan
             $pelanggan = DB::table('tb_pelanggan')->where('id_login', $userId)->first();
             if (!$pelanggan) {
                 $pelangganId = DB::table('tb_pelanggan')->insertGetId([
@@ -702,38 +696,29 @@ class MessengerController extends Controller
                 $pelanggan = DB::table('tb_pelanggan')->where('id_pelanggan', $pelangganId)->first();
             }
 
-            // Upload file ke private storage
+            // Upload file
             $fileName = null;
             if ($request->hasFile('foto_barang')) {
                 $file = $request->file('foto_barang');
-                
-                // Generate nama file yang unik
                 $fileName = 'msg_' . date('YmdHis') . '_' . rand(1000, 9999) . '.' . $file->getClientOriginalExtension();
-                
-                // Simpan ke storage private
-                Storage::disk('private')->putFileAs(
-                    'messenger/foto_barang',
-                    $file,
-                    $fileName
-                );
-                
-                Log::info('File saved to private storage', [
-                    'path' => 'messenger/foto_barang/' . $fileName,
-                    'filename' => $fileName,
-                    'size' => $file->getSize()
-                ]);
+                Storage::disk('private')->putFileAs('messenger/foto_barang', $file, $fileName);
             }
 
-            // Nomor transaksi & waktu
+            // === TAMBAHAN: Generate link Maps ===
+            $mapsAsal = 'https://www.google.com/maps/search/?api=1&query=' . urlencode($request->alamat_asal);
+            $mapsTujuan = 'https://www.google.com/maps/search/?api=1&query=' . urlencode($request->alamat_tujuan);
+            // ==================================
+
             $noTransaksi = 'GA' . date('YmdHis');
             $waktu = "Pengiriman Dibuat &nbsp;&nbsp;(" . date('d-m-Y H:i:s') . ")";
 
-            // Insert data
             DB::table('tb_transaksi')->insert([
                 'no_transaksi' => $noTransaksi,
                 'pengirim' => $pelanggan->id_pelanggan,
                 'alamat_asal' => $request->alamat_asal,
+                'maps_asal' => $mapsAsal,                // <-- baru
                 'alamat_tujuan' => $request->alamat_tujuan,
+                'maps_tujuan' => $mapsTujuan,            // <-- baru
                 'penerima' => $request->penerima,
                 'no_hp_penerima' => $request->no_hp_penerima,
                 'nama_barang' => $request->jenis_barang,
@@ -751,15 +736,10 @@ class MessengerController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Store transaction error: ' . $e->getMessage());
-            
-            // Hapus file jika ada error
             if (isset($fileName) && Storage::disk('private')->exists('messenger/foto_barang/' . $fileName)) {
                 Storage::disk('private')->delete('messenger/foto_barang/' . $fileName);
             }
-
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
-                ->withInput();
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())->withInput();
         }
     }
 }

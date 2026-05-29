@@ -1,4 +1,5 @@
 <?php
+// app/Models/Feedbacks/FeedbackReply.php
 
 namespace App\Models\Feedbacks;
 
@@ -11,7 +12,7 @@ class FeedbackReply extends Model
     use HasFactory;
 
     protected $table = 'feedback_replies';
-    protected $fillable = ['feedback_id', 'user_id', 'message'];
+    protected $fillable = ['feedback_id', 'user_id', 'message', 'is_read', 'read_at'];
 
     public function feedback()
     {

@@ -8,6 +8,7 @@ use App\Models\Messkar\MesBooking;
 use App\Models\Messkar\MesNotifikasi;
 use App\Models\Messkar\MesRiwayat;
 use App\Models\StockCtl\UserProfil;
+use App\Models\Memos\Memos;
 
 class User extends Authenticatable
 {
@@ -286,5 +287,73 @@ class User extends Authenticatable
     public function getAreaAttribute()
     {
         return $this->drmsProfile ? $this->drmsProfile->area : null;
+    }
+
+    // =====================================================
+    // METHODS UNTUK E-MEMO (DITAMBAHKAN)
+    // =====================================================
+
+    public function memos()
+    {
+        return $this->hasMany(\App\Models\Memos\Memos::class, 'created_by');
+    }
+
+    /**
+     * Cek apakah user memiliki akses sebagai user E-Memo
+     */
+    public function isMemoUser()
+    {
+        return $this->accessMenu && $this->accessMenu->memo_user == 1;
+    }
+
+    /**
+     * Cek apakah user memiliki akses sebagai admin E-Memo
+     */
+    public function isMemoAdmin()
+    {
+        return $this->accessMenu && $this->accessMenu->memo_admin == 1;
+    }
+
+    /**
+     * Cek apakah user memiliki akses sebagai superadmin E-Memo
+     */
+    public function isMemoSuperadmin()
+    {
+        return $this->accessMenu && $this->accessMenu->memo_superadmin == 1;
+    }
+
+    /**
+     * Mendapatkan business unit dari employee (group_company)
+     * Digunakan untuk filtering di E-Memo
+     */
+    public function getBusinessUnitAttribute()
+    {
+        // Prioritas: dari kolom business_unit_code (jika ada) atau dari relasi employee
+        if (!empty($this->business_unit_code)) {
+            return $this->business_unit_code;
+        }
+        
+        if ($this->employee) {
+            return $this->employee->group_company;
+        }
+        
+        return null;
+    }
+
+    // Backward compatibility untuk method isSuperadmin/isAdmin (jika masih diperlukan)
+    // Bisa juga menggunakan isMemoSuperadmin dan isMemoAdmin sebagai pengganti
+    public function isSuperadmin()
+    {
+        return $this->isMemoSuperadmin();
+    }
+
+    public function isAdmin()
+    {
+        return $this->isMemoAdmin();
+    }
+
+    public function isFeedbackAdmin()
+    {
+        return \App\Models\Feedbacks\FeedbackAdmin::where('user_id', $this->id)->exists();
     }
 }

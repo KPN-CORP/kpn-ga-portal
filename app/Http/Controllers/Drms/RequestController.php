@@ -101,24 +101,28 @@ class RequestController extends Controller
         $data['request_no']   = 'DRQ' . date('Ymd') . rand(100, 999);
         $data['requester_id'] = Auth::id();
 
+        // Ambil profil DRMS user yang sedang login
         $profile = Auth::user()->drmsProfile;
         if (!$profile) {
-            return back()->withErrors(['error' => 'Profil DRMS Anda tidak lengkap.'])->withInput();
+            return back()->withErrors(['error' => 'Profil DRMS Anda tidak ditemukan. Hubungi administrator.'])->withInput();
         }
 
-        if ($profile->approver_user_id) {
-            $data['approver_l1_id'] = $profile->approver_user_id;
+        // 🔥 PERBAIKAN: Wajib memiliki atasan (L1)
+        if (empty($profile->approver_user_id)) {
+            return back()->withErrors(['error' => 'Anda belum memiliki atasan (L1) yang ditetapkan. Silakan hubungi administrator DRMS.'])->withInput();
         }
+
+        // Set approver_l1_id dari profil (otomatis terisi)
+        $data['approver_l1_id'] = $profile->approver_user_id;
 
         DB::beginTransaction();
         try {
             $driverRequest = DriverRequest::create($data);
 
-            if (!empty($data['approver_l1_id'])) {
-                $atasan = User::find($data['approver_l1_id']);
-                if ($atasan) {
-                    $atasan->notify(new NewRequestNotification($driverRequest));
-                }
+            // Kirim notifikasi ke atasan (L1)
+            $atasan = User::find($data['approver_l1_id']);
+            if ($atasan) {
+                $atasan->notify(new NewRequestNotification($driverRequest));
             }
 
             DB::commit();

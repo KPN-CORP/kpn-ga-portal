@@ -2,110 +2,54 @@
 
 @section('title', 'Manage Feedback - Admin')
 
-@section('head')
-<style>
-    .admin-table-card {
-        border-radius: 24px;
-        border: none;
-        overflow: hidden;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-    }
-    .table thead th {
-        background: #f8fafc;
-        font-weight: 600;
-        color: #1e293b;
-        border-bottom: 2px solid #e2e8f0;
-        padding: 1rem;
-    }
-    .table tbody td {
-        padding: 1rem;
-        vertical-align: middle;
-    }
-    .status-badge {
-        padding: 4px 12px;
-        border-radius: 50px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        display: inline-block;
-    }
-    .status-open { background: #d1fae5; color: #065f46; }
-    .status-closed { background: #f1f5f9; color: #475569; }
-    .btn-detail {
-        border-radius: 40px;
-        padding: 6px 16px;
-        font-size: 0.8rem;
-        transition: all 0.2s;
-    }
-    .btn-detail:hover {
-        transform: translateY(-2px);
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="container py-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <div class="flex justify-between items-center mb-5">
         <div>
-            <h2 class="fw-bold"><i class="fas fa-tasks me-2 text-primary"></i>Semua Feedback</h2>
-            <p class="text-muted">Kelola feedback dari seluruh karyawan</p>
+            <h1 class="text-2xl font-semibold text-gray-800">Semua Feedback</h1>
+            <p class="text-sm text-gray-500">Kelola percakapan dengan pengguna</p>
         </div>
-        <div class="text-muted">
-            Total: <strong class="text-primary">{{ $feedbacks->count() }}</strong> feedback
-        </div>
+        <div class="bg-gray-100 px-3 py-1 rounded-full text-sm">Total: {{ $feedbacks->count() }}</div>
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show rounded-4" role="alert">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        <div class="mb-4 p-3 bg-green-100 text-green-700 rounded-xl text-sm">{{ session('success') }}</div>
     @endif
 
-    <div class="card admin-table-card">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>User</th><th>Judul</th><th>Status</th><th>Balasan</th><th>Dibuat</th><th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($feedbacks as $fb)
-                    <tr>
-                        <td class="fw-semibold">#{{ $fb->id }}</td>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="bg-light rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                    <i class="fas fa-user text-muted fa-sm"></i>
-                                </div>
-                                <div>
-                                    <div class="fw-semibold">{{ $fb->user->name }}</div>
-                                    <small class="text-muted">{{ $fb->user->username }}</small>
-                                </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        @foreach($feedbacks as $fb)
+            @php
+                $unreadCount = $fb->replies->where('user_id', '!=', auth()->id())->where('is_read', false)->count();
+                $lastReply = $fb->replies->last();
+                $lastMessage = $lastReply->message ?? 'Tidak ada pesan';
+                $lastTime = $lastReply ? $lastReply->created_at : $fb->created_at;
+            @endphp
+            <a href="{{ route('feedbacks.admin.show', $fb->id) }}" class="block border-b border-gray-100 hover:bg-gray-50 transition">
+                <div class="flex items-center gap-3 p-4">
+                    <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-gray-500"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-baseline">
+                            <h3 class="font-semibold text-gray-800 truncate">{{ $fb->subject }}</h3>
+                            <span class="text-xs text-gray-400">{{ $lastTime->format('d/m/Y') }}</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-0.5">
+                            <div class="text-sm text-gray-500 truncate">
+                                {{ $fb->user->name }} • {{ Str::limit($lastMessage, 40) }}
                             </div>
-                        </td>
-                        <td class="fw-medium">{{ $fb->subject }}</td>
-                        <td>
-                            <span class="status-badge {{ $fb->status == 'open' ? 'status-open' : 'status-closed' }}">
-                                {{ ucfirst($fb->status) }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge bg-light text-dark rounded-pill px-3 py-2">
-                                <i class="far fa-comment me-1"></i>{{ $fb->replies->count() }}
-                            </span>
-                        </td>
-                        <td><small>{{ $fb->created_at->format('d/m/Y H:i') }}</small></td>
-                        <td>
-                            <a href="{{ route('feedbacks.admin.show', $fb->id) }}" class="btn btn-primary btn-detail">
-                                <i class="fas fa-eye me-1"></i>Detail
-                            </a>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+                            @if($unreadCount > 0)
+                                <span class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $unreadCount }}</span>
+                            @else
+                                <span class="text-xs px-2 py-0.5 rounded-full {{ $fb->status == 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                                    {{ ucfirst($fb->status) }}
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </a>
+        @endforeach
     </div>
 </div>
 @endsection
