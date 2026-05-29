@@ -7,14 +7,3 @@
 /public/build
 /public/hot
 /storage/*.key
-
-# Laravel Logs
-/storage/logs/*.log
-
-# Laravel Cache & Sessions
-/storage/framework/cache/*
-/storage/framework/sessions/*
-/storage/framework/views/*
-
-# Optional
-/bootstrap/cache/*.php
