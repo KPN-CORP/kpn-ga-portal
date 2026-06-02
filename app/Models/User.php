@@ -9,6 +9,7 @@ use App\Models\Messkar\MesNotifikasi;
 use App\Models\Messkar\MesRiwayat;
 use App\Models\StockCtl\UserProfil;
 use App\Models\Memos\Memos;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -369,5 +370,12 @@ class User extends Authenticatable
     public function isTaskMonitorSuperadmin()
     {
         return $this->accessMenu && $this->accessMenu->is_superadmin == 1;
+    }
+
+    public function isSuperadminTrack()
+    {
+        return DB::table('tb_access_menu')
+            ->where('username', $this->username) // sesuaikan kolom identifier jika berbeda
+            ->value('superadmin_track') == 1;
     }
 }

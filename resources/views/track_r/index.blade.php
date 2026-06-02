@@ -1,3 +1,5 @@
+@extends('layouts.app-sidebar')
+
 @php
     // Helper functions untuk status dengan warna solid (menggunakan label)
     if (!function_exists('statusColorClass')) {
@@ -7,7 +9,6 @@
             if (str_contains($label, 'terima')) return 'bg-emerald-600 text-white border-emerald-700';
             if (str_contains($label, 'tolak')) return 'bg-rose-600 text-white border-rose-700';
             if (str_contains($label, 'terus')) return 'bg-amber-600 text-white border-amber-700';
-            // fallback berdasarkan kata kunci lain
             return 'bg-purple-600 text-white border-purple-700';
         }
     }
@@ -23,8 +24,6 @@
         }
     }
 @endphp
-
-@extends('layouts.app-sidebar')
 
 @section('content')
 <div class="space-y-8 text-gray-800 font-sans antialiased">
@@ -112,99 +111,104 @@
     </div>
 
     {{-- TABEL DESKTOP --}}
-    <div class="hidden sm:block">
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-100 overflow-hidden transition-all">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                            <th class="px-6 py-4 text-left">No Dokumen</th>
-                            <th class="px-6 py-4 text-left">Judul</th>
-                            <th class="px-6 py-4 text-left">Pengirim</th>
-                            <th class="px-6 py-4 text-left">Tgl Kirim</th>
-                            <th class="px-6 py-4 text-left">Penerima</th>
-                            <th class="px-6 py-4 text-left">Status</th>
-                            <th class="px-6 py-4 text-left">Update</th>
-                            <th class="px-6 py-4 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse($documents as $doc)
-                            @php
-                                $userStatus = $doc->statusForUser(auth()->user());
-                                // Ambil label status, jika tidak ada gunakan string kosong
-                                $statusLabel = is_array($userStatus) ? ($userStatus['label'] ?? '') : (string) $userStatus;
-                                if (empty($statusLabel)) {
-                                    $statusLabel = 'Unknown';
-                                }
-                                $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
-                            @endphp
-                            <tr class="group hover:bg-slate-50/60 transition duration-150">
-                                <td class="px-6 py-4 font-mono text-sm font-semibold text-slate-700 whitespace-nowrap">
-                                    {{ $doc->nomor_dokumen }}
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-medium text-slate-800 line-clamp-1">
-                                        {{ $doc->judul }}
+    <div class="hidden sm:block overflow-x-auto">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-100 transition-all">
+            <table class="min-w-full table-auto">
+                <thead>
+                    <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                        <th class="px-4 py-3 text-left">No Dokumen</th>
+                        <th class="px-4 py-3 text-left">Judul</th>
+                        <th class="px-4 py-3 text-left">Pengirim</th>
+                        @if(auth()->user()->isSuperadminTrack())
+                            <th class="px-4 py-3 text-left">Unit Bisnis</th>
+                        @endif
+                        <th class="px-4 py-3 text-left">Tgl Kirim</th>
+                        <th class="px-4 py-3 text-left">Penerima</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-left">Update</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($documents as $doc)
+                        @php
+                            $userStatus = $doc->statusForUser(auth()->user());
+                            $statusLabel = is_array($userStatus) ? ($userStatus['label'] ?? '') : (string) $userStatus;
+                            if (empty($statusLabel)) $statusLabel = 'Unknown';
+                            $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
+                        @endphp
+                        <tr class="group hover:bg-slate-50/60 transition duration-150">
+                            <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700 whitespace-nowrap">
+                                {{ $doc->nomor_dokumen }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-sm font-medium text-slate-800 break-words max-w-xs">
+                                    {{ $doc->judul }}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user text-blue-600 text-xs"></i>
                                     </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-2.5">
-                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                                            <i class="fas fa-user text-blue-600 text-xs"></i>
-                                        </div>
-                                        <span class="text-sm text-slate-700">{{ $doc->pengirim->name ?? '-' }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
-                                    {{ $doc->created_at->format('d/m/Y H:i') }}
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center">
-                                            <i class="fas fa-user-check text-emerald-600 text-xs"></i>
-                                        </div>
-                                        <div class="text-sm">
-                                            <span class="text-slate-700">{{ $doc->penerima->name ?? '-' }}</span>
-                                            @if($otherRecipients->count() > 0)
-                                                <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1.5 cursor-help"
-                                                      title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
-                                                    +{{ $otherRecipients->count() }}
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }}">
-                                        <i class="{{ statusIcon($statusLabel) }} text-[11px]"></i>
-                                        {{ $statusLabel }}
+                                    <span class="text-sm text-slate-700 truncate max-w-[120px]">{{ $doc->pengirim->name ?? '-' }}</span>
+                                </div>
+                            </td>
+                            @if(auth()->user()->isSuperadminTrack())
+                                <td class="px-4 py-3">
+                                    <span class="text-xs bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+                                        {{ $doc->pengirim->company_name ?? '-' }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
-                                    {{ $doc->updated_at->format('d/m/Y H:i') }}
-                                </td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap">
-                                    <a href="{{ route('track-r.show', $doc->id) }}"
-                                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all">
-                                        <i class="fas fa-eye text-xs"></i> Detail
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="8" class="text-center py-20 text-slate-500">
-                                    <div class="flex flex-col items-center gap-2">
-                                        <i class="fas fa-folder-open text-5xl text-slate-300"></i>
-                                        <p class="font-medium">Tidak ada dokumen</p>
-                                        <p class="text-xs text-slate-400">Coba ubah filter atau kirim dokumen baru</p>
+                            @endif
+                            <td class="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                                {{ $doc->created_at->format('d/m/Y H:i') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user-check text-emerald-600 text-xs"></i>
                                     </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                                    <div class="text-sm">
+                                        <span class="text-slate-700">{{ $doc->penerima->name ?? '-' }}</span>
+                                        @if($otherRecipients->count() > 0)
+                                            <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1 cursor-help"
+                                                  title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
+                                                +{{ $otherRecipients->count() }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }}">
+                                    <i class="{{ statusIcon($statusLabel) }} text-[11px]"></i>
+                                    {{ $statusLabel }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                                {{ $doc->updated_at->format('d/m/Y H:i') }}
+                            </td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <a href="{{ route('track-r.show', $doc->id) }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all">
+                                    <i class="fas fa-eye text-xs"></i> Detail
+                                </a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="{{ auth()->user()->isSuperadminTrack() ? 9 : 8 }}" class="text-center py-20 text-slate-500">
+                                <div class="flex flex-col items-center gap-2">
+                                    <i class="fas fa-folder-open text-5xl text-slate-300"></i>
+                                    <p class="font-medium">Tidak ada dokumen</p>
+                                    <p class="text-xs text-slate-400">Coba ubah filter atau kirim dokumen baru</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -214,9 +218,7 @@
             @php
                 $userStatus = $doc->statusForUser(auth()->user());
                 $statusLabel = is_array($userStatus) ? ($userStatus['label'] ?? '') : (string) $userStatus;
-                if (empty($statusLabel)) {
-                    $statusLabel = 'Unknown';
-                }
+                if (empty($statusLabel)) $statusLabel = 'Unknown';
                 $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
             @endphp
             <div class="bg-white rounded-2xl border border-slate-200 shadow-lg p-5 transition hover:shadow-xl hover:border-blue-200">
@@ -237,6 +239,12 @@
                         </div>
                         <span class="text-slate-700">{{ $doc->pengirim->name ?? '-' }}</span>
                     </div>
+                    @if(auth()->user()->isSuperadminTrack())
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-building text-gray-400 text-xs w-5"></i>
+                            <span class="text-xs text-gray-600">Unit Bisnis: {{ $doc->pengirim->company_name ?? '-' }}</span>
+                        </div>
+                    @endif
                     <div class="flex items-center gap-2">
                         <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center">
                             <i class="fas fa-user-check text-emerald-600 text-xs"></i>

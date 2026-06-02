@@ -24,14 +24,17 @@ class TrackFotoController extends Controller
                 'document_id' => $foto->track_r_document_id
             ]);
 
-            // Cek otorisasi menggunakan hasAccess
+            // Cek otorisasi menggunakan hasAccess + superadmin track
             $document = $foto->document;
-            if ($document) {
-                $user = auth()->user();
-                if (!$user || !$document->hasAccess($user)) {
-                    Log::warning('Akses tidak sah ke foto: ' . $id);
-                    return $this->getPlaceholderImage('unauthorized');
-                }
+            $user = auth()->user();
+
+            if (!$user) {
+                return $this->getPlaceholderImage('unauthorized');
+            }
+
+            if (!$user->isSuperadminTrack() && !$document->hasAccess($user)) {
+                Log::warning('Akses tidak sah ke foto: ' . $id);
+                return $this->getPlaceholderImage('unauthorized');
             }
 
             // Cari file
@@ -107,13 +110,16 @@ class TrackFotoController extends Controller
         try {
             $foto = TrackRFoto::with('document')->findOrFail($id);
 
-            // Cek otorisasi menggunakan hasAccess
+            // Cek otorisasi menggunakan hasAccess + superadmin track
             $document = $foto->document;
-            if ($document) {
-                $user = auth()->user();
-                if (!$user || !$document->hasAccess($user)) {
-                    abort(403, 'Unauthorized access');
-                }
+            $user = auth()->user();
+
+            if (!$user) {
+                abort(403, 'Unauthorized');
+            }
+
+            if (!$user->isSuperadminTrack() && !$document->hasAccess($user)) {
+                abort(403, 'Unauthorized access');
             }
 
             // Cari file

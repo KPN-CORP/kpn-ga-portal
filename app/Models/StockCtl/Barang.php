@@ -14,9 +14,11 @@ class Barang extends Model
         'nama_barang', 
         'satuan', 
         'harga', 
-        'deskripsi'
+        'deskripsi',
+        'is_msl_only'
     ];
 
+    // RELASI KE STOK (WAJIB ADA)
     public function stok()
     {
         return $this->hasMany(Stok::class, 'id_barang');

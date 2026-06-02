@@ -356,4 +356,18 @@ class User extends Authenticatable
     {
         return \App\Models\Feedbacks\FeedbackAdmin::where('user_id', $this->id)->exists();
     }
+
+    // =====================================================
+    // RELATIONSHIP & METHODS UNTUK TASK MONITOR
+    // =====================================================
+
+    public function taskMonitors()
+    {
+        return $this->hasMany(\App\Models\Task_M\TaskMonitor::class, 'user_id');
+    }
+
+    public function isTaskMonitorSuperadmin()
+    {
+        return $this->accessMenu && $this->accessMenu->is_superadmin == 1;
+    }
 }

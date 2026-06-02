@@ -35,32 +35,44 @@
                             @error('jenis_barang')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>
 
-                        <!-- Alamat Asal + Maps Link -->
+                        <!-- Alamat Asal + Maps Button -->
                         <div>
                             <label class="block text-sm font-medium mb-1">Alamat Asal <span class="text-red-500">*</span></label>
-                            <input type="text" name="alamat_asal" id="alamat_asal" 
-                                   class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                                   value="{{ old('alamat_asal', 'Gama Tower, DKI Jakarta, Indonesia') }}" required>
+                            <div class="flex gap-2">
+                                <input type="text" name="alamat_asal" id="alamat_asal" 
+                                    class="flex-1 border border-gray-300 p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                    value="{{ old('alamat_asal', 'Gama Tower, DKI Jakarta, Indonesia') }}" required>
+                                <button type="button" onclick="openMaps(document.getElementById('alamat_asal').value)" 
+                                        class="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-lg text-sm" title="Buka Google Maps">
+                                    🗺️ Maps
+                                </button>
+                            </div>
                             <div class="mt-2 text-gray-500 text-xs flex items-center gap-1">
                                 <span>🔗</span>
                                 <input type="url" name="maps_asal" id="maps_asal" 
-                                       class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" 
-                                       placeholder="Link Google Maps (otomatis)" readonly>
+                                    class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" 
+                                    placeholder="Link Google Maps (otomatis)">
                             </div>
                             @error('maps_asal')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>
 
-                        <!-- Alamat Tujuan + Maps Link -->
+                        <!-- Alamat Tujuan + Maps Button -->
                         <div>
                             <label class="block text-sm font-medium mb-1">Alamat Tujuan <span class="text-red-500">*</span></label>
-                            <input type="text" name="alamat_tujuan" id="alamat_tujuan" 
-                                   class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                                   value="{{ old('alamat_tujuan') }}" placeholder="Masukkan alamat tujuan lengkap" required>
+                            <div class="flex gap-2">
+                                <input type="text" name="alamat_tujuan" id="alamat_tujuan" 
+                                    class="flex-1 border border-gray-300 p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                    value="{{ old('alamat_tujuan') }}" placeholder="Masukkan alamat tujuan lengkap" required>
+                                <button type="button" onclick="openMaps(document.getElementById('alamat_tujuan').value)" 
+                                        class="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-lg text-sm" title="Buka Google Maps">
+                                    🗺️ Maps
+                                </button>
+                            </div>
                             <div class="mt-2 text-gray-500 text-xs flex items-center gap-1">
                                 <span>🔗</span>
                                 <input type="url" name="maps_tujuan" id="maps_tujuan" 
-                                       class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" 
-                                       placeholder="Link Google Maps (otomatis)" readonly>
+                                    class="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50" 
+                                    placeholder="Link Google Maps (otomatis)">
                             </div>
                             @error('maps_tujuan')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>
@@ -127,6 +139,15 @@
 </div>
 
 <script>
+// Fungsi global untuk tombol Maps
+function openMaps(address) {
+    if (address && address.trim() !== '') {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
+    } else {
+        alert('Masukkan alamat terlebih dahulu.');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // ========== AUTO-FILL MAPS LINK ==========
     function autoFillMapsLink(addressId, mapsId) {
@@ -135,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!addressInput || !mapsInput) return;
         addressInput.addEventListener('blur', function() {
             const address = this.value.trim();
-            if (address !== '') {
+            if (address !== '' && mapsInput.value.trim() === '') {
                 mapsInput.value = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
             }
         });
@@ -143,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
     autoFillMapsLink('alamat_asal', 'maps_asal');
     autoFillMapsLink('alamat_tujuan', 'maps_tujuan');
 
-    // ========== EXISTING CODE (Preview file, dll.) ==========
+    // ========== PREVIEW FILE UPLOAD ==========
     const form = document.getElementById('messengerForm');
     const fileInput = document.getElementById('foto_barang');
     const previewContainer = document.getElementById('previewContainer');
@@ -167,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fileInput.files = dt.files;
         handleFileUpload(dt.files[0]);
     });
-    fileInput.addEventListener('change', e => {
+    fileInput.addEventListener('change', function() {
         if (this.files.length) handleFileUpload(this.files[0]);
     });
 
@@ -198,6 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
         previewContainer.classList.remove('hidden');
     }
 
+    // ========== FORM SUBMIT VALIDATION ==========
     form.addEventListener('submit', function(e) {
         let isValid = true;
         let errorMessages = [];

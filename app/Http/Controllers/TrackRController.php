@@ -19,14 +19,18 @@ class TrackRController extends Controller
     ========================= */
     public function index(Request $request)
     {
-        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
-            ->where(function($q) {
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients']);
+
+        // Jika bukan superadmin track, filter berdasarkan akses biasa
+        if (!auth()->user()->isSuperadminTrack()) {
+            $query->where(function($q) {
                 $userId = auth()->id();
                 $q->where('pengirim_id', $userId)
                   ->orWhereHas('recipients', function($sub) use ($userId) {
                       $sub->where('user_id', $userId);
                   });
             });
+        }
 
         if ($search = $request->input('search')) {
             $query->where(function($q) use ($search) {
@@ -286,13 +290,17 @@ class TrackRController extends Controller
     {
         $user = auth()->user();
 
-        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
-            ->where(function ($q) use ($user) {
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients']);
+
+        // Jika bukan superadmin track, filter berdasarkan akses biasa
+        if (!$user->isSuperadminTrack()) {
+            $query->where(function ($q) use ($user) {
                 $q->where('pengirim_id', $user->id)
                   ->orWhereHas('recipients', function ($sub) use ($user) {
                       $sub->where('user_id', $user->id);
                   });
             });
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -306,7 +314,6 @@ class TrackRController extends Controller
             });
         }
 
-        // Filter tanggal (created_at)
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->from);
         }
@@ -363,11 +370,12 @@ class TrackRController extends Controller
     }
 
     /* =========================
-       PRIVATE – VALIDASI AKSES
+       PRIVATE – VALIDASI AKSES (dengan superadmin track)
     ========================= */
     private function authorizeDocumentAccess($document)
     {
-        if (!$document->hasAccess(auth()->user())) {
+        $user = auth()->user();
+        if (!$user->isSuperadminTrack() && !$document->hasAccess($user)) {
             abort(403, 'Anda tidak memiliki akses ke dokumen ini');
         }
     }

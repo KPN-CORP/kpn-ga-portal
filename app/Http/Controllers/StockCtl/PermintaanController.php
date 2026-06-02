@@ -31,7 +31,7 @@ class PermintaanController extends Controller
             )
             ->leftJoin('users as l1', 'l1.id', '=', 'stock_ctl_permintaan.approved_l1_by')
             ->leftJoin('users as admin', 'admin.id', '=', 'stock_ctl_permintaan.approved_admin_by')
-            ->with('barang', 'pemohon.profil'); // tetap eager load relasi lain
+            ->with('barang', 'pemohon.profil');
 
         // Filter berdasarkan role
         if ($access['is_super']) {
@@ -55,7 +55,6 @@ class PermintaanController extends Controller
         if ($request->filled('status')) {
             $query->where('stock_ctl_permintaan.status', $request->status);
         }
-
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('barang', function($q) use ($search) {
@@ -63,18 +62,14 @@ class PermintaanController extends Controller
                   ->orWhere('kode_barang', 'like', "%{$search}%");
             });
         }
-
-        // Filter Nama Pemohon
         if ($request->filled('pemohon')) {
             $query->whereHas('pemohon', function($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->pemohon . '%');
             });
         }
-
         if ($request->filled('dari')) {
             $query->whereDate('stock_ctl_permintaan.tanggal_permintaan', '>=', $request->dari);
         }
-
         if ($request->filled('sampai')) {
             $query->whereDate('stock_ctl_permintaan.tanggal_permintaan', '<=', $request->sampai);
         }
@@ -94,18 +89,24 @@ class PermintaanController extends Controller
             }
         }
 
-        // ========== FILTER BARANG BERDASARKAN UNIT USER ==========
-        $userUnitId = $access['id_bisnis_unit'] ?? null;
+        // ========== FILTER BARANG BERDASARKAN AREA KERJA USER ==========
+        $profil = UserProfil::where('id_user', $user->id)->first();
+        $userAreaId = $profil->id_area_kerja ?? null;
 
         if ($access['is_super']) {
-            // Superadmin bisa melihat semua barang (untuk keperluan manajemen)
+            // Superadmin bisa melihat semua barang
             $barang = Barang::all();
         } else {
-            // Tentukan apakah user dari MSL (unit id = 6) atau bukan
-            $isMslOnly = ($userUnitId == 6) ? 1 : 0;
-            $barang = Barang::where('is_msl_only', $isMslOnly)->get();
+            if ($userAreaId) {
+                // Hanya barang yang memiliki stok di area kerja user
+                $barang = Barang::whereHas('stok', function ($q) use ($userAreaId) {
+                    $q->where('id_area_kerja', $userAreaId);
+                })->get();
+            } else {
+                $barang = collect(); // kosong jika profil tidak punya area kerja
+            }
         }
-        // =========================================================
+        // =============================================================
 
         return view('stock-ctl.permintaan.index', compact('permintaan', 'barang'));
     }
@@ -133,20 +134,26 @@ class PermintaanController extends Controller
 
         $user = Auth::user();
         $access = session('stock_ctl_access');
-        $userUnitId = $access['id_bisnis_unit'] ?? null;
 
-        // ========== VALIDASI HAK AKSES BARANG ==========
+        // ========== VALIDASI HAK AKSES BARANG BERDASARKAN AREA KERJA ==========
         if (!$access['is_super']) {
-            $isMslOnly = ($userUnitId == 6) ? 1 : 0;
-            $allowedBarangIds = Barang::where('is_msl_only', $isMslOnly)->pluck('id_barang')->toArray();
+            $profil = UserProfil::where('id_user', $user->id)->first();
+            $userAreaId = $profil->id_area_kerja ?? null;
+            if (!$userAreaId) {
+                return back()->withErrors(['msg' => 'Area kerja belum ditentukan. Hubungi admin.']);
+            }
+
+            $allowedBarangIds = Barang::whereHas('stok', function ($q) use ($userAreaId) {
+                $q->where('id_area_kerja', $userAreaId);
+            })->pluck('id_barang')->toArray();
 
             foreach ($request->items as $item) {
                 if (!in_array($item['id_barang'], $allowedBarangIds)) {
-                    return back()->withErrors(['msg' => 'Anda tidak diizinkan meminta barang ini.']);
+                    return back()->withErrors(['msg' => 'Barang tidak tersedia di area kerja Anda.']);
                 }
             }
         }
-        // ================================================
+        // =============================================================
 
         $profil = UserProfil::where('id_user', $user->id)->first();
         if (!$profil || !$profil->id_area_kerja) {
@@ -219,7 +226,6 @@ class PermintaanController extends Controller
 
         if ($access['is_super']) return;
 
-        // Untuk admin, cek unit pemohon
         if ($access['is_admin']) {
             $unitPemohon = DB::table('stock_ctl_user_profil')
                 ->where('id_user', $permintaan->id_user_pemohon)
