@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-semibold text-gray-800">Feedback Saya</h1>
-            <p class="text-sm text-gray-500">Percakapan dengan Admin</p>
+            <p class="text-sm text-gray-500">Chat dengan Developer</p>
         </div>
         <a href="{{ route('feedbacks.create') }}" 
            class="bg-green-600 hover:bg-green-700 text-white rounded-full p-3 shadow-md transition">

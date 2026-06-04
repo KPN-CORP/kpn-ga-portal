@@ -1,4 +1,3 @@
-{{-- resources/views/apartemen/public/success.blade.php --}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -33,7 +32,6 @@
     <div class="max-w-md w-full mx-4">
         <div class="success-card bg-white rounded-2xl shadow-2xl p-8 text-center">
             
-            {{-- Icon Sukses --}}
             <div class="mb-6 flex justify-center">
                 <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
                     <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,18 +41,17 @@
             </div>
             
             <h2 class="text-2xl font-bold text-gray-800 mb-2">
-                Check-out Berhasil!
+                Berhasil!
             </h2>
             
             <p class="text-gray-600 mb-4">
-                Sampai jumpa kembali, 
+                Bapak/Ibu, 
                 <span class="font-semibold text-blue-600">{{ $nama }}</span>
             </p>
             
             <div class="bg-blue-50 rounded-lg p-4 mb-6">
                 <p class="text-sm text-gray-700">
-                    Anda telah berhasil melakukan check-out. 
-                    Terima kasih telah menggunakan fasilitas apartemen.
+                    Anda telah berhasil.
                 </p>
             </div>
             

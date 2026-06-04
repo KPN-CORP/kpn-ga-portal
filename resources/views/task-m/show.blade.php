@@ -70,6 +70,8 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dibuat</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Selesai / Dibatalkan</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
@@ -79,15 +81,16 @@
                                 $isFinal = $unit->isFinal();
                                 $statusText = $unit->status == 'done' ? 'Selesai' : ($unit->status == 'cancelled' ? 'Dibatalkan' : 'Pending');
                                 $statusClass = $unit->status == 'done' ? 'bg-green-100 text-green-700' : ($unit->status == 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700');
+                                $createdDate = $unit->created_at ? $unit->created_at->format('d/m/Y H:i') : '-';
+                                $finalDate = ($unit->status == 'done' || $unit->status == 'cancelled') 
+                                    ? ($unit->updated_at ? $unit->updated_at->format('d/m/Y H:i') : '-')
+                                    : '-';
                             @endphp
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $loop->iteration }}</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
                                         <span class="text-gray-800 font-medium">{{ $unit->description }}</span>
-                                        <!-- <button onclick="toggleEditForm({{ $unit->id }})" class="text-gray-400 hover:text-indigo-600 text-sm">
-                                            <i class="fas fa-pen"></i>
-                                        </button> -->
                                     </div>
                                     <form id="edit-form-{{ $unit->id }}" action="{{ route('task-m.update-unit-description', [$project->id, $unit->id]) }}" method="POST" class="hidden mt-2">
                                         @csrf @method('PUT')
@@ -106,6 +109,8 @@
                                         <span class="ml-2 text-xs text-gray-400"><i class="fas fa-lock"></i></span>
                                     @endif
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $createdDate }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $finalDate }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-2">
                                         @if(!$isFinal)
@@ -144,7 +149,6 @@
     </div>
 </div>
 
-{{-- Modal Tambah Progres --}}
 <div id="unitModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" onclick="if(event.target === this) closeUnitModal()">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4">
         <div class="flex justify-between items-center mb-4">

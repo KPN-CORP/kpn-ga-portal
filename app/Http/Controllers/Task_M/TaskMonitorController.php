@@ -187,4 +187,44 @@ class TaskMonitorController extends Controller
 
         return redirect()->route('task-m.show', $project->id)->with('success', 'Progres dihapus.');
     }
+
+    /**
+     * Menampilkan daftar task unit berdasarkan status (pending/done)
+     * untuk user tertentu (default: user yang sedang login)
+     * Mendukung filter tahun (dari task_monitor.start_date)
+     */
+    public function unitsList(Request $request)
+    {
+        $status = $request->query('status');
+        $userId = $request->query('user_id');
+        $year = $request->query('year');
+
+        if (!in_array($status, ['pending', 'done'])) {
+            abort(400, 'Status tidak valid');
+        }
+
+        if (!$userId) {
+            $userId = Auth::id();
+        }
+
+        if ((int)$userId !== Auth::id() && !Auth::user()->isTaskMonitorSuperadmin()) {
+            abort(403, 'Tidak memiliki akses ke data user lain.');
+        }
+
+        $unitsQuery = TaskUnit::with('taskMonitor')
+            ->whereHas('taskMonitor', function ($q) use ($userId, $year) {
+                $q->where('user_id', $userId);
+                if ($year) {
+                    $q->whereYear('start_date', $year);
+                }
+            })
+            ->where('status', $status)
+            ->orderBy('created_at', 'desc');
+
+        $units = $unitsQuery->get();
+        $user = User::find($userId);
+        $statusLabel = $status === 'pending' ? 'Dalam Proses' : 'Selesai';
+
+        return view('task-m.units', compact('units', 'user', 'statusLabel', 'status', 'year'));
+    }
 }

@@ -56,6 +56,7 @@ use App\Http\Controllers\Feedbacks\FeedbackController;
 use App\Http\Controllers\Feedbacks\AdminFeedbackController;
 use App\Http\Controllers\Drms\VehicleMapController;
 use App\Http\Controllers\Task_M\TaskMonitorController;
+use App\Http\Controllers\CompressFotomailingController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -246,6 +247,10 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         
         // View foto
         Route::get('/foto/{id}', [MailingController::class, 'viewFoto'])->name('view-foto');
+
+        //KOMPRES FOTO (TAMBAHKAN INI)
+        Route::get('/kompres', [CompressFotomailingController::class, 'index'])->name('kompres');
+        Route::post('/kompres-proses', [CompressFotomailingController::class, 'proses'])->name('kompres.proses');
     });
 
     // ============================================
@@ -719,6 +724,10 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/', [TaskMonitorController::class, 'index'])->name('index');
         Route::get('/user/{userId}/projects', [TaskMonitorController::class, 'userProjects'])->name('user.projects');
         Route::post('/', [TaskMonitorController::class, 'store'])->name('store');
+
+        // 🔴 PENTING: route spesifik /units HARUS sebelum route /{id}
+        Route::get('/units', [TaskMonitorController::class, 'unitsList'])->name('units');
+
         Route::get('/{id}', [TaskMonitorController::class, 'show'])->name('show');
         Route::put('/{id}', [TaskMonitorController::class, 'update'])->name('update');
         Route::delete('/{id}', [TaskMonitorController::class, 'destroy'])->name('destroy');

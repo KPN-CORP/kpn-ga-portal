@@ -23,7 +23,7 @@
         {{-- HEADER --}}
         <div class="text-center mb-6">
             <h1 class="text-2xl font-semibold text-gray-900">
-                Check-out Mandiri
+                Check-In - Check-out Mandiri
             </h1>
             <p class="text-sm text-gray-500 mt-1">
                 Apartemen

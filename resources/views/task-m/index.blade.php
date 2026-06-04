@@ -4,13 +4,24 @@
 
 @section('content')
 <div class="w-full px-4 sm:px-6 lg:px-8 py-6">
-    {{-- Stats Cards --}}
+    @php
+        $userId = isset($user) ? $user->id : Auth::id();
+        // Tentukan route untuk link Project
+        $projectLink = isset($user) ? route('task-m.user.projects', $user->id) : route('task-m.index');
+        if ($year) {
+            $projectLink .= '?year=' . $year;
+        }
+    @endphp
+
+    {{-- Stats Cards (semua angka bisa diklik) --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-white rounded-xl shadow-sm border-l-4 border-indigo-500 p-4">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-500 text-sm">Project</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['total_projects'] ?? 0 }}</p>
+                    <a href="{{ $projectLink }}" class="text-2xl font-bold text-gray-800 hover:underline">
+                        {{ $stats['total_projects'] ?? 0 }}
+                    </a>
                 </div>
                 <i class="fas fa-folder-open text-3xl text-indigo-300"></i>
             </div>
@@ -19,7 +30,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-500 text-sm">Item Proses</p>
-                    <p class="text-2xl font-bold text-yellow-600">{{ $stats['total_pending'] ?? 0 }}</p>
+                    <a href="{{ route('task-m.units', ['status' => 'pending', 'user_id' => $userId, 'year' => $year]) }}" class="text-2xl font-bold text-yellow-600 hover:underline">
+                        {{ $stats['total_pending'] ?? 0 }}
+                    </a>
                 </div>
                 <i class="fas fa-clock text-3xl text-yellow-300"></i>
             </div>
@@ -28,7 +41,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-500 text-sm">Item Done</p>
-                    <p class="text-2xl font-bold text-green-600">{{ $stats['total_done'] ?? 0 }}</p>
+                    <a href="{{ route('task-m.units', ['status' => 'done', 'user_id' => $userId, 'year' => $year]) }}" class="text-2xl font-bold text-green-600 hover:underline">
+                        {{ $stats['total_done'] ?? 0 }}
+                    </a>
                 </div>
                 <i class="fas fa-check-circle text-3xl text-green-300"></i>
             </div>

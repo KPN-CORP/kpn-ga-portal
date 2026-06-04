@@ -29,9 +29,21 @@
                     @php $stats = \App\Models\Task_M\TaskMonitor::getUserStats($user->id); @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-800">{{ $user->name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $stats['total_projects'] }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-yellow-600">{{ $stats['total_pending'] }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-green-600">{{ $stats['total_done'] }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ route('task-m.user.projects', $user->id) }}" class="text-indigo-600 hover:underline">
+                                {{ $stats['total_projects'] }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ route('task-m.units', ['status' => 'pending', 'user_id' => $user->id]) }}" class="text-yellow-600 hover:underline">
+                                {{ $stats['total_pending'] }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ route('task-m.units', ['status' => 'done', 'user_id' => $user->id]) }}" class="text-green-600 hover:underline">
+                                {{ $stats['total_done'] }}
+                            </a>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <a href="{{ route('task-m.user.projects', $user->id) }}" class="text-indigo-600 hover:text-indigo-900">
                                 Lihat Project <i class="fas fa-arrow-right ml-1"></i>
