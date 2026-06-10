@@ -3,8 +3,6 @@
 @section('content')
 <div style="position: relative; height: 100vh; width: 100%;">
     <div id="map" style="height: 100%; width: 100%;"></div>
-
-    
 </div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -40,14 +38,13 @@
         markers['{{ $plate }}'].bindPopup(`
             <div style="min-width:220px">
                 <div style="font-size:16px; font-weight:bold; margin-bottom:8px;">🚗 {{ $plate }}</div>
-                <div style="margin-bottom:5px;"><b>Status:</b> <span style="color: {{ strtolower($info['status']) == 'on' ? 'green' : 'red' }}; font-weight:bold;">{{ $info['status'] }}</span></div>
-                <div style="font-size:13px; color:#444;">📍 {{ addslashes($info['alamat']) }}</div>
+                <div>📍 {{ $info['alamat'] ?? '-' }}</div>
+                <div>📡 Status: {{ $info['status'] ?? '-' }}</div>
             </div>
         `);
         tooltips['{{ $plate }}'] = L.tooltip({ permanent: true, direction: 'right', offset: [15,0] })
             .setContent(`<div style="background:white; padding:6px 10px; border-radius:10px; box-shadow:0 0 5px rgba(0,0,0,0.2);"><b>{{ $plate }}</b></div>`)
             .setLatLng([{{ $info['lat'] }}, {{ $info['lng'] }}]);
-        // tooltip tidak ditambahkan otomatis (akan muncul saat fokus)
     @endforeach
 
     function showAllCars() {

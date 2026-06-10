@@ -10,15 +10,28 @@ class VehicleMapController extends Controller
 {
     public function index()
     {
-        $vehicles = Vehicle::all();
+        // Hanya kendaraan yang diaktifkan GPS-nya
+        $vehicles = Vehicle::where('gps_enabled', true)->get();
         $gpsData = $this->fetchGpsData($vehicles->pluck('plate_number')->toArray());
         return view('drms.vehicles.map', compact('vehicles', 'gpsData'));
     }
 
     public function show(Vehicle $vehicle)
     {
-        $vehicles = Vehicle::all();
+        // Cek apakah kendaraan diizinkan tracking
+        if (!$vehicle->gps_enabled) {
+            return redirect()->route('drms.vehicles.index')
+                ->with('error', 'Kendaraan ini tidak memiliki GPS tracking aktif.');
+        }
+
+        $vehicles = Vehicle::where('gps_enabled', true)->get();
         $gpsData = $this->fetchGpsData([$vehicle->plate_number]);
+
+        if (!isset($gpsData[$vehicle->plate_number])) {
+            return redirect()->route('drms.vehicles.index')
+                ->with('error', "Data GPS untuk {$vehicle->plate_number} tidak ditemukan di server.");
+        }
+
         return view('drms.vehicles.map', [
             'vehicles'   => $vehicles,
             'gpsData'    => $gpsData,
@@ -27,7 +40,7 @@ class VehicleMapController extends Controller
     }
 
     /**
-     * Ambil data GPS dari API menggunakan cURL (sama persis dengan test.php)
+     * Ambil data GPS dari API menggunakan cURL
      */
     private function fetchGpsData(array $plateNumbers)
     {
@@ -65,7 +78,6 @@ class VehicleMapController extends Controller
                         $alamatParts = explode(',', $alamatRaw);
                         $alamatSimple = implode(', ', array_slice($alamatParts, 0, 3));
 
-                        // Simpan dengan key = plat nomor
                         $result[$car] = [
                             'nopol'  => $v[17] ?? '-',
                             'lat'    => (float)($v[3] ?? 0),
@@ -73,11 +85,10 @@ class VehicleMapController extends Controller
                             'status' => $v[14] ?? '-',
                             'alamat' => trim($alamatSimple),
                         ];
-                        break 2; // keluar dari dua loop
+                        break 2;
                     }
                 }
             }
-
             return $result;
         });
     }

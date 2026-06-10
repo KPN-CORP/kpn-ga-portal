@@ -24,7 +24,7 @@
     <div class="flex items-start justify-between mb-6">
         <div>
             <h1 class="text-xl font-semibold text-gray-900">
-                Check-out Mandiri
+                Check-In/out Mandiri
             </h1>
 
             @php
@@ -71,7 +71,7 @@
                 Cari Nama Anda
             </h2>
             <p class="text-sm text-gray-500 mt-1">
-                Masukkan nama atau ID karyawan untuk check-out
+                Masukkan nama atau ID karyawan untuk check-In/Out
             </p>
         </div>
 

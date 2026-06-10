@@ -44,6 +44,15 @@
             </select>
         </div>
 
+        {{-- Checkbox GPS --}}
+        <div class="mb-4">
+            <label class="inline-flex items-center">
+                <input type="checkbox" name="gps_enabled" value="1" {{ old('gps_enabled') ? 'checked' : '' }}
+                       class="rounded border-gray-300 text-blue-600">
+                <span class="ml-2 text-sm text-gray-700">Aktifkan GPS Tracking (kendaraan dapat dilacak di peta)</span>
+            </label>
+        </div>
+
         <div class="flex justify-end space-x-2">
             <a href="{{ route('drms.vehicles.index') }}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Batal</a>
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Simpan</button>

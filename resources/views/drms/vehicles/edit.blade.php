@@ -49,7 +49,15 @@
             </select>
         </div>
 
-        {{-- Business Unit bisa ditampilkan sebagai informasi (readonly) atau diisi jika diperlukan --}}
+        {{-- Checkbox GPS --}}
+        <div class="mb-4">
+            <label class="inline-flex items-center">
+                <input type="checkbox" name="gps_enabled" value="1" {{ old('gps_enabled', $vehicle->gps_enabled) ? 'checked' : '' }}
+                       class="rounded border-gray-300 text-blue-600">
+                <span class="ml-2 text-sm text-gray-700">Aktifkan GPS Tracking</span>
+            </label>
+        </div>
+
         @if(isset($vehicle->business_unit_id))
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit ID</label>

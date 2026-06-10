@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 
 class CompressFotomailingController extends Controller
 {
@@ -16,33 +15,135 @@ class CompressFotomailingController extends Controller
         return $access && isset($access->mailing_proses) && $access->mailing_proses == 1;
     }
 
-    public function index()
+    // ================= BROWSE FOLDER =================
+    public function browse(Request $request)
     {
-        if (!$this->isAdmin()) {
-            abort(403, 'Hanya admin yang dapat mengakses halaman ini.');
+        if (!$this->isAdmin()) abort(403);
+
+        $currentPath = $request->get('path', '');
+        // Security: cegah path traversal
+        if (strpos($currentPath, '..') !== false) {
+            $currentPath = '';
         }
 
-        $directory = storage_path('app/public/mailing-foto');
-        $files = [];
+        $baseDir = storage_path('app');
+        $fullPath = $baseDir . ($currentPath ? '/' . $currentPath : '');
 
-        if (is_dir($directory)) {
-            $allFiles = glob($directory . '/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', GLOB_BRACE);
-            foreach ($allFiles as $file) {
-                $size = filesize($file);
-                $files[] = [
-                    'name' => basename($file),
+        if (!is_dir($fullPath)) {
+            return redirect()->route('mailing.kompres.browse');
+        }
+
+        $items = scandir($fullPath);
+        $directories = [];
+        $images = [];
+        $extensions = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'];
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+            $itemPath = $fullPath . '/' . $item;
+            if (is_dir($itemPath)) {
+                $directories[] = $item;
+            } elseif (is_file($itemPath) && in_array(pathinfo($item, PATHINFO_EXTENSION), $extensions)) {
+                $size = filesize($itemPath);
+                $images[] = [
+                    'name' => $item,
                     'size_mb' => round($size / 1024 / 1024, 2),
                     'need_compress' => $size > (1.5 * 1024 * 1024)
                 ];
             }
         }
 
+        sort($directories);
+        sort($images);
+
+        return view('mailing.browse', compact('currentPath', 'directories', 'images'));
+    }
+
+    // ================= HALAMAN KOMPRES (dengan folder pilihan) =================
+    public function index(Request $request)
+    {
+        if (!$this->isAdmin()) abort(403);
+
+        $selectedFolder = $request->get('folder', 'public/mailing-foto');
+        // Security: cegah path traversal
+        if (strpos($selectedFolder, '..') !== false) {
+            $selectedFolder = 'public/mailing-foto';
+        }
+
+        $baseDir = storage_path('app/' . $selectedFolder);
+        if (!is_dir($baseDir)) {
+            abort(404, 'Folder tidak ditemukan');
+        }
+
+        // Kumpulkan semua gambar dari folder (rekursif)
+        $files = $this->getAllImagesRecursive($selectedFolder);
         $totalFiles = count($files);
         $needCompress = count(array_filter($files, fn($f) => $f['need_compress']));
 
-        return view('mailing.kompres', compact('totalFiles', 'needCompress', 'files'));
+        // Untuk dropdown di view (opsional, tetap pakai browse)
+        $availableFolders = [
+            'public/mailing-foto' => 'Mailing Foto (public/mailing-foto)',
+            'public' => 'Seluruh folder public (rekursif)',
+            'private' => 'Folder private (rekursif)',
+        ];
+        $folders = [];
+        foreach ($availableFolders as $path => $label) {
+            if (is_dir(storage_path('app/' . $path))) {
+                $folders[$path] = $label;
+            }
+        }
+
+        return view('mailing.kompres', compact('selectedFolder', 'files', 'totalFiles', 'needCompress', 'folders'));
     }
 
+    /**
+     * Ambil semua file gambar dari suatu folder (rekursif untuk public/private)
+     */
+    private function getAllImagesRecursive($folderPath)
+    {
+        $basePath = storage_path('app/' . $folderPath);
+        if (!is_dir($basePath)) return [];
+
+        $extensions = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'];
+        $images = [];
+
+        // Rekursif untuk folder 'public' dan 'private'
+        $recursive = in_array($folderPath, ['public', 'private']);
+
+        if ($recursive) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($basePath, \RecursiveDirectoryIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if ($file->isFile() && in_array($file->getExtension(), $extensions)) {
+                    $relativePath = str_replace($basePath . '/', '', $file->getPathname());
+                    $size = $file->getSize();
+                    $images[] = [
+                        'name' => $relativePath,
+                        'full_path' => $file->getPathname(),
+                        'size_mb' => round($size / 1024 / 1024, 2),
+                        'need_compress' => $size > (1.5 * 1024 * 1024)
+                    ];
+                }
+            }
+        } else {
+            $pattern = $basePath . '/*.{' . implode(',', $extensions) . '}';
+            $files = glob($pattern, GLOB_BRACE);
+            foreach ($files as $file) {
+                $size = filesize($file);
+                $images[] = [
+                    'name' => basename($file),
+                    'full_path' => $file,
+                    'size_mb' => round($size / 1024 / 1024, 2),
+                    'need_compress' => $size > (1.5 * 1024 * 1024)
+                ];
+            }
+        }
+
+        return $images;
+    }
+
+    // ================= PROSES KOMPRESI (AJAX) =================
     public function proses(Request $request)
     {
         if (!$this->isAdmin()) {
@@ -51,8 +152,13 @@ class CompressFotomailingController extends Controller
 
         $request->validate([
             'files' => 'required|array',
-            'files.*' => 'string'
+            'files.*' => 'string',
+            'folder' => 'required|string'
         ]);
+
+        $folderPath = $request->input('folder');
+        $baseDir = storage_path('app/' . $folderPath);
+        $recursive = in_array($folderPath, ['public', 'private']);
 
         set_time_limit(0);
         ini_set('memory_limit', '512M');
@@ -60,18 +166,17 @@ class CompressFotomailingController extends Controller
         $maxSizeBytes = 1.5 * 1024 * 1024;
         $results = [];
 
-        // PERBAIKAN: gunakan $request->input('files') BUKAN $request->files
-        foreach ($request->input('files') as $filename) {
-            $filePath = storage_path('app/public/mailing-foto/' . $filename);
+        foreach ($request->input('files') as $relativeName) {
+            $filePath = $baseDir . '/' . $relativeName;
 
             if (!file_exists($filePath)) {
-                $results[] = ['name' => $filename, 'status' => 'skip', 'message' => 'File tidak ditemukan'];
+                $results[] = ['name' => $relativeName, 'status' => 'skip', 'message' => 'File tidak ditemukan'];
                 continue;
             }
 
             $currentSize = filesize($filePath);
             if ($currentSize <= $maxSizeBytes) {
-                $results[] = ['name' => $filename, 'status' => 'skip', 'message' => 'Sudah ≤ 1.5 MB'];
+                $results[] = ['name' => $relativeName, 'status' => 'skip', 'message' => 'Sudah ≤ 1.5 MB'];
                 continue;
             }
 
@@ -80,19 +185,20 @@ class CompressFotomailingController extends Controller
             if ($success) {
                 $newSize = filesize($filePath);
                 $results[] = [
-                    'name' => $filename,
+                    'name' => $relativeName,
                     'status' => 'success',
                     'old_mb' => round($currentSize / 1024 / 1024, 2),
                     'new_mb' => round($newSize / 1024 / 1024, 2)
                 ];
             } else {
-                $results[] = ['name' => $filename, 'status' => 'failed', 'message' => 'Gagal kompres'];
+                $results[] = ['name' => $relativeName, 'status' => 'failed', 'message' => 'Gagal kompres'];
             }
         }
 
         return response()->json(['results' => $results]);
     }
 
+    // ================= FUNGSI KOMPRES GAMBAR (FORMAT TETAP) =================
     private function compressImageKeepFormat($filePath, $maxSizeBytes)
     {
         try {
@@ -152,11 +258,9 @@ class CompressFotomailingController extends Controller
                 case 'image/png':
                     $src = imagecreatefrompng($filePath);
                     if (!$src) return false;
-
                     $originalWidth = imagesx($src);
                     $originalHeight = imagesy($src);
-
-                    // Try lossless compression first
+                    // Lossless dulu
                     imagepng($src, $tempPath, 9);
                     clearstatcache();
                     if (filesize($tempPath) <= $maxSizeBytes) {
@@ -164,41 +268,33 @@ class CompressFotomailingController extends Controller
                         imagedestroy($src);
                         return true;
                     }
-
-                    // Progressive resize
+                    // Resize bertahap
                     $scale = 0.9;
                     $minScale = 0.2;
                     $success = false;
-
                     while ($scale >= $minScale) {
                         $newWidth = (int)($originalWidth * $scale);
                         $newHeight = (int)($originalHeight * $scale);
-
                         $resized = imagecreatetruecolor($newWidth, $newHeight);
                         imagealphablending($resized, false);
                         imagesavealpha($resized, true);
                         $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
                         imagefilledrectangle($resized, 0, 0, $newWidth, $newHeight, $transparent);
-
                         imagecopyresampled($resized, $src, 0, 0, 0, 0, $newWidth, $newHeight, $originalWidth, $originalHeight);
                         imagepng($resized, $tempPath, 9);
                         imagedestroy($resized);
                         clearstatcache();
-
                         if (filesize($tempPath) <= $maxSizeBytes) {
                             $success = true;
                             break;
                         }
                         $scale -= 0.05;
                     }
-
                     imagedestroy($src);
-
                     if ($success && file_exists($tempPath)) {
                         rename($tempPath, $filePath);
                         return true;
                     }
-
                     if (file_exists($tempPath)) unlink($tempPath);
                     return false;
 

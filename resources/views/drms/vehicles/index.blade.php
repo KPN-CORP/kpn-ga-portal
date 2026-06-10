@@ -19,6 +19,17 @@
     @if(session('success'))
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{{ session('error') }}</div>
+    @endif
+
+    {{-- Toggle filter --}}
+    <div class="mb-4">
+        <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggleGpsOnly" class="form-checkbox h-4 w-4 text-blue-600">
+            <span class="ml-2 text-sm text-gray-700">Hanya tampilkan kendaraan dengan GPS aktif</span>
+        </label>
+    </div>
 
     <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full">
@@ -33,15 +44,19 @@
                     <th class="px-4 py-2">Aksi</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="vehicleTableBody">
                 @foreach($vehicles as $vehicle)
-                <tr>
+                <tr class="vehicle-row" data-gps-enabled="{{ $vehicle->gps_enabled ? 'yes' : 'no' }}">
                     <td class="px-4 py-2">{{ $vehicle->type }}</td>
                     <td class="px-4 py-2">{{ $vehicle->plate_number }}</td>
                     <td class="px-4 py-2">
-                        <a href="{{ route('drms.vehicles.map.single', $vehicle) }}" class="text-purple-600" title="Lihat di Peta">
-                            🗺️ Tracking
-                        </a>
+                        @if($vehicle->gps_enabled)
+                            <a href="{{ route('drms.vehicles.map.single', $vehicle) }}" class="text-purple-600" title="Lihat di Peta">
+                                🗺️ Tracking
+                            </a>
+                        @else
+                            <span class="text-gray-400"></span>
+                        @endif
                     </td>
                     <td class="px-4 py-2">{{ $vehicle->capacity }}</td>
                     <td class="px-4 py-2">
@@ -63,4 +78,19 @@
         </table>
     </div>
 </div>
+
+<script>
+    document.getElementById('toggleGpsOnly').addEventListener('change', function(e) {
+        const rows = document.querySelectorAll('#vehicleTableBody .vehicle-row');
+        const onlyGps = e.target.checked;
+        rows.forEach(row => {
+            const gpsActive = row.getAttribute('data-gps-enabled') === 'yes';
+            if (onlyGps && !gpsActive) {
+                row.style.display = 'none';
+            } else {
+                row.style.display = '';
+            }
+        });
+    });
+</script>
 @endsection

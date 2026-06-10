@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Cache;
 use App\Models\Apartemen\FasilitasBooking;
 use App\Models\Apartemen\BisnisUnit;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class AdminController extends Controller
 {
@@ -787,32 +792,201 @@ class AdminController extends Controller
     // REPORT
     public function report(Request $request)
     {
-        $query = ApartemenHistory::orderBy('created_at', 'desc');
+        // Query dari tabel penghuni, dengan relasi assign, unit, apartemen, request, user
+        $query = ApartemenPenghuni::with([
+                'assign.unit.apartemen',
+                'assign.request.user'
+            ])
+            ->whereHas('assign', function($q) {
+                $q->whereIn('status', ['AKTIF', 'SELESAI']);
+            })
+            ->latest('created_at'); // urut berdasarkan created_at terbaru
 
+        // Filter tanggal (periode overlapping)
         if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
-            $query->whereBetween('created_at', [
-                $request->tanggal_mulai,
-                $request->tanggal_selesai
-            ]);
+            $start = $request->tanggal_mulai;
+            $end   = $request->tanggal_selesai;
+            $query->whereHas('assign', function($q2) use ($start, $end) {
+                $q2->where(function($q3) use ($start, $end) {
+                    $q3->whereBetween('tanggal_mulai', [$start, $end])
+                    ->orWhereBetween('tanggal_selesai', [$start, $end])
+                    ->orWhere(function($q4) use ($start, $end) {
+                        $q4->where('tanggal_mulai', '<=', $start)
+                            ->where('tanggal_selesai', '>=', $end);
+                    });
+                });
+            });
         }
 
-        if ($request->filled('status_selesai')) {
-            $query->where('status_selesai', $request->status_selesai);
+        // Filter status (SELESAI atau AKTIF)
+        if ($request->filled('status')) {
+            $statusFilter = $request->status;
+            if ($statusFilter == 'SELESAI') {
+                $query->whereHas('assign', fn($q) => $q->where('status', 'SELESAI'))
+                    ->where('status', 'SELESAI');
+            } elseif ($statusFilter == 'AKTIF') {
+                $query->whereHas('assign', fn($q) => $q->where('status', 'AKTIF'))
+                    ->where('status', 'AKTIF');
+            } else {
+                // DIPINDAH, DIBATALKAN - tidak ada di assign, fallback ke status penghuni
+                $query->where('status', $statusFilter);
+            }
         }
 
+        // Filter pencarian (nama penghuni atau ID karyawan)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                ->orWhere('id_karyawan', 'like', "%{$search}%")
-                ->orWhere('apartemen', 'like', "%{$search}%")
-                ->orWhere('unit', 'like', "%{$search}%");
+                ->orWhere('id_karyawan', 'like', "%{$search}%");
             });
         }
 
-        $histories = $query->paginate(10);
+        // Ambil data, lalu unik per assign_id + penghuni_id (sebenarnya sudah unik, tapi amankan)
+        $penghuniList = $query->get()->unique(function($item) {
+            return $item->assign_id . '_' . $item->id;
+        });
+
+        // Paginate manual (karena setelah unique collection)
+        $perPage = 10;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $currentItems = $penghuniList->slice(($currentPage - 1) * $perPage, $perPage)->values();
+        $histories = new LengthAwarePaginator(
+            $currentItems,
+            $penghuniList->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('apartemen.admin.report', compact('histories'));
+    }
+
+    public function exportReport(Request $request)
+    {
+        // Query data penghuni dengan relasi assign, unit, apartemen, request, user
+        $query = ApartemenPenghuni::with([
+                'assign.unit.apartemen',
+                'assign.request.user'
+            ])
+            ->whereHas('assign', function($q) {
+                $q->whereIn('status', ['AKTIF', 'SELESAI']);
+            })
+            ->latest('created_at');
+
+        // Filter tanggal (periode overlapping)
+        if ($request->filled('tanggal_mulai') && $request->filled('tanggal_selesai')) {
+            $start = $request->tanggal_mulai;
+            $end   = $request->tanggal_selesai;
+            $query->whereHas('assign', function($q2) use ($start, $end) {
+                $q2->where(function($q3) use ($start, $end) {
+                    $q3->whereBetween('tanggal_mulai', [$start, $end])
+                    ->orWhereBetween('tanggal_selesai', [$start, $end])
+                    ->orWhere(function($q4) use ($start, $end) {
+                        $q4->where('tanggal_mulai', '<=', $start)
+                            ->where('tanggal_selesai', '>=', $end);
+                    });
+                });
+            });
+        }
+
+        // Filter status
+        if ($request->filled('status')) {
+            $statusFilter = $request->status;
+            if ($statusFilter == 'SELESAI') {
+                $query->whereHas('assign', fn($q) => $q->where('status', 'SELESAI'))
+                    ->where('status', 'SELESAI');
+            } elseif ($statusFilter == 'AKTIF') {
+                $query->whereHas('assign', fn($q) => $q->where('status', 'AKTIF'))
+                    ->where('status', 'AKTIF');
+            }
+        }
+
+        // Filter pencarian
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                ->orWhere('id_karyawan', 'like', "%{$search}%");
+            });
+        }
+
+        $penghuniList = $query->get();
+
+        // Buat spreadsheet
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header sesuai urutan baru
+        $headers = [
+            'Nama yang request', 'Tanggal', 'Alasan', 'Nama Penghuni', 'ID Karyawan',
+            'Unit Kerja', 'Golongan', 'Apartemen', 'Unit', 'Periode', 'Status'
+        ];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . '1', $header);
+            $sheet->getStyle($col . '1')->getFont()->setBold(true);
+            $sheet->getStyle($col . '1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
+            $col++;
+        }
+
+        $row = 2;
+        foreach ($penghuniList as $penghuni) {
+            $assign = $penghuni->assign;
+            if (!$assign) continue;
+
+            $unit = $assign->unit;
+            $apartemen = $unit->apartemen ?? null;
+            $requestData = $assign->request;
+            $pemohon = $requestData && $requestData->user ? $requestData->user->name : '-';
+            $alasan = $requestData ? $requestData->alasan : '-';
+            $tanggalPenempatan = $assign->created_at ? $assign->created_at->format('d/m/Y H:i') : '-';
+
+            // Tentukan status
+            $now = now();
+            if ($assign->status == 'SELESAI') {
+                $statusText = 'Selesai';
+            } elseif ($assign->status == 'AKTIF') {
+                if ($assign->tanggal_mulai <= $now && $assign->tanggal_selesai >= $now) {
+                    $statusText = 'Aktif (menginap)';
+                } elseif ($assign->tanggal_mulai > $now) {
+                    $statusText = 'Belum aktif';
+                } else {
+                    $statusText = 'Belum check-out';
+                }
+            } else {
+                $statusText = $assign->status;
+            }
+
+            $periode = $assign->tanggal_mulai->format('d/m/Y') . ' - ' . $assign->tanggal_selesai->format('d/m/Y');
+
+            // Isi data sesuai urutan header (A sampai K)
+            $sheet->setCellValue('A' . $row, $pemohon);
+            $sheet->setCellValue('B' . $row, $tanggalPenempatan);
+            $sheet->setCellValue('C' . $row, $alasan);
+            $sheet->setCellValue('D' . $row, $penghuni->nama);
+            $sheet->setCellValue('E' . $row, $penghuni->id_karyawan);
+            $sheet->setCellValue('F' . $row, $penghuni->unit_kerja ?? '-');
+            $sheet->setCellValue('G' . $row, $penghuni->gol ?? '-');
+            $sheet->setCellValue('H' . $row, $apartemen ? $apartemen->nama_apartemen : '-');
+            $sheet->setCellValue('I' . $row, $unit ? $unit->nomor_unit : '-');
+            $sheet->setCellValue('J' . $row, $periode);
+            $sheet->setCellValue('K' . $row, $statusText);
+            $row++;
+        }
+
+        // Auto-size columns (A sampai K)
+        foreach (range('A', 'K') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Download
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'laporan-apartemen-' . date('Y-m-d') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $writer->save('php://output');
+        exit;
     }
 
     private function occupancyReport($request)

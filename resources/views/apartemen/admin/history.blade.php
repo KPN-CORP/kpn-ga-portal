@@ -16,8 +16,8 @@
             <div class="hidden lg:flex items-center space-x-4 flex-1">
                 {{-- Judul Halaman --}}
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Riwayat Permintaan</h1>
-                    <p class="text-gray-600 text-sm mt-1">Lihat riwayat semua permintaan yang telah diproses</p>
+                    <h1 class="text-2xl font-bold text-gray-800">Riwayat</h1>
+                    <p class="text-gray-600 text-sm mt-1">Lihat riwayat Check In & Out</p>
                 </div>
             </div>
 
@@ -240,7 +240,7 @@
         {{-- Table Header --}}
         <div class="px-3 md:px-4 lg:px-6 py-3 md:py-4 border-b border-gray-200">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h3 class="text-base md:text-lg font-semibold text-gray-800">Riwayat Permintaan</h3>
+                <h3 class="text-base md:text-lg font-semibold text-gray-800">Riwayat</h3>
                 <div class="text-xs md:text-sm text-gray-500">
                     Total: <span class="font-medium">{{ $histories->total() ?? 0 }}</span> riwayat
                 </div>

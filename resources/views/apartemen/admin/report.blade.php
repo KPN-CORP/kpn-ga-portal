@@ -1,56 +1,56 @@
 @extends('layouts.app_apartadmin_sidebar')
 @section('content')
-<div class="p-4 md:p-6">
+<div class="p-3 md:p-6">
 
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
+    {{-- HEADER --}}
+    <div class="mb-4 md:mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Laporan Apartemen</h1>
-                <p class="text-gray-500 text-sm mt-1">Riwayat dan statistik sistem apartemen</p>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800">Laporan Apartemen</h1>
+                <p class="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1">Riwayat dan statistik sistem apartemen</p>
             </div>
-            <button onclick="exportReport()" 
-                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <a href="{{ route('apartemen.admin.report.export', request()->query()) }}" 
+               class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center w-full md:w-auto">
+                <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Export Excel
-            </button>
+            </a>
         </div>
     </div>
 
     {{-- FILTER SECTION --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
-        <div class="p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Filter Laporan</h3>
-            <form method="GET" action="{{ route('apartemen.admin.report') }}" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg md:rounded-xl border border-gray-200 shadow-sm mb-4 md:mb-6">
+        <div class="p-3 md:p-5">
+            <h3 class="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Filter Laporan</h3>
+            <form method="GET" action="{{ route('apartemen.admin.report') }}" class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
                         <input type="date" name="tanggal_mulai" value="{{ request('tanggal_mulai') }}"
-                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full border border-gray-300 rounded-md md:rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
+                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
                         <input type="date" name="tanggal_selesai" value="{{ request('tanggal_selesai') }}"
-                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full border border-gray-300 rounded-md md:rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select name="status" class="w-full border border-gray-300 rounded-md md:rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm">
                             <option value="">Semua Status</option>
                             <option value="SELESAI" {{ request('status') == 'SELESAI' ? 'selected' : '' }}>Selesai</option>
-                            <option value="DIPINDAH" {{ request('status') == 'DIPINDAH' ? 'selected' : '' }}>Dipindah</option>
-                            <option value="DIBATALKAN" {{ request('status') == 'DIBATALKAN' ? 'selected' : '' }}>Dibatalkan</option>
+                            <option value="AKTIF" {{ request('status') == 'AKTIF' ? 'selected' : '' }}>Aktif (menginap)</option>
                         </select>
                     </div>
                     <div class="flex items-end">
                         <div class="flex space-x-2 w-full">
                             <button type="submit" 
-                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 md:px-4 md:py-2 rounded-md md:rounded-lg text-xs md:text-sm font-medium">
                                 Terapkan Filter
                             </button>
                             <a href="{{ route('apartemen.admin.report') }}" 
-                               class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                               class="px-2 py-1.5 md:px-4 md:py-2 border border-gray-300 rounded-md md:rounded-lg text-xs md:text-sm font-medium text-gray-700 hover:bg-gray-50">
                                 Reset
                             </a>
                         </div>
@@ -61,206 +61,183 @@
     </div>
 
     {{-- STATISTICS --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="text-center">
-                <p class="text-sm text-gray-500">Total Riwayat</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1">{{ $histories->total() }}</p>
-            </div>
+    <div class="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
+        <div class="bg-white rounded-lg md:rounded-xl border border-gray-200 p-2 md:p-4 shadow-sm text-center">
+            <p class="text-[10px] md:text-sm text-gray-500">Total Penempatan</p>
+            <p class="text-lg md:text-2xl font-bold text-gray-800">{{ $histories->total() }}</p>
         </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="text-center">
-                <p class="text-sm text-gray-500">Selesai</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1">
-                    {{ $histories->where('status_selesai', 'SELESAI')->count() }}
-                </p>
-            </div>
+        <div class="bg-white rounded-lg md:rounded-xl border border-gray-200 p-2 md:p-4 shadow-sm text-center">
+            <p class="text-[10px] md:text-sm text-gray-500">Selesai</p>
+            <p class="text-lg md:text-2xl font-bold text-gray-800">
+                {{ $histories->filter(fn($h) => $h->assign && $h->assign->status == 'SELESAI')->count() }}
+            </p>
         </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="text-center">
-                <p class="text-sm text-gray-500">Dipindah</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1">
-                    {{ $histories->where('status_selesai', 'DIPINDAH')->count() }}
-                </p>
-            </div>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="text-center">
-                <p class="text-sm text-gray-500">Dibatalkan</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1">
-                    {{ $histories->where('status_selesai', 'DIBATALKAN')->count() }}
-                </p>
-            </div>
+        <div class="bg-white rounded-lg md:rounded-xl border border-gray-200 p-2 md:p-4 shadow-sm text-center">
+            <p class="text-[10px] md:text-sm text-gray-500">Aktif (menginap)</p>
+            <p class="text-lg md:text-2xl font-bold text-gray-800">
+                {{ $histories->filter(function($h) {
+                    $assign = $h->assign;
+                    return $assign && $assign->status == 'AKTIF' && $assign->tanggal_mulai <= now() && $assign->tanggal_selesai >= now();
+                })->count() }}
+            </p>
         </div>
     </div>
 
-    {{-- REPORT TABLE --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-800">Riwayat Apartemen</h3>
-                <div class="text-sm text-gray-500">
+    {{-- REPORT CONTENT: TABLET/DESKTOP (TABEL) vs MOBILE (CARD) --}}
+    <div class="bg-white rounded-lg md:rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-3 md:px-6 py-3 md:py-4 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h3 class="text-base md:text-lg font-semibold text-gray-800">Riwayat Apartemen</h3>
+                <div class="text-xs md:text-sm text-gray-500">
                     Menampilkan {{ $histories->firstItem() }} - {{ $histories->lastItem() }} dari {{ $histories->total() }} data
                 </div>
             </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full">
+        {{-- TABEL untuk layar >= 768px (tablet/desktop) --}}
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Penghuni</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Karyawan</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Kerja</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apartemen & Unit</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Periode</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Request</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Penghuni</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">ID Karyawan</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Kerja</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Gol</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Apartemen</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Periode</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($histories as $history)
+                    @foreach($histories as $penghuni)
+                    @php
+                        $assign = $penghuni->assign;
+                        if (!$assign) continue;
+                        $unit = $assign->unit;
+                        $apartemen = $unit->apartemen ?? null;
+                        $pemohon = $assign->request && $assign->request->user ? $assign->request->user->name : '-';
+                        $now = now();
+                        if ($assign->status == 'SELESAI') {
+                            $statusText = 'Selesai';
+                            $statusColor = 'green';
+                        } elseif ($assign->status == 'AKTIF') {
+                            if ($assign->tanggal_mulai <= $now && $assign->tanggal_selesai >= $now) {
+                                $statusText = 'Aktif (menginap)';
+                                $statusColor = 'green';
+                            } elseif ($assign->tanggal_mulai > $now) {
+                                $statusText = 'Belum aktif';
+                                $statusColor = 'yellow';
+                            } else {
+                                $statusText = 'Belum check-out';
+                                $statusColor = 'red';
+                            }
+                        } else {
+                            $statusText = $assign->status;
+                            $statusColor = 'gray';
+                        }
+                        $periode = $assign->tanggal_mulai->format('d/m/Y') . ' - ' . $assign->tanggal_selesai->format('d/m/Y');
+                        $tanggal = $assign->created_at ? $assign->created_at->format('d/m/Y H:i') : '-';
+                    @endphp
                     <tr class="hover:bg-gray-50">
-                        <td class="py-3 px-4">
-                            <div class="font-medium text-gray-900">{{ $history->nama }}</div>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $pemohon }}</td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $penghuni->nama }}</td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $penghuni->id_karyawan }}</td>
+                        <td class="py-2 px-3">{{ $penghuni->unit_kerja ?? '-' }}</td>
+                        <td class="py-2 px-3">{{ $penghuni->gol ?? '-' }}</td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $apartemen->nama_apartemen ?? '-' }}</td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $unit->nomor_unit ?? '-' }}</td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $periode }}</td>
+                        <td class="py-2 px-3">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-{{ $statusColor }}-100 text-{{ $statusColor }}-800">{{ $statusText }}</span>
                         </td>
-                        <td class="py-3 px-4">
-                            <div class="text-gray-900">{{ $history->id_karyawan }}</div>
-                        </td>
-                        <td class="py-3 px-4">
-                            <div class="text-gray-900">{{ $history->unit_kerja ?? '-' }}</div>
-                            <div class="text-xs text-gray-500">{{ $history->gol ?? '-' }}</div>
-                        </td>
-                        <td class="py-3 px-4">
-                            <div class="font-medium text-gray-900">{{ $history->apartemen }}</div>
-                            <div class="text-sm text-gray-500">{{ $history->unit }}</div>
-                        </td>
-                        <td class="py-3 px-4">
-                            <div class="text-gray-900">{{ $history->periode }}</div>
-                        </td>
-                        <td class="py-3 px-4">
-                            @php
-                                $statusColors = [
-                                    'SELESAI' => 'bg-green-100 text-green-800',
-                                    'DIPINDAH' => 'bg-yellow-100 text-yellow-800',
-                                    'DIBATALKAN' => 'bg-red-100 text-red-800'
-                                ];
-                            @endphp
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusColors[$history->status_selesai] ?? 'bg-gray-100 text-gray-800' }}">
-                                {{ $history->status_selesai_text }}
-                            </span>
-                        </td>
-                        <td class="py-3 px-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ $history->created_at->format('d/m/Y') }}</div>
-                            <div class="text-xs text-gray-500">{{ $history->created_at->format('H:i') }}</div>
-                        </td>
+                        <td class="py-2 px-3 whitespace-nowrap">{{ $tanggal }}</td>
                     </tr>
-                    @empty
-                    <tr>
-                        <td colspan="7" class="py-12 text-center">
-                            <div class="flex flex-col items-center justify-center text-gray-400">
-                                <svg class="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <p class="text-lg font-medium">Tidak ada data riwayat</p>
-                                <p class="text-sm mt-1">Data riwayat akan muncul di sini</p>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
 
-        {{-- PAGINATION --}}
-        @if($histories->hasPages())
-        <div class="px-6 py-4 border-t">
-            <div class="flex justify-between items-center">
-                <div class="text-sm text-gray-500">
-                    Menampilkan {{ $histories->firstItem() }} - {{ $histories->lastItem() }} dari {{ $histories->total() }} data
+        {{-- CARD untuk layar < 768px (mobile) --}}
+        <div class="md:hidden divide-y divide-gray-200">
+            @forelse($histories as $penghuni)
+            @php
+                $assign = $penghuni->assign;
+                if (!$assign) continue;
+                $unit = $assign->unit;
+                $apartemen = $unit->apartemen ?? null;
+                $pemohon = $assign->request && $assign->request->user ? $assign->request->user->name : '-';
+                $now = now();
+                if ($assign->status == 'SELESAI') {
+                    $statusText = 'Selesai';
+                    $statusColor = 'green';
+                } elseif ($assign->status == 'AKTIF') {
+                    if ($assign->tanggal_mulai <= $now && $assign->tanggal_selesai >= $now) {
+                        $statusText = 'Aktif (menginap)';
+                        $statusColor = 'green';
+                    } elseif ($assign->tanggal_mulai > $now) {
+                        $statusText = 'Belum aktif';
+                        $statusColor = 'yellow';
+                    } else {
+                        $statusText = 'Belum check-out';
+                        $statusColor = 'red';
+                    }
+                } else {
+                    $statusText = $assign->status;
+                    $statusColor = 'gray';
+                }
+                $periode = $assign->tanggal_mulai->format('d/m/Y') . ' - ' . $assign->tanggal_selesai->format('d/m/Y');
+                $tanggal = $assign->created_at ? $assign->created_at->format('d/m/Y H:i') : '-';
+            @endphp
+            <div class="p-3 bg-white hover:bg-gray-50 transition">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <span class="font-semibold text-gray-800 text-sm">{{ $penghuni->nama }}</span>
+                        <div class="text-xs text-gray-500">{{ $penghuni->id_karyawan }}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-{{ $statusColor }}-100 text-{{ $statusColor }}-800">{{ $statusText }}</span>
                 </div>
-                <div class="flex space-x-2">
-                    @if($histories->previousPageUrl())
-                        <a href="{{ $histories->previousPageUrl() }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-                            Previous
-                        </a>
-                    @endif
-                    
-                    @if($histories->nextPageUrl())
-                        <a href="{{ $histories->nextPageUrl() }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-                            Next
-                        </a>
-                    @endif
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-2">
+                    <div><span class="text-gray-500">Request:</span> {{ $pemohon }}</div>
+                    <div><span class="text-gray-500">Unit Kerja:</span> {{ $penghuni->unit_kerja ?? '-' }}</div>
+                    <div><span class="text-gray-500">Gol:</span> {{ $penghuni->gol ?? '-' }}</div>
+                    <div><span class="text-gray-500">Apartemen:</span> {{ $apartemen->nama_apartemen ?? '-' }}</div>
+                    <div><span class="text-gray-500">Unit:</span> {{ $unit->nomor_unit ?? '-' }}</div>
+                    <div><span class="text-gray-500">Periode:</span> {{ $periode }}</div>
+                    <div><span class="text-gray-500">Tanggal:</span> {{ $tanggal }}</div>
                 </div>
             </div>
+            @empty
+            <div class="p-6 text-center text-gray-500 text-sm">Tidak ada data penempatan.</div>
+            @endforelse
+        </div>
+
+        {{-- PAGINATION --}}
+        @if($histories->hasPages())
+        <div class="px-3 md:px-6 py-3 md:py-4 border-t border-gray-200">
+            {{ $histories->appends(request()->query())->links() }}
         </div>
         @endif
     </div>
-
 </div>
 
 <script>
-function exportReport() {
-    // Collect filter parameters
-    const params = new URLSearchParams({
-        tanggal_mulai: document.querySelector('input[name="tanggal_mulai"]').value || '',
-        tanggal_selesai: document.querySelector('input[name="tanggal_selesai"]').value || '',
-        status: document.querySelector('select[name="status"]').value || '',
-        export: 'excel'
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const lastMonth = new Date();
+        lastMonth.setMonth(today.getMonth() - 1);
+        
+        const tglMulai = document.querySelector('input[name="tanggal_mulai"]');
+        const tglSelesai = document.querySelector('input[name="tanggal_selesai"]');
+        
+        if (tglMulai && !tglMulai.value) {
+            tglMulai.value = lastMonth.toISOString().split('T')[0];
+        }
+        if (tglSelesai && !tglSelesai.value) {
+            tglSelesai.value = today.toISOString().split('T')[0];
+        }
     });
-
-    // Show loading
-    const originalText = event.target.innerHTML;
-    event.target.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Exporting...';
-    event.target.disabled = true;
-
-    // Make export request
-    fetch(`{{ route('apartemen.admin.report') }}?${params.toString()}`)
-        .then(response => {
-            if (!response.ok) throw new Error('Export failed');
-            return response.blob();
-        })
-        .then(blob => {
-            // Create download link
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `laporan-apartemen-${new Date().toISOString().split('T')[0]}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            // Restore button
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
-        })
-        .catch(error => {
-            console.error('Export error:', error);
-            alert('Gagal melakukan export. Silakan coba lagi.');
-            
-            // Restore button
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
-        });
-}
-
-// Set default date range to last month
-document.addEventListener('DOMContentLoaded', function() {
-    const today = new Date();
-    const lastMonth = new Date();
-    lastMonth.setMonth(today.getMonth() - 1);
-    
-    const tanggalMulai = document.querySelector('input[name="tanggal_mulai"]');
-    const tanggalSelesai = document.querySelector('input[name="tanggal_selesai"]');
-    
-    if (tanggalMulai && !tanggalMulai.value) {
-        tanggalMulai.value = lastMonth.toISOString().split('T')[0];
-    }
-    
-    if (tanggalSelesai && !tanggalSelesai.value) {
-        tanggalSelesai.value = today.toISOString().split('T')[0];
-    }
-});
 </script>
 @endsection

@@ -6,6 +6,10 @@
     <title>Hasil Pencarian</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    {{-- Pannellum CSS & JS untuk viewer 360 interaktif --}}
+    <link rel="stylesheet" href="https://cdn.pannellum.org/2.5/pannellum.css"/>
+    <script src="https://cdn.pannellum.org/2.5/pannellum.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -211,7 +215,6 @@
             color: #6b7280;
         }
 
-        /* Notifikasi belum waktunya check-in */
         .early-checkin-notice {
             text-align: center;
             padding: 12px;
@@ -249,7 +252,6 @@
             padding-top: 4px;
         }
 
-        /* Already checked-in notice */
         .already-checkin {
             text-align: center;
             padding: 10px;
@@ -264,7 +266,6 @@
             width: 100%;
         }
 
-        /* No access notice */
         .no-access-notice {
             text-align: center;
             padding: 10px;
@@ -281,7 +282,58 @@
             color: #9ca3af;
         }
 
-        /* Responsive */
+        /* Tombol 360 */
+        .btn-360 {
+            background: #2563eb;
+            border: none;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+        }
+        .btn-360:hover {
+            background: #1d4ed8;
+        }
+
+        /* Modal 360 */
+        #modal360 {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        #modal360 .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: white;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        #panorama {
+            width: 95%;
+            height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
         @media (min-width: 480px) {
             .action {
                 flex-direction: row;
@@ -289,7 +341,6 @@
         }
     </style>
 </head>
-
 <body>
 
 <div class="page-wrapper">
@@ -309,18 +360,12 @@
                 $accessCode = session('access_code_data');
                 $today = now()->startOfDay();
 
-                // Cek apakah sudah check-in
                 $sudahCheckin = $assign && $assign->checkin_at ? true : false;
-                
-                // Cek apakah sudah waktunya check-in (H-0 atau setelahnya)
                 $sudahWaktunyaCheckin = $assign && $assign->tanggal_mulai->startOfDay()->lessThanOrEqualTo($today);
-                
-                // Hitung hari menuju check-in
                 $daysUntilCheckin = $assign && $assign->tanggal_mulai > now() 
                     ? now()->startOfDay()->diffInDays($assign->tanggal_mulai->startOfDay(), false) 
                     : 0;
-                
-                // Cek izin berdasarkan tipe akses
+
                 $bisaCheckin = $accessCode 
                     && $p->status === 'AKTIF' 
                     && !$sudahCheckin 
@@ -334,7 +379,6 @@
 
                 $tanggalMulai = $assign?->tanggal_mulai?->format('d/m/Y') ?? '-';
                 $tanggalSelesai = $assign?->tanggal_selesai?->format('d/m/Y') ?? '-';
-
                 $sisaHari = $assign && $assign->tanggal_selesai
                     ? round(now()->diffInDays($assign->tanggal_selesai, false))
                     : null;
@@ -346,7 +390,6 @@
                         <div class="name">{{ $p->nama }}</div>
                         <div class="sub">ID {{ $p->id_karyawan }}</div>
                     </div>
-
                     <span class="badge {{ $p->status === 'AKTIF' ? 'active' : 'done' }}">
                         {{ $p->status === 'AKTIF' ? 'Aktif' : 'Selesai' }}
                     </span>
@@ -355,8 +398,24 @@
                 @if($apartemen && $unit)
                 <div class="location">
                     <div class="location-box">
-                        <strong>{{ $apartemen->nama_apartemen }}</strong>
-                        <span>Unit {{ $unit->nomor_unit }}</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <strong>{{ $apartemen->nama_apartemen }}</strong><br>
+                                <span>Unit {{ $unit->nomor_unit }}</span>
+                            </div>
+                            @if($unit->gambar_360)
+                                <button class="btn-360" onclick="open360Modal('{{ Storage::url($unit->gambar_360) }}')">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 2a15 15 0 0 0 0 20 15 15 0 0 0 0-20z"/>
+                                        <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/>
+                                        <line x1="2" y1="12" x2="22" y2="12"/>
+                                        <line x1="12" y1="2" x2="12" y2="22"/>
+                                    </svg>
+                                    Lihat 360
+                                </button>
+                            @endif
+                        </div>
                         @if($assign)
                             <div class="checkin-status {{ $sudahCheckin ? 'sudah' : 'belum' }}">
                                 @if($sudahCheckin)
@@ -392,7 +451,6 @@
 
                 {{-- ACTION SECTION --}}
                 <div class="action">
-                    {{-- KONDISI 1: Belum waktunya check-in --}}
                     @if($p->status === 'AKTIF' && !$sudahCheckin && $assign && !$sudahWaktunyaCheckin)
                         <div class="early-checkin-notice">
                             <div class="icon">
@@ -414,7 +472,6 @@
                         </div>
                     @endif
 
-                    {{-- KONDISI 2: Sudah waktunya check-in --}}
                     @if($p->status === 'AKTIF' && !$sudahCheckin && $assign && $sudahWaktunyaCheckin)
                         @if($bisaCheckin)
                             <form action="{{ route('apartemen.public.checkin', $p->id) }}"
@@ -432,7 +489,6 @@
                         @endif
                     @endif
 
-                    {{-- KONDISI 3: Sudah check-in --}}
                     @if($sudahCheckin)
                         <div class="already-checkin">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2">
@@ -442,7 +498,6 @@
                         </div>
                     @endif
 
-                    {{-- KONDISI 4: Check-out --}}
                     @if($bisaCheckout)
                         <form action="{{ route('apartemen.public.checkout', $p->id) }}"
                               method="POST"
@@ -452,7 +507,6 @@
                             <button type="submit" class="btn-checkout">Check-out</button>
                         </form>
                     @elseif($p->status === 'AKTIF' && $sudahCheckin && !$bisaCheckout && $accessCode)
-                        {{-- Jika sudah check-in tapi tidak punya akses check-out --}}
                         <div class="no-access-notice">
                             <span>Check-out</span>
                             <span style="font-size: 11px;">Kode akses tidak valid untuk check-out</span>
@@ -471,6 +525,58 @@
 
     </div>
 </div>
+
+{{-- MODAL 360 dengan Pannellum --}}
+<div id="modal360">
+    <button class="close-btn" onclick="close360Modal()">✕ Tutup</button>
+    <div id="panorama"></div>
+</div>
+
+<script>
+    let viewer = null;
+
+    function open360Modal(imageUrl) {
+        const modal = document.getElementById('modal360');
+        modal.style.display = 'flex';
+
+        // Hancurkan viewer sebelumnya jika ada
+        if (viewer) {
+            viewer.destroy();
+            viewer = null;
+        }
+
+        // Inisialisasi Pannellum
+        viewer = pannellum.viewer('panorama', {
+            type: 'equirectangular',
+            panorama: imageUrl,
+            autoLoad: true,
+            showZoomCtrl: true,
+            showFullscreenCtrl: true,
+            compass: true,
+            hotSpotDebug: false
+        });
+    }
+
+    function close360Modal() {
+        const modal = document.getElementById('modal360');
+        modal.style.display = 'none';
+        if (viewer) {
+            viewer.destroy();
+            viewer = null;
+        }
+        // Kosongkan container untuk menghindari残留
+        document.getElementById('panorama').innerHTML = '';
+        // Re-inisialisasi container (Pannellum akan membuat ulang)
+        // Tidak perlu, karena destroy sudah membersihkan
+    }
+
+    // Tutup modal jika klik di luar area panorama (pada background modal)
+    document.getElementById('modal360').addEventListener('click', function(e) {
+        if (e.target === this) {
+            close360Modal();
+        }
+    });
+</script>
 
 </body>
 </html>

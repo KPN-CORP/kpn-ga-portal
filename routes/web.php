@@ -251,6 +251,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         //KOMPRES FOTO (TAMBAHKAN INI)
         Route::get('/kompres', [CompressFotomailingController::class, 'index'])->name('kompres');
         Route::post('/kompres-proses', [CompressFotomailingController::class, 'proses'])->name('kompres.proses');
+        Route::get('/browse', [CompressFotomailingController::class, 'browse'])->name('kompres.browse');
     });
 
     // ============================================
@@ -516,7 +517,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
                 Route::get('/access-codes/{id}/print', [QRCodeAdminController::class, 'print'])->name('apartemen.admin.print-code');
 
                 Route::get('/calendar-events', [AdminController::class, 'calendarEvents'])->name('apartemen.admin.calendar.events');
-
+                Route::get('/report/export', [AdminController::class, 'exportReport'])->name('apartemen.admin.report.export');
                 // ROUTE UNTUK BISNIS UNIT & GAMBAR 360 (tambahkan dua baris ini)
                 Route::get('/unit/create/{apartemen_id}', [AdminController::class, 'createUnitForm'])->name('unit.create');
                 Route::post('/unit/store', [AdminController::class, 'storeUnit'])->name('unit.store');

@@ -8,10 +8,19 @@ use App\Models\BisnisUnit;
 class Vehicle extends Model
 {
     protected $table = 'drms_vehicles';
-    protected $fillable = ['type', 'plate_number', 'capacity', 'status', 'business_unit_id'];
+    
+    protected $fillable = [
+        'type', 
+        'plate_number', 
+        'capacity', 
+        'status', 
+        'business_unit_id',
+        'gps_enabled'   // tambahan
+    ];
 
     protected $casts = [
-        'status' => 'string',
+        'status'       => 'string',
+        'gps_enabled'  => 'boolean', // cast ke boolean
     ];
 
     public function businessUnit()

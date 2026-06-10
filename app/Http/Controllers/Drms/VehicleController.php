@@ -9,14 +9,11 @@ use Illuminate\Support\Facades\Auth;
 
 class VehicleController extends Controller
 {
-    /**
-     * Ambil business_unit_id user dari profil DRMS, dengan fallback untuk superadmin.
-     */
     private function getUserBusinessUnitId()
     {
         $user = Auth::user();
         if ($user->isDrmsSuperAdmin()) {
-            return null; // Superadmin tidak terikat BU
+            return null;
         }
         $profile = $user->drmsProfile;
         if (!$profile || !$profile->business_unit_id) {
@@ -39,8 +36,7 @@ class VehicleController extends Controller
 
     public function create()
     {
-        // Memastikan user valid (superadmin tidak perlu BU, tapi harus tahu)
-        $this->getUserBusinessUnitId();
+        $this->getUserBusinessUnitId(); // validasi akses
         return view('drms.vehicles.create');
     }
 
@@ -53,10 +49,13 @@ class VehicleController extends Controller
             'plate_number' => 'required|string|max:20|unique:drms_vehicles',
             'capacity'     => 'nullable|integer|min:1',
             'status'       => 'required|in:available,in_use,maintenance',
+            'gps_enabled'  => 'sometimes|boolean',
         ]);
 
+        // Konversi checkbox: jika tidak ada, bernilai false
+        $data['gps_enabled'] = $request->has('gps_enabled');
+
         if ($user->isDrmsSuperAdmin()) {
-            // Superadmin bisa memilih business_unit_id (tambahkan di form)
             $data['business_unit_id'] = $request->business_unit_id ?? null;
         } else {
             $data['business_unit_id'] = $this->getUserBusinessUnitId();
@@ -95,8 +94,10 @@ class VehicleController extends Controller
             'plate_number' => 'required|string|max:20|unique:drms_vehicles,plate_number,' . $vehicle->id,
             'capacity'     => 'nullable|integer|min:1',
             'status'       => 'required|in:available,in_use,maintenance',
+            'gps_enabled'  => 'sometimes|boolean',
         ]);
 
+        $data['gps_enabled'] = $request->has('gps_enabled');
         $vehicle->update($data);
 
         return redirect()->route('drms.vehicles.index')
