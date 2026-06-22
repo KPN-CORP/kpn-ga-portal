@@ -57,6 +57,14 @@ use App\Http\Controllers\Feedbacks\AdminFeedbackController;
 use App\Http\Controllers\Drms\VehicleMapController;
 use App\Http\Controllers\Task_M\TaskMonitorController;
 use App\Http\Controllers\CompressFotomailingController;
+use App\Http\Controllers\Supplies\SuppliesBarangController;
+use App\Http\Controllers\Supplies\SuppliesStokController;
+use App\Http\Controllers\Supplies\SuppliesPermintaanController;
+use App\Http\Controllers\Supplies\SuppliesApprovalController;
+use App\Http\Controllers\Supplies\SuppliesLaporanController;
+use App\Http\Controllers\Drms\DriverTripLogController;
+use App\Http\Controllers\Drms\AdminOperationalController;
+use App\Http\Controllers\Drms\ImageController;
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION (MANUAL LOGIN)
@@ -378,7 +386,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::get('cek-stok', [App\Http\Controllers\StockCtl\TransaksiController::class, 'cekStok'])->name('cek-stok');
             Route::resource('opname', OpnameController::class);
             Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
-            Route::post('laporan/pdf', [LaporanController::class, 'pdf'])->name('laporan.pdf');
+            // Route::post('laporan/pdf', [LaporanController::class, 'pdf'])->name('laporan.pdf');
             Route::post('laporan/excel', [LaporanController::class, 'excel'])->name('laporan.excel');
             Route::get('transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
             Route::get('laporan/history', [LaporanController::class, 'history'])->name('laporan.history');
@@ -437,6 +445,8 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
             Route::post('{driverRequest}/complete', [AppAdminController::class, 'complete'])->name('complete');
             Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
+            Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
+            Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
         });
 
         // Driver Dashboard
@@ -465,7 +475,48 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::resource('vehicles', VehicleController::class);  // resource setelah route peta
             Route::resource('vouchers', VoucherController::class);
         });
+
+        
+        // ========== DRIVER TRIP LOG ==========
+        Route::prefix('driver')->group(function () {
+            Route::get('/trip-log/{requestId}/create', [DriverTripLogController::class, 'create'])
+                ->name('driver.trip.log.create');
+            Route::post('/trip-log/{requestId}/store', [DriverTripLogController::class, 'store'])
+                ->name('driver.trip.log.store');
+        });
+
+        // ========== ADMIN OPERATIONAL ==========
+        Route::prefix('admin')->middleware(['auth'])->group(function () {
+            Route::get('/operational-dashboard', [AdminOperationalController::class, 'dashboard'])
+                ->name('admin.operational.dashboard');
+
+            Route::get('/monitoring-logs', [AdminOperationalController::class, 'monitoringLogs'])
+                ->name('admin.monitoring.logs');
+            Route::get('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLogForm'])
+                ->name('admin.verify.log');
+            Route::post('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLog'])
+                ->name('admin.verify.log.post');
+
+            Route::get('/vehicle-services', [AdminOperationalController::class, 'vehicleServices'])
+                ->name('admin.vehicle.services');
+            Route::post('/vehicle-services', [AdminOperationalController::class, 'storeVehicleService'])
+                ->name('admin.vehicle.services.store');
+            Route::delete('/vehicle-services/{id}', [AdminOperationalController::class, 'deleteVehicleService'])
+                ->name('admin.vehicle.services.delete');
+            Route::get('/operational-export', [AdminOperationalController::class, 'export'])
+                ->name('admin.operational.export');
+
+            Route::get('/monitoring-logs', [AdminOperationalController::class, 'monitoringLogs'])
+                ->name('admin.monitoring.logs');
+        });
+
+        // ========== PROTECTED IMAGE ACCESS ==========
+        Route::get('/private-image/{path}', [ImageController::class, 'show'])
+    ->where('path', '.*')
+    ->middleware(['auth'])
+    ->name('private.image');
     });
+
     /*
     |--------------------------------------------------------------------------
     | APARTEMEN / MESS (UI ONLY - PHASE 1)
@@ -738,6 +789,25 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::put('/{projectId}/units/{unitId}/description', [TaskMonitorController::class, 'updateUnitDescription'])->name('update-unit-description');
         Route::delete('/{projectId}/units/{unitId}', [TaskMonitorController::class, 'deleteUnit'])->name('delete-unit');
     });
+
+    Route::prefix('supplies')->name('supplies.')->middleware('auth')->group(function () {
+        Route::middleware('supplies.access:user')->group(function () {
+            Route::resource('permintaan', SuppliesPermintaanController::class)->only(['index', 'create', 'store', 'show']);
+        });
+        Route::middleware('supplies.access:admin')->group(function () {
+            Route::resource('barang', SuppliesBarangController::class)->except(['show']);
+            Route::get('stok', [SuppliesStokController::class, 'index'])->name('stok.index');
+            Route::get('stok/masuk', [SuppliesStokController::class, 'createMasuk'])->name('stok.masuk');
+            Route::post('stok/masuk', [SuppliesStokController::class, 'storeMasuk'])->name('stok.masuk.store');
+            Route::get('approval', [SuppliesApprovalController::class, 'index'])->name('approval.index');
+            Route::post('approval/{id}/approve', [SuppliesApprovalController::class, 'approve'])->name('approval.approve');
+            Route::post('approval/{id}/reject', [SuppliesApprovalController::class, 'reject'])->name('approval.reject');
+            Route::get('laporan', [SuppliesLaporanController::class, 'index'])->name('laporan.index');
+            Route::post('laporan/pdf', [SuppliesLaporanController::class, 'pdf'])->name('laporan.pdf');
+            Route::get('laporan/history', [SuppliesLaporanController::class, 'history'])->name('laporan.history');
+            Route::post('laporan/export', [SuppliesLaporanController::class, 'export'])->name('laporan.export');
+        });
+    });
     /*
     |--------------------------------------------------------------------------
     | NO ACCESS
@@ -746,5 +816,8 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
     Route::get('/no-access', function () {
         return view('no-access');
     })->name('no-access');
+
+    Route::get('/upload', [ImageController::class, 'index'])->name('image.form');
+    Route::post('/upload', [ImageController::class, 'upload'])->name('image.upload');
 
 });

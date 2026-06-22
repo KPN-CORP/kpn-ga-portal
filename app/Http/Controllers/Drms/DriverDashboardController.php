@@ -43,6 +43,17 @@ class DriverDashboardController extends Controller
         $upcomingRequests = $upcomingQuery->get();
         $historyRequests = $historyQuery->paginate(10);
 
+        // Cek apakah sudah ada log untuk setiap perjalanan
+        foreach ($upcomingRequests as $req) {
+            $req->hasLog = \App\Models\Drms\TripLog::where('request_id', $req->id)->exists();
+            $req->logSubmitted = \App\Models\Drms\TripLog::where('request_id', $req->id)
+                ->where('is_submitted', 1)
+                ->exists();
+            $req->logVerified = \App\Models\Drms\TripLog::where('request_id', $req->id)
+                ->where('is_verified', 1)
+                ->exists();
+        }
+
         return view('drms.drivers.dashboard', compact('driver', 'upcomingRequests', 'historyRequests', 'date'));
     }
 

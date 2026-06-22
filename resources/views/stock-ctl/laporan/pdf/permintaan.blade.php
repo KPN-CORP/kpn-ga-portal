@@ -39,9 +39,15 @@
                 <th>Barang</th>
                 <th class="text-right">Jumlah</th>
                 <th>Satuan</th>
+                <th>Keterangan</th>
                 <th class="text-right">Harga (Rp)</th>
                 <th class="text-right">Nilai (Rp)</th>
                 <th>Status</th>
+                <th>Approved L1 At</th>
+                <th>Approved Admin At</th>
+                <th>Rejected By</th>
+                <th>Rejected At</th>
+                <th>Alasan Penolakan</th>
                 <th>Approver L1</th>
                 <th>Approver Admin</th>
             </tr>
@@ -50,9 +56,13 @@
             @forelse($permintaan as $item)
             @php
                 $harga = $item->barang->harga ?? 0;
-                // Hanya status 'disetujui' yang dihitung nilainya, selain itu 0
                 $nilai = ($item->status == 'disetujui') ? ($item->jumlah * $harga) : 0;
                 $grandTotal += $nilai;
+
+                $rejector = $item->rejector;
+                $rejectedBy = $rejector ? $rejector->name : '-';
+                $rejectedAt = $item->rejected_at ? \Carbon\Carbon::parse($item->rejected_at)->format('d M Y H:i') : '-';
+                $alasan = $item->rejection_reason ?? $item->alasan_tolak ?? '-';
             @endphp
             <tr>
                 <td>G-SC-{{ $item->id_permintaan }}</td>
@@ -75,6 +85,7 @@
                 <td>{{ $item->barang->nama_barang ?? '-' }}</td>
                 <td class="text-right">{{ number_format($item->jumlah) }}</td>
                 <td>{{ $item->barang->satuan ?? '-' }}</td>
+                <td>{{ $item->keterangan ?? '-' }}</td>
                 <td class="text-right">{{ number_format($harga, 2) }}</td>
                 <td class="text-right">{{ number_format($nilai, 2) }}</td>
                 <td>
@@ -83,19 +94,24 @@
                     @elseif($item->status == 'disetujui') Disetujui
                     @else Ditolak @endif
                 </td>
+                <td>{{ $item->approved_l1_at ? \Carbon\Carbon::parse($item->approved_l1_at)->format('d M Y H:i') : '-' }}</td>
+                <td>{{ $item->approved_admin_at ? \Carbon\Carbon::parse($item->approved_admin_at)->format('d M Y H:i') : '-' }}</td>
+                <td>{{ $rejectedBy }}</td>
+                <td>{{ $rejectedAt }}</td>
+                <td>{{ $alasan }}</td>
                 <td>{{ $item->approverL1->name ?? '-' }}</td>
                 <td>{{ $item->approverAdmin->name ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="13" style="text-align: center;">Tidak ada数据</td></tr>
+            <tr><td colspan="19" style="text-align: center;">Tidak ada permintaan</td></tr>
             @endforelse
         </tbody>
         @if($permintaan->count())
         <tfoot>
             <tr class="total-row">
-                <td colspan="9" class="text-right"><strong>Total Nilai (Hanya Disetujui):</strong></td>
+                <td colspan="10" class="text-right"><strong>Total Nilai (Hanya Disetujui):</strong></td>
                 <td class="text-right"><strong>{{ number_format($grandTotal, 2) }}</strong></td>
-                <td colspan="3"></td>
+                <td colspan="8"></td>
             </tr>
         </tfoot>
         @endif

@@ -89,6 +89,12 @@ class DriverRequest extends Model
         return $this->belongsTo(User::class, 'forwarded_by_user_id');
     }
 
+    // Tambahkan di dalam model DriverRequest
+    public function tripLog()
+    {
+        return $this->hasOne(TripLog::class, 'request_id');
+    }
+
     /**
      * Scope untuk menampilkan request yang menunggu approval admin
      * berdasarkan business unit dan area, dengan mempertimbangkan current_business_unit_id.

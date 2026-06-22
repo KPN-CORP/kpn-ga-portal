@@ -25,7 +25,7 @@ class PermintaanMenungguAdmin extends Notification
     {
         return [
             'id_permintaan' => $this->permintaan->id_permintaan,
-            'message' => 'Permintaan dari ' . $this->permintaan->pemohon->name . ' telah disetujui atasan dan menunggu approval admin.',
+            'message' => ' ' . $this->permintaan->pemohon->name . ' telah disetujui atasan dan menunggu approval admin.',
             'url' => route('stock-ctl.approval.admin.index'),
         ];
     }

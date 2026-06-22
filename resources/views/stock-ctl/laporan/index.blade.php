@@ -48,11 +48,13 @@
                     <input type="date" name="tanggal_akhir" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
+
             <div class="mt-6 flex justify-end">
-                <button type="button" id="btn-pdf" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                {{-- Tombol PDF disembunyikan (style="display:none;") --}}
+                <button type="button" id="btn-pdf" class="px-4 py-2 bg-blue-600 text-white rounded-lg" style="display:none;">
                     <i class="fas fa-print mr-1"></i> Cetak PDF
                 </button>
-                <button type="button" id="btn-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg ml-2">
+                <button type="button" id="btn-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg">
                     <i class="fas fa-file-excel mr-1"></i> Cetak Excel
                 </button>
             </div>
@@ -125,10 +127,7 @@
         });
 
         const form = document.getElementById('laporan-form');
-        document.getElementById('btn-pdf').addEventListener('click', function() {
-            form.action = "{{ route('stock-ctl.laporan.pdf') }}";
-            form.submit();
-        });
+        // Tombol PDF di-skip (tidak perlu event listener)
         document.getElementById('btn-excel').addEventListener('click', function() {
             form.action = "{{ route('stock-ctl.laporan.excel') }}";
             form.submit();

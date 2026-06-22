@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\AdminHistoryExport;
+use App\Exports\OperationalReportExport;
 
 class AppAdminController extends Controller
 {
@@ -503,6 +504,26 @@ class AppAdminController extends Controller
             DB::rollBack();
             return back()->withErrors('Gagal mengalihkan permintaan: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Export dashboard data ke Excel
+     */
+    public function exportDashboard(Request $request)
+    {
+        $user = Auth::user();
+        $businessUnitId = $this->getBusinessUnitId($user);
+        $month = $request->get('month', now()->month);
+        $year = $request->get('year', now()->year);
+
+        // Ambil data yang sama seperti di dashboard
+        $stats = $this->getOperationalStats($businessUnitId, $month, $year);
+        $chartData = $this->getMonthlyChartData($businessUnitId);
+        $efficiencyData = $this->getEfficiencyData($businessUnitId);
+        $transportDistribution = $this->getTransportDistribution($businessUnitId);
+
+        // Buat export ke Excel
+        return Excel::download(new OperationalDashboardExport($stats, $chartData, $efficiencyData, $transportDistribution), 'laporan_operasional_' . date('Y-m-d') . '.xlsx');
     }
 
     /**

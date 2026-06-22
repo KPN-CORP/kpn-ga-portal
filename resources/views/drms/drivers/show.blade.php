@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_car_drive_sidebar')
 
 @section('content')
 <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow my-6">

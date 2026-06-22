@@ -98,4 +98,8 @@ class Permintaan extends Model
     {
         return $this->belongsTo(User::class, 'approved_admin_by');
     }
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
 }

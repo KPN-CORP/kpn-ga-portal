@@ -164,6 +164,47 @@
                             <span>Vouchers</span>
                         </a>
                     </li>
+
+                    {{-- ====== MENU OPERASIONAL ====== --}}
+                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Operasional</li>
+                    <li>
+                        <a href="{{ route('drms.admin.operational.dashboard') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.operational.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
+                            <span>Dashboard Grafik</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('drms.admin.monitoring.logs') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.monitoring.logs') || request()->routeIs('drms.admin.verify.log*') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check mr-3 text-gray-500 opacity-70"></i>
+                            <span>Monitoring Log Driver</span>
+                            @php
+                                $pendingLogs = \App\Models\Drms\TripLog::where('is_submitted', 1)
+                                    ->where('is_verified', 0)
+                                    ->whereHas('request', function($q) {
+                                        $buId = auth()->user()->drmsProfile->business_unit_id ?? null;
+                                        if ($buId) {
+                                            $q->where('current_business_unit_id', $buId)
+                                              ->orWhereHas('requester.drmsProfile', function($q2) use ($buId) {
+                                                  $q2->where('business_unit_id', $buId);
+                                              });
+                                        }
+                                    })
+                                    ->count();
+                            @endphp
+                            @if($pendingLogs > 0)
+                                <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingLogs }}</span>
+                            @endif
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('drms.admin.vehicle.services') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.vehicle.services*') ? 'active' : '' }}">
+                            <i class="fas fa-tools mr-3 text-gray-500 opacity-70"></i>
+                            <span>Service Kendaraan</span>
+                        </a>
+                    </li>
                     @endif
                 </ul>
             </nav>
@@ -179,7 +220,9 @@
                     <div>
                         <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'User' }}</h3>
                         <p class="text-xs text-gray-500 opacity-70">
-                            @if(auth()->user() && auth()->user()->isDrmsAdmin())
+                            @if(auth()->user() && auth()->user()->isDrmsSuperAdmin())
+                                Superadmin
+                            @elseif(auth()->user() && auth()->user()->isDrmsAdmin())
                                 Admin DRMS
                             @elseif(auth()->user() && auth()->user()->isApprover())
                                 Atasan

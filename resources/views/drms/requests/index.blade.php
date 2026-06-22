@@ -239,7 +239,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="4" class="py-6 text-center text-gray-500">Belum ada数据</td>
+                    <td colspan="4" class="py-6 text-center text-gray-500">Belum ada permintaan</td>
                 </tr>
                 @endforelse
             </tbody>

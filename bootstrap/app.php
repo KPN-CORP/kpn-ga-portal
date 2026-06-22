@@ -57,6 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'public.access' => \App\Http\Middleware\CheckPublicAccess::class,
             'stock.ctl' => \App\Http\Middleware\StockCtlAccess::class,
             'is_driver' => \App\Http\Middleware\IsDriver::class,
+            'supplies.access' => \App\Http\Middleware\CheckSuppliesAccess::class,
         ]);
 
         // Middleware groups

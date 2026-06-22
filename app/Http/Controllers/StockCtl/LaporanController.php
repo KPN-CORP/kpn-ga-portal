@@ -9,7 +9,6 @@ use App\Models\StockCtl\Stok;
 use App\Models\StockCtl\Transaksi;
 use App\Models\StockCtl\Permintaan;
 use App\Models\StockCtl\LaporanHistory;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
 
@@ -25,7 +24,6 @@ class LaporanController extends Controller
 
         $barang = Barang::orderBy('nama_barang')->get();
 
-        // Ambil 10 history terbaru sesuai unit user
         $historyQuery = LaporanHistory::with('user', 'area', 'barang')
             ->orderBy('dicetak_pada', 'desc');
 
@@ -42,71 +40,15 @@ class LaporanController extends Controller
         return view('stock-ctl.laporan.index', compact('areas', 'barang', 'recentHistory'));
     }
 
-    public function pdf(Request $request)
-    {
-        $request->validate([
-            'jenis'         => 'required|in:stok,mutasi,permintaan',
-            'id_area'       => 'nullable|exists:stock_ctl_area_kerja,id_area_kerja',
-            'id_barang'     => 'nullable|exists:stock_ctl_barang,id_barang',
-            'tanggal_awal'  => 'nullable|date',
-            'tanggal_akhir' => 'nullable|date|after_or_equal:tanggal_awal',
-        ]);
-
-        $access = session('stock_ctl_access');
-
-        // Validasi area
-        if (!$access['is_super'] && $request->id_area) {
-            $area = AreaKerja::find($request->id_area);
-            if (!$area || $area->id_bisnis_unit != $access['id_bisnis_unit']) {
-                abort(403, 'Anda tidak memiliki akses ke area tersebut.');
-            }
-        }
-
-        // Ambil data sesuai jenis
-        $data = [];
-        $judul = '';
-
-        switch ($request->jenis) {
-            case 'stok':
-                $judul = 'Laporan Stok';
-                $data = $this->getDataStok($request, $access);
-                break;
-            case 'mutasi':
-                $judul = 'Laporan Mutasi Barang';
-                $data = $this->getDataMutasi($request, $access);
-                break;
-            case 'permintaan':
-                $judul = 'Laporan Permintaan';
-                $data = $this->getDataPermintaan($request, $access);
-                break;
-        }
-
-        // Tambahkan info filter
-        $data['filter'] = [
-            'area'   => $request->id_area ? AreaKerja::find($request->id_area)->nama_area : 'Semua Area',
-            'barang' => $request->id_barang ? Barang::find($request->id_barang)->nama_barang : 'Semua Barang',
-            'periode' => $request->tanggal_awal && $request->tanggal_akhir
-                ? date('d/m/Y', strtotime($request->tanggal_awal)) . ' - ' . date('d/m/Y', strtotime($request->tanggal_akhir))
-                : ($request->tanggal_awal ? 'Mulai ' . date('d/m/Y', strtotime($request->tanggal_awal)) : 'Semua Periode'),
-        ];
-        $data['judul'] = $judul;
-        $data['user'] = auth()->user();
-
-        // Generate PDF
-        $pdf = Pdf::loadView('stock-ctl.laporan.pdf.' . $request->jenis, $data)
-            ->setPaper('a4', 'landscape');
-
-        // Simpan history
-        $this->saveHistory($request);
-
-        return $pdf->download('laporan_' . $request->jenis . '_' . date('YmdHis') . '.pdf');
-    }
-
     /**
-     * Generate laporan dalam format CSV (Excel) dengan tambahan kolom Harga dan Nilai.
+     * Ekspor laporan ke CSV (Excel)
      */
     public function excel(Request $request)
     {
+        // Tingkatkan memory limit
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         $request->validate([
             'jenis'         => 'required|in:stok,mutasi,permintaan',
             'id_area'       => 'nullable|exists:stock_ctl_area_kerja,id_area_kerja',
@@ -125,7 +67,6 @@ class LaporanController extends Controller
             }
         }
 
-        // Ambil data sesuai jenis
         switch ($request->jenis) {
             case 'stok':
                 $data = $this->getDataStok($request, $access);
@@ -141,7 +82,14 @@ class LaporanController extends Controller
                 break;
             case 'permintaan':
                 $data = $this->getDataPermintaan($request, $access);
-                $headers = ['No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area', 'Barang', 'Jumlah', 'Satuan', 'Harga (Rp)', 'Nilai (Rp)', 'Status', 'Approver L1', 'Approver Admin'];
+                $headers = [
+                    'No. Permintaan', 'Tanggal', 'Pemohon', 'Unit', 'Area',
+                    'Barang', 'Jumlah', 'Satuan', 'Keterangan',
+                    'Harga (Rp)', 'Nilai (Rp)', 'Status',
+                    'Approver L1', 'Approved L1 At',
+                    'Approver Admin', 'Approved Admin At',
+                    'Rejected By', 'Rejected At', 'Alasan Penolakan'
+                ];
                 $rows = $this->formatPermintaanRows($data['permintaan']);
                 $filename = 'laporan_permintaan_' . date('YmdHis') . '.csv';
                 break;
@@ -152,23 +100,20 @@ class LaporanController extends Controller
         // Simpan history
         $this->saveHistory($request);
 
-        // Generate CSV dengan tambahan baris total
         return Response::streamDownload(function () use ($headers, $rows, $request) {
             $output = fopen('php://output', 'w');
-            // Tambahkan BOM agar UTF-8 terbaca di Excel
-            fwrite($output, "\xEF\xBB\xBF");
+            fwrite($output, "\xEF\xBB\xBF"); // BOM UTF-8
             fputcsv($output, $headers);
 
             $totalNilai = 0;
             foreach ($rows as $row) {
                 fputcsv($output, $row);
-                // Ambil nilai dari kolom "Nilai" berdasarkan jenis laporan
                 if ($request->jenis == 'stok') {
-                    $totalNilai += floatval(str_replace(',', '', $row[6])); // kolom Nilai index 6
+                    $totalNilai += floatval(str_replace(',', '', $row[6]));
                 } elseif ($request->jenis == 'mutasi') {
-                    $totalNilai += floatval(str_replace(',', '', $row[6])); // kolom Nilai index 6
+                    $totalNilai += floatval(str_replace(',', '', $row[6]));
                 } elseif ($request->jenis == 'permintaan') {
-                    $totalNilai += floatval(str_replace(',', '', $row[9])); // kolom Nilai index 9
+                    $totalNilai += floatval(str_replace(',', '', $row[10])); // Nilai di indeks 10
                 }
             }
 
@@ -178,16 +123,16 @@ class LaporanController extends Controller
             } elseif ($request->jenis == 'mutasi') {
                 fputcsv($output, ['', '', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
             } elseif ($request->jenis == 'permintaan') {
-                fputcsv($output, ['', '', '', '', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
+                $totalRow = array_fill(0, 19, '');
+                $totalRow[9]  = 'TOTAL NILAI:';
+                $totalRow[10] = number_format($totalNilai, 2);
+                fputcsv($output, $totalRow);
             }
 
             fclose($output);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /**
-     * Menyimpan history cetak laporan.
-     */
     private function saveHistory($request)
     {
         $access = session('stock_ctl_access');
@@ -195,26 +140,22 @@ class LaporanController extends Controller
 
         LaporanHistory::create([
             'id_user'        => auth()->id(),
-            'id_bisnis_unit' => $idBisnisUnit, // tambahkan ini
+            'id_bisnis_unit' => $idBisnisUnit,
             'jenis'          => $request->jenis,
             'id_area'        => $request->id_area,
             'id_barang'      => $request->id_barang,
             'tanggal_awal'   => $request->tanggal_awal,
             'tanggal_akhir'  => $request->tanggal_akhir,
-            'nama_file'      => 'laporan_' . $request->jenis . '_' . date('YmdHis') . '.pdf',
+            'nama_file'      => 'laporan_' . $request->jenis . '_' . date('YmdHis') . '.csv',
         ]);
     }
 
-    /**
-     * Tampilkan riwayat cetak laporan.
-     */
     public function history()
     {
         $access = session('stock_ctl_access');
         $query = LaporanHistory::with('user', 'area.bisnisUnit', 'barang');
 
         if (!$access['is_super']) {
-            // Hanya tampilkan riwayat yang dibuat oleh unit user yang sama
             $query->where('id_bisnis_unit', $access['id_bisnis_unit']);
         }
 
@@ -290,15 +231,16 @@ class LaporanController extends Controller
                 'barang',
                 'areaKerja.bisnisUnit',
                 'approverL1',
-                'approverAdmin'
+                'approverAdmin',
+                'rejector'
             );
 
         if (!$access['is_super']) {
             $query->whereExists(function ($q) use ($access) {
                 $q->select(DB::raw(1))
-                ->from('stock_ctl_user_profil')
-                ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
-                ->where('stock_ctl_user_profil.id_bisnis_unit', $access['id_bisnis_unit']);
+                  ->from('stock_ctl_user_profil')
+                  ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
+                  ->where('stock_ctl_user_profil.id_bisnis_unit', $access['id_bisnis_unit']);
             });
         }
 
@@ -322,7 +264,7 @@ class LaporanController extends Controller
         return compact('permintaan');
     }
 
-    // ----- Formatting Helpers (dengan tambahan Harga dan Nilai) -----
+    // ----- Formatting Helpers -----
 
     private function formatStokRows($stok)
     {
@@ -371,8 +313,13 @@ class LaporanController extends Controller
             $unit = optional($item->pemohon->profil)->unit ?? '';
             $unitName = $unit ? explode(' (', $unit)[0] : '-';
             $harga = $item->barang->harga ?? 0;
-            // Hanya status 'disetujui' yang dihitung nilainya
             $nilai = ($item->status == 'disetujui') ? ($item->jumlah * $harga) : 0;
+
+            $rejector = $item->rejector;
+            $rejectedBy = $rejector ? $rejector->name : '-';
+            $rejectedAt = $item->rejected_at ? \Carbon\Carbon::parse($item->rejected_at)->format('d M Y H:i') : '-';
+            $alasan = $item->rejection_reason ?? $item->alasan_tolak ?? '-';
+
             return [
                 'G-SC-' . $item->id_permintaan,
                 \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i'),
@@ -382,11 +329,17 @@ class LaporanController extends Controller
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
+                $item->keterangan ?? '-',
                 number_format($harga, 2),
                 number_format($nilai, 2),
                 $this->getStatusLabel($item->status),
                 $item->approverL1->name ?? '-',
+                $item->approved_l1_at ? \Carbon\Carbon::parse($item->approved_l1_at)->format('d M Y H:i') : '-',
                 $item->approverAdmin->name ?? '-',
+                $item->approved_admin_at ? \Carbon\Carbon::parse($item->approved_admin_at)->format('d M Y H:i') : '-',
+                $rejectedBy,
+                $rejectedAt,
+                $alasan,
             ];
         })->toArray();
     }
