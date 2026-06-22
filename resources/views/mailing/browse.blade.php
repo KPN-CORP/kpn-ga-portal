@@ -51,16 +51,30 @@
         @if(count($images) > 0)
         <div>
             <h3 class="font-semibold text-gray-700 mb-2">🖼️ File gambar di folder ini:</h3>
-            <div class="space-y-1 text-sm">
+            <div class="space-y-2 text-sm">
                 @foreach($images as $img)
-                <div class="flex justify-between items-center border-b py-1">
-                    <span><i class="fas fa-image text-blue-500 mr-2"></i>{{ $img['name'] }}</span>
-                    <span class="text-gray-500">{{ $img['size_mb'] }} MB</span>
-                    @if($img['need_compress'])
-                        <span class="text-yellow-600 text-xs">(perlu kompres)</span>
-                    @else
-                        <span class="text-green-600 text-xs">(sudah ≤1.5MB)</span>
-                    @endif
+                <div class="flex items-center justify-between border-b py-2">
+                    <div class="flex items-center space-x-3">
+                        {{-- Thumbnail gambar --}}
+                        <a href="{{ $img['url'] }}" target="_blank" title="Klik untuk melihat ukuran penuh">
+                            <img src="{{ $img['url'] }}" 
+                                 alt="{{ $img['name'] }}" 
+                                 class="w-16 h-16 object-cover rounded border hover:opacity-80 transition"
+                                 onerror="this.style.display='none'">
+                        </a>
+                        <div>
+                            <span class="font-medium">{{ $img['name'] }}</span>
+                            <span class="text-gray-500 ml-2">{{ $img['size_mb'] }} MB</span>
+                            @if($img['need_compress'])
+                                <span class="text-yellow-600 text-xs bg-yellow-100 px-2 py-0.5 rounded-full">(perlu kompres)</span>
+                            @else
+                                <span class="text-green-600 text-xs bg-green-100 px-2 py-0.5 rounded-full">(sudah ≤1.5MB)</span>
+                            @endif
+                        </div>
+                    </div>
+                    <a href="{{ $img['url'] }}" target="_blank" class="text-blue-500 hover:underline text-xs">
+                        🔍 Preview
+                    </a>
                 </div>
                 @endforeach
             </div>

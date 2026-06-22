@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class CompressFotomailingController extends Controller
 {
@@ -45,10 +46,13 @@ class CompressFotomailingController extends Controller
                 $directories[] = $item;
             } elseif (is_file($itemPath) && in_array(pathinfo($item, PATHINFO_EXTENSION), $extensions)) {
                 $size = filesize($itemPath);
+                // Buat relative path untuk digunakan di route gambar
+                $relativePath = $currentPath ? $currentPath . '/' . $item : $item;
                 $images[] = [
                     'name' => $item,
                     'size_mb' => round($size / 1024 / 1024, 2),
-                    'need_compress' => $size > (1.5 * 1024 * 1024)
+                    'need_compress' => $size > (1.5 * 1024 * 1024),
+                    'url' => url('/mailing/kompres/image?path=' . $relativePath), // <-- URL preview
                 ];
             }
         }
@@ -59,13 +63,45 @@ class CompressFotomailingController extends Controller
         return view('mailing.browse', compact('currentPath', 'directories', 'images'));
     }
 
+    /**
+     * Menampilkan file gambar (untuk preview)
+     */
+    public function showImage(Request $request)
+    {
+        if (!$this->isAdmin()) abort(403);
+
+        $path = $request->get('path');
+        // Security: cegah path traversal
+        if (strpos($path, '..') !== false) {
+            abort(404);
+        }
+
+        $fullPath = storage_path('app/' . $path);
+        if (!file_exists($fullPath) || !is_file($fullPath)) {
+            abort(404);
+        }
+
+        // Cek ekstensi gambar
+        $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'])) {
+            abort(404);
+        }
+
+        // Tentukan MIME type
+        $mime = mime_content_type($fullPath);
+        if (!$mime) {
+            $mime = 'image/' . $ext;
+        }
+
+        return response()->file($fullPath, ['Content-Type' => $mime]);
+    }
+
     // ================= HALAMAN KOMPRES (dengan folder pilihan) =================
     public function index(Request $request)
     {
         if (!$this->isAdmin()) abort(403);
 
         $selectedFolder = $request->get('folder', 'public/mailing-foto');
-        // Security: cegah path traversal
         if (strpos($selectedFolder, '..') !== false) {
             $selectedFolder = 'public/mailing-foto';
         }
@@ -75,12 +111,10 @@ class CompressFotomailingController extends Controller
             abort(404, 'Folder tidak ditemukan');
         }
 
-        // Kumpulkan semua gambar dari folder (rekursif)
         $files = $this->getAllImagesRecursive($selectedFolder);
         $totalFiles = count($files);
         $needCompress = count(array_filter($files, fn($f) => $f['need_compress']));
 
-        // Untuk dropdown di view (opsional, tetap pakai browse)
         $availableFolders = [
             'public/mailing-foto' => 'Mailing Foto (public/mailing-foto)',
             'public' => 'Seluruh folder public (rekursif)',
@@ -107,7 +141,6 @@ class CompressFotomailingController extends Controller
         $extensions = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'];
         $images = [];
 
-        // Rekursif untuk folder 'public' dan 'private'
         $recursive = in_array($folderPath, ['public', 'private']);
 
         if ($recursive) {

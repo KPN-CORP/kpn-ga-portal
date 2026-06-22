@@ -260,6 +260,9 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/kompres', [CompressFotomailingController::class, 'index'])->name('kompres');
         Route::post('/kompres-proses', [CompressFotomailingController::class, 'proses'])->name('kompres.proses');
         Route::get('/browse', [CompressFotomailingController::class, 'browse'])->name('kompres.browse');
+        Route::get('/kompres/image', [CompressFotomailingController::class, 'showImage'])->name('mailing.kompres.image');
+         Route::get('/kompres/browse', [CompressFotomailingController::class, 'browse'])->name('mailing.kompres.browse');
+         Route::get('/kompres/image', [CompressFotomailingController::class, 'showImage']);
     });
 
     // ============================================
