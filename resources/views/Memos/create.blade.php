@@ -126,17 +126,16 @@ function memoCreator() {
             penandatangan: '',
             jabatan: ''
         },
-        rows: [], // kosong, tidak ada sample
+        rows: [],
         dynamicCols: [],
         total: 0,
         attachments: [],
         uploadProgress: '',
         previewHtml: '',
-        init() {
-            // Mulai dengan satu baris kosong agar user bisa mengisi
+        async init() {
             this.addRow();
             this.calculateTotal();
-            this.generatePreview();
+            await this.generatePreview();
             this.setupPrint();
         },
         calculateTotal() {
@@ -254,7 +253,6 @@ function memoCreator() {
             setTimeout(() => this.uploadProgress = '', 3000);
         },
         async saveMemo(status) {
-            // Validasi minimal satu baris terisi nama dan tagihan positif
             const validRows = this.rows.filter(r => r.nama.trim() !== '' && parseFloat(r.tagihan) > 0);
             if (validRows.length === 0) {
                 alert('Harap isi minimal satu baris rincian dengan nama dan tagihan yang valid.');
@@ -298,15 +296,16 @@ function memoCreator() {
         triggerUpload() {
             document.getElementById('fileInput').click();
         },
-        generatePreview() {
-            let itemsHtml = '';
+        async generatePreview() {
             let dynamicCols = this.dynamicCols.map(c => c.name);
+            let itemsHtml = '';
             itemsHtml += '<table class="w-full border-collapse border"><thead><tr>';
             itemsHtml += '<th>Nama</th><th>PT/Unit</th>';
             dynamicCols.forEach(c => itemsHtml += `<th>${this.escapeHtml(c)}</th>`);
             itemsHtml += '<th>Tagihan</th></tr></thead><tbody>';
             if (this.rows.length === 0 || (this.rows.length === 1 && this.rows[0].nama === '' && this.rows[0].tagihan === 0)) {
-                itemsHtml += '<tr><td colspan="' + (2 + dynamicCols.length + 1) + '" class="text-center text-gray-400">Belum ada data</td></tr>';
+                let colspan = 2 + dynamicCols.length + 1;
+                itemsHtml += `<tr><td colspan="${colspan}" class="text-center text-gray-400">Belum ada data</td></tr>`;
             } else {
                 this.rows.forEach(row => {
                     itemsHtml += `<tr><td>${this.escapeHtml(row.nama)}</td><td>${this.escapeHtml(row.pt_unit)}</td>`;
@@ -317,17 +316,30 @@ function memoCreator() {
                     itemsHtml += `<td class="text-right">Rp ${this.formatRupiah(row.tagihan)}</td></tr>`;
                 });
             }
-            itemsHtml += `<tr class="font-bold"><td colspan="${2 + dynamicCols.length}" class="text-right">TOTAL</td><td class="text-right">Rp ${this.formatRupiah(this.total)}</td></tr>`;
+            let colspanTotal = 2 + dynamicCols.length;
+            itemsHtml += `<tr class="font-bold"><td colspan="${colspanTotal}" class="text-right">TOTAL</td><td class="text-right">Rp ${this.formatRupiah(this.total)}</td></tr>`;
             itemsHtml += '</tbody></table>';
+
+            // Ambil terbilang dari server jika total > 0
+            let terbilangText = '';
+            if (this.total > 0) {
+                try {
+                    const resp = await fetch(`/api/terbilang/${Math.round(this.total)}`);
+                    const data = await resp.json();
+                    terbilangText = data.terbilang;
+                } catch (e) {
+                    terbilangText = '';
+                }
+            }
+
             const tgl = new Date().toLocaleDateString('id-ID');
-            // Nomor memo di preview hanya placeholder karena belum tersimpan
             this.previewHtml = `
                 <div class="text-right text-sm">${tgl}<br>No. (Akan digenerate sistem)</div>
                 <h2 class="text-center text-xl font-bold my-3">MEMORANDUM</h2>
                 <p><strong>Kepada</strong> : ${this.escapeHtml(this.form.kepada) || '-'}</p>
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
                 <p><strong>Perihal</strong> : ${this.escapeHtml(this.form.perihal) || '-'}</p>
-                <p>Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:</p>
+                <p>Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+' rupiah)' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:</p>
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>
                 <div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>

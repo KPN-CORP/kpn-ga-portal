@@ -146,4 +146,14 @@ class MemosController extends Controller
         }
         return back()->with('error', 'Hanya draft yang bisa dihapus');
     }
+
+    /**
+     * API endpoint untuk mendapatkan terbilang dari jumlah angka
+     */
+    public function terbilang($amount)
+    {
+        return response()->json([
+            'terbilang' => terbilang($amount)
+        ]);
+    }
 }

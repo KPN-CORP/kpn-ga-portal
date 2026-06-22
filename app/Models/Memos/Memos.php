@@ -31,7 +31,6 @@ class Memos extends Model
     /**
      * Generate nomor memo unik per bisnis unit per tahun
      * Format: {no_urut}/HC-{kode_bisnis}/Fin/{bulan_romawi}/{tahun}
-     * Contoh: KPN Corporation -> 0001/HC-CRP/Fin/IV/2026
      */
     public static function generateMemoNumber($memo)
     {
@@ -42,7 +41,7 @@ class Memos extends Model
         // Mapping nama bisnis unit ke kode (3 huruf)
         $buCodeMap = [
             'KPN Corporation' => 'CRP',
-            'KPN Corporatio'  => 'CRP', // fallback jika typo
+            'KPN Corporatio'  => 'CRP',
             'KPN Plantations' => 'PLT',
             'Cement'          => 'CMT',
             'Property'        => 'PRT',
@@ -51,9 +50,11 @@ class Memos extends Model
             'MSL'             => 'MSL',
         ];
 
-        // Ambil kode atau gunakan 3 huruf pertama jika tidak ditemukan
+        // Ambil kode, jika tidak ada gunakan 3 huruf pertama
         $code = $buCodeMap[$businessUnit] ?? strtoupper(substr($businessUnit, 0, 3));
-        if (empty($code)) $code = 'UNK';
+        if (empty($code) || strlen($code) < 3) {
+            $code = 'UNK';
+        }
 
         // Hitung jumlah memo pada bisnis unit yang sama di tahun yang sama
         $lastNumber = static::where('business_unit', $businessUnit)
@@ -88,9 +89,6 @@ class Memos extends Model
     }
 
     // ========== SCOPE ==========
-    /**
-     * Scope untuk filtering berdasarkan akses user (dari tb_access_menu)
-     */
     public function scopeViewable($query, User $user)
     {
         if ($user->isMemoSuperadmin()) {

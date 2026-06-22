@@ -757,6 +757,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
     Route::middleware(['auth'])->group(function () {
         Route::resource('memos', MemosController::class);
         Route::patch('memos/attachment/{attachment}/checklist', [MemosController::class, 'updateChecklist'])->name('memos.checklist');
+        Route::get('/api/terbilang/{amount}', [MemosController::class, 'terbilang'])->name('api.terbilang');
     });
 
     Route::middleware(['auth'])->prefix('feedbacks')->name('feedbacks.')->group(function () {
