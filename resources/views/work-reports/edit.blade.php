@@ -26,7 +26,7 @@
             @enderror
         </div>
 
-        <!-- Foto Progres (with preview & kamera HP) -->
+        <!-- Foto Progres (dengan preview) -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Foto Progres (opsional)</label>
             @if($workReport->photo_before)
@@ -35,14 +35,14 @@
                     <p class="text-xs text-gray-500 mt-1">Foto Progres saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_before" accept="image/*"  class="mt-1 block w-full" id="photo_before">
-            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
+            <input type="file" name="photo_before" accept="image/*" class="mt-1 block w-full" id="photo_before">
+            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres).</p>
             @error('photo_before')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
         </div>
 
-        <!-- Foto Selesai (with preview & kamera HP) -->
+        <!-- Foto Selesai (dengan preview) -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Foto Selesai (opsional)</label>
             @if($workReport->photo_after)
@@ -51,8 +51,8 @@
                     <p class="text-xs text-gray-500 mt-1">Foto Selesai saat ini</p>
                 </div>
             @endif
-            <input type="file" name="photo_after" accept="image/*"  class="mt-1 block w-full" id="photo_after">
-            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres menjadi ~2 MB).</p>
+            <input type="file" name="photo_after" accept="image/*" class="mt-1 block w-full" id="photo_after">
+            <p class="text-xs text-gray-500 mt-1">Bisa ambil langsung dari kamera HP. Maksimal 20 MB (akan dikompres).</p>
             @error('photo_after')
                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
@@ -126,59 +126,91 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('reportForm');
     if (!form) return;
 
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    form.addEventListener('submit', function(e) {
+        const beforeInput = document.getElementById('photo_before');
+        const afterInput = document.getElementById('photo_after');
+        const hasFiles = (beforeInput && beforeInput.files.length) || (afterInput && afterInput.files.length);
 
+        if (!hasFiles) {
+            return; // submit normal
+        }
+
+        e.preventDefault();
+        handleSubmitWithCompression(form);
+    });
+
+    async function handleSubmitWithCompression(form) {
         const beforeInput = document.getElementById('photo_before');
         const afterInput = document.getElementById('photo_after');
         const filesToCompress = [];
 
-        if (beforeInput && beforeInput.files.length) filesToCompress.push({ input: beforeInput, name: 'photo_before' });
-        if (afterInput && afterInput.files.length) filesToCompress.push({ input: afterInput, name: 'photo_after' });
-
-        // Jika tidak ada file baru, submit biasa
-        if (filesToCompress.length === 0) {
-            form.submit();
-            return;
+        if (beforeInput && beforeInput.files.length) {
+            filesToCompress.push({ input: beforeInput, name: 'photo_before' });
+        }
+        if (afterInput && afterInput.files.length) {
+            filesToCompress.push({ input: afterInput, name: 'photo_after' });
         }
 
         const formData = new FormData(form);
-        let compressedCount = 0;
 
         for (const { input, name } of filesToCompress) {
             const file = input.files[0];
             try {
-                const compressed = await imageCompression(file, {
-                    maxSizeMB: 2,           // target ukuran setelah kompresi
-                    maxWidthOrHeight: 1200, // ukuran maksimal
-                    useWebWorker: true,
-                    fileType: 'image/jpeg',
-                    initialQuality: 0.75,
-                });
-                formData.set(name, compressed, file.name);
+                if (typeof imageCompression === 'function') {
+                    const compressed = await imageCompression(file, {
+                        maxSizeMB: 2,
+                        maxWidthOrHeight: 1200,
+                        useWebWorker: true,
+                        fileType: 'image/jpeg',
+                        initialQuality: 0.75,
+                    });
+                    formData.set(name, compressed, file.name);
+                } else {
+                    formData.set(name, file);
+                }
             } catch (err) {
                 console.warn('Kompresi gagal, menggunakan file asli', err);
                 formData.set(name, file);
             }
-            compressedCount++;
-            if (compressedCount === filesToCompress.length) {
-                const token = document.querySelector('meta[name="csrf-token"]').content;
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-CSRF-TOKEN': token }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        window.location.href = response.url;
-                    } else {
-                        response.text().then(text => alert('Error: ' + text));
-                    }
-                })
-                .catch(err => alert('Network error: ' + err.message));
-            }
         }
-    });
+
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!token) {
+            alert('CSRF token tidak ditemukan. Silakan refresh halaman.');
+            return;
+        }
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            if (response.redirected) {
+                window.location.href = response.url;
+                return;
+            }
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.redirect) {
+                    window.location.href = result.redirect;
+                } else {
+                    window.location.href = '{{ route("work-reports.index") }}';
+                }
+            } else {
+                const text = await response.text();
+                alert('Error: ' + text);
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    }
 });
 </script>
 @endpush

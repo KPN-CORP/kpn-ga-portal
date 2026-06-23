@@ -701,11 +701,11 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/', [WorkReportController::class, 'index'])->name('index');
         Route::get('/create', [WorkReportController::class, 'create'])->name('create');
         Route::post('/', [WorkReportController::class, 'store'])->name('store');
+        Route::get('/export', [WorkReportController::class, 'export'])->name('export'); // static route, aman
         Route::get('/{workReport}/edit', [WorkReportController::class, 'edit'])->name('edit');
         Route::put('/{workReport}', [WorkReportController::class, 'update'])->name('update');
         Route::delete('/{workReport}', [WorkReportController::class, 'destroy'])->name('destroy');
-        Route::get('/export', [WorkReportController::class, 'export'])->name('export');
-        Route::get('/work-reports/export', [WorkReportController::class, 'export'])->name('work-reports.export');
+        // Hapus baris ini -> Route::get('/work-reports/export', ...)
     });
 
     Route::get('/private-storage/{path}', function ($path) {

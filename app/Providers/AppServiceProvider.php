@@ -22,42 +22,29 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // ============================================
-        // 1. MUAT FILE HELPER (cukup sekali, tidak mendefinisikan ulang)
-        // ============================================
+        // 1. MUAT HELPER (fungsi terbilang)
         if (file_exists(app_path('Helpers/helpers.php'))) {
             require_once app_path('Helpers/helpers.php');
         }
 
-        // ============================================
         // 2. FORCE HTTPS (hanya jika bukan local)
-        // ============================================
         if (config('app.env') !== 'local') {
             URL::forceScheme('https');
         }
 
-        // ============================================
-        // 3. OBSERVER & VIEW COMPOSER
-        // ============================================
-
-        // Observer untuk User
+        // 3. OBSERVER
         User::observe(UserObserver::class);
 
-        // Data global untuk semua view
+        // 4. VIEW COMPOSER GLOBAL
         View::composer('*', function ($view) {
             $user = Auth::user();
-
-            $isGAAdmin = $user && in_array($user->role, [
-                'ga_admin', 'admin', 'superadmin'
-            ]);
-
             $view->with([
-                'isGAAdmin'  => $isGAAdmin,
+                'isGAAdmin'  => $user && in_array($user->role, ['ga_admin', 'admin', 'superadmin']),
                 'currentUser' => $user,
             ]);
         });
 
-        // Composer khusus untuk sidebar (layout ATK)
+        // 5. VIEW COMPOSER KHUSUS SIDEBAR ATK
         View::composer('layouts.app_stock_sidebar', function ($view) {
             $user = Auth::user();
             $unreadNotifications = 0;
@@ -115,30 +102,13 @@ class AppServiceProvider extends ServiceProvider
 
             $isGAAdmin = $user && in_array($user->role, ['ga_admin', 'admin', 'superadmin']);
             $helpMenu = [
-                [
-                    'title'  => 'GA Tiket',
-                    'icon'   => 'fas fa-ticket-alt',
-                    'url'    => route('help.tiket.index'),
-                    'active' => request()->is('help/tiket*') && !request()->is('help/tiket/buat')
-                ]
+                ['title' => 'GA Tiket', 'icon' => 'fas fa-ticket-alt', 'url' => route('help.tiket.index'), 'active' => request()->is('help/tiket*') && !request()->is('help/tiket/buat')]
             ];
-
             if (!$isGAAdmin) {
-                $helpMenu[] = [
-                    'title'  => 'Buat Tiket',
-                    'icon'   => 'fas fa-plus-circle',
-                    'url'    => route('help.tiket.create'),
-                    'active' => request()->is('help/tiket/buat')
-                ];
+                $helpMenu[] = ['title' => 'Buat Tiket', 'icon' => 'fas fa-plus-circle', 'url' => route('help.tiket.create'), 'active' => request()->is('help/tiket/buat')];
             }
-
             if ($isGAAdmin) {
-                $helpMenu[] = [
-                    'title'  => 'Log Sistem',
-                    'icon'   => 'fas fa-history',
-                    'url'    => route('help.log.index'),
-                    'active' => request()->is('help/log*')
-                ];
+                $helpMenu[] = ['title' => 'Log Sistem', 'icon' => 'fas fa-history', 'url' => route('help.log.index'), 'active' => request()->is('help/log*')];
             }
 
             $atkMenu = [];

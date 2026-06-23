@@ -95,6 +95,14 @@ class WorkReportController extends Controller
             'new_data'       => $report->toArray(),
         ]);
 
+        // ========== TAMBAHAN UNTUK AJAX ==========
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('work-reports.index')
+            ]);
+        }
+
         return redirect()->route('work-reports.index')
                          ->with('success', 'Laporan berhasil ditambahkan.');
     }
@@ -157,6 +165,14 @@ class WorkReportController extends Controller
             'old_data'       => $oldData,
             'new_data'       => $workReport->fresh()->toArray(),
         ]);
+
+        // ========== TAMBAHAN UNTUK AJAX ==========
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('work-reports.index')
+            ]);
+        }
 
         return redirect()->route('work-reports.index')
                          ->with('success', 'Laporan berhasil diperbarui.');
