@@ -6,12 +6,12 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
 use App\Models\User;
 use App\Observers\UserObserver;
 use App\Models\StockCtl\Permintaan;
 use App\Models\StockCtl\UserProfil;
 use App\Models\AccessMenu;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,63 +23,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // ============================================
-        // 1. FUNGSI TERBILANG (global untuk semua view & controller)
+        // 1. MUAT FILE HELPER (cukup sekali, tidak mendefinisikan ulang)
         // ============================================
-        if (!function_exists('terbilang')) {
-            function terbilang($number)
-            {
-                $number = (int) $number;
-                if ($number == 0) return 'nol';
-
-                $digits = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
-                $levels = ['', 'ribu', 'juta', 'miliar', 'triliun'];
-                $belas = [
-                    11 => 'sebelas', 12 => 'dua belas', 13 => 'tiga belas',
-                    14 => 'empat belas', 15 => 'lima belas', 16 => 'enam belas',
-                    17 => 'tujuh belas', 18 => 'delapan belas', 19 => 'sembilan belas'
-                ];
-
-                $words = [];
-                $level = 0;
-                while ($number > 0) {
-                    $chunk = $number % 1000;
-                    if ($chunk > 0) {
-                        $chunkWords = [];
-                        $hundreds = floor($chunk / 100);
-                        $tens = $chunk % 100;
-
-                        if ($hundreds > 0) {
-                            $chunkWords[] = ($hundreds == 1) ? 'seratus' : $digits[$hundreds] . ' ratus';
-                        }
-
-                        if ($tens > 0) {
-                            if ($tens < 10) {
-                                $chunkWords[] = $digits[$tens];
-                            } elseif ($tens == 10) {
-                                $chunkWords[] = 'sepuluh';
-                            } elseif ($tens < 20) {
-                                $chunkWords[] = $belas[$tens];
-                            } else {
-                                $tensDigit = floor($tens / 10);
-                                $onesDigit = $tens % 10;
-                                $chunkWords[] = $digits[$tensDigit] . ' puluh' . ($onesDigit ? ' ' . $digits[$onesDigit] : '');
-                            }
-                        }
-
-                        if ($level == 1 && $chunk == 1 && $hundreds == 0 && $tens == 0) {
-                            $chunkWords = ['seribu'];
-                        }
-
-                        $chunkStr = implode(' ', $chunkWords);
-                        if ($level > 0) $chunkStr .= ' ' . $levels[$level];
-                        array_unshift($words, $chunkStr);
-                    }
-                    $number = floor($number / 1000);
-                    $level++;
-                }
-
-                return implode(' ', $words);
-            }
+        if (file_exists(app_path('Helpers/helpers.php'))) {
+            require_once app_path('Helpers/helpers.php');
         }
 
         // ============================================
@@ -118,14 +65,12 @@ class AppServiceProvider extends ServiceProvider
             $pendingL1Count = 0;
             $pendingAdminCount = 0;
             $isApprover = false;
-            $access = []; // hak akses ATK
+            $access = [];
 
             if ($user) {
-                // Notifikasi Laravel default
                 $unreadNotifications = $user->unreadNotifications->count();
                 $notifications = $user->notifications()->latest()->take(5)->get();
 
-                // Ambil hak akses ATK dari tabel tb_access_menu
                 $accessMenu = AccessMenu::where('username', $user->username)->first();
                 if ($accessMenu) {
                     $access = [
@@ -136,17 +81,14 @@ class AppServiceProvider extends ServiceProvider
                         'id_bisnis_unit' => null,
                     ];
 
-                    // Ambil profil user (area kerja, atasan)
                     $profil = UserProfil::where('id_user', $user->id)->first();
                     if ($profil) {
                         $access['id_area_kerja'] = $profil->id_area_kerja;
                         $access['id_bisnis_unit'] = $profil->id_bisnis_unit;
                     }
 
-                    // Cek apakah user adalah atasan (memiliki bawahan)
                     $isApprover = UserProfil::where('id_approver', $user->id)->exists();
 
-                    // Hitung pending L1 jika user adalah atasan
                     if ($isApprover) {
                         $pendingL1Count = Permintaan::where('status', Permintaan::STATUS_PENDING_L1)
                             ->whereExists(function ($q) use ($user) {
@@ -158,7 +100,6 @@ class AppServiceProvider extends ServiceProvider
                             ->count();
                     }
 
-                    // Hitung pending admin jika user adalah admin
                     if ($access['is_admin'] ?? false) {
                         $pendingAdminCount = Permintaan::where('status', Permintaan::STATUS_PENDING_ADMIN)
                             ->whereExists(function ($q) use ($access) {
@@ -172,7 +113,6 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
-            // Menu Help Desk (opsional, jika ada di sidebar ATK)
             $isGAAdmin = $user && in_array($user->role, ['ga_admin', 'admin', 'superadmin']);
             $helpMenu = [
                 [
@@ -201,7 +141,6 @@ class AppServiceProvider extends ServiceProvider
                 ];
             }
 
-            // Menu ATK (dibangun dari $access) - tanpa "Buat Permintaan"
             $atkMenu = [];
             if (!empty($access)) {
                 if ($access['is_super'] ?? false) {
@@ -220,7 +159,6 @@ class AppServiceProvider extends ServiceProvider
                     $atkMenu[] = ['title' => 'Opname', 'url' => route('stock-ctl.opname.index'), 'icon' => 'fas fa-clipboard-list'];
                     $atkMenu[] = ['title' => 'Laporan', 'url' => route('stock-ctl.laporan.index'), 'icon' => 'fas fa-file-alt'];
                 }
-                // Hanya tampilkan "Permintaan Saya" di sidebar, bukan "Buat Permintaan"
                 if (($access['is_user'] ?? false) || ($access['is_admin'] ?? false) || ($access['is_super'] ?? false)) {
                     $atkMenu[] = ['title' => 'Permintaan Saya', 'url' => route('stock-ctl.permintaan.index'), 'icon' => 'fas fa-shopping-cart'];
                 }

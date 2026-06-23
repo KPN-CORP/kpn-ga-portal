@@ -12,18 +12,10 @@ if (!function_exists('terbilang')) {
 
         $digits = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
         $levels = ['', 'ribu', 'juta', 'miliar', 'triliun'];
-
-        // Mapping khusus untuk 11-19
         $belas = [
-            11 => 'sebelas',
-            12 => 'dua belas',
-            13 => 'tiga belas',
-            14 => 'empat belas',
-            15 => 'lima belas',
-            16 => 'enam belas',
-            17 => 'tujuh belas',
-            18 => 'delapan belas',
-            19 => 'sembilan belas'
+            11 => 'sebelas', 12 => 'dua belas', 13 => 'tiga belas',
+            14 => 'empat belas', 15 => 'lima belas', 16 => 'enam belas',
+            17 => 'tujuh belas', 18 => 'delapan belas', 19 => 'sembilan belas'
         ];
 
         $words = [];
@@ -35,22 +27,18 @@ if (!function_exists('terbilang')) {
                 $hundreds = floor($chunk / 100);
                 $tens = $chunk % 100;
 
-                // Ratusan
                 if ($hundreds > 0) {
                     $chunkWords[] = ($hundreds == 1) ? 'seratus' : $digits[$hundreds] . ' ratus';
                 }
 
-                // Puluhan dan satuan
                 if ($tens > 0) {
                     if ($tens < 10) {
                         $chunkWords[] = $digits[$tens];
                     } elseif ($tens == 10) {
                         $chunkWords[] = 'sepuluh';
                     } elseif ($tens < 20) {
-                        // 11-19 menggunakan mapping khusus
                         $chunkWords[] = $belas[$tens];
                     } else {
-                        // 20-99
                         $tensDigit = floor($tens / 10);
                         $onesDigit = $tens % 10;
                         $chunkWords[] = $digits[$tensDigit] . ' puluh' . ($onesDigit ? ' ' . $digits[$onesDigit] : '');
