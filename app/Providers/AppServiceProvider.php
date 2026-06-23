@@ -6,12 +6,12 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use App\Models\User;
 use App\Observers\UserObserver;
 use App\Models\StockCtl\Permintaan;
 use App\Models\StockCtl\UserProfil;
 use App\Models\AccessMenu;
-use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -83,17 +83,14 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // ============================================
-        // 2. HTTPS FORCE (hanya jika bukan local)
+        // 2. FORCE HTTPS (hanya jika bukan local)
         // ============================================
-        // Jika ingin selalu force HTTPS di server, gunakan:
-        // URL::forceScheme('https');
-        // Tapi agar bisa dipakai offline juga, pakai conditional:
         if (config('app.env') !== 'local') {
             URL::forceScheme('https');
         }
 
         // ============================================
-        // 3. OBSERVER & VIEW COMPOSER (tetap seperti semula)
+        // 3. OBSERVER & VIEW COMPOSER
         // ============================================
 
         // Observer untuk User
