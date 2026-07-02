@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class IDCardController extends Controller
 {
@@ -24,8 +25,28 @@ class IDCardController extends Controller
                    ->exists();
     }
 
-    // ==================== LIST ====================
+    // ==================== LIST SEMUA ====================
     public function index(Request $req)
+    {
+        return $this->renderList($req, 'all');
+    }
+
+    // ==================== LIST AKTIF ====================
+    public function active(Request $req)
+    {
+        return $this->renderList($req, 'active');
+    }
+
+    // ==================== LIST TIDAK AKTIF ====================
+    public function inactive(Request $req)
+    {
+        return $this->renderList($req, 'inactive');
+    }
+
+    /**
+     * Method internal untuk render daftar dengan filter status aktif/tidak aktif
+     */
+    private function renderList(Request $req, $mode = 'all')
     {
         $hasSpecialAccess = $this->canProcessIDCard();
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
@@ -35,6 +56,23 @@ class IDCardController extends Controller
             $query->where('user_id', Auth::id());
         }
 
+        // Filter berdasarkan mode
+        $today = Carbon::today();
+        if ($mode === 'active') {
+            $query->where('status', 'approved')
+                  ->whereIn('kategori', ['magang', 'magang_extend'])
+                  ->where('masa_berlaku', '<=', $today)
+                  ->where('sampai_tanggal', '>=', $today);
+        } elseif ($mode === 'inactive') {
+            $query->where('status', 'approved')
+                  ->whereIn('kategori', ['magang', 'magang_extend'])
+                  ->where(function ($q) use ($today) {
+                      $q->where('sampai_tanggal', '<', $today)
+                        ->orWhere('masa_berlaku', '>', $today);
+                  });
+        }
+
+        // Filter pencarian dsb
         if ($req->search) {
             $query->where(function ($q) use ($req) {
                 $q->where('nama', 'like', "%{$req->search}%")
@@ -59,29 +97,36 @@ class IDCardController extends Controller
             $query->where('kategori', $req->kategori);
         }
 
-        if ($req->periode && $req->periode != 'all') {
-            $today = now()->format('Y-m-d');
-            switch ($req->periode) {
-                case 'masa_aktif':
-                    $query->where('masa_berlaku', '<=', $today)
-                          ->where('sampai_tanggal', '>=', $today);
-                    break;
-                case 'masa_tidak_aktif':
-                    $query->where(function ($q) use ($today) {
-                        $q->where('masa_berlaku', '>', $today)
-                          ->orWhere('sampai_tanggal', '<', $today);
-                    });
-                    break;
-                case 'masa_habis_segera':
-                    $thirtyDaysFromNow = now()->addDays(30)->format('Y-m-d');
-                    $query->where('sampai_tanggal', '>=', $today)
-                          ->where('sampai_tanggal', '<=', $thirtyDaysFromNow);
-                    break;
-            }
-        }
-
         $perPage = $req->get('per_page', 10);
         $data = $query->paginate($perPage)->withQueryString();
+
+        // Statistik untuk sidebar (total, aktif, tidak aktif) - hanya untuk admin
+        $stats = null;
+        if ($hasSpecialAccess) {
+            $allApproved = RequestIdCard::where('status', 'approved')->get();
+            $total = $allApproved->count();
+            $active = 0;
+            $inactive = 0;
+            foreach ($allApproved as $card) {
+                if (in_array($card->kategori, ['magang', 'magang_extend']) && $card->masa_berlaku && $card->sampai_tanggal) {
+                    $start = Carbon::parse($card->masa_berlaku);
+                    $end = Carbon::parse($card->sampai_tanggal);
+                    if ($today->between($start, $end)) {
+                        $active++;
+                    } else {
+                        $inactive++;
+                    }
+                } else {
+                    // Untuk karyawan tetap, dianggap aktif
+                    $active++;
+                }
+            }
+            $stats = [
+                'total' => $total,
+                'active' => $active,
+                'inactive' => $inactive,
+            ];
+        }
 
         $statusLabels = [
             'pending'  => 'Menunggu',
@@ -97,7 +142,121 @@ class IDCardController extends Controller
             'magang_extend'   => 'Magang Extend'
         ];
 
-        return view('idcard.list', compact('data', 'bisnisUnits', 'statusLabels', 'kategoriLabels', 'hasSpecialAccess'));
+        // Untuk grafik (hanya di halaman charts)
+        $chartData = null;
+
+        return view('idcard.list', compact(
+            'data',
+            'bisnisUnits',
+            'statusLabels',
+            'kategoriLabels',
+            'hasSpecialAccess',
+            'stats',
+            'mode',
+            'chartData'
+        ));
+    }
+
+    // ==================== HALAMAN GRAFIK ====================
+    public function charts(Request $req)
+    {
+        $hasSpecialAccess = $this->canProcessIDCard();
+        if (!$hasSpecialAccess) {
+            return redirect()->route('idcard')->with('error', 'Anda tidak memiliki akses ke halaman grafik.');
+        }
+
+        $bisnisUnits = DB::table('tb_bisnis_unit')->get();
+        $today = Carbon::today();
+
+        // ---- Grafik per Bisnis Unit ----
+        $unitStats = DB::table('request_idcard')
+            ->select('bisnis_unit_id', DB::raw('count(*) as total'))
+            ->where('status', 'approved')
+            ->whereIn('kategori', ['magang', 'magang_extend'])
+            ->groupBy('bisnis_unit_id')
+            ->get();
+
+        $buLabels = [];
+        $buActive = [];
+        $buInactive = [];
+
+        foreach ($unitStats as $stat) {
+            $unit = $bisnisUnits->firstWhere('id_bisnis_unit', $stat->bisnis_unit_id);
+            if ($unit) {
+                $buLabels[] = $unit->nama_bisnis_unit;
+                $cards = RequestIdCard::where('bisnis_unit_id', $stat->bisnis_unit_id)
+                    ->where('status', 'approved')
+                    ->whereIn('kategori', ['magang', 'magang_extend'])
+                    ->get();
+
+                $act = 0;
+                $inact = 0;
+                foreach ($cards as $card) {
+                    if ($card->masa_berlaku && $card->sampai_tanggal) {
+                        $start = Carbon::parse($card->masa_berlaku);
+                        $end = Carbon::parse($card->sampai_tanggal);
+                        if ($today->between($start, $end)) {
+                            $act++;
+                        } else {
+                            $inact++;
+                        }
+                    }
+                }
+                $buActive[] = $act;
+                $buInactive[] = $inact;
+            }
+        }
+
+        // ---- Grafik per Lantai (dari keterangan) ----
+        $floorData = DB::table('request_idcard')
+            ->select('keterangan', DB::raw('count(*) as total'))
+            ->where('status', 'approved')
+            ->whereIn('kategori', ['magang', 'magang_extend'])
+            ->groupBy('keterangan')
+            ->get();
+
+        $floorLabels = [];
+        $floorActive = [];
+        $floorInactive = [];
+
+        foreach ($floorData as $f) {
+            $floorLabels[] = $f->keterangan ?: 'Tidak ada lantai';
+            $cards = RequestIdCard::where('keterangan', $f->keterangan)
+                ->where('status', 'approved')
+                ->whereIn('kategori', ['magang', 'magang_extend'])
+                ->get();
+
+            $act = 0;
+            $inact = 0;
+            foreach ($cards as $card) {
+                if ($card->masa_berlaku && $card->sampai_tanggal) {
+                    $start = Carbon::parse($card->masa_berlaku);
+                    $end = Carbon::parse($card->sampai_tanggal);
+                    if ($today->between($start, $end)) {
+                        $act++;
+                    } else {
+                        $inact++;
+                    }
+                }
+            }
+            $floorActive[] = $act;
+            $floorInactive[] = $inact;
+        }
+
+        $chartData = [
+            'bu' => [
+                'labels' => $buLabels,
+                'active' => $buActive,
+                'inactive' => $buInactive,
+            ],
+            'floor' => [
+                'labels' => $floorLabels,
+                'active' => $floorActive,
+                'inactive' => $floorInactive,
+            ]
+        ];
+
+        return view('idcard.charts', compact('chartData'));
     }
 
     // ==================== CREATE FORM ====================
@@ -107,7 +266,7 @@ class IDCardController extends Controller
         return view('idcard.request', compact('bisnisUnits'));
     }
 
-    // ==================== STORE (dengan validasi NIK yang memperbolehkan duplicate asal tidak pending) ====================
+    // ==================== STORE ====================
     public function store(Request $req)
     {
         ini_set('upload_max_filesize', '50M');
@@ -126,7 +285,6 @@ class IDCardController extends Controller
             'keterangan' => 'required|string|max:255'
         ];
 
-        // Validasi NIK: hanya dilarang jika ada request PENDING dengan NIK yang sama (kecuali magang_extend)
         if ($kategori !== 'magang_extend') {
             $validationRules['nik'] = [
                 'required',
@@ -285,7 +443,7 @@ class IDCardController extends Controller
         return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending'));
     }
 
-    // ==================== EDIT FORM (ADMIN ONLY) ====================
+    // ==================== EDIT FORM ====================
     public function edit($id)
     {
         if (!$this->canProcessIDCard()) {
@@ -301,7 +459,7 @@ class IDCardController extends Controller
         return view('idcard.edit', compact('data', 'bisnisUnits'));
     }
 
-    // ==================== UPDATE (ADMIN ONLY) ====================
+    // ==================== UPDATE ====================
     public function update(Request $req, $id)
     {
         if (!$this->canProcessIDCard()) {
@@ -323,7 +481,6 @@ class IDCardController extends Controller
             'keterangan' => 'required|string|max:255'
         ];
 
-        // Validasi NIK (ignore current id, hanya cek pending lainnya)
         if ($kategori !== 'magang_extend') {
             $validationRules['nik'] = [
                 'required',
@@ -381,7 +538,6 @@ class IDCardController extends Controller
         try {
             DB::beginTransaction();
 
-            // Upload foto baru jika ada
             if ($req->hasFile('foto')) {
                 if ($item->foto && Storage::disk('private')->exists('idcard/foto/' . $item->foto)) {
                     Storage::disk('private')->delete('idcard/foto/' . $item->foto);
@@ -391,7 +547,6 @@ class IDCardController extends Controller
                 $item->foto = $filename;
             }
 
-            // Upload bukti bayar baru jika ada
             if ($req->hasFile('bukti_bayar')) {
                 if ($item->bukti_bayar && Storage::disk('private')->exists('idcard/bukti_bayar/' . $item->bukti_bayar)) {
                     Storage::disk('private')->delete('idcard/bukti_bayar/' . $item->bukti_bayar);
@@ -401,7 +556,6 @@ class IDCardController extends Controller
                 $item->bukti_bayar = $buktiName;
             }
 
-            // Update field
             $item->nik = $req->nik;
             $item->nama = $req->nama;
             $item->kategori = $kategori;
@@ -420,7 +574,6 @@ class IDCardController extends Controller
                 $item->sampai_tanggal = $req->sampai_tanggal;
                 $item->nomor_kartu = $req->nomor_kartu;
                 $item->tanggal_join = null;
-                // Hapus foto jika sebelumnya ada (karena magang tidak pakai foto)
                 if ($item->foto && Storage::disk('private')->exists('idcard/foto/' . $item->foto)) {
                     Storage::disk('private')->delete('idcard/foto/' . $item->foto);
                 }
@@ -584,6 +737,52 @@ class IDCardController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menolak: ' . $e->getMessage());
+        }
+    }
+
+    // ==================== DEACTIVATE ====================
+    public function deactivate($id)
+    {
+        if (!$this->canProcessIDCard()) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk menonaktifkan kartu.');
+        }
+
+        $item = RequestIdCard::findOrFail($id);
+
+        if (!in_array($item->kategori, ['magang', 'magang_extend'])) {
+            return back()->with('error', 'Kartu ini tidak dapat dinonaktifkan karena bukan kategori magang.');
+        }
+
+        if ($item->status !== 'approved') {
+            return back()->with('error', 'Hanya kartu yang sudah disetujui yang dapat dinonaktifkan.');
+        }
+
+        $today = Carbon::today();
+        $masaBerlaku = Carbon::parse($item->masa_berlaku);
+        $sampaiTanggal = Carbon::parse($item->sampai_tanggal);
+
+        if (!$today->between($masaBerlaku, $sampaiTanggal)) {
+            return back()->with('error', 'Kartu ini sudah tidak aktif.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $item->sampai_tanggal = $today->toDateString();
+            $item->save();
+
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $id,
+                'action' => 'updated',
+                'action_by' => Auth::id(),
+                'notes' => 'Kartu dinonaktifkan (sampai_tanggal diubah menjadi ' . $today->toDateString() . ')',
+                'created_at' => now()
+            ]);
+
+            DB::commit();
+            return back()->with('success', 'Kartu berhasil dinonaktifkan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menonaktifkan kartu: ' . $e->getMessage());
         }
     }
 }
