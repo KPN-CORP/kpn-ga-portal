@@ -2,8 +2,8 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow">
-    <h1 class="text-2xl font-bold mb-4">📝 Log Perjalanan #{{ $request->request_no }}</h1>
-    <p class="text-gray-600 mb-4">Driver: {{ $request->driver->name ?? '-' }}</p>
+    <h1 class="text-2xl font-bold mb-2">📝 Log Perjalanan</h1>
+    <p class="text-gray-600 mb-6">No. Request: <strong>{{ $request->request_no }}</strong> &nbsp;|&nbsp; Driver: {{ $request->driver->name ?? '-' }}</p>
 
     @if(session('success'))
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">{{ session('success') }}</div>
@@ -17,160 +17,221 @@
         </div>
     @endif
 
-    {{-- NOTIFIKASI REVISI DARI ADMIN --}}
-    @if($log && $log->needsRevision() && $log->revision_note)
+    {{-- CEK STATUS LOG --}}
+    @php
+        $isLocked = false;
+        $lockMessage = '';
+
+        if ($log) {
+            if ($log->is_verified) {
+                $isLocked = true;
+                $lockMessage = '✅ Log sudah diverifikasi, tidak dapat diubah.';
+            } elseif ($log->is_submitted && !$log->is_verified && !$log->needsRevision()) {
+                $isLocked = true;
+                $lockMessage = '⏳ Log sedang menunggu verifikasi admin, tidak dapat diubah.';
+            } elseif ($log->needsRevision()) {
+                // Cek batas waktu 7 hari
+                if ($log->revision_requested_at && \Carbon\Carbon::now()->diffInDays($log->revision_requested_at) >= 7) {
+                    $isLocked = true;
+                    $lockMessage = '⛔ Batas waktu revisi 7 hari telah lewat. Log tidak dapat diperbaiki lagi.';
+                }
+                // Jika masih dalam batas, maka tidak dikunci (boleh diedit)
+            }
+        }
+    @endphp
+
+    @if($isLocked)
         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded">
             <div class="flex items-start">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
+                <div class="flex-shrink-0 text-yellow-400 text-xl">🔒</div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-yellow-800">📌 Catatan Revisi dari Admin:</p>
-                    <p class="text-sm text-yellow-700 mt-1">{{ $log->revision_note }}</p>
-                    <p class="text-xs text-yellow-600 mt-2">Silakan perbaiki data di bawah ini, lalu kirim ulang.</p>
+                    <p class="text-sm text-yellow-700">{{ $lockMessage }}</p>
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- INDIKATOR STATUS LOG --}}
-    @if($log)
-        <div class="mb-4 p-3 rounded-lg {{ $log->is_verified ? 'bg-green-100 border border-green-400' : ($log->is_submitted ? 'bg-blue-100 border border-blue-400' : 'bg-gray-100 border border-gray-400') }}">
-            <p class="text-sm font-medium">
-                Status Log: 
-                @if($log->is_verified)
-                    <span class="text-green-700">✅ Sudah Diverifikasi Admin</span>
-                    <span class="text-xs text-gray-500 ml-2">(Tidak dapat diubah)</span>
-                @elseif($log->is_submitted)
-                    <span class="text-blue-700">⏳ Menunggu Verifikasi Admin</span>
-                    <span class="text-xs text-gray-500 ml-2">(Tidak dapat diubah sampai admin memproses)</span>
-                @elseif($log->needsRevision())
-                    <span class="text-yellow-700">⚠️ Perlu Revisi - Silakan perbaiki dan kirim ulang</span>
-                @else
-                    <span class="text-gray-700">📝 Draft - Belum dikirim</span>
-                @endif
-            </p>
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('drms.driver.trip.log.store', $request->id) }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('drms.driver.trip.log.store', $request->id) }}" enctype="multipart/form-data" id="logForm">
         @csrf
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Odometer Start (km)</label>
-                <input type="number" name="odometer_start" value="{{ old('odometer_start', $log->odometer_start ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 mt-1 focus:ring-blue-500 focus:border-blue-500" min="0"
-                       {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-                @if($log && ($log->is_verified || $log->is_submitted))
-                    <p class="text-xs text-gray-400 mt-1">Field tidak dapat diubah karena log sudah dikirim/diverifikasi.</p>
-                @endif
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Odometer Finish (km)</label>
-                <input type="number" name="odometer_finish" value="{{ old('odometer_finish', $log->odometer_finish ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 mt-1 focus:ring-blue-500 focus:border-blue-500" min="0"
-                       {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-                @if($log && ($log->is_verified || $log->is_submitted))
-                    <p class="text-xs text-gray-400 mt-1">Field tidak dapat diubah karena log sudah dikirim/diverifikasi.</p>
-                @endif
+        {{-- ODOMETER --}}
+        <div class="bg-gray-50 p-4 rounded-xl mb-6">
+            <h3 class="font-semibold text-gray-700 mb-3">📟 Odometer</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-500">Start (km)</label>
+                    <input type="number" name="odometer_start" value="{{ old('odometer_start', $log->odometer_start ?? '') }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg" 
+                           min="0" step="any" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">Finish (km)</label>
+                    <input type="number" name="odometer_finish" value="{{ old('odometer_finish', $log->odometer_finish ?? '') }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg" 
+                           min="0" step="any" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                </div>
             </div>
         </div>
 
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">📷 Foto Speedometer Sebelum</label>
-            <input type="file" name="photo_before" accept="image/*" class="w-full border rounded-lg px-3 py-2 mt-1"
-                   {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-            @if($log && $log->photo_before)
-                <a href="{{ route('drms.private.image', $log->photo_before) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
-            @endif
-            @if($log && ($log->is_verified || $log->is_submitted))
-                <p class="text-xs text-gray-400 mt-1">Tidak dapat upload ulang karena log sudah dikirim/diverifikasi.</p>
-            @endif
-        </div>
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">📷 Foto Speedometer Sesudah</label>
-            <input type="file" name="photo_after" accept="image/*" class="w-full border rounded-lg px-3 py-2 mt-1"
-                   {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-            @if($log && $log->photo_after)
-                <a href="{{ route('drms.private.image', $log->photo_after) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
-            @endif
-            @if($log && ($log->is_verified || $log->is_submitted))
-                <p class="text-xs text-gray-400 mt-1">Tidak dapat upload ulang karena log sudah dikirim/diverifikasi.</p>
-            @endif
-        </div>
+        {{-- FOTO SPEEDOMETER --}}
+        <div class="bg-gray-50 p-4 rounded-xl mb-6">
+            <h3 class="font-semibold text-gray-700 mb-3">📸 Foto Speedometer</h3>
+            <div class="grid grid-cols-2 gap-4">
+                {{-- Sebelum --}}
+                <div class="camera-card" onclick="{{ $isLocked ? '' : "document.getElementById('photo_before').click()" }}">
+                    <div class="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md transition cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 {{ $isLocked ? 'opacity-60 cursor-not-allowed' : '' }}">
+                        <div class="text-5xl text-gray-400 mb-2">📷</div>
+                        <p class="text-sm font-medium text-gray-600">Ambil Sebelum</p>
+                        <input type="file" name="photo_before" id="photo_before" accept="image/*" capture="environment" class="hidden" onchange="handleFile(this, 'preview_before')" {{ $isLocked ? 'disabled' : '' }}>
+                        <div id="preview_before" class="mt-2">
+                            @if($log && $log->photo_before)
+                                <img src="{{ route('drms.private.image', $log->photo_before) }}" class="w-full h-20 object-cover rounded-lg">
+                            @endif
+                        </div>
+                    </div>
+                </div>
 
-        <hr class="my-6">
-
-        <h3 class="font-semibold text-lg mb-3">⛽ Pengisian BBM / Charge</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Jenis Pengisian</label>
-                <select name="fuel_type" class="w-full border rounded-lg px-3 py-2 mt-1"
-                        {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-                    <option value="">Pilih</option>
-                    <option value="bensin" {{ old('fuel_type', $log->fuel_type ?? '')=='bensin'?'selected':'' }}>Bensin</option>
-                    <option value="listrik" {{ old('fuel_type', $log->fuel_type ?? '')=='listrik'?'selected':'' }}>Listrik</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Volume (Liter / kWh)</label>
-                <input type="number" name="fuel_volume" step="0.01" value="{{ old('fuel_volume', $log->fuel_volume ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 mt-1" min="0"
-                       {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Harga per Unit (Rp)</label>
-                <input type="number" name="fuel_price_per_unit" step="0.01" value="{{ old('fuel_price_per_unit', $log->fuel_price_per_unit ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 mt-1" min="0"
-                       {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Total Biaya (Rp) <span class="text-xs text-gray-400">(otomatis jika volume & harga diisi)</span></label>
-                <input type="number" name="fuel_cost" step="0.01" value="{{ old('fuel_cost', $log->fuel_cost ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 mt-1" min="0"
-                       {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
+                {{-- Sesudah --}}
+                <div class="camera-card" onclick="{{ $isLocked ? '' : "document.getElementById('photo_after').click()" }}">
+                    <div class="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md transition cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 {{ $isLocked ? 'opacity-60 cursor-not-allowed' : '' }}">
+                        <div class="text-5xl text-gray-400 mb-2">📷</div>
+                        <p class="text-sm font-medium text-gray-600">Ambil Sesudah</p>
+                        <input type="file" name="photo_after" id="photo_after" accept="image/*" capture="environment" class="hidden" onchange="handleFile(this, 'preview_after')" {{ $isLocked ? 'disabled' : '' }}>
+                        <div id="preview_after" class="mt-2">
+                            @if($log && $log->photo_after)
+                                <img src="{{ route('drms.private.image', $log->photo_after) }}" class="w-full h-20 object-cover rounded-lg">
+                            @endif
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">📷 Foto Struk BBM / Charge</label>
-            <input type="file" name="photo_fuel_receipt" accept="image/*" class="w-full border rounded-lg px-3 py-2 mt-1"
-                   {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>
-            @if($log && $log->photo_fuel_receipt)
-                <a href="{{ route('drms.private.image', $log->photo_fuel_receipt) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
-            @endif
-            @if($log && ($log->is_verified || $log->is_submitted))
-                <p class="text-xs text-gray-400 mt-1">Tidak dapat upload ulang karena log sudah dikirim/diverifikasi.</p>
-            @endif
+        {{-- BBM / CHARGE --}}
+        <div class="bg-gray-50 p-4 rounded-xl mb-6">
+            <h3 class="font-semibold text-gray-700 mb-3">⛽ Pengisian BBM / Charge</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-500">Jenis</label>
+                    <select name="fuel_type" class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1" {{ $isLocked ? 'disabled' : '' }}>
+                        <option value="">Pilih</option>
+                        <option value="bensin" {{ old('fuel_type', $log->fuel_type ?? '')=='bensin'?'selected':'' }}>Bensin</option>
+                        <option value="listrik" {{ old('fuel_type', $log->fuel_type ?? '')=='listrik'?'selected':'' }}>Listrik</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">Volume (Liter/kWh)</label>
+                    <input type="number" name="fuel_volume" step="0.01" value="{{ old('fuel_volume', $log->fuel_volume ?? '') }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1" min="0" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">Harga/Unit (Rp)</label>
+                    <input type="number" name="fuel_price_per_unit" step="0.01" value="{{ old('fuel_price_per_unit', $log->fuel_price_per_unit ?? '') }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1" min="0" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">Total Biaya (Rp)</label>
+                    <input type="number" name="fuel_cost" step="0.01" value="{{ old('fuel_cost', $log->fuel_cost ?? '') }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1" min="0" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                </div>
+            </div>
+
+            {{-- Foto Struk --}}
+            <div class="mt-4">
+                <div class="camera-card" onclick="{{ $isLocked ? '' : "document.getElementById('photo_fuel_receipt').click()" }}">
+                    <div class="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md transition cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 {{ $isLocked ? 'opacity-60 cursor-not-allowed' : '' }}">
+                        <div class="text-5xl text-gray-400 mb-2">🧾</div>
+                        <p class="text-sm font-medium text-gray-600">Foto Struk BBM / Charge</p>
+                        <input type="file" name="photo_fuel_receipt" id="photo_fuel_receipt" accept="image/*" capture="environment" class="hidden" onchange="handleFile(this, 'preview_receipt')" {{ $isLocked ? 'disabled' : '' }}>
+                        <div id="preview_receipt" class="mt-2">
+                            @if($log && $log->photo_fuel_receipt)
+                                <img src="{{ route('drms.private.image', $log->photo_fuel_receipt) }}" class="w-full h-20 object-cover rounded-lg">
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700">📝 Catatan Tambahan</label>
-            <textarea name="notes" rows="3" class="w-full border rounded-lg px-3 py-2 mt-1"
-                      {{ ($log && ($log->is_verified || $log->is_submitted)) ? 'disabled' : '' }}>{{ old('notes', $log->notes ?? '') }}</textarea>
-            @if($log && ($log->is_verified || $log->is_submitted))
-                <p class="text-xs text-gray-400 mt-1">Catatan tidak dapat diubah karena log sudah dikirim/diverifikasi.</p>
-            @endif
+        {{-- CATATAN --}}
+        <div class="bg-gray-50 p-4 rounded-xl mb-6">
+            <h3 class="font-semibold text-gray-700 mb-3">📝 Catatan</h3>
+            <textarea name="notes" rows="3" class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 resize-none" placeholder="Tambahkan catatan jika perlu..." {{ $isLocked ? 'disabled' : '' }}>{{ old('notes', $log->notes ?? '') }}</textarea>
         </div>
 
-        <div class="mt-6 flex justify-between items-center">
-            <a href="{{ route('drms.driver.dashboard') }}" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">← Kembali</a>
-            <div class="space-x-2">
-                @if(!$log || (!$log->is_verified && !$log->is_submitted))
-                    <button type="submit" name="submit" value="0" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
+        {{-- TOMBOL AKSI --}}
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
+            <a href="{{ route('drms.driver.dashboard') }}" class="text-gray-600 hover:text-gray-800">← Kembali</a>
+            @if(!$isLocked)
+                <div class="flex flex-wrap gap-3">
+                    <button type="submit" name="submit" value="0" class="px-6 py-3 bg-yellow-400 text-white rounded-full font-semibold shadow-md hover:bg-yellow-500 transition">
                         💾 Simpan Draft
                     </button>
-                    <button type="submit" name="submit" value="1" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    <button type="submit" name="submit" value="1" class="px-6 py-3 bg-green-500 text-white rounded-full font-semibold shadow-md hover:bg-green-600 transition">
                         {{ $log && $log->needsRevision() ? '📤 Kirim Ulang' : '📤 Kirim ke Admin' }}
                     </button>
-                @else
-                    <span class="text-sm text-gray-500 italic">Log sudah {{ $log->is_verified ? 'diverifikasi' : 'dikirim' }}, tidak dapat diubah.</span>
-                @endif
-            </div>
+                </div>
+            @else
+                <span class="text-sm text-gray-400 italic">Form terkunci</span>
+            @endif
         </div>
     </form>
 </div>
+
+{{-- Script kompresi dan preview --}}
+<script>
+    function handleFile(input, previewId) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(previewId).innerHTML = `<img src="${e.target.result}" class="w-full h-20 object-cover rounded-lg">`;
+            };
+            reader.readAsDataURL(file);
+
+            compressImage(file, function(compressedBlob) {
+                const compressedFile = new File([compressedBlob], file.name, {
+                    type: compressedBlob.type,
+                    lastModified: Date.now()
+                });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(compressedFile);
+                input.files = dataTransfer.files;
+
+                const previewReader = new FileReader();
+                previewReader.onload = function(ev) {
+                    document.getElementById(previewId).innerHTML = `<img src="${ev.target.result}" class="w-full h-20 object-cover rounded-lg">`;
+                };
+                previewReader.readAsDataURL(compressedBlob);
+            });
+        }
+    }
+
+    function compressImage(file, callback) {
+        const maxWidth = 1024;
+        const quality = 0.7;
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function(e) {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(function(blob) {
+                    callback(blob);
+                }, 'image/jpeg', quality);
+            };
+        };
+    }
+</script>
 @endsection

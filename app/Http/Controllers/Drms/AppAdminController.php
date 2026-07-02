@@ -168,64 +168,78 @@ class AppAdminController extends Controller
             $this->authorizeAdminAccess($driverRequest);
         }
 
-        // Tentukan business unit ID yang berlaku (current BU atau BU requester)
-        $businessUnitId = $driverRequest->current_business_unit_id ?? $driverRequest->requester->drmsProfile->business_unit_id;
+        // Tentukan apakah admin boleh melihat semua BU
+        $showAllBu = $user->hasDrmsAllBuAccess();
 
-        // Driver: available atau on_trip yang tidak bentrok
-        $drivers = Driver::where('business_unit_id', $businessUnitId)
-            ->where(function ($q) use ($driverRequest) {
-                $q->where('status', 'available')
-                  ->orWhere(function ($sub) use ($driverRequest) {
-                      $sub->where('status', 'on_trip')
-                          ->whereNotExists(function ($exists) use ($driverRequest) {
-                              $exists->select(DB::raw(1))
-                                  ->from('drms_requests')
-                                  ->whereColumn('drms_requests.driver_id', 'drms_drivers.id')
-                                  ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
-                                  ->where('drms_requests.id', '!=', $driverRequest->id)
-                                  ->whereRaw("
-                                      CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
-                                      AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
-                                  ", [
-                                      $driverRequest->return_date . ' ' . $driverRequest->end_time,
-                                      $driverRequest->usage_date . ' ' . $driverRequest->start_time
-                                  ]);
-                          });
-                  });
-            })
-            ->get();
+        // ----- QUERY DRIVER -----
+        $driversQuery = Driver::where(function ($q) use ($driverRequest) {
+            $q->where('status', 'available')
+            ->orWhere(function ($sub) use ($driverRequest) {
+                $sub->where('status', 'on_trip')
+                    ->whereNotExists(function ($exists) use ($driverRequest) {
+                        $exists->select(DB::raw(1))
+                            ->from('drms_requests')
+                            ->whereColumn('drms_requests.driver_id', 'drms_drivers.id')
+                            ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
+                            ->where('drms_requests.id', '!=', $driverRequest->id)
+                            ->whereRaw("
+                                CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
+                                AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
+                            ", [
+                                $driverRequest->return_date . ' ' . $driverRequest->end_time,
+                                $driverRequest->usage_date . ' ' . $driverRequest->start_time
+                            ]);
+                    });
+            });
+        });
 
-        // Kendaraan: available atau in_use yang tidak bentrok
-        $vehicles = Vehicle::where('business_unit_id', $businessUnitId)
-            ->where(function ($q) use ($driverRequest) {
-                $q->where('status', 'available')
-                  ->orWhere(function ($sub) use ($driverRequest) {
-                      $sub->where('status', 'in_use')
-                          ->whereNotExists(function ($exists) use ($driverRequest) {
-                              $exists->select(DB::raw(1))
-                                  ->from('drms_requests')
-                                  ->whereColumn('drms_requests.vehicle_id', 'drms_vehicles.id')
-                                  ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
-                                  ->where('drms_requests.id', '!=', $driverRequest->id)
-                                  ->whereRaw("
-                                      CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
-                                      AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
-                                  ", [
-                                      $driverRequest->return_date . ' ' . $driverRequest->end_time,
-                                      $driverRequest->usage_date . ' ' . $driverRequest->start_time
-                                  ]);
-                          });
-                  });
-            })
-            ->get();
+        if (!$showAllBu) {
+            $businessUnitId = $driverRequest->current_business_unit_id ?? $driverRequest->requester->drmsProfile->business_unit_id;
+            $driversQuery->where('business_unit_id', $businessUnitId);
+        }
 
-        $vouchers = Voucher::where('business_unit_id', $businessUnitId)
-            ->where('status', 'available')
-            ->get();
+        $drivers = $driversQuery->get();
+
+        // ----- QUERY KENDARAAN -----
+        $vehiclesQuery = Vehicle::where(function ($q) use ($driverRequest) {
+            $q->where('status', 'available')
+            ->orWhere(function ($sub) use ($driverRequest) {
+                $sub->where('status', 'in_use')
+                    ->whereNotExists(function ($exists) use ($driverRequest) {
+                        $exists->select(DB::raw(1))
+                            ->from('drms_requests')
+                            ->whereColumn('drms_requests.vehicle_id', 'drms_vehicles.id')
+                            ->whereIn('drms_requests.status', ['approved_admin', 'pending_l1', 'approved_l1'])
+                            ->where('drms_requests.id', '!=', $driverRequest->id)
+                            ->whereRaw("
+                                CONCAT(drms_requests.usage_date, ' ', drms_requests.start_time) < ?
+                                AND CONCAT(COALESCE(drms_requests.return_date, drms_requests.usage_date), ' ', COALESCE(drms_requests.return_time, drms_requests.end_time)) > ?
+                            ", [
+                                $driverRequest->return_date . ' ' . $driverRequest->end_time,
+                                $driverRequest->usage_date . ' ' . $driverRequest->start_time
+                            ]);
+                    });
+            });
+        });
+
+        if (!$showAllBu) {
+            $vehiclesQuery->where('business_unit_id', $businessUnitId);
+        }
+
+        $vehicles = $vehiclesQuery->get();
+
+        // ----- QUERY VOUCHER (opsional, ikuti logika yang sama) -----
+        $vouchersQuery = Voucher::where('status', 'available');
+        if (!$showAllBu) {
+            $vouchersQuery->where('business_unit_id', $businessUnitId);
+        }
+        $vouchers = $vouchersQuery->get();
 
         $allBusinessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
-        return view('drms.approval.admin.edit', compact('driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits'));
+        return view('drms.approval.admin.edit', compact(
+            'driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits'
+        ));
     }
 
     /**

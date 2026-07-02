@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Str; // <-- Tambahan untuk sanitasi nama file
 
 class TrackRController extends Controller
 {
@@ -268,7 +269,7 @@ class TrackRController extends Controller
     }
 
     /* =========================
-       PDF
+       PDF – DIPERBAIKI dengan sanitasi nama file
     ========================= */
     public function pdf($id)
     {
@@ -280,7 +281,13 @@ class TrackRController extends Controller
         $this->authorizeDocumentAccess($document);
 
         $pdf = Pdf::loadView('track_r.pdf', compact('document'));
-        return $pdf->download('tanda_terima_' . $document->nomor_dokumen . '.pdf');
+
+        // Sanitasi nomor dokumen agar tidak mengandung '/' atau '\'
+        $safeNomor = str_replace(['/', '\\'], '_', $document->nomor_dokumen);
+        // Jika ingin lebih bersih, bisa gunakan Str::slug($document->nomor_dokumen, '_')
+        $filename = 'tanda_terima_' . $safeNomor . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     /* =========================

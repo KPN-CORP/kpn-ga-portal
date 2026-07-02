@@ -96,9 +96,17 @@
                     <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Work Reports</li>
                     <li>
                         <a href="{{ route('work-reports.index') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('work-reports.*') ? 'active' : '' }}">
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('work-reports.index') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list mr-3 text-gray-500 opacity-70"></i>
                             <span>Laporan Bulanan</span>
+                        </a>
+                    </li>
+                    <!-- MENU GRAFIK -->
+                    <li>
+                        <a href="{{ route('work-reports.chart') }}" 
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('work-reports.chart') ? 'active' : '' }}">
+                            <i class="fas fa-chart-bar mr-3 text-gray-500 opacity-70"></i>
+                            <span>Statistik Grafik</span>
                         </a>
                     </li>
                     @if(auth()->user() && auth()->user()->isWorkAdmin())

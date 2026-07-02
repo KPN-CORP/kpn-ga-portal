@@ -2,15 +2,16 @@
 
 @section('content')
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-wrap justify-between items-center gap-3">
         <h2 class="text-xl font-semibold text-gray-800">Approval Permintaan Supplies</h2>
         @if($pendingCount > 0)
             <span class="bg-red-100 text-red-800 px-2.5 py-1 rounded-full text-sm font-medium">{{ $pendingCount }} pending</span>
         @endif
     </div>
 
-    <div class="bg-white border rounded-xl overflow-x-auto shadow-sm">
-        <table class="w-full text-sm min-w-[1000px]">
+    <!-- Desktop Table -->
+    <div class="bg-white border rounded-xl overflow-x-auto shadow-sm hidden md:block">
+        <table class="w-full text-sm min-w-[800px]">
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Pemohon</th>
@@ -53,9 +54,44 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Mobile Cards -->
+    <div class="md:hidden space-y-4">
+        @forelse($permintaan as $p)
+        <div class="bg-white border rounded-xl p-4 shadow-sm">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="font-semibold">{{ $p->pemohon->name }}</p>
+                    <p class="text-sm text-gray-600">{{ $p->barang->nama_barang }} ({{ $p->barang->kode_barang }})</p>
+                </div>
+                <span class="text-sm font-medium">{{ number_format($p->jumlah) }} {{ $p->barang->satuan }}</span>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">
+                <p>Unit: {{ $p->bisnisUnit->nama_bisnis_unit ?? '-' }}</p>
+                <p>Keterangan: {{ $p->keterangan ?? '-' }}</p>
+                <p>Tgl: {{ $p->created_at->format('d/m/Y H:i') }}</p>
+            </div>
+            <div class="mt-3 flex gap-2">
+                <button onclick="showApproveModal({{ $p->id }}, {{ $p->jumlah }}, '{{ $p->barang->satuan }}')" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex-1">
+                    <i class="fas fa-check mr-1"></i> Setujui
+                </button>
+                <button onclick="showRejectModal({{ $p->id }})" 
+                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex-1">
+                    <i class="fas fa-times mr-1"></i> Tolak
+                </button>
+            </div>
+        </div>
+        @empty
+        <div class="py-10 text-center text-gray-500">
+            <i class="fas fa-inbox text-3xl mb-2 opacity-40 block"></i>
+            Tidak ada permintaan pending
+        </div>
+        @endforelse
+    </div>
 </div>
 
-<!-- Modal Approve -->
+<!-- Modal Approve & Reject (sama seperti sebelumnya, tidak diubah) -->
 <div id="approveModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Setujui Permintaan</h3>
@@ -71,7 +107,7 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
                 <textarea name="catatan" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Tambahkan catatan untuk pemohon..."></textarea>
             </div>
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-wrap justify-end gap-2">
                 <button type="button" onclick="closeModal('approveModal')" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Setujui</button>
             </div>
@@ -79,7 +115,6 @@
     </div>
 </div>
 
-<!-- Modal Reject -->
 <div id="rejectModal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
     <div class="bg-white rounded-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tolak Permintaan</h3>
@@ -89,7 +124,7 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Alasan Penolakan</label>
                 <textarea name="alasan" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required></textarea>
             </div>
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-wrap justify-end gap-2">
                 <button type="button" onclick="closeModal('rejectModal')" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
                 <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Tolak</button>
             </div>

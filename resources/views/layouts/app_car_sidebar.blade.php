@@ -14,14 +14,13 @@
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Alpine.js for dropdowns -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
 
     <style>
-        html{
-            zoom:0.8;
+        html {
+            zoom: 0.8;
         }
-
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f9fafb;
@@ -64,6 +63,36 @@
             .sidebar.active { transform: translateX(0); }
         }
         .smooth-transition { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+
+        /* Dropdown child menu */
+        .dropdown-child {
+            padding-left: 1.5rem;
+        }
+        .dropdown-child .sidebar-link {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+        .dropdown-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .dropdown-toggle .fa-chevron-down {
+            transition: transform 0.25s ease;
+        }
+        .dropdown-toggle.open .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+        /* Transisi sederhana tanpa plugin */
+        .dropdown-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .dropdown-content.closed {
+            max-height: 0 !important;
+        }
+        .dropdown-content.open {
+            max-height: 300px; /* cukup untuk menampung item */
+        }
     </style>
     @stack('styles')
 </head>
@@ -72,7 +101,8 @@
 
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto">
+        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto" 
+               x-data="sidebarComponent()" x-init="initSidebar()">
             <!-- Logo -->
             <div class="p-6 soft-border-bottom flex items-center space-x-3">
                 <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center soft-border">
@@ -122,7 +152,7 @@
                     </li>
                     @endif
 
-                    {{-- Approval Admin & Master Data (hanya admin) --}}
+                    {{-- Approval Admin --}}
                     @if(auth()->user() && auth()->user()->isDrmsAdmin())
                     <li>
                         <a href="{{ route('drms.approval.admin.index') }}" 
@@ -135,75 +165,104 @@
                         </a>
                     </li>
 
-                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Master Data</li>
-                    <li>
-                        <a href="{{ route('drms.drivers.index') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.*') ? 'active' : '' }}">
-                            <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
-                            <span>Drivers</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('drms.drivers.schedule') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.schedule') ? 'active' : '' }}">
-                            <i class="fas fa-calendar-alt mr-3 text-gray-500 opacity-70"></i>
-                            <span>Jadwal Driver</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('drms.vehicles.index') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.vehicles.*') ? 'active' : '' }}">
-                            <i class="fas fa-truck mr-3 text-gray-500 opacity-70"></i>
-                            <span>Vehicles</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('drms.vouchers.index') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.vouchers.*') ? 'active' : '' }}">
-                            <i class="fas fa-ticket-alt mr-3 text-gray-500 opacity-70"></i>
-                            <span>Vouchers</span>
-                        </a>
+                    {{-- ===== MASTER DATA DROPDOWN ===== --}}
+                    <li class="mt-4">
+                        <div @click="toggleMaster()" 
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700 hover:bg-gray-50 smooth-transition"
+                             :class="{'open': openMaster}">
+                            <div class="flex items-center">
+                                <i class="fas fa-database mr-3 text-gray-500 opacity-70"></i>
+                                <span class="font-medium">Management</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-gray-400 text-xs" :class="{'rotate-180': openMaster}"></i>
+                        </div>
+                        <div class="dropdown-content" :class="openMaster ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 mt-1 pb-2">
+                                <li>
+                                    <a href="{{ route('drms.drivers.index') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.*') ? 'active' : '' }}">
+                                        <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Drivers</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.drivers.schedule') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.schedule') ? 'active' : '' }}">
+                                        <i class="fas fa-calendar-alt mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Jadwal Driver</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.vehicles.index') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.vehicles.*') ? 'active' : '' }}">
+                                        <i class="fas fa-truck mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Vehicles</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.vouchers.index') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.vouchers.*') ? 'active' : '' }}">
+                                        <i class="fas fa-ticket-alt mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Vouchers</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
 
-                    {{-- ====== MENU OPERASIONAL ====== --}}
-                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Operasional</li>
-                    <li>
-                        <a href="{{ route('drms.admin.operational.dashboard') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.operational.dashboard') ? 'active' : '' }}">
-                            <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
-                            <span>Dashboard Grafik</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('drms.admin.monitoring.logs') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.monitoring.logs') || request()->routeIs('drms.admin.verify.log*') ? 'active' : '' }}">
-                            <i class="fas fa-clipboard-check mr-3 text-gray-500 opacity-70"></i>
-                            <span>Monitoring Log Driver</span>
-                            @php
-                                $pendingLogs = \App\Models\Drms\TripLog::where('is_submitted', 1)
-                                    ->where('is_verified', 0)
-                                    ->whereHas('request', function($q) {
-                                        $buId = auth()->user()->drmsProfile->business_unit_id ?? null;
-                                        if ($buId) {
-                                            $q->where('current_business_unit_id', $buId)
-                                              ->orWhereHas('requester.drmsProfile', function($q2) use ($buId) {
-                                                  $q2->where('business_unit_id', $buId);
-                                              });
-                                        }
-                                    })
-                                    ->count();
-                            @endphp
-                            @if($pendingLogs > 0)
-                                <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingLogs }}</span>
-                            @endif
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('drms.admin.vehicle.services') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.vehicle.services*') ? 'active' : '' }}">
-                            <i class="fas fa-tools mr-3 text-gray-500 opacity-70"></i>
-                            <span>Service Kendaraan</span>
-                        </a>
+                    {{-- ===== OPERASIONAL DROPDOWN ===== --}}
+                    <li class="mt-2">
+                        <div @click="toggleOperasional()" 
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700 hover:bg-gray-50 smooth-transition"
+                             :class="{'open': openOperasional}">
+                            <div class="flex items-center">
+                                <i class="fas fa-chart-pie mr-3 text-gray-500 opacity-70"></i>
+                                <span class="font-medium">Operasional</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-gray-400 text-xs" :class="{'rotate-180': openOperasional}"></i>
+                        </div>
+                        <div class="dropdown-content" :class="openOperasional ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 mt-1 pb-2">
+                                <li>
+                                    <a href="{{ route('drms.admin.operational.dashboard') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.operational.dashboard') ? 'active' : '' }}">
+                                        <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Dashboard Grafik</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.admin.monitoring.logs') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.monitoring.logs') || request()->routeIs('drms.admin.verify.log*') ? 'active' : '' }}">
+                                        <i class="fas fa-clipboard-check mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Monitoring Log Driver</span>
+                                        @php
+                                            $pendingLogs = \App\Models\Drms\TripLog::where('is_submitted', 1)
+                                                ->where('is_verified', 0)
+                                                ->whereHas('request', function($q) {
+                                                    $buId = auth()->user()->drmsProfile->business_unit_id ?? null;
+                                                    if ($buId) {
+                                                        $q->where('current_business_unit_id', $buId)
+                                                          ->orWhereHas('requester.drmsProfile', function($q2) use ($buId) {
+                                                              $q2->where('business_unit_id', $buId);
+                                                          });
+                                                    }
+                                                })
+                                                ->count();
+                                        @endphp
+                                        @if($pendingLogs > 0)
+                                            <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingLogs }}</span>
+                                        @endif
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.admin.vehicle.services') }}" 
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.vehicle.services*') ? 'active' : '' }}">
+                                        <i class="fas fa-tools mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Service Kendaraan</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
                     @endif
                 </ul>
@@ -293,18 +352,48 @@
 
     <!-- Scripts -->
     <script>
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('overlay');
+        document.addEventListener('alpine:init', () => {
+            window.sidebarComponent = function() {
+                return {
+                    openMaster: false,
+                    openOperasional: false,
+                    initSidebar() {
+                        const currentPath = window.location.pathname;
+                        // Master Data paths
+                        const masterPaths = ['/drms/drivers', '/drms/vehicles', '/drms/vouchers', '/drms/drivers/schedule'];
+                        // Operasional paths
+                        const operasionalPaths = ['/drms/admin/operational', '/drms/admin/monitoring', '/drms/admin/vehicle-services'];
 
-        document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-            document.body.style.overflow = sidebar.classList.contains('active') ? 'hidden' : '';
+                        if (masterPaths.some(p => currentPath.startsWith(p))) {
+                            this.openMaster = true;
+                        }
+                        if (operasionalPaths.some(p => currentPath.startsWith(p))) {
+                            this.openOperasional = true;
+                        }
+                    },
+                    toggleMaster() {
+                        this.openMaster = !this.openMaster;
+                    },
+                    toggleOperasional() {
+                        this.openOperasional = !this.openOperasional;
+                    }
+                }
+            }
         });
 
-        overlay.addEventListener('click', () => {
-            sidebar.classList.remove('active');
-            overlay.classList.remove('active');
+        // Sidebar toggle (non-Alpine)
+        const sidebarEl = document.querySelector('.sidebar');
+        const overlayEl = document.getElementById('overlay');
+
+        document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+            sidebarEl.classList.toggle('active');
+            overlayEl.classList.toggle('active');
+            document.body.style.overflow = sidebarEl.classList.contains('active') ? 'hidden' : '';
+        });
+
+        overlayEl.addEventListener('click', () => {
+            sidebarEl.classList.remove('active');
+            overlayEl.classList.remove('active');
             document.body.style.overflow = '';
         });
 
@@ -328,8 +417,8 @@
 
         window.addEventListener('resize', () => {
             if(window.innerWidth >= 768){
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
+                sidebarEl.classList.remove('active');
+                overlayEl.classList.remove('active');
                 document.body.style.overflow = '';
             }
         });
@@ -337,8 +426,8 @@
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', () => {
                 if(window.innerWidth < 768){
-                    sidebar.classList.remove('active');
-                    overlay.classList.remove('active');
+                    sidebarEl.classList.remove('active');
+                    overlayEl.classList.remove('active');
                     document.body.style.overflow = '';
                 }
             });

@@ -27,23 +27,26 @@ class AdminOperationalController extends Controller
         $stats = $this->getOperationalStats($businessUnitId, $month, $year);
         $chartData = $this->getMonthlyChartData($businessUnitId);
         $efficiencyData = $this->getEfficiencyData($businessUnitId);
-        $transportDistribution = $this->getTransportDistribution($businessUnitId);
+        $transportDistribution = $this->getTransportDistribution($businessUnitId, $month, $year);
+        $recentLogs = $this->getRecentLogs($businessUnitId, 5);
 
-        // Data untuk filter dropdown
         $months = [];
         for ($i = 1; $i <= 12; $i++) {
             $months[$i] = date('F', mktime(0, 0, 0, $i, 1));
         }
         $years = range(now()->year - 2, now()->year);
 
+        $isSuperAdmin = $user->isDrmsSuperAdmin();
+
         return view('drms.admin.operational_dashboard', compact(
             'stats', 'chartData', 'efficiencyData',
-            'transportDistribution', 'months', 'years', 'month', 'year'
+            'transportDistribution', 'months', 'years', 'month', 'year',
+            'recentLogs', 'isSuperAdmin'
         ));
     }
 
     /**
-     * Export data ke CSV berdasarkan filter bulan/tahun
+     * Export CSV
      */
     public function export(Request $request)
     {
@@ -54,7 +57,7 @@ class AdminOperationalController extends Controller
 
         $stats = $this->getOperationalStats($businessUnitId, $month, $year);
         $efficiencyData = $this->getEfficiencyData($businessUnitId);
-        $transportDistribution = $this->getTransportDistribution($businessUnitId);
+        $transportDistribution = $this->getTransportDistribution($businessUnitId, $month, $year);
 
         $filename = 'laporan_operasional_' . $year . '_' . str_pad($month, 2, '0', STR_PAD_LEFT) . '.csv';
         
@@ -64,6 +67,12 @@ class AdminOperationalController extends Controller
         $handle = fopen('php://output', 'w');
         fputcsv($handle, ['LAPORAN OPERASIONAL DRMS']);
         fputcsv($handle, ['Periode: ' . date('F Y', mktime(0, 0, 0, $month, 1, $year))]);
+        if ($businessUnitId) {
+            $buName = \App\Models\BisnisUnit::find($businessUnitId)->nama_bisnis_unit ?? 'Unit';
+            fputcsv($handle, ['Business Unit: ' . $buName]);
+        } else {
+            fputcsv($handle, ['Business Unit: SEMUA (Superadmin)']);
+        }
         fputcsv($handle, []);
         
         fputcsv($handle, ['RINGKASAN']);
@@ -74,7 +83,7 @@ class AdminOperationalController extends Controller
         fputcsv($handle, ['Menunggu Verifikasi', $stats['pending_verification']]);
         fputcsv($handle, []);
         
-        fputcsv($handle, ['DISTRIBUSI TRANSPORTASI']);
+        fputcsv($handle, ['DISTRIBUSI TRANSPORTASI (Periode ' . date('F Y', mktime(0,0,0,$month,1,$year)) . ')']);
         fputcsv($handle, ['Tipe', 'Jumlah']);
         foreach ($transportDistribution as $item) {
             fputcsv($handle, [
@@ -99,7 +108,7 @@ class AdminOperationalController extends Controller
     }
 
     /**
-     * Monitoring Trip Log (daftar log yang masuk)
+     * Monitoring Trip Log
      */
     public function monitoringLogs(Request $request)
     {
@@ -109,10 +118,7 @@ class AdminOperationalController extends Controller
         $query = TripLog::with(['request.requester', 'request.driver', 'request.vehicle'])
             ->whereHas('request', function ($q) use ($businessUnitId) {
                 if ($businessUnitId) {
-                    $q->where('current_business_unit_id', $businessUnitId)
-                      ->orWhereHas('requester.drmsProfile', function ($q2) use ($businessUnitId) {
-                          $q2->where('business_unit_id', $businessUnitId);
-                      });
+                    $this->applyBusinessUnitFilter($q, $businessUnitId);
                 }
             });
 
@@ -122,30 +128,41 @@ class AdminOperationalController extends Controller
             } elseif ($request->status == 'verified') {
                 $query->where('is_verified', 1);
             } elseif ($request->status == 'draft') {
-                $query->where('is_submitted', 0);
+                $query->where('is_submitted', 0)->where('is_verified', 0);
+            } elseif ($request->status == 'revision') {
+                $query->where('is_submitted', 0)->where('is_verified', 0)->whereNotNull('revision_note');
             }
         }
 
-        $logs = $query->latest()->paginate(20);
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->whereHas('request', function ($q) use ($search) {
+                $q->where('request_no', 'LIKE', $search)
+                  ->orWhereHas('driver', function ($q2) use ($search) {
+                      $q2->where('name', 'LIKE', $search);
+                  });
+            });
+        }
 
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $logs = $query->latest()->paginate(20);
         return view('drms.admin.monitoring_logs', compact('logs'));
     }
 
-    /**
-     * Detail log dan form verifikasi
-     */
     public function verifyLogForm($logId)
     {
         $log = TripLog::with(['request.requester', 'request.driver', 'request.vehicle'])
             ->findOrFail($logId);
         $this->authorizeLogAccess($log);
-
         return view('drms.admin.verify_log', compact('log'));
     }
 
-    /**
-     * Proses verifikasi log
-     */
     public function verifyLog(Request $request, $logId)
     {
         $log = TripLog::findOrFail($logId);
@@ -161,45 +178,54 @@ class AdminOperationalController extends Controller
                 $log->verified_by = Auth::id();
                 $log->verified_at = now();
                 $log->verification_notes = $notes;
-                $log->revision_note = null; // hapus catatan revisi jika ada
+                $log->revision_note = null;
+                $log->revision_requested_at = null;
                 $message = 'Log berhasil diverifikasi.';
             } else {
-                // Reject / minta revisi
                 $log->is_verified = 0;
-                $log->is_submitted = 0; // kembalikan ke draft
+                $log->is_submitted = 0;
                 $log->verified_by = null;
                 $log->verified_at = null;
-                $log->verification_notes = $notes; // simpan catatan admin
-                $log->revision_note = $notes; // simpan sebagai catatan revisi khusus
+                $log->verification_notes = $notes;
+                $log->revision_note = $notes;
+                $log->revision_requested_at = now();
                 $message = 'Log dikembalikan ke driver untuk revisi.';
             }
             $log->save();
             DB::commit();
-
-            return redirect()->route('drms.admin.monitoring.logs')
-                ->with('success', $message);
-
+            return redirect()->route('drms.admin.monitoring.logs')->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal memverifikasi: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Halaman kelola service kendaraan
-     */
     public function vehicleServices(Request $request)
     {
         $user = Auth::user();
         $businessUnitId = $this->getBusinessUnitId($user);
 
-        $services = VehicleService::with(['vehicle', 'creator'])
+        $query = VehicleService::with(['vehicle', 'creator'])
             ->when($businessUnitId, function ($q) use ($businessUnitId) {
                 return $q->where('business_unit_id', $businessUnitId);
-            })
-            ->latest()
-            ->paginate(20);
+            });
 
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('vehicle', function ($q2) use ($search) {
+                    $q2->where('plate_number', 'LIKE', $search);
+                })->orWhere('description', 'LIKE', $search);
+            });
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('service_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('service_date', '<=', $request->date_to);
+        }
+
+        $services = $query->latest()->paginate(20);
         $vehicles = Vehicle::when($businessUnitId, function ($q) use ($businessUnitId) {
             return $q->where('business_unit_id', $businessUnitId);
         })->get();
@@ -207,9 +233,6 @@ class AdminOperationalController extends Controller
         return view('drms.admin.vehicle_services', compact('services', 'vehicles'));
     }
 
-    /**
-     * Simpan service kendaraan baru
-     */
     public function storeVehicleService(Request $request)
     {
         $user = Auth::user();
@@ -243,19 +266,13 @@ class AdminOperationalController extends Controller
 
             $service->save();
             DB::commit();
-
-            return redirect()->route('drms.admin.vehicle.services')
-                ->with('success', 'Data service berhasil ditambahkan.');
-
+            return redirect()->route('drms.admin.vehicle.services')->with('success', 'Data service berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal menyimpan: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Hapus service (jika perlu)
-     */
     public function deleteVehicleService($id)
     {
         $service = VehicleService::findOrFail($id);
@@ -265,9 +282,7 @@ class AdminOperationalController extends Controller
             ImageHelper::deleteImage($service->photo_evidence);
         }
         $service->delete();
-
-        return redirect()->route('drms.admin.vehicle.services')
-            ->with('success', 'Data service dihapus.');
+        return redirect()->route('drms.admin.vehicle.services')->with('success', 'Data service dihapus.');
     }
 
     // ============== HELPER METHODS ==============
@@ -279,6 +294,23 @@ class AdminOperationalController extends Controller
         }
         $profile = $user->drmsProfile;
         return $profile->business_unit_id ?? abort(403, 'Anda tidak memiliki unit bisnis.');
+    }
+
+    /**
+     * Terapkan filter business unit pada query request
+     * Mencakup current_business_unit_id atau requester BU
+     */
+    private function applyBusinessUnitFilter($query, $buId)
+    {
+        $query->where(function ($q) use ($buId) {
+            $q->where('current_business_unit_id', $buId)
+              ->orWhere(function ($sub) use ($buId) {
+                  $sub->whereNull('current_business_unit_id')
+                      ->whereHas('requester.drmsProfile', function ($q2) use ($buId) {
+                          $q2->where('business_unit_id', $buId);
+                      });
+              });
+        });
     }
 
     private function authorizeLogAccess($log)
@@ -304,7 +336,7 @@ class AdminOperationalController extends Controller
         }
     }
 
-    // ============== DATA GRAFIK (dengan filter bulan/tahun) ==============
+    // ============== DATA GRAFIK ==============
 
     private function getOperationalStats($buId, $month, $year)
     {
@@ -313,7 +345,7 @@ class AdminOperationalController extends Controller
             ->whereMonth('created_at', $month);
         if ($buId) {
             $fuelQuery->whereHas('request', function ($q) use ($buId) {
-                $q->where('current_business_unit_id', $buId);
+                $this->applyBusinessUnitFilter($q, $buId);
             });
         }
         $totalFuel = $fuelQuery->sum('fuel_cost');
@@ -330,7 +362,7 @@ class AdminOperationalController extends Controller
         $pendingLogs = TripLog::where('is_submitted', 1)->where('is_verified', 0)
             ->when($buId, function ($q) use ($buId) {
                 return $q->whereHas('request', function ($q2) use ($buId) {
-                    $q2->where('current_business_unit_id', $buId);
+                    $this->applyBusinessUnitFilter($q2, $buId);
                 });
             })->count();
 
@@ -359,7 +391,7 @@ class AdminOperationalController extends Controller
                 ->whereMonth('created_at', $monthNum);
             if ($buId) {
                 $fuelQuery->whereHas('request', function ($q) use ($buId) {
-                    $q->where('current_business_unit_id', $buId);
+                    $this->applyBusinessUnitFilter($q, $buId);
                 });
             }
             $fuel = $fuelQuery->sum('fuel_cost');
@@ -392,7 +424,7 @@ class AdminOperationalController extends Controller
 
         if ($buId) {
             $query->whereHas('request', function ($q) use ($buId) {
-                $q->where('current_business_unit_id', $buId);
+                $this->applyBusinessUnitFilter($q, $buId);
             });
         }
 
@@ -418,41 +450,39 @@ class AdminOperationalController extends Controller
         return collect($result)->sortByDesc('avg_efficiency')->take(10)->values();
     }
 
-    private function getTransportDistribution($buId)
+    /**
+     * Distribusi transportasi berdasarkan request yang sudah disetujui admin
+     * Menggunakan usage_date (tanggal perjalanan) sebagai filter periode
+     */
+    private function getTransportDistribution($buId, $month, $year)
     {
-        $query = DriverRequest::where('status', 'completed');
+        $query = DriverRequest::whereIn('status', ['approved_admin', 'completed'])
+            ->whereYear('usage_date', $year)
+            ->whereMonth('usage_date', $month);
+
         if ($buId) {
-            $query->where('current_business_unit_id', $buId);
+            $this->applyBusinessUnitFilter($query, $buId);
         }
+
         return $query->select('transport_type', DB::raw('count(*) as total'))
             ->groupBy('transport_type')
             ->get();
     }
 
-    private function getTopVehicles($buId)
+    private function getRecentLogs($buId, $limit = 5)
     {
-        $query = DriverRequest::where('status', 'completed')
-            ->whereNotNull('vehicle_id');
-        if ($buId) {
-            $query->where('current_business_unit_id', $buId);
-        }
-        return $query->select('vehicle_id', DB::raw('count(*) as total'))
-            ->groupBy('vehicle_id')
-            ->with('vehicle')
-            ->orderBy('total', 'desc')
-            ->limit(5)
-            ->get();
-    }
-
-    private function getRecentLogs($buId)
-    {
-        $query = TripLog::with(['request', 'request.requester', 'request.driver', 'request.vehicle'])
+        $query = TripLog::with(['request.requester', 'request.driver', 'request.vehicle'])
+            ->where(function ($q) {
+                $q->where('is_verified', 1)
+                  ->orWhere('is_submitted', 1);
+            })
             ->latest();
+
         if ($buId) {
             $query->whereHas('request', function ($q) use ($buId) {
-                $q->where('current_business_unit_id', $buId);
+                $this->applyBusinessUnitFilter($q, $buId);
             });
         }
-        return $query->limit(10)->get();
+        return $query->limit($limit)->get();
     }
 }

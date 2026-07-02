@@ -8,6 +8,7 @@ use App\Models\User;
 class TripLog extends Model
 {
     protected $table = 'drms_trip_logs';
+    protected $dates = ['revision_requested_at'];
     
     protected $fillable = [
         'request_id',
@@ -51,6 +52,14 @@ class TripLog extends Model
             return $this->odometer_finish - $this->odometer_start;
         }
         return null;
+    }
+
+    public function isRevisionExpired(): bool
+    {
+        if (!$this->revision_requested_at) {
+            return false;
+        }
+        return \Carbon\Carbon::now()->diffInDays($this->revision_requested_at) >= 7;
     }
 
     /**

@@ -8,6 +8,11 @@
     Deny from all
 </FilesMatch>
 
+<FilesMatch "\.(pdf)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

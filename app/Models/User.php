@@ -250,6 +250,17 @@ class User extends Authenticatable
         return $this->accessMenu && $this->accessMenu->drms_superadmin == 1;
     }
 
+    public function hasDrmsAllBuAccess(): bool
+    {
+        // Superadmin otomatis true
+        if ($this->isDrmsSuperAdmin()) {
+            return true;
+        }
+
+        // Cek dari accessMenu
+        return $this->accessMenu && $this->accessMenu->drms_all_bu_access == 1;
+    }
+
     /**
      * Mendapatkan business unit ID user (dari profile)
      */
@@ -372,6 +383,47 @@ class User extends Authenticatable
         return $this->accessMenu && $this->accessMenu->is_superadmin == 1;
     }
 
+    public function accessDash()
+    {
+        return $this->hasOne(\App\Models\AccessDash::class, 'username_access', 'username');
+    }
+
+    // app/Models/User.php
+    public function hsrmAreas()
+    {
+        return $this->belongsToMany(\App\Models\AreaKerja::class, 'hsrm_user_roles', 'user_id', 'area_id')
+                    ->wherePivot('role', 'pic');
+    }
+
+    public function hsrmRoles()
+    {
+        return $this->hasMany(\App\Models\HSRM\HsrmUserRole::class);
+    }
+
+    public function isHsrmAdmin()
+    {
+        return $this->hsrmRoles()->where('role', 'admin')->exists();
+    }
+
+    public function isHsrmPic()
+    {
+        return $this->hsrmRoles()->where('role', 'pic')->exists();
+    }
+
+    public function getHsrmRoleAttribute()
+    {
+        if ($this->isHsrmAdmin()) return 'admin';
+        if ($this->isHsrmPic()) return 'pic';
+        return null;
+    }
+
+    public function hsrmRoleInArea($areaId)
+    {
+        $role = $this->belongsToMany(AreaKerja::class, 'hsrm_user_roles', 'user_id', 'area_id')
+            ->wherePivot('area_id', $areaId)
+            ->first();
+        return $role ? $role->pivot->role : null;
+    }
     public function isSuperadminTrack()
     {
         return DB::table('tb_access_menu')

@@ -702,6 +702,7 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::get('/create', [WorkReportController::class, 'create'])->name('create');
         Route::post('/', [WorkReportController::class, 'store'])->name('store');
         Route::get('/export', [WorkReportController::class, 'export'])->name('export'); // static route, aman
+        Route::get('/chart', [WorkReportController::class, 'chart'])->name('chart');
         Route::get('/{workReport}/edit', [WorkReportController::class, 'edit'])->name('edit');
         Route::put('/{workReport}', [WorkReportController::class, 'update'])->name('update');
         Route::delete('/{workReport}', [WorkReportController::class, 'destroy'])->name('destroy');
@@ -811,6 +812,29 @@ Route::prefix('messenger')->middleware('auth')->group(function () {
             Route::get('laporan/history', [SuppliesLaporanController::class, 'history'])->name('laporan.history');
             Route::post('laporan/export', [SuppliesLaporanController::class, 'export'])->name('laporan.export');
         });
+    });
+
+    Route::middleware(['auth', 'hsrm.access'])->prefix('hsrm')->name('hsrm.')->group(function () {
+        Route::get('/', [App\Http\Controllers\HSRM\HsrmDashboardController::class, 'index'])->name('dashboard');
+
+        // ⚠️ ROUTE EXPORT HARUS SEBELUM RESOURCE ⚠️
+        Route::get('certificates/export', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'export'])->name('certificates.export');
+        Route::get('equipments/export', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'export'])->name('equipments.export');
+
+        Route::resource('certificates', App\Http\Controllers\HSRM\HsrmCertificateController::class);
+        Route::resource('equipments', App\Http\Controllers\HSRM\HsrmEquipmentController::class);
+
+        Route::post('certificates/{certificate}/approve', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'approve'])->name('certificates.approve');
+        Route::post('certificates/{certificate}/reject', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'reject'])->name('certificates.reject');
+        Route::post('equipments/{equipment}/approve', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'approve'])->name('equipments.approve');
+        Route::post('equipments/{equipment}/reject', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'reject'])->name('equipments.reject');
+
+        Route::resource('certificate-types', App\Http\Controllers\HSRM\HsrmCertificateTypeController::class)->except(['show']);
+        Route::resource('equipment-types', App\Http\Controllers\HSRM\HsrmEquipmentTypeController::class)->except(['show']);
+
+        Route::get('logs', [App\Http\Controllers\HSRM\HsrmLogController::class, 'index'])->name('logs.index');
+        Route::get('download/{type}/{id}/{old_index?}', [App\Http\Controllers\HSRM\HsrmFileController::class, 'download'])->name('file.download');
+        Route::get('approvals', [App\Http\Controllers\HSRM\HsrmApprovalController::class, 'index'])->name('approvals.index');
     });
     /*
     |--------------------------------------------------------------------------

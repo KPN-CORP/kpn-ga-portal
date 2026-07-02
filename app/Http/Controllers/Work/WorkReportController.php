@@ -277,4 +277,63 @@ class WorkReportController extends Controller
             return null;
         }
     }
+
+    public function chart(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+        $categoryId = $request->get('category_id');
+        $location = $request->get('location');
+
+        $startDate = \Carbon\Carbon::parse($month)->startOfMonth();
+        $endDate = \Carbon\Carbon::parse($month)->endOfMonth();
+
+        $query = WorkReport::with(['category', 'creator'])
+            ->whereBetween('report_date', [$startDate, $endDate]);
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+        if ($location) {
+            $query->where('location', 'LIKE', '%' . $location . '%');
+        }
+
+        $reports = $query->get();
+
+        // Statistik per kategori
+        $categoryStats = $reports->groupBy('category_id')->map(function ($items) {
+            return $items->count();
+        });
+
+        // Ambil semua kategori untuk filter dan grafik
+        $categories = WorkReportCategory::orderBy('name')->get();
+        $chartLabels = $categories->pluck('name')->toArray();
+        $chartData = [];
+        foreach ($categories as $cat) {
+            $chartData[] = $categoryStats->get($cat->id, 0);
+        }
+
+        // Statistik harian
+        $dailyStats = $reports->groupBy(function ($item) {
+            return $item->report_date->format('Y-m-d');
+        })->map(function ($items) {
+            return $items->count();
+        })->sortKeys();
+
+        $dailyLabels = $dailyStats->keys()->map(function ($date) {
+            return \Carbon\Carbon::parse($date)->isoFormat('D MMM');
+        })->toArray();
+        $dailyData = $dailyStats->values()->toArray();
+
+        // Data untuk filter bulan
+        $months = collect();
+        for ($i = 0; $i < 12; $i++) {
+            $date = now()->subMonths($i);
+            $months->put($date->format('Y-m'), $date->isoFormat('MMMM Y'));
+        }
+
+        return view('work-reports.chart', compact(
+            'month', 'months', 'categories', 'categoryId', 'location',
+            'chartLabels', 'chartData', 'dailyLabels', 'dailyData'
+        ));
+    }
 }

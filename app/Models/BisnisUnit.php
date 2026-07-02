@@ -20,4 +20,9 @@ class BisnisUnit extends Model
     {
         return $this->hasMany(MesBooking::class, 'id_bisnis_unit', 'id_bisnis_unit');
     }
+
+    public function areas()
+    {
+        return $this->hasMany(AreaKerja::class, 'id_bisnis_unit', 'id_bisnis_unit');
+    }
 }

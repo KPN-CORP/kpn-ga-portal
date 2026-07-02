@@ -38,6 +38,7 @@ class AccessMenu extends Model
         'drms_superadmin',
         'work_user',      // tambah
         'work_admin',     // tambah
+        'drms_all_bu_access',
     ];
     
     protected $casts = [

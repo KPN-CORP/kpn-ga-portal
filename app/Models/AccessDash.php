@@ -21,7 +21,9 @@ class AccessDash extends Model
         'ma_room_dash',
         'receipt_dash',
         'employees_dash',
-        'reports_dash'
+        'reports_dash',
+        'hsr_dash',
+        'hsr_admin_dash',
     ];
 
     protected $casts = [

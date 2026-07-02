@@ -35,7 +35,6 @@
         margin: 0 auto;
     }
     
-    /* Header Styles */
     .dashboard-header {
         background: linear-gradient(90deg, var(--primary-color), #4a6491);
         border-radius: 15px;
@@ -57,7 +56,6 @@
         backdrop-filter: blur(10px);
     }
     
-    /* Menu Grid Styles - Kartu lebih kecil (tanpa deskripsi) */
     .menu-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -152,7 +150,6 @@
         margin-bottom: 0;
     }
     
-    /* Admin Badge */
     .admin-badge {
         position: absolute;
         top: 8px;
@@ -168,7 +165,6 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    /* Section Title */
     .section-title {
         font-size: 1.2rem;
         font-weight: 600;
@@ -193,7 +189,6 @@
         background: var(--admin-color);
     }
     
-    /* No Access Styles */
     .no-access-container {
         grid-column: 1 / -1;
         text-align: center;
@@ -214,7 +209,6 @@
         margin: 0 auto 20px;
     }
     
-    /* Animation */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(15px); }
         to { opacity: 1; transform: translateY(0); }
@@ -224,7 +218,6 @@
         animation: fadeIn 0.4s ease forwards;
     }
     
-    /* Logout Button */
     .logout-btn {
         background: rgba(255,255,255,0.2);
         border: 1px solid rgba(255,255,255,0.3);
@@ -247,40 +240,32 @@
         color: white;
     }
     
-    /* Responsive */
     @media (max-width: 768px) {
         body {
             padding: 10px;
         }
-        
         .menu-grid {
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
             gap: 15px;
         }
-        
         .menu-item {
             padding: 15px 10px;
         }
-        
         .icon-box {
             width: 50px;
             height: 50px;
             margin-bottom: 10px;
         }
-        
         .icon-svg {
             width: 24px;
             height: 24px;
         }
-        
         .menu-title {
             font-size: 0.9rem;
         }
-        
         .dashboard-header {
             padding: 15px;
         }
-        
         .admin-badge {
             font-size: 0.5rem;
             padding: 1px 6px;
@@ -298,7 +283,6 @@
 
 @section('content')
 <div class="dashboard-container">
-    <!-- Header Dashboard -->
     <div class="dashboard-header">
         <div class="row align-items-center">
             <div class="col-md-8">
@@ -339,7 +323,6 @@
     </div>
 
     <?php
-    // Definisi menu utama (tanpa desc) + tambahan menu FEEDBACK
     $menus = [
         'messenger' => [
             'field' => 'messenger_dash',
@@ -439,15 +422,20 @@
             'color' => '#00bcd4',
             'icon' => 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z M15 10l-3 3m0 0l-3-3m3 3V8'
         ],
-        // MENU CLAIM SALES & MARKETING (USER)
         'taskmonitor' => [
-            'field' => 'TaskMonitor_dash',   // atau 'TaskMonitor_dash'
+            'field' => 'TaskMonitor_dash',
             'title' => 'Task',
             'url' => route('task-m.index'),
             'color' => '#8b5cf6',
             'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'
         ],
-        // ========== MENU FEEDBACK (BARU) ==========
+        'hsr' => [
+            'field' => 'hsr_dash',
+            'title' => 'HSR Management',
+            'url' => '/hsrm',
+            'color' => '#00b894',
+            'icon' => 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
+        ],
         'feedback' => [
             'field' => 'feedback_dash',
             'title' => 'Feedback',
@@ -457,7 +445,6 @@
         ],
     ];
     
-    // Menu khusus driver (tidak tergantung tb_access_dash)
     $driverMenu = null;
     if (Auth::user()->driver) {
         $driverMenu = [
@@ -493,7 +480,7 @@
         'car_admin' => [
             'field' => 'car_admin_dash',
             'title' => 'GA E-Vehicle Service',
-            'url' => '/drms/admin/operational-dashboard',
+            'url' => '/drms/approval/admin',
             'color' => '#16a085',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
         ],
@@ -511,7 +498,7 @@
             'color' => '#e67e22',
             'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
         ],
-            'supplies_admin' => [
+        'supplies_admin' => [
             'field' => 'supplies_admin_dash',
             'title' => 'GA E-Supplies',
             'url' => '/supplies/approval',
@@ -532,9 +519,15 @@
             'color' => '#ff6b6b',
             'icon' => 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z'
         ],
+        'hsr_admin' => [
+            'field' => 'hsr_admin_dash',
+            'title' => 'HSR Management',
+            'url' => '/hsrm/admin',
+            'color' => '#00b894',
+            'icon' => 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
+        ],
     ];
     
-    // Hitung total akses (termasuk admin) untuk ditampilkan di badge
     $totalAccess = 0;
     $hasMainAccess = false;
     $hasAdminAccess = false;
@@ -578,7 +571,6 @@
                     @endif
                 @endforeach
 
-                {{-- Menu Driver Dashboard --}}
                 @if($driverMenu)
                     <?php 
                     $animationDelay = $delayCounter . 's';
@@ -669,7 +661,6 @@
         updateDateTime();
         setInterval(updateDateTime, 60000);
         
-        // Efek ripple
         const menuItems = document.querySelectorAll('.menu-item');
         menuItems.forEach(item => {
             item.addEventListener('click', function(e) {
