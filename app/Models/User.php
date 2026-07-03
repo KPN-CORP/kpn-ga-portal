@@ -10,6 +10,7 @@ use App\Models\Messkar\MesRiwayat;
 use App\Models\StockCtl\UserProfil;
 use App\Models\Memos\Memos;
 use Illuminate\Support\Facades\DB;
+use App\Models\HSRM\HsrmUserRole;
 
 class User extends Authenticatable
 {
@@ -424,6 +425,35 @@ class User extends Authenticatable
             ->first();
         return $role ? $role->pivot->role : null;
     }
+
+
+    public function hsrmUserRoles()
+    {
+        return $this->hasMany(HsrmUserRole::class);
+    }
+
+    public function canEditInArea($areaId)
+    {
+        if (session('hsrm_role') === 'admin') {
+            return true;
+        }
+        return $this->hsrmUserRoles()
+            ->where('area_id', $areaId)
+            ->whereIn('role', ['admin', 'pic'])
+            ->exists();
+    }
+
+    public function canApproveInArea($areaId)
+    {
+        if (session('hsrm_role') === 'admin') {
+            return true;
+        }
+        return $this->hsrmUserRoles()
+            ->where('area_id', $areaId)
+            ->where('can_approve', true)
+            ->exists();
+    }
+
     public function isSuperadminTrack()
     {
         return DB::table('tb_access_menu')

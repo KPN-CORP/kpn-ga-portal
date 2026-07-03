@@ -94,6 +94,14 @@
         margin-bottom: 0;
         padding-bottom: 0;
     }
+    .stat-link {
+        display: block;
+        text-decoration: none;
+        transition: opacity 0.15s ease;
+    }
+    .stat-link:hover {
+        opacity: 0.8;
+    }
 </style>
 @endpush
 
@@ -129,7 +137,9 @@
                 <i class="fas fa-file-alt"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold mt-1.5">{{ $certData['total'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.certificates.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+            {{ $certData['total'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -138,7 +148,9 @@
                 <i class="fas fa-check-circle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-green-600 mt-1.5">{{ $certData['active'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.certificates.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+            {{ $certData['active'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -147,7 +159,9 @@
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-yellow-600 mt-1.5">{{ $certData['warning'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.certificates.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+            {{ $certData['warning'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -156,7 +170,9 @@
                 <i class="fas fa-times-circle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-red-600 mt-1.5">{{ $certData['expired'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.certificates.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+            {{ $certData['expired'] ?? 0 }}
+        </a>
     </div>
 </div>
 @endif
@@ -170,7 +186,9 @@
                 <i class="fas fa-fire-extinguisher"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold mt-1.5">{{ $eqData['total'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.equipments.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+            {{ $eqData['total'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -179,7 +197,9 @@
                 <i class="fas fa-check-circle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-green-600 mt-1.5">{{ $eqData['active'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.equipments.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+            {{ $eqData['active'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -188,7 +208,9 @@
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-yellow-600 mt-1.5">{{ $eqData['warning'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.equipments.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+            {{ $eqData['warning'] ?? 0 }}
+        </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
@@ -197,7 +219,9 @@
                 <i class="fas fa-times-circle"></i>
             </div>
         </div>
-        <div class="text-2xl font-bold text-red-600 mt-1.5">{{ $eqData['expired'] ?? 0 }}</div>
+        <a href="{{ route('hsrm.equipments.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+            {{ $eqData['expired'] ?? 0 }}
+        </a>
     </div>
 </div>
 @endif

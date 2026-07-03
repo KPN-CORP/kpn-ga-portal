@@ -12,59 +12,58 @@ class CheckIDCardAccess
 {
     public function handle(Request $request, Closure $next, string $type = 'list'): Response
     {
-        $username = Auth::user()->username;
-        
-        // Super admin selalu memiliki akses
-        if ($username == 'admin') {
-            return $next($request);
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login');
         }
-        
-        // Cek akses berdasarkan tipe
-        $hasAccess = false;
-        
+
+        $username = $user->username;
+
+        // Superadmin
+        $isSuperAdmin = ($username == 'admin') ||
+            DB::table('tb_access_menu')
+                ->where('username', $username)
+                ->where('proses_idcard', 1)
+                ->exists();
+
+        // Admin BU
+        $adminBUIds = DB::table('request_idcard_accesbu')
+            ->where('user_id', $user->id)
+            ->pluck('bisnis_unit_id')
+            ->toArray();
+        $isAdminBU = !empty($adminBUIds);
+
+        $allowed = false;
+
         switch ($type) {
             case 'list':
-                $hasAccess = DB::table('tb_access_menu')
-                    ->where('username', $username)
-                    ->where('list_idcard', 1)
-                    ->exists();
-                break;
-                
             case 'detail':
-                $hasAccess = DB::table('tb_access_menu')
-                    ->where('username', $username)
-                    ->where('detail_idcard', 1)
-                    ->exists();
-                break;
-                
-            case 'proses':
-                $hasAccess = DB::table('tb_access_menu')
-                    ->where('username', $username)
-                    ->where('proses_idcard', 1)
-                    ->exists();
-                break;
-                
             case 'request':
-                // Untuk request, cek apakah punya salah satu akses
-                $hasAccess = DB::table('tb_access_menu')
-                    ->where('username', $username)
-                    ->where(function($query) {
-                        $query->where('list_idcard', 1)
-                              ->orWhere('detail_idcard', 1)
-                              ->orWhere('proses_idcard', 1);
-                    })
-                    ->exists();
+                $allowed = true;
                 break;
-                
+            case 'proses':
+            case 'approve':
+            case 'reject':
+            case 'edit':
+            case 'update':
+                $allowed = $isSuperAdmin || $isAdminBU;
+                break;
+            case 'grafik':
+            case 'report':
+                $allowed = $isSuperAdmin || $isAdminBU;
+                break;
+            case 'nonaktifkan':
+                $allowed = $isSuperAdmin;
+                break;
             default:
-                $hasAccess = false;
+                $allowed = false;
         }
-        
-        if (!$hasAccess) {
-            return redirect()->route('no-access')->with('error', 
-                'Anda tidak memiliki akses untuk halaman ini. Username: ' . $username);
+
+        if (!$allowed) {
+            // Redirect ke halaman no-access dengan pesan
+            return redirect()->route('no-access')->with('error', 'Anda tidak memiliki akses untuk halaman ini.');
         }
-        
+
         return $next($request);
     }
 }

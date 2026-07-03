@@ -6,9 +6,11 @@
 @section('content')
 <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
     <div class="flex gap-2">
+        @if(auth()->user()->canEditInArea(request('area_id') ?? 0) || session('hsrm_role') === 'admin')
         <a href="{{ route('hsrm.equipments.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
             <i class="fas fa-plus mr-1"></i> Add Equipment
         </a>
+        @endif
         <a href="{{ route('hsrm.equipments.export', request()->all()) }}" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition">
             <i class="fas fa-file-excel mr-1"></i> Export Excel
         </a>
@@ -90,9 +92,11 @@
                         <a href="{{ route('hsrm.equipments.show', $eq) }}" class="text-gray-600 hover:text-gray-800" title="Detail">
                             <i class="fas fa-eye"></i>
                         </a>
+                        @if(auth()->user()->canEditInArea($eq->area_id) || session('hsrm_role') === 'admin')
                         <a href="{{ route('hsrm.equipments.edit', $eq) }}" class="text-blue-600 hover:text-blue-800" title="Edit">
                             <i class="fas fa-edit"></i>
                         </a>
+                        @endif
                     </div>
                 </td>
             </tr>
@@ -159,9 +163,11 @@
             <a href="{{ route('hsrm.equipments.show', $eq) }}" class="text-gray-600 hover:text-gray-800 text-sm" title="Detail">
                 <i class="fas fa-eye mr-1"></i> Detail
             </a>
+            @if(auth()->user()->canEditInArea($eq->area_id) || session('hsrm_role') === 'admin')
             <a href="{{ route('hsrm.equipments.edit', $eq) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Edit">
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>
+            @endif
         </div>
     </div>
     @empty

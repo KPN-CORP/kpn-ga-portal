@@ -130,27 +130,47 @@
                         </a>
                     </li>
 
-                    @if(session('hsrm_role') === 'admin')
-                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</li>
+                    {{-- ============================================================ --}}
+                    {{-- MENU APPROVALS – tampil jika admin ATAU punya hak approve di area --}}
+                    {{-- ============================================================ --}}
+                    @php
+                        $user = auth()->user();
+                        $isAdmin = session('hsrm_role') === 'admin';
+                        $canApprove = $isAdmin || $user->hsrmUserRoles()->where('can_approve', true)->exists();
+
+                        // Hitung pending hanya untuk area yang bisa di-approve (jika bukan admin)
+                        $pendingCertQuery = \App\Models\HSRM\HsrmCertificate::where('status_verif', 'pending');
+                        $pendingEqQuery   = \App\Models\HSRM\HsrmEquipment::where('status_verif', 'pending');
+
+                        if (!$isAdmin && $canApprove) {
+                            $areaIds = $user->hsrmUserRoles()->where('can_approve', true)->pluck('area_id')->toArray();
+                            $pendingCertQuery->whereIn('area_id', $areaIds);
+                            $pendingEqQuery->whereIn('area_id', $areaIds);
+                        }
+                        $pendingCount = $pendingCertQuery->count() + $pendingEqQuery->count();
+                    @endphp
+
+                    @if($canApprove)
                     <li>
                         <a href="{{ route('hsrm.approvals.index') }}"
-                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.approvals.*') ? 'active' : '' }}">
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.approvals.*') ? 'active' : '' }}">
                             <i class="fas fa-check-double mr-3 text-gray-500 opacity-70"></i>
                             <span>Approvals</span>
-                            @php
-                                $pendingCount = \App\Models\HSRM\HsrmCertificate::where('status_verif','pending')->count()
-                                                + \App\Models\HSRM\HsrmEquipment::where('status_verif','pending')->count();
-                            @endphp
                             @if($pendingCount > 0)
                                 <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{{ $pendingCount }}</span>
                             @endif
                         </a>
                     </li>
+                    @endif
 
-                    <!-- Management Dropdown -->
+                    {{-- ============================================================ --}}
+                    {{-- MENU MANAGEMENT – hanya untuk admin (system settings) --}}
+                    {{-- ============================================================ --}}
+                    @if($isAdmin)
+                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</li>
                     <li x-data="{ open: false }">
                         <a href="#" @click.prevent="open = !open" 
-                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
                             <i class="fas fa-cogs mr-3 text-gray-500 opacity-70"></i>
                             <span>Management</span>
                             <i class="fas fa-chevron-down ml-auto text-xs" :class="open ? 'rotate-180' : ''"></i>
@@ -158,19 +178,19 @@
                         <ul x-show="open" x-cloak class="ml-4 space-y-1">
                             <li>
                                 <a href="{{ route('hsrm.certificate-types.index') }}"
-                                class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
+                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
                                     <i class="fas fa-tags mr-2 text-gray-400"></i> Certificate Types
                                 </a>
                             </li>
                             <li>
                                 <a href="{{ route('hsrm.equipment-types.index') }}"
-                                class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.equipment-types.*') ? 'active' : '' }}">
+                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.equipment-types.*') ? 'active' : '' }}">
                                     <i class="fas fa-fire-extinguisher mr-2 text-gray-400"></i> Equipment Types
                                 </a>
                             </li>
                             <li>
                                 <a href="{{ route('hsrm.logs.index') }}"
-                                class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.logs.*') ? 'active' : '' }}">
+                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.logs.*') ? 'active' : '' }}">
                                     <i class="fas fa-history mr-2 text-gray-400"></i> Logs
                                 </a>
                             </li>
@@ -221,17 +241,10 @@
                 </div>
 
                 <div class="flex items-center space-x-4">
-                    <!-- Notifications -->
+                    <!-- Notifications (optional) -->
                     <div class="relative">
                         <button id="notif-button" class="relative text-gray-600 hover:text-gray-800 focus:outline-none">
                             <i class="fas fa-bell text-xl opacity-80"></i>
-                            <!-- @php
-                                $pendingTotal = \App\Models\HSRM\HsrmCertificate::where('status_verif','pending')->count()
-                                                + \App\Models\HSRM\HsrmEquipment::where('status_verif','pending')->count();
-                            @endphp
-                            @if($pendingTotal > 0)
-                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{{ $pendingTotal }}</span>
-                            @endif -->
                         </button>
                     </div>
 

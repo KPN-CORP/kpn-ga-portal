@@ -14,6 +14,7 @@ class HsrmUserRole extends Model
         'user_id',
         'area_id',
         'role',
+        'can_approve',
         'created_at',
     ];
 

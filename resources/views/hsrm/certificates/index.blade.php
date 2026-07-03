@@ -6,9 +6,11 @@
 @section('content')
 <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
     <div class="flex gap-2">
+        @if(auth()->user()->canEditInArea(request('area_id') ?? 0) || session('hsrm_role') === 'admin')
         <a href="{{ route('hsrm.certificates.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
             <i class="fas fa-plus mr-1"></i> Add Certificate
         </a>
+        @endif
         <a href="{{ route('hsrm.certificates.export', request()->all()) }}" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
             <i class="fas fa-file-excel mr-1"></i> Export Excel
         </a>
@@ -85,9 +87,11 @@
                     <a href="{{ route('hsrm.certificates.show', $cert) }}" class="text-gray-600 hover:text-gray-800" title="Detail">
                         <i class="fas fa-eye"></i>
                     </a>
+                    @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
                     <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-edit"></i>
                     </a>
+                    @endif
                 </td>
             </tr>
             @empty
@@ -153,9 +157,11 @@
             <a href="{{ route('hsrm.certificates.show', $cert) }}" class="text-gray-600 hover:text-gray-800 text-sm" title="Detail">
                 <i class="fas fa-eye mr-1"></i> Detail
             </a>
+            @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
             <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Edit">
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>
+            @endif
         </div>
     </div>
     @empty

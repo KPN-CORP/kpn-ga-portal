@@ -17,7 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class HsrmEquipmentController extends Controller
 {
-    public function index()
+    public function index(Request $request, $filter = null)
     {
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
@@ -28,6 +28,32 @@ class HsrmEquipmentController extends Controller
             $query->whereIn('area_id', $areaIds);
         }
 
+        // ===== FILTER FROM DASHBOARD CLICK =====
+        if ($filter) {
+            switch ($filter) {
+                case 'active':
+                    $query->where('expired_date', '>', now()->addDays(30))
+                          ->where('status_verif', 'verified');
+                    break;
+                case 'warning':
+                    $query->where('expired_date', '<=', now()->addDays(30))
+                          ->where('expired_date', '>', now());
+                    break;
+                case 'expired':
+                    $query->where('expired_date', '<=', now());
+                    break;
+                case 'pending':
+                    $query->where('status_verif', 'pending');
+                    break;
+                case 'total':
+                    // no filter
+                    break;
+                default:
+                    abort(404);
+            }
+        }
+
+        // ===== SEARCH & FILTER =====
         if (request('search')) {
             $search = request('search');
             $query->where(function ($q) use ($search) {
@@ -41,8 +67,6 @@ class HsrmEquipmentController extends Controller
         if (request('area_id')) {
             $query->where('area_id', request('area_id'));
         }
-
-        // ================== FILTER TANGGAL EXPIRED ==================
         if (request('expired_from')) {
             $query->whereDate('expired_date', '>=', request('expired_from'));
         }
@@ -105,7 +129,7 @@ class HsrmEquipmentController extends Controller
             if ($path) {
                 $data['photo_path'] = $path;
             } else {
-                return back()->withErrors(['photo' => 'Failed to upload photo. Please try again.'])->withInput();
+                return back()->withErrors(['photo' => 'Failed to upload photo.'])->withInput();
             }
         }
 
@@ -171,7 +195,6 @@ class HsrmEquipmentController extends Controller
 
         if ($request->hasFile('photo')) {
             $oldPath = $equipment->photo_path;
-
             if ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 $oldAttachments = $equipment->old_attachments ?? [];
                 $oldAttachments = HsrmFileHelper::archiveOldAttachment($oldPath, 'equipments', $oldAttachments);
@@ -182,7 +205,7 @@ class HsrmEquipmentController extends Controller
             if ($newPath) {
                 $data['photo_path'] = $newPath;
             } else {
-                return back()->withErrors(['photo' => 'Failed to upload new photo. Please try again.'])->withInput();
+                return back()->withErrors(['photo' => 'Failed to upload new photo.'])->withInput();
             }
         }
 
@@ -226,9 +249,7 @@ class HsrmEquipmentController extends Controller
     public function approve($id)
     {
         $equipment = HsrmEquipment::findOrFail($id);
-        if (session('hsrm_role') !== 'admin') {
-            abort(403, 'Only admin can approve.');
-        }
+        $this->authorizeApprove($equipment);
 
         $equipment->update([
             'status_verif' => HsrmEquipment::STATUS_VERIFIED,
@@ -250,9 +271,7 @@ class HsrmEquipmentController extends Controller
     public function reject($id)
     {
         $equipment = HsrmEquipment::findOrFail($id);
-        if (session('hsrm_role') !== 'admin') {
-            abort(403, 'Only admin can reject.');
-        }
+        $this->authorizeApprove($equipment);
 
         $equipment->update([
             'status_verif' => HsrmEquipment::STATUS_REJECTED,
@@ -300,6 +319,7 @@ class HsrmEquipmentController extends Controller
         );
     }
 
+    // ===== AUTHORIZATION METHODS =====
     private function authorizeView($equipment)
     {
         $user = auth()->user();
@@ -318,9 +338,16 @@ class HsrmEquipmentController extends Controller
         if (session('hsrm_role') === 'admin') {
             return;
         }
-        $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
-        if (!in_array($equipment->area_id, $areaIds)) {
+        if (!$user->canEditInArea($equipment->area_id)) {
             abort(403, 'You are not authorized to edit this equipment.');
+        }
+    }
+
+    private function authorizeApprove($equipment)
+    {
+        $user = auth()->user();
+        if (!$user->canApproveInArea($equipment->area_id)) {
+            abort(403, 'You are not authorized to approve this equipment.');
         }
     }
 }

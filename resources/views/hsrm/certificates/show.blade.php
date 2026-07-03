@@ -17,7 +17,7 @@
 
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="text-sm text-gray-500">NIK</label>
+            <label class="text-sm text-gray-500">Certificate Number</label>
             <p class="font-medium">{{ $cert->nik }}</p>
         </div>
         <div>
@@ -135,7 +135,7 @@
         <a href="{{ route('hsrm.certificates.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium">
             <i class="fas fa-arrow-left mr-1"></i> Back
         </a>
-        @if(session('hsrm_role') === 'admin' || auth()->user()->hsrmAreas->contains($cert->area_id))
+        @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
             <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>

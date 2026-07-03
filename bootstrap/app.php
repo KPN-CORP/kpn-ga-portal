@@ -59,6 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'is_driver' => \App\Http\Middleware\IsDriver::class,
             'supplies.access' => \App\Http\Middleware\CheckSuppliesAccess::class,
             'hsrm.access' => \App\Http\Middleware\HsrmAccessMiddleware::class,
+            'check.idcard.access' => \App\Http\Middleware\CheckIDCardAccess::class,
         ]);
 
         // Middleware groups

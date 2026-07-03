@@ -17,7 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class HsrmCertificateController extends Controller
 {
-    public function index()
+    public function index(Request $request, $filter = null)
     {
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
@@ -28,6 +28,32 @@ class HsrmCertificateController extends Controller
             $query->whereIn('area_id', $areaIds);
         }
 
+        // ===== FILTER FROM DASHBOARD CLICK =====
+        if ($filter) {
+            switch ($filter) {
+                case 'active':
+                    $query->where('expired_date', '>', now()->addDays(30))
+                          ->where('status_verif', 'verified');
+                    break;
+                case 'warning':
+                    $query->where('expired_date', '<=', now()->addDays(30))
+                          ->where('expired_date', '>', now());
+                    break;
+                case 'expired':
+                    $query->where('expired_date', '<=', now());
+                    break;
+                case 'pending':
+                    $query->where('status_verif', 'pending');
+                    break;
+                case 'total':
+                    // no filter
+                    break;
+                default:
+                    abort(404);
+            }
+        }
+
+        // ===== SEARCH & FILTER =====
         if (request('search')) {
             $search = request('search');
             $query->where(function ($q) use ($search) {
@@ -41,8 +67,6 @@ class HsrmCertificateController extends Controller
         if (request('area_id')) {
             $query->where('area_id', request('area_id'));
         }
-
-        // ================== FILTER TANGGAL EXPIRED ==================
         if (request('expired_from')) {
             $query->whereDate('expired_date', '>=', request('expired_from'));
         }
@@ -225,9 +249,7 @@ class HsrmCertificateController extends Controller
     public function approve($id)
     {
         $cert = HsrmCertificate::findOrFail($id);
-        if (session('hsrm_role') !== 'admin') {
-            abort(403, 'Only admin can approve.');
-        }
+        $this->authorizeApprove($cert);
 
         $cert->update([
             'status_verif' => HsrmCertificate::STATUS_VERIFIED,
@@ -249,9 +271,7 @@ class HsrmCertificateController extends Controller
     public function reject($id)
     {
         $cert = HsrmCertificate::findOrFail($id);
-        if (session('hsrm_role') !== 'admin') {
-            abort(403, 'Only admin can reject.');
-        }
+        $this->authorizeApprove($cert);
 
         $cert->update([
             'status_verif' => HsrmCertificate::STATUS_REJECTED,
@@ -305,6 +325,7 @@ class HsrmCertificateController extends Controller
         );
     }
 
+    // ===== AUTHORIZATION METHODS =====
     private function authorizeView($cert)
     {
         $user = auth()->user();
@@ -323,9 +344,16 @@ class HsrmCertificateController extends Controller
         if (session('hsrm_role') === 'admin') {
             return;
         }
-        $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
-        if (!in_array($cert->area_id, $areaIds)) {
+        if (!$user->canEditInArea($cert->area_id)) {
             abort(403, 'You are not authorized to edit this certificate.');
+        }
+    }
+
+    private function authorizeApprove($cert)
+    {
+        $user = auth()->user();
+        if (!$user->canApproveInArea($cert->area_id)) {
+            abort(403, 'You are not authorized to approve this certificate.');
         }
     }
 }

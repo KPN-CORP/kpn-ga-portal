@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\IDCard;
 
+use App\Models\User;
+use App\Models\BisnisUnit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,7 +31,9 @@ class RequestIdCard extends Model
         'approved_at',
         'rejection_reason',
         'rejected_by',
-        'rejected_at'
+        'rejected_at',
+        'email_sent',
+        'is_active'  // <-- tambahkan ini
     ];
 
     protected $casts = [
@@ -39,7 +43,8 @@ class RequestIdCard extends Model
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
+        'is_active' => 'boolean',
     ];
 
     public $timestamps = true;
@@ -76,7 +81,15 @@ class RequestIdCard extends Model
 
     public function getKategoriTextAttribute()
     {
-        return str_replace('_', ' ', ucfirst($this->kategori));
+        $labels = [
+            'karyawan_baru'    => 'Karyawan Baru',
+            'karyawan_mutasi'  => 'Karyawan Mutasi',
+            'ganti_kartu'      => 'Ganti Kartu',
+            'magang'           => 'Magang',
+            'magang_extend'    => 'Magang Extend',
+            'perubahan_lantai' => 'Perubahan Lantai',
+        ];
+        return $labels[$this->kategori] ?? $this->kategori;
     }
 
     public function getCanProcessAttribute()

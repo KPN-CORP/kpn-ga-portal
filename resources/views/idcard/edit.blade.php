@@ -1,32 +1,28 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app-sidebar-card')
 @section('content')
 <div class="bg-white shadow rounded-lg p-6">
     <h2 class="text-2xl font-semibold mb-4 text-left">Edit Request ID Card</h2>
 
     @if ($errors->any())
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <ul class="list-disc pl-5">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+            <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
 
-    <form action="{{ route('idcard.update', $data->id) }}" method="POST" enctype="multipart/form-data" id="editForm">
-        @csrf
-        @method('PUT')
+    <form action="{{ route('idcard.update', $data->id) }}" method="POST" enctype="multipart/form-data">
+        @csrf @method('PUT')
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
                 <label class="block text-sm font-medium mb-1">Kategori *</label>
                 <select name="kategori" id="kategori" class="w-full border p-2 rounded" required>
                     <option value="">Pilih Kategori</option>
-                    <option value="karyawan_baru" {{ $data->kategori == 'karyawan_baru' ? 'selected' : '' }}>Karyawan Baru</option>
-                    <option value="karyawan_mutasi" {{ $data->kategori == 'karyawan_mutasi' ? 'selected' : '' }}>Karyawan Mutasi</option>
-                    <option value="ganti_kartu" {{ $data->kategori == 'ganti_kartu' ? 'selected' : '' }}>Ganti Kartu</option>
-                    <option value="magang" {{ $data->kategori == 'magang' ? 'selected' : '' }}>Magang</option>
-                    <option value="magang_extend" {{ $data->kategori == 'magang_extend' ? 'selected' : '' }}>Magang Extend</option>
+                    <option value="karyawan_baru" {{ $data->kategori=='karyawan_baru'?'selected':'' }}>Karyawan Baru</option>
+                    <option value="karyawan_mutasi" {{ $data->kategori=='karyawan_mutasi'?'selected':'' }}>Karyawan Mutasi</option>
+                    <option value="ganti_kartu" {{ $data->kategori=='ganti_kartu'?'selected':'' }}>Ganti Kartu</option>
+                    <option value="magang" {{ $data->kategori=='magang'?'selected':'' }}>Magang</option>
+                    <option value="magang_extend" {{ $data->kategori=='magang_extend'?'selected':'' }}>Magang Extend</option>
+                    <option value="perubahan_lantai" {{ $data->kategori=='perubahan_lantai'?'selected':'' }}>Perubahan Lantai</option>
                 </select>
             </div>
             <div>
@@ -42,9 +38,7 @@
                 <select name="bisnis_unit_id" class="w-full border p-2 rounded" required>
                     <option value="">Pilih</option>
                     @foreach($bisnisUnits as $unit)
-                        <option value="{{ $unit->id_bisnis_unit }}" {{ $data->bisnis_unit_id == $unit->id_bisnis_unit ? 'selected' : '' }}>
-                            {{ $unit->nama_bisnis_unit }}
-                        </option>
+                        <option value="{{ $unit->id_bisnis_unit }}" {{ $data->bisnis_unit_id == $unit->id_bisnis_unit ? 'selected' : '' }}>{{ $unit->nama_bisnis_unit }}</option>
                     @endforeach
                 </select>
             </div>
@@ -53,7 +47,7 @@
         <div id="dynamicFields" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"></div>
 
         <div class="mb-4">
-            <label class="block text-sm font-medium mb-1">Lantai Kerja *</label>
+            <label class="block text-sm font-medium mb-1">Lantai Kerja / Keterangan *</label>
             <input type="text" name="keterangan" value="{{ old('keterangan', $data->keterangan) }}" class="w-full border p-2 rounded" required>
         </div>
 
@@ -73,7 +67,7 @@
         const val = kategoriSelect.value;
         let html = '';
 
-        if (['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'].includes(val)) {
+        if (['karyawan_baru','karyawan_mutasi','ganti_kartu'].includes(val)) {
             html += `
                 <div>
                     <label class="block text-sm font-medium mb-1">Tanggal Join *</label>
@@ -87,8 +81,8 @@
                     @endif
                 </div>
             `;
-        } 
-        
+        }
+
         if (val === 'ganti_kartu') {
             html += `
                 <div>

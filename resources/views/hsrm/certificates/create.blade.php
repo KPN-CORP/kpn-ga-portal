@@ -55,7 +55,7 @@
 
             {{-- Employee Name --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name / Company <span class="text-red-500">*</span></label>
                 <input type="text" name="employee_name" value="{{ old('employee_name') }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
                 @error('employee_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -96,13 +96,30 @@
             </div>
 
             {{-- Ownership Status --}}
-            <div class="flex items-center">
-                <input type="hidden" name="status_kepemilikan" value="0">
-                <input type="checkbox" name="status_kepemilikan" value="1" 
-                    {{ old('status_kepemilikan') ? 'checked' : '' }} 
-                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                <label class="ml-2 text-sm font-medium text-gray-700">Checked (tick) / Unchecked (cross)</label>
-                @error('status_kepemilikan') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            <div>
+                <!-- Judul -->
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Ownership
+                </label>
+
+                <!-- Checkbox -->
+                <div class="flex items-center">
+                    <input type="hidden" name="status_kepemilikan" value="0">
+
+                    <input type="checkbox"
+                        name="status_kepemilikan"
+                        value="1"
+                        {{ old('status_kepemilikan') ? 'checked' : '' }}
+                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+
+                    <label class="ml-2 text-sm text-gray-700">
+                        Checked (tick) / Unchecked (cross)
+                    </label>
+                </div>
+
+                @error('status_kepemilikan')
+                    <span class="text-red-500 text-sm">{{ $message }}</span>
+                @enderror
             </div>
 
             {{-- Recommendation --}}
