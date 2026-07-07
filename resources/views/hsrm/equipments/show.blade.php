@@ -25,6 +25,10 @@
             <p class="font-medium">{{ $equipment->capacity }}</p>
         </div>
         <div>
+            <label class="text-sm text-gray-500">Total Items</label>
+            <p class="font-medium">{{ $equipment->total_items ?? 1 }}</p>
+        </div>
+        <div>
             <label class="text-sm text-gray-500">Location</label>
             <p class="font-medium">{{ $equipment->location ?? '-' }}</p>
         </div>
@@ -94,7 +98,7 @@
             @endif
         </div>
 
-        {{-- OLD ATTACHMENTS (Archived) --}}
+        {{-- OLD ATTACHMENTS --}}
         @if($equipment->old_attachments && count($equipment->old_attachments) > 0)
         <div class="col-span-2 mt-4">
             <label class="text-sm text-gray-500">Previous Versions (Archived)</label>

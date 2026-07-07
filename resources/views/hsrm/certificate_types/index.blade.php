@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-4">
-    <a href="{{ route('hsrm.equipment-types.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
+    <a href="{{ route('hsrm.certificate-types.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
         <i class="fas fa-plus mr-1"></i> Add Type
     </a>
 </div>
@@ -13,7 +13,7 @@
     <table class="w-full text-sm">
         <thead>
             <tr class="bg-gray-50 text-left">
-                <th class="p-3">#</th>
+                <th class="p-3">No</th>
                 <th class="p-3">Name</th>
                 <th class="p-3">Description</th>
                 <th class="p-3">Actions</th>
@@ -26,8 +26,8 @@
                 <td class="p-3">{{ $type->name }}</td>
                 <td class="p-3">{{ $type->description ?? '-' }}</td>
                 <td class="p-3 flex space-x-2">
-                    <a href="{{ route('hsrm.equipment-types.edit', $type) }}" class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></a>
-                    <form action="{{ route('hsrm.equipment-types.destroy', $type) }}" method="POST" onsubmit="return confirm('Delete this type?')" class="inline">
+                    <a href="{{ route('hsrm.certificate-types.edit', $type) }}" class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></a>
+                    <form action="{{ route('hsrm.certificate-types.destroy', $type) }}" method="POST" onsubmit="return confirm('Delete this type?')" class="inline">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
                     </form>

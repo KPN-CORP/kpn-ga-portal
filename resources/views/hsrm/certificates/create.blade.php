@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-sm border">
-    <form action="{{ route('hsrm.certificates.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('hsrm.certificates.store') }}" method="POST" enctype="multipart/form-data" id="certificate-form">
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -23,18 +23,30 @@
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Area --}}
+            {{-- Area dengan datalist + validasi ketat --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Area <span class="text-red-500">*</span></label>
-                <select name="area_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
-                    <option value="">Select Area</option>
+                <input type="text"
+                       id="area_name"
+                       name="area_name"
+                       list="area-list"
+                       value="{{ old('area_name') ?: ($areas->where('id_area_kerja', old('area_id'))->first()->nama_area ?? '') }}"
+                       class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 @error('area_id') border-red-500 @enderror"
+                       placeholder="Ketik nama area..."
+                       autocomplete="off"
+                       required>
+
+                <input type="hidden" name="area_id" id="area_id" value="{{ old('area_id') }}">
+
+                <datalist id="area-list">
                     @foreach($areas as $area)
-                        <option value="{{ $area->id_area_kerja }}" {{ old('area_id') == $area->id_area_kerja ? 'selected' : '' }}>
-                            {{ $area->nama_area }}
-                        </option>
+                        <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}">
                     @endforeach
-                </select>
+                </datalist>
+
+                <div id="area-error" class="text-red-500 text-sm mt-1 hidden">Area tidak valid. Pilih dari daftar yang tersedia.</div>
                 @error('area_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                @error('area_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             {{-- PIC (Admin only) --}}
@@ -97,29 +109,17 @@
 
             {{-- Ownership Status --}}
             <div>
-                <!-- Judul -->
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Ownership
-                </label>
-
-                <!-- Checkbox -->
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ownership</label>
                 <div class="flex items-center">
                     <input type="hidden" name="status_kepemilikan" value="0">
-
                     <input type="checkbox"
                         name="status_kepemilikan"
                         value="1"
                         {{ old('status_kepemilikan') ? 'checked' : '' }}
                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-
-                    <label class="ml-2 text-sm text-gray-700">
-                        Checked (tick) / Unchecked (cross)
-                    </label>
+                    <label class="ml-2 text-sm text-gray-700">Checked (tick) / Unchecked (cross)</label>
                 </div>
-
-                @error('status_kepemilikan')
-                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                @enderror
+                @error('status_kepemilikan') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             {{-- Recommendation --}}
@@ -154,4 +154,64 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const areaInput = document.getElementById('area_name');
+        const areaIdHidden = document.getElementById('area_id');
+        const datalist = document.getElementById('area-list');
+        const errorDiv = document.getElementById('area-error');
+        const form = document.getElementById('certificate-form');
+
+        // Fungsi untuk memeriksa validitas area
+        function validateArea() {
+            const typedValue = areaInput.value.trim();
+            const options = datalist.options;
+            let found = false;
+            let foundId = null;
+            for (let opt of options) {
+                if (opt.value === typedValue) {
+                    found = true;
+                    foundId = opt.dataset.id;
+                    break;
+                }
+            }
+            if (found && foundId) {
+                areaIdHidden.value = foundId;
+                areaInput.classList.remove('border-red-500');
+                errorDiv.classList.add('hidden');
+                return true;
+            } else {
+                // Jika input kosong, kita anggap valid (karena tidak wajib diisi? tapi di sini required)
+                if (typedValue === '') {
+                    areaIdHidden.value = '';
+                    areaInput.classList.remove('border-red-500');
+                    errorDiv.classList.add('hidden');
+                    return true; // kosong dianggap valid (akan dicek required)
+                }
+                // Jika tidak kosong dan tidak ditemukan, invalid
+                areaIdHidden.value = '';
+                areaInput.classList.add('border-red-500');
+                errorDiv.classList.remove('hidden');
+                return false;
+            }
+        }
+
+        // Validasi setiap kali input berubah
+        areaInput.addEventListener('input', validateArea);
+
+        // Saat form disubmit, validasi ulang dan cegah jika tidak valid
+        form.addEventListener('submit', function(e) {
+            if (!validateArea()) {
+                e.preventDefault();
+                areaInput.focus();
+                alert('Silakan pilih area dari daftar yang tersedia.');
+            }
+        });
+
+        // Jika pengguna memilih dari datalist dengan mouse, event input sudah cukup.
+        // Tapi untuk keamanan, kita panggil validateArea juga saat blur
+        areaInput.addEventListener('blur', validateArea);
+    });
+</script>
 @endsection

@@ -181,46 +181,46 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="stat-card">
         <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Total Equipments</div>
+            <div class="text-sm text-gray-500">Total Items</div>
             <div class="stat-icon bg-purple-50 text-purple-500">
                 <i class="fas fa-fire-extinguisher"></i>
             </div>
         </div>
         <a href="{{ route('hsrm.equipments.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
-            {{ $eqData['total'] ?? 0 }}
+            {{ $eqData['total_items_all'] ?? 0 }}
         </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Active</div>
+            <div class="text-sm text-gray-500">Active Items</div>
             <div class="stat-icon bg-green-50 text-green-500">
                 <i class="fas fa-check-circle"></i>
             </div>
         </div>
         <a href="{{ route('hsrm.equipments.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
-            {{ $eqData['active'] ?? 0 }}
+            {{ $eqData['total_items_active'] ?? 0 }}
         </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Warning</div>
+            <div class="text-sm text-gray-500">Warning Items</div>
             <div class="stat-icon bg-yellow-50 text-yellow-500">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
         </div>
         <a href="{{ route('hsrm.equipments.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
-            {{ $eqData['warning'] ?? 0 }}
+            {{ $eqData['total_items_warning'] ?? 0 }}
         </a>
     </div>
     <div class="stat-card">
         <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Expired</div>
+            <div class="text-sm text-gray-500">Expired Items</div>
             <div class="stat-icon bg-red-50 text-red-500">
                 <i class="fas fa-times-circle"></i>
             </div>
         </div>
         <a href="{{ route('hsrm.equipments.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
-            {{ $eqData['expired'] ?? 0 }}
+            {{ $eqData['total_items_expired'] ?? 0 }}
         </a>
     </div>
 </div>
@@ -267,13 +267,13 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div class="chart-card">
-            <div class="chart-title">Status</div>
+            <div class="chart-title">Status (Total Items)</div>
             <div class="chart-container" style="height:300px;">
                 <canvas id="eqStatusChart"></canvas>
             </div>
         </div>
         <div class="chart-card">
-            <div class="chart-title">Recommendation</div>
+            <div class="chart-title">Recommendation (Total Items)</div>
             <div class="chart-container" style="height:300px;">
                 <canvas id="eqRecommendChart"></canvas>
             </div>
@@ -534,14 +534,18 @@
             });
         @endif
 
-        // ---- Equipments Charts ----
+        // ---- Equipments Charts (menggunakan Total Items) ----
         @if($view == 'equipments' || $view == 'all')
             new Chart(document.getElementById('eqStatusChart'), {
                 ...pieOptions,
                 data: {
                     labels: ['Active', 'Warning', 'Expired'],
                     datasets: [{
-                        data: [{{ $eqData['active'] ?? 0 }}, {{ $eqData['warning'] ?? 0 }}, {{ $eqData['expired'] ?? 0 }}],
+                        data: [
+                            {{ $eqData['total_items_active'] ?? 0 }},
+                            {{ $eqData['total_items_warning'] ?? 0 }},
+                            {{ $eqData['total_items_expired'] ?? 0 }}
+                        ],
                         backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
                         borderWidth: 0,
                         hoverOffset: 6
@@ -554,7 +558,11 @@
                 data: {
                     labels: ['Recommended', 'Not Recommended', 'No Recommendation'],
                     datasets: [{
-                        data: [{{ $eqData['recommended'] ?? 0 }}, {{ $eqData['not_recommended'] ?? 0 }}, {{ $eqData['no_recommendation'] ?? 0 }}],
+                        data: [
+                            {{ $eqData['total_items_recommended'] ?? 0 }},
+                            {{ $eqData['total_items_not_recommended'] ?? 0 }},
+                            {{ $eqData['total_items_no_recommendation'] ?? 0 }}
+                        ],
                         backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'],
                         borderWidth: 0,
                         hoverOffset: 6

@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-sm border">
-    <form action="{{ route('hsrm.equipment-types.store') }}" method="POST">
+    <form action="{{ route('hsrm.certificate-types.store') }}" method="POST">
         @csrf
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
@@ -19,7 +19,7 @@
         </div>
         <div class="flex gap-3">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">Save</button>
-            <a href="{{ route('hsrm.equipment-types.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium">Cancel</a>
+            <a href="{{ route('hsrm.certificate-types.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium">Cancel</a>
         </div>
     </form>
 </div>

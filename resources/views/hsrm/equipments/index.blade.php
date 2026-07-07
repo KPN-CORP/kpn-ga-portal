@@ -18,14 +18,12 @@
 
     <form method="GET" action="{{ route('hsrm.equipments.index') }}" class="flex flex-wrap gap-2 items-center w-full md:w-auto">
         <input type="text" name="search" placeholder="Search..." value="{{ request('search') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 flex-1 min-w-[120px]">
-
         <select name="status_verif" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             <option value="">All Status</option>
             <option value="pending" {{ request('status_verif') == 'pending' ? 'selected' : '' }}>Pending</option>
             <option value="verified" {{ request('status_verif') == 'verified' ? 'selected' : '' }}>Verified</option>
             <option value="rejected" {{ request('status_verif') == 'rejected' ? 'selected' : '' }}>Rejected</option>
         </select>
-
         <select name="area_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             <option value="">All Areas</option>
             @foreach($areas as $area)
@@ -34,18 +32,14 @@
                 </option>
             @endforeach
         </select>
-
         <input type="date" name="expired_from" value="{{ request('expired_from') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired From">
         <input type="date" name="expired_to" value="{{ request('expired_to') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired To">
-
         <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Filter</button>
         <a href="{{ route('hsrm.equipments.index') }}" class="text-gray-500 hover:text-gray-700 text-sm">Clear</a>
     </form>
 </div>
 
-{{-- ============================================================ --}}
 {{-- TABEL VIEW (Desktop & Tablet) --}}
-{{-- ============================================================ --}}
 <div class="hidden md:block bg-white rounded-xl soft-shadow border soft-border overflow-x-auto">
     <table class="w-full text-sm">
         <thead>
@@ -54,6 +48,7 @@
                 <th class="p-3 font-semibold text-gray-600">Name</th>
                 <th class="p-3 font-semibold text-gray-600">Type</th>
                 <th class="p-3 font-semibold text-gray-600">Capacity</th>
+                <th class="p-3 font-semibold text-gray-600">Total Items</th>
                 <th class="p-3 font-semibold text-gray-600">Expired</th>
                 <th class="p-3 font-semibold text-gray-600">Verification</th>
                 <th class="p-3 font-semibold text-gray-600">Ownership</th>
@@ -68,6 +63,7 @@
                 <td class="p-3 font-medium">{{ $eq->name }}</td>
                 <td class="p-3">{{ $eq->equipmentType->name ?? '-' }}</td>
                 <td class="p-3">{{ $eq->capacity }}</td>
+                <td class="p-3">{{ $eq->total_items ?? 1 }}</td>
                 <td class="p-3">{{ $eq->expired_date->format('d M Y') }}</td>
                 <td class="p-3">
                     <span class="status-badge 
@@ -102,16 +98,14 @@
             </tr>
             @empty
             <tr>
-                <td colspan="9" class="p-6 text-center text-gray-500">No equipments found.</td>
+                <td colspan="10" class="p-6 text-center text-gray-500">No equipments found.</td>
             </tr>
             @endforelse
         </tbody>
     </table>
 </div>
 
-{{-- ============================================================ --}}
 {{-- CARD VIEW (HP / Mobile) --}}
-{{-- ============================================================ --}}
 <div class="md:hidden space-y-4">
     @forelse($equipments as $eq)
     <div class="bg-white rounded-xl soft-shadow border soft-border p-4">
@@ -136,6 +130,10 @@
             <div>
                 <span class="text-gray-500">Capacity:</span>
                 <span class="font-medium">{{ $eq->capacity }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Total Items:</span>
+                <span class="font-medium">{{ $eq->total_items ?? 1 }}</span>
             </div>
             <div>
                 <span class="text-gray-500">Expired:</span>

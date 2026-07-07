@@ -44,7 +44,7 @@
     <table class="w-full text-sm">
         <thead>
             <tr class="bg-gray-50 text-left">
-                <th class="p-3">Employee</th>
+                <th class="p-3">Emp/Company</th>
                 <th class="p-3">Certificate Number</th>
                 <th class="p-3">Issuing Authority</th>
                 <th class="p-3">Type</th>

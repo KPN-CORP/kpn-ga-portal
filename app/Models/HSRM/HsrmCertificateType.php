@@ -12,6 +12,6 @@ class HsrmCertificateType extends Model
 
     public function certificates()
     {
-        return $this->hasMany(HsrmCertificate::class);
+        return $this->hasMany(HsrmCertificate::class, 'certificate_type_id');
     }
 }

@@ -18,6 +18,9 @@ class HsrmDashboardController extends Controller
 
         $areaIds = $isAdmin ? null : $user->hsrmAreas->pluck('id_area_kerja')->toArray();
 
+        // =============================================
+        // CERTIFICATES DATA
+        // =============================================
         $certData = null;
         if ($view === 'all' || $view === 'certificates') {
             $certQuery = HsrmCertificate::query();
@@ -48,6 +51,9 @@ class HsrmDashboardController extends Controller
             }
         }
 
+        // =============================================
+        // EQUIPMENTS DATA (dengan Total Items)
+        // =============================================
         $eqData = null;
         if ($view === 'all' || $view === 'equipments') {
             $eqQuery = HsrmEquipment::query();
@@ -56,7 +62,41 @@ class HsrmDashboardController extends Controller
             }
             $eqs = $eqQuery->get();
 
+            // Inisialisasi total items
+            $totalItemsAll = 0;
+            $totalItemsActive = 0;
+            $totalItemsWarning = 0;
+            $totalItemsExpired = 0;
+            $totalItemsRecommended = 0;
+            $totalItemsNotRecommended = 0;
+            $totalItemsNoRecommendation = 0;
+
+            foreach ($eqs as $eq) {
+                $items = $eq->total_items ?? 1; // default 1 jika null
+
+                $totalItemsAll += $items;
+
+                // Status berdasarkan expired_date
+                if ($eq->expired_date > now()->addDays(30)) {
+                    $totalItemsActive += $items;
+                } elseif ($eq->expired_date <= now()->addDays(30) && $eq->expired_date > now()) {
+                    $totalItemsWarning += $items;
+                } else {
+                    $totalItemsExpired += $items;
+                }
+
+                // Rekomendasi
+                if ($eq->rekomendasi === true) {
+                    $totalItemsRecommended += $items;
+                } elseif ($eq->rekomendasi === false) {
+                    $totalItemsNotRecommended += $items;
+                } else {
+                    $totalItemsNoRecommendation += $items;
+                }
+            }
+
             $eqData = [
+                // Count (untuk keperluan filter & stat dasar)
                 'total' => $eqs->count(),
                 'active' => $eqs->filter(fn($e) => $e->expired_date > now()->addDays(30))->count(),
                 'warning' => $eqs->filter(fn($e) => $e->expired_date <= now()->addDays(30) && $e->expired_date > now())->count(),
@@ -64,6 +104,17 @@ class HsrmDashboardController extends Controller
                 'recommended' => $eqs->filter(fn($e) => $e->rekomendasi === true)->count(),
                 'not_recommended' => $eqs->filter(fn($e) => $e->rekomendasi === false)->count(),
                 'no_recommendation' => $eqs->filter(fn($e) => $e->rekomendasi === null)->count(),
+                
+                // Total Items (untuk stat card & grafik)
+                'total_items_all' => $totalItemsAll,
+                'total_items_active' => $totalItemsActive,
+                'total_items_warning' => $totalItemsWarning,
+                'total_items_expired' => $totalItemsExpired,
+                'total_items_recommended' => $totalItemsRecommended,
+                'total_items_not_recommended' => $totalItemsNotRecommended,
+                'total_items_no_recommendation' => $totalItemsNoRecommendation,
+                
+                // Area (count)
                 'area_labels' => [],
                 'area_data' => [],
             ];
@@ -78,6 +129,9 @@ class HsrmDashboardController extends Controller
             }
         }
 
+        // =============================================
+        // RECENT ITEMS
+        // =============================================
         $recentCerts = null;
         $recentEqs = null;
 

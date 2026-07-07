@@ -13,7 +13,7 @@
     <table class="w-full text-sm">
         <thead>
             <tr class="bg-gray-50 text-left">
-                <th class="p-3">#</th>
+                <th class="p-3">No</th>
                 <th class="p-3">Name</th>
                 <th class="p-3">Description</th>
                 <th class="p-3">Actions</th>

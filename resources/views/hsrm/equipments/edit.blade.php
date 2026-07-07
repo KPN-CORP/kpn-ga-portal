@@ -77,6 +77,12 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total Items <span class="text-red-500">*</span></label>
+                <input type="number" name="total_items" value="{{ old('total_items', $equipment->total_items ?? 1) }}" min="1" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                @error('total_items') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
                 <input type="text" name="location" value="{{ old('location', $equipment->location) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
                 @error('location') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -89,55 +95,23 @@
             </div>
 
             <div>
-                <!-- Judul -->
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Ownership
-                </label>
-
-                <!-- Checkbox -->
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ownership</label>
                 <div class="flex items-center">
                     <input type="hidden" name="status_kepemilikan" value="0">
-
-                    <input type="checkbox"
-                        name="status_kepemilikan"
-                        value="1"
-                        {{ old('status_kepemilikan', $equipment->status_kepemilikan) ? 'checked' : '' }}
-                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-
-                    <label class="ml-2 text-sm text-gray-700">
-                        Checked (tick) / Unchecked (cross)
-                    </label>
+                    <input type="checkbox" name="status_kepemilikan" value="1" {{ old('status_kepemilikan', $equipment->status_kepemilikan) ? 'checked' : '' }} class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <label class="ml-2 text-sm text-gray-700">Checked (tick) / Unchecked (cross)</label>
                 </div>
-
-                @error('status_kepemilikan')
-                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                @enderror
+                @error('status_kepemilikan') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Recommendation
-                </label>
-
-                <select name="rekomendasi"
-                    class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
-
+                <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
+                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
                     <option value="">- Select -</option>
-
-                    <option value="1"
-                        {{ old('rekomendasi', (string) $equipment->rekomendasi) == '1' ? 'selected' : '' }}>
-                        Recommended
-                    </option>
-
-                    <option value="0"
-                        {{ old('rekomendasi', (string) $equipment->rekomendasi) == '0' ? 'selected' : '' }}>
-                        Not recommended
-                    </option>
+                    <option value="1" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '1' ? 'selected' : '' }}>Recommended</option>
+                    <option value="0" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '0' ? 'selected' : '' }}>Not recommended</option>
                 </select>
-
-                @error('rekomendasi')
-                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                @enderror
+                @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             <div>
@@ -158,7 +132,6 @@
                 @error('notes') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- PHOTO INPUT WITH CAMERA CAPTURE --}}
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Photo (JPG/PNG, max 15MB)</label>
                 @php
@@ -168,17 +141,14 @@
                 @if($mainExists)
                     <div class="mb-2 p-2 bg-gray-50 border rounded flex items-center gap-2 soft-border">
                         <span class="text-sm text-gray-600">Current: 
-                            <a href="{{ route('hsrm.file.download', ['type' => 'equipment', 'id' => $equipment->id]) }}" 
-                            target="_blank" 
-                            class="text-blue-600 hover:underline">
+                            <a href="{{ route('hsrm.file.download', ['type' => 'equipment', 'id' => $equipment->id]) }}" target="_blank" class="text-blue-600 hover:underline">
                                 {{ basename($mainPath) }}
                             </a>
                         </span>
                     </div>
                 @endif
                 <div class="flex flex-wrap gap-3">
-                    <input type="file" name="photo" accept="image/*" capture="environment" 
-                        class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
+                    <input type="file" name="photo" accept="image/*" capture="environment" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
                     <span class="text-xs text-gray-400">You can take a photo directly using your phone camera. Max file size: 15MB (will be compressed to ~1.5MB).</span>
                 </div>
                 @error('photo') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror

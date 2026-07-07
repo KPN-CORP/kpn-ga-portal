@@ -22,6 +22,7 @@ class HsrmEquipment extends Model
         'name',
         'equipment_type_id',
         'capacity',
+        'total_items',
         'location',
         'expired_date',
         'status_verif',
@@ -76,6 +77,6 @@ class HsrmEquipment extends Model
 
     public function equipmentType()
     {
-        return $this->belongsTo(HsrmEquipmentType::class);
+        return $this->belongsTo(HsrmEquipmentType::class, 'equipment_type_id');
     }
 }
