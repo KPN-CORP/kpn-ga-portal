@@ -41,6 +41,7 @@ class HsrmDashboardController extends Controller
                 'area_data' => [],
             ];
 
+            // Area untuk Certificates (count)
             $areaCounts = $certs->groupBy('area_id')->map->count();
             foreach ($areaCounts as $areaId => $count) {
                 $area = AreaKerja::find($areaId);
@@ -95,6 +96,11 @@ class HsrmDashboardController extends Controller
                 }
             }
 
+            // === PERUBAHAN UTAMA: Area menggunakan SUM(total_items) ===
+            $areaData = $eqs->groupBy('area_id')->map(function ($items) {
+                return $items->sum('total_items'); // sum total_items per area
+            });
+
             $eqData = [
                 // Count (untuk keperluan filter & stat dasar)
                 'total' => $eqs->count(),
@@ -114,17 +120,17 @@ class HsrmDashboardController extends Controller
                 'total_items_not_recommended' => $totalItemsNotRecommended,
                 'total_items_no_recommendation' => $totalItemsNoRecommendation,
                 
-                // Area (count)
+                // Area (menggunakan total items, bukan count)
                 'area_labels' => [],
                 'area_data' => [],
             ];
 
-            $areaCounts = $eqs->groupBy('area_id')->map->count();
-            foreach ($areaCounts as $areaId => $count) {
+            // Isi area_labels dan area_data dari hasil perhitungan SUM(total_items)
+            foreach ($areaData as $areaId => $totalItems) {
                 $area = AreaKerja::find($areaId);
                 if ($area) {
                     $eqData['area_labels'][] = $area->nama_area;
-                    $eqData['area_data'][] = $count;
+                    $eqData['area_data'][] = $totalItems;
                 }
             }
         }

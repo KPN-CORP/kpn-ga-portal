@@ -6,7 +6,7 @@
 @section('content')
 <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
     <div class="flex gap-2">
-        @if(auth()->user()->canEditInArea(request('area_id') ?? 0) || session('hsrm_role') === 'admin')
+        @if(auth()->user()->hsrmAreas->isNotEmpty() || session('hsrm_role') === 'admin')
         <a href="{{ route('hsrm.certificates.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
             <i class="fas fa-plus mr-1"></i> Add Certificate
         </a>
