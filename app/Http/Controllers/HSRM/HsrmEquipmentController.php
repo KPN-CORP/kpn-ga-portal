@@ -4,6 +4,7 @@ namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\HSRM\HsrmEquipment;
+use App\Models\HSRM\HsrmEquipmentQuota;
 use App\Models\HSRM\HsrmEquipmentType;
 use App\Models\HSRM\HsrmLog;
 use App\Models\AreaKerja;
@@ -28,7 +29,6 @@ class HsrmEquipmentController extends Controller
             $query->whereIn('area_id', $areaIds);
         }
 
-        // ===== FILTER FROM DASHBOARD CLICK =====
         if ($filter) {
             switch ($filter) {
                 case 'active':
@@ -46,14 +46,12 @@ class HsrmEquipmentController extends Controller
                     $query->where('status_verif', 'pending');
                     break;
                 case 'total':
-                    // no filter
                     break;
                 default:
                     abort(404);
             }
         }
 
-        // ===== SEARCH & FILTER =====
         if (request('search')) {
             $search = request('search');
             $query->where(function ($q) use ($search) {
@@ -89,7 +87,24 @@ class HsrmEquipmentController extends Controller
         $pics = User::whereHas('hsrmAreas')->get();
         $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
 
-        return view('hsrm.equipments.create', compact('areas', 'businessUnits', 'pics', 'isAdmin', 'equipmentTypes'));
+        // Ambil semua quota untuk area-area yang dimiliki user (atau semua jika admin)
+        $quotaData = [];
+        if ($isAdmin) {
+            $allQuotas = HsrmEquipmentQuota::with(['area', 'equipmentType'])->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        } else {
+            $areaIds = $areas->pluck('id_area_kerja')->toArray();
+            $allQuotas = HsrmEquipmentQuota::whereIn('area_id', $areaIds)->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        }
+
+        return view('hsrm.equipments.create', compact('areas', 'businessUnits', 'pics', 'isAdmin', 'equipmentTypes', 'quotaData'));
     }
 
     public function store(Request $request)
@@ -104,11 +119,11 @@ class HsrmEquipmentController extends Controller
             'name' => 'required|string|max:255',
             'equipment_type_id' => 'required|exists:hsrm_equipment_types,id',
             'capacity' => 'required|string|max:50',
-            'total_items' => 'required|integer|min:1', 
+            'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
             'expired_date' => 'required|date',
             'status_kepemilikan' => 'required|boolean',
-            'rekomendasi' => 'nullable|boolean',
+            'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
         ]);
@@ -119,6 +134,27 @@ class HsrmEquipmentController extends Controller
                 return back()->withErrors(['area_id' => 'You are not authorized to create in this area.'])->withInput();
             }
             unset($data['pic_user_id']);
+        }
+
+        // Validasi kuota (total items)
+        $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
+                    ->where('equipment_type_id', $data['equipment_type_id'])
+                    ->first();
+
+        if ($quota && $quota->quota > 0) {
+            $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
+                            ->where('equipment_type_id', $data['equipment_type_id'])
+                            ->where('status_verif', 'verified')
+                            ->where('expired_date', '>', now())
+                            ->sum('total_items');
+
+            $newTotal = $activeItems + $data['total_items'];
+
+            if ($newTotal > $quota->quota) {
+                return back()->withErrors([
+                    'total_items' => 'Kuota untuk tipe peralatan ini adalah '.$quota->quota.' item. Saat ini sudah ada '.$activeItems.' item aktif. Anda hanya bisa menambahkan maksimal '.($quota->quota - $activeItems).' item lagi.'
+                ])->withInput();
+            }
         }
 
         $data['created_by'] = $user->id;
@@ -176,12 +212,11 @@ class HsrmEquipmentController extends Controller
             'name' => 'required|string|max:255',
             'equipment_type_id' => 'required|exists:hsrm_equipment_types,id',
             'capacity' => 'required|string|max:50',
-            'total_items' => 'required|integer|min:1', 
             'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
             'expired_date' => 'required|date',
             'status_kepemilikan' => 'required|boolean',
-            'rekomendasi' => 'nullable|boolean',
+            'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
         ]);
@@ -192,6 +227,34 @@ class HsrmEquipmentController extends Controller
                 return back()->withErrors(['area_id' => 'You are not authorized to edit in this area.'])->withInput();
             }
             unset($data['pic_user_id']);
+        }
+
+        // === VALIDASI KUOTA jika area atau tipe berubah atau total_items berubah ===
+        $areaChanged = ($equipment->area_id != $data['area_id']);
+        $typeChanged = ($equipment->equipment_type_id != $data['equipment_type_id']);
+        $itemsChanged = ($equipment->total_items != $data['total_items']);
+
+        if ($areaChanged || $typeChanged || $itemsChanged) {
+            $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
+                        ->where('equipment_type_id', $data['equipment_type_id'])
+                        ->first();
+
+            if ($quota && $quota->quota > 0) {
+                $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
+                                ->where('equipment_type_id', $data['equipment_type_id'])
+                                ->where('status_verif', 'verified')
+                                ->where('expired_date', '>', now())
+                                ->where('id', '!=', $equipment->id)
+                                ->sum('total_items');
+
+                $newTotal = $activeItems + $data['total_items'];
+
+                if ($newTotal > $quota->quota) {
+                    return back()->withErrors([
+                        'total_items' => 'Kuota untuk tipe peralatan ini adalah '.$quota->quota.' item. Saat ini (tanpa item ini) ada '.$activeItems.' item aktif. Anda hanya bisa mengatur total menjadi maksimal '.($quota->quota - $activeItems).' item untuk tipe ini.'
+                    ])->withInput();
+                }
+            }
         }
 
         $oldData = $equipment->toArray();
@@ -212,7 +275,12 @@ class HsrmEquipmentController extends Controller
             }
         }
 
+        // === RESET APPROVAL STATUS ===
+        $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
+        $data['approved_by'] = null;
+        $data['approved_at'] = null;
         $data['updated_by'] = auth()->id();
+
         $equipment->update($data);
 
         HsrmLog::create([
@@ -224,7 +292,7 @@ class HsrmEquipmentController extends Controller
             'new_data' => $equipment->toArray(),
         ]);
 
-        return redirect()->route('hsrm.equipments.index')->with('success', 'Equipment updated successfully.');
+        return redirect()->route('hsrm.equipments.index')->with('success', 'Equipment updated successfully. It will need approval again.');
     }
 
     public function destroy($id)

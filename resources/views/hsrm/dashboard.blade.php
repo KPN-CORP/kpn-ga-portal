@@ -11,6 +11,13 @@
         position: relative;
         width: 100%;
         height: 100%;
+        min-height: 400px;
+    }
+    .chart-container.budget-chart {
+        min-height: 550px;
+    }
+    .chart-container.quota-chart {
+        min-height: 450px;
     }
     .chart-container canvas {
         display: block;
@@ -102,6 +109,17 @@
     .stat-link:hover {
         opacity: 0.8;
     }
+    @media (max-width: 640px) {
+        .chart-container.budget-chart {
+            min-height: 400px;
+        }
+        .chart-container.quota-chart {
+            min-height: 350px;
+        }
+        .chart-container {
+            min-height: 300px;
+        }
+    }
 </style>
 @endpush
 
@@ -113,6 +131,9 @@
         <select id="viewFilter" class="border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
             <option value="certificates" {{ $view == 'certificates' ? 'selected' : '' }}>📄 Certificates</option>
             <option value="equipments" {{ $view == 'equipments' ? 'selected' : '' }}>🔧 Equipments</option>
+            @if(session('hsrm_role') === 'admin')
+                <option value="budget" {{ $view == 'budget' ? 'selected' : '' }}>💰 Budget & Quota</option>
+            @endif
             <option value="all" {{ $view == 'all' ? 'selected' : '' }}>📊 All</option>
         </select>
     </div>
@@ -121,112 +142,59 @@
             Showing <strong>Certificates</strong> only
         @elseif($view == 'equipments')
             Showing <strong>Equipments</strong> only
+        @elseif($view == 'budget')
+            Showing <strong>Budget & Quota</strong> summary
         @else
             Showing <strong>All</strong> data
         @endif
     </div>
 </div>
 
-{{-- Stats Cards --}}
-@if($view == 'certificates' || $view == 'all')
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Total Certificates</div>
-            <div class="stat-icon bg-blue-50 text-blue-500">
-                <i class="fas fa-file-alt"></i>
+{{-- ============================================================ --}}
+{{-- BUDGET & QUOTA VIEW (Admin only) --}}
+{{-- ============================================================ --}}
+@if(($view == 'budget' || $view == 'all') && session('hsrm_role') === 'admin')
+    <div class="mb-8">
+        <div class="flex items-center mb-4">
+            <div class="section-divider bg-green-500"></div>
+            <h3 class="section-title">💰 Budget & Quota Analytics</h3>
+        </div>
+
+        {{-- Grafik Budget per Area --}}
+        @if(isset($budgetData) && count($budgetData) > 0)
+        <div class="chart-card mb-5">
+            <div class="chart-title">Budget per Area (Rp)</div>
+            <div class="chart-container budget-chart" style="height:550px;">
+                <canvas id="budgetAreaChart"></canvas>
             </div>
         </div>
-        <a href="{{ route('hsrm.certificates.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
-            {{ $certData['total'] ?? 0 }}
-        </a>
-    </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Active</div>
-            <div class="stat-icon bg-green-50 text-green-500">
-                <i class="fas fa-check-circle"></i>
+        @else
+        <!-- <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-5 rounded-lg">
+            <p class="text-yellow-700">No budget data available. Please set budgets in the <a href="{{ route('hsrm.admin.quotas.index') }}" class="underline font-semibold">Budget & Quota Management</a> page.</p>
+        </div> -->
+        @endif
+
+        {{-- Grafik Quota Fulfillment --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="chart-card">
+                <div class="chart-title">Certificates Quota vs Active</div>
+                <div class="chart-container quota-chart" style="height:450px;">
+                    <canvas id="quotaCertFulfillmentChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Equipments Quota vs Active</div>
+                <div class="chart-container quota-chart" style="height:450px;">
+                    <canvas id="quotaEqFulfillmentChart"></canvas>
+                </div>
             </div>
         </div>
-        <a href="{{ route('hsrm.certificates.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
-            {{ $certData['active'] ?? 0 }}
-        </a>
     </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Warning</div>
-            <div class="stat-icon bg-yellow-50 text-yellow-500">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.certificates.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
-            {{ $certData['warning'] ?? 0 }}
-        </a>
-    </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Expired</div>
-            <div class="stat-icon bg-red-50 text-red-500">
-                <i class="fas fa-times-circle"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.certificates.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
-            {{ $certData['expired'] ?? 0 }}
-        </a>
-    </div>
-</div>
 @endif
 
-@if($view == 'equipments' || $view == 'all')
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Total Items</div>
-            <div class="stat-icon bg-purple-50 text-purple-500">
-                <i class="fas fa-fire-extinguisher"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.equipments.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
-            {{ $eqData['total_items_all'] ?? 0 }}
-        </a>
-    </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Active Items</div>
-            <div class="stat-icon bg-green-50 text-green-500">
-                <i class="fas fa-check-circle"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.equipments.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
-            {{ $eqData['total_items_active'] ?? 0 }}
-        </a>
-    </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Warning Items</div>
-            <div class="stat-icon bg-yellow-50 text-yellow-500">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.equipments.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
-            {{ $eqData['total_items_warning'] ?? 0 }}
-        </a>
-    </div>
-    <div class="stat-card">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">Expired Items</div>
-            <div class="stat-icon bg-red-50 text-red-500">
-                <i class="fas fa-times-circle"></i>
-            </div>
-        </div>
-        <a href="{{ route('hsrm.equipments.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
-            {{ $eqData['total_items_expired'] ?? 0 }}
-        </a>
-    </div>
-</div>
-@endif
-
-{{-- Charts Section --}}
+{{-- ============================================================ --}}
+{{-- CERTIFICATES VIEW --}}
+{{-- ============================================================ --}}
 @if($view == 'certificates' || $view == 'all')
 <div class="mb-8">
     <div class="flex items-center mb-4">
@@ -234,16 +202,64 @@
         <h3 class="section-title">📄 Certificates Analytics</h3>
     </div>
 
+    {{-- Stats Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Total Certificates</div>
+                <div class="stat-icon bg-blue-50 text-blue-500">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+                {{ $certData['total'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Active</div>
+                <div class="stat-icon bg-green-50 text-green-500">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+                {{ $certData['active'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Warning</div>
+                <div class="stat-icon bg-yellow-50 text-yellow-500">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+                {{ $certData['warning'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Expired</div>
+                <div class="stat-icon bg-red-50 text-red-500">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+                {{ $certData['expired'] ?? 0 }}
+            </a>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div class="chart-card">
             <div class="chart-title">Status</div>
-            <div class="chart-container" style="height:300px;">
+            <div class="chart-container" style="height:400px;">
                 <canvas id="certStatusChart"></canvas>
             </div>
         </div>
         <div class="chart-card">
             <div class="chart-title">Recommendation</div>
-            <div class="chart-container" style="height:300px;">
+            <div class="chart-container" style="height:400px;">
                 <canvas id="certRecommendChart"></canvas>
             </div>
         </div>
@@ -251,13 +267,16 @@
 
     <div class="chart-card">
         <div class="chart-title">By Area</div>
-        <div class="chart-container" style="height:420px;">
+        <div class="chart-container" style="height:500px;">
             <canvas id="certAreaChart"></canvas>
         </div>
     </div>
 </div>
 @endif
 
+{{-- ============================================================ --}}
+{{-- EQUIPMENTS VIEW --}}
+{{-- ============================================================ --}}
 @if($view == 'equipments' || $view == 'all')
 <div class="mb-8">
     <div class="flex items-center mb-4">
@@ -265,16 +284,64 @@
         <h3 class="section-title">🔧 Equipments Analytics</h3>
     </div>
 
+    {{-- Stats Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Total Equipments</div>
+                <div class="stat-icon bg-purple-50 text-purple-500">
+                    <i class="fas fa-fire-extinguisher"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+                {{ $eqData['total_items_all'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Active Items</div>
+                <div class="stat-icon bg-green-50 text-green-500">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+                {{ $eqData['total_items_active'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Warning Items</div>
+                <div class="stat-icon bg-yellow-50 text-yellow-500">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+                {{ $eqData['total_items_warning'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Expired Items</div>
+                <div class="stat-icon bg-red-50 text-red-500">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+                {{ $eqData['total_items_expired'] ?? 0 }}
+            </a>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div class="chart-card">
             <div class="chart-title">Status (Total Items)</div>
-            <div class="chart-container" style="height:300px;">
+            <div class="chart-container" style="height:400px;">
                 <canvas id="eqStatusChart"></canvas>
             </div>
         </div>
         <div class="chart-card">
             <div class="chart-title">Recommendation (Total Items)</div>
-            <div class="chart-container" style="height:300px;">
+            <div class="chart-container" style="height:400px;">
                 <canvas id="eqRecommendChart"></canvas>
             </div>
         </div>
@@ -282,15 +349,17 @@
 
     <div class="chart-card">
         <div class="chart-title">By Area</div>
-        <div class="chart-container" style="height:420px;">
+        <div class="chart-container" style="height:500px;">
             <canvas id="eqAreaChart"></canvas>
         </div>
     </div>
 </div>
 @endif
 
-{{-- Recent Items --}}
-@if($view == 'certificates' || $view == 'all')
+{{-- ============================================================ --}}
+{{-- RECENT ITEMS --}}
+{{-- ============================================================ --}}
+@if(($view == 'certificates' || $view == 'all') && !($view == 'budget'))
 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200/60 mb-6">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-gray-800">📋 Recent Certificates</h3>
@@ -320,7 +389,7 @@
 </div>
 @endif
 
-@if($view == 'equipments' || $view == 'all')
+@if(($view == 'equipments' || $view == 'all') && !($view == 'budget'))
 <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200/60">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-gray-800">🔧 Recent Equipments</h3>
@@ -364,7 +433,7 @@
         // Register plugin
         Chart.register(ChartDataLabels);
 
-        // --- Pie chart config (label di dalam, tooltip mati) ---
+        // --- Pie chart config ---
         const pieOptions = {
             type: 'pie',
             options: {
@@ -400,7 +469,7 @@
             }
         };
 
-        // --- Bar chart config (label di atas, tooltip mati) ---
+        // --- Bar chart config (untuk certificates dan equipments) ---
         const barOptions = {
             type: 'bar',
             options: {
@@ -467,14 +536,20 @@
             }
         };
 
-        // ---- Certificates Charts ----
+        // ============================================================
+        // CERTIFICATES CHARTS
+        // ============================================================
         @if($view == 'certificates' || $view == 'all')
             new Chart(document.getElementById('certStatusChart'), {
                 ...pieOptions,
                 data: {
                     labels: ['Active', 'Warning', 'Expired'],
                     datasets: [{
-                        data: [{{ $certData['active'] ?? 0 }}, {{ $certData['warning'] ?? 0 }}, {{ $certData['expired'] ?? 0 }}],
+                        data: [
+                            {{ $certData['active'] ?? 0 }},
+                            {{ $certData['warning'] ?? 0 }},
+                            {{ $certData['expired'] ?? 0 }}
+                        ],
                         backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
                         borderWidth: 0,
                         hoverOffset: 6
@@ -485,10 +560,14 @@
             new Chart(document.getElementById('certRecommendChart'), {
                 ...pieOptions,
                 data: {
-                    labels: ['Recommended', 'Not Recommended', 'No Recommendation'],
+                    labels: ['Recommended', 'Not Recommended', 'Valid'],
                     datasets: [{
-                        data: [{{ $certData['recommended'] ?? 0 }}, {{ $certData['not_recommended'] ?? 0 }}, {{ $certData['no_recommendation'] ?? 0 }}],
-                        backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'],
+                        data: [
+                            {{ $certData['recommended'] ?? 0 }},
+                            {{ $certData['not_recommended'] ?? 0 }},
+                            {{ $certData['valid'] ?? 0 }}
+                        ],
+                        backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
                         borderWidth: 0,
                         hoverOffset: 6
                     }]
@@ -534,7 +613,9 @@
             });
         @endif
 
-        // ---- Equipments Charts (menggunakan Total Items) ----
+        // ============================================================
+        // EQUIPMENTS CHARTS
+        // ============================================================
         @if($view == 'equipments' || $view == 'all')
             new Chart(document.getElementById('eqStatusChart'), {
                 ...pieOptions,
@@ -556,14 +637,14 @@
             new Chart(document.getElementById('eqRecommendChart'), {
                 ...pieOptions,
                 data: {
-                    labels: ['Recommended', 'Not Recommended', 'No Recommendation'],
+                    labels: ['Recommended', 'Not Recommended', 'Valid'],
                     datasets: [{
                         data: [
                             {{ $eqData['total_items_recommended'] ?? 0 }},
                             {{ $eqData['total_items_not_recommended'] ?? 0 }},
-                            {{ $eqData['total_items_no_recommendation'] ?? 0 }}
+                            {{ $eqData['total_items_valid'] ?? 0 }}
                         ],
-                        backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'],
+                        backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
                         borderWidth: 0,
                         hoverOffset: 6
                     }]
@@ -607,6 +688,209 @@
                     }]
                 }
             });
+        @endif
+
+        // ============================================================
+        // BUDGET & QUOTA CHARTS (Admin only)
+        // ============================================================
+        @if(($view == 'budget' || $view == 'all') && session('hsrm_role') === 'admin')
+            // --- Grafik Budget (jika ada data) ---
+            @if(isset($budgetData) && count($budgetData) > 0)
+                const budgetItems = @json($budgetData->values());
+                const budgetLabels = budgetItems.map(item => item.area_name);
+                const budgetValues = budgetItems.map(item => item.total_budget);
+
+                if (budgetLabels.length > 0) {
+                    new Chart(document.getElementById('budgetAreaChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: budgetLabels,
+                            datasets: [{
+                                label: 'Budget (Rp)',
+                                data: budgetValues,
+                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                borderColor: 'rgba(34, 197, 94, 1)',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                                padding: {
+                                    top: 50,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 10
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: false },
+                                datalabels: {
+                                    color: '#1f2937',
+                                    anchor: 'end',
+                                    align: 'top',
+                                    offset: 6,
+                                    font: { weight: 'bold', size: 12 },
+                                    formatter: function(value) {
+                                        return 'Rp ' + value.toLocaleString('id-ID');
+                                    },
+                                    clip: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return 'Rp ' + value.toLocaleString('id-ID');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            @endif
+
+            // --- Grafik Certificate Quota (selalu tampil jika ada data) ---
+            @if(isset($certQuotaData) && count($certQuotaData) > 0)
+                const certQuotaItems = @json($certQuotaData->values());
+                const certLabels = certQuotaItems.map(item => item.area_name);
+                const certQuota = certQuotaItems.map(item => item.certificate_quota);
+                const certActive = certQuotaItems.map(item => item.certificate_active);
+
+                if (certLabels.length > 0) {
+                    new Chart(document.getElementById('quotaCertFulfillmentChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: certLabels,
+                            datasets: [
+                                {
+                                    label: 'Quota',
+                                    data: certQuota,
+                                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                                    borderColor: 'rgba(59, 130, 246, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Active',
+                                    data: certActive,
+                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                                padding: {
+                                    top: 40
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: { usePointStyle: true, padding: 12 }
+                                },
+                                tooltip: { enabled: false },
+                                datalabels: {
+                                    anchor: 'end',
+                                    align: 'top',
+                                    offset: 4,
+                                    font: { weight: 'bold', size: 11 },
+                                    color: '#1f2937',
+                                    formatter: function(value) {
+                                        return value;
+                                    },
+                                    clip: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { stepSize: 1, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                }
+            @else
+                // Jika tidak ada data, tampilkan pesan di canvas (opsional)
+                document.getElementById('quotaCertFulfillmentChart').getContext('2d').fillText('No data available', 50, 50);
+            @endif
+
+            // --- Grafik Equipment Quota (selalu tampil jika ada data) ---
+            @if(isset($eqQuotaData) && count($eqQuotaData) > 0)
+                const eqQuotaItems = @json($eqQuotaData->values());
+                const eqLabels = eqQuotaItems.map(item => item.area_name);
+                const eqQuota = eqQuotaItems.map(item => item.equipment_quota);
+                const eqActive = eqQuotaItems.map(item => item.equipment_active);
+
+                if (eqLabels.length > 0) {
+                    new Chart(document.getElementById('quotaEqFulfillmentChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: eqLabels,
+                            datasets: [
+                                {
+                                    label: 'Quota (items)',
+                                    data: eqQuota,
+                                    backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                                    borderColor: 'rgba(139, 92, 246, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Active (items)',
+                                    data: eqActive,
+                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: {
+                                padding: {
+                                    top: 40
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: { usePointStyle: true, padding: 12 }
+                                },
+                                tooltip: { enabled: false },
+                                datalabels: {
+                                    anchor: 'end',
+                                    align: 'top',
+                                    offset: 4,
+                                    font: { weight: 'bold', size: 11 },
+                                    color: '#1f2937',
+                                    formatter: function(value) {
+                                        return value;
+                                    },
+                                    clip: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: { stepSize: 1, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                }
+            @else
+                document.getElementById('quotaEqFulfillmentChart').getContext('2d').fillText('No data available', 50, 50);
+            @endif
         @endif
     });
 </script>

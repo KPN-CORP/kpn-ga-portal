@@ -180,6 +180,12 @@
                         </a>
                         <ul x-show="open" x-cloak class="ml-4 space-y-1">
                             <li>
+                                <a href="{{ route('hsrm.admin.quotas.index') }}"
+                                class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
+                                    <i class="fas fa-chart-pie mr-2 text-gray-400"></i> Budget & Quota
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('hsrm.certificate-types.index') }}"
                                    class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
                                     <i class="fas fa-tags mr-2 text-gray-400"></i> Certificate Types

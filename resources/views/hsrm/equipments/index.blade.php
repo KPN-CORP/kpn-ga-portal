@@ -75,10 +75,12 @@
                 </td>
                 <td class="p-3 text-center">{{ $eq->status_kepemilikan ? '✔' : '✘' }}</td>
                 <td class="p-3">
-                    @if($eq->rekomendasi === true)
+                    @if($eq->rekomendasi === 'recommended')
                         <span class="text-green-600">Recommended</span>
-                    @elseif($eq->rekomendasi === false)
-                        <span class="text-red-600">Not recommended</span>
+                    @elseif($eq->rekomendasi === 'not_recommended')
+                        <span class="text-red-600">Not Recommended</span>
+                    @elseif($eq->rekomendasi === 'valid')
+                        <span class="text-blue-600">Valid</span>
                     @else
                         <span class="text-gray-400">-</span>
                     @endif
@@ -146,10 +148,12 @@
             <div class="col-span-2">
                 <span class="text-gray-500">Recommendation:</span>
                 <span class="font-medium">
-                    @if($eq->rekomendasi === true)
+                    @if($eq->rekomendasi === 'recommended')
                         <span class="text-green-600">Recommended</span>
-                    @elseif($eq->rekomendasi === false)
-                        <span class="text-red-600">Not recommended</span>
+                    @elseif($eq->rekomendasi === 'not_recommended')
+                        <span class="text-red-600">Not Recommended</span>
+                    @elseif($eq->rekomendasi === 'valid')
+                        <span class="text-blue-600">Valid</span>
                     @else
                         <span class="text-gray-400">-</span>
                     @endif

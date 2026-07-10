@@ -58,10 +58,12 @@
         <div>
             <label class="text-sm text-gray-500">Recommendation</label>
             <p class="font-medium">
-                @if($cert->rekomendasi === true)
+                @if($cert->rekomendasi === 'recommended')
                     <span class="text-green-600">Recommended</span>
-                @elseif($cert->rekomendasi === false)
-                    <span class="text-red-600">Not recommended</span>
+                @elseif($cert->rekomendasi === 'not_recommended')
+                    <span class="text-red-600">Not Recommended</span>
+                @elseif($cert->rekomendasi === 'valid')
+                    <span class="text-blue-600">Valid</span>
                 @else
                     <span class="text-gray-400">-</span>
                 @endif

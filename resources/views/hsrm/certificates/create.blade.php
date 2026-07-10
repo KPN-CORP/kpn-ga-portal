@@ -23,7 +23,7 @@
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Area dengan datalist + validasi ketat --}}
+            {{-- Area dengan datalist --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Area <span class="text-red-500">*</span></label>
                 <input type="text"
@@ -79,10 +79,10 @@
                 @error('nik') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Certificate Type --}}
+            {{-- Certificate Type with quota info --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Certificate Type <span class="text-red-500">*</span></label>
-                <select name="certificate_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
+                <select name="certificate_type_id" id="certificate_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
                     <option value="">Select Type</option>
                     @foreach($certificateTypes as $type)
                         <option value="{{ $type->id }}" {{ old('certificate_type_id') == $type->id ? 'selected' : '' }}>
@@ -91,6 +91,11 @@
                     @endforeach
                 </select>
                 @error('certificate_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Info kuota --}}
+                <div id="quota-info" class="mt-1 text-sm hidden">
+                    <span id="quota-text"></span>
+                </div>
             </div>
 
             {{-- Issuing Authority --}}
@@ -127,8 +132,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
                 <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
-                    <option value="1" {{ old('rekomendasi') == '1' ? 'selected' : '' }}>Recommended</option>
-                    <option value="0" {{ old('rekomendasi') == '0' ? 'selected' : '' }}>Not recommended</option>
+                    <option value="recommended" {{ old('rekomendasi') == 'recommended' ? 'selected' : '' }}>Recommended</option>
+                    <option value="not_recommended" {{ old('rekomendasi') == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="valid" {{ old('rekomendasi') == 'valid' ? 'selected' : '' }}>Valid</option>
                 </select>
                 @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -162,8 +168,13 @@
         const datalist = document.getElementById('area-list');
         const errorDiv = document.getElementById('area-error');
         const form = document.getElementById('certificate-form');
+        const certTypeSelect = document.getElementById('certificate_type_id');
+        const quotaInfo = document.getElementById('quota-info');
+        const quotaText = document.getElementById('quota-text');
 
-        // Fungsi untuk memeriksa validitas area
+        // Data quota dari server
+        const quotaData = @json($quotaData ?? []);
+
         function validateArea() {
             const typedValue = areaInput.value.trim();
             const options = datalist.options;
@@ -180,27 +191,48 @@
                 areaIdHidden.value = foundId;
                 areaInput.classList.remove('border-red-500');
                 errorDiv.classList.add('hidden');
+                updateQuotaInfo();
                 return true;
             } else {
-                // Jika input kosong, kita anggap valid (karena tidak wajib diisi? tapi di sini required)
                 if (typedValue === '') {
                     areaIdHidden.value = '';
                     areaInput.classList.remove('border-red-500');
                     errorDiv.classList.add('hidden');
-                    return true; // kosong dianggap valid (akan dicek required)
+                    quotaInfo.classList.add('hidden');
+                    return true;
                 }
-                // Jika tidak kosong dan tidak ditemukan, invalid
                 areaIdHidden.value = '';
                 areaInput.classList.add('border-red-500');
                 errorDiv.classList.remove('hidden');
+                quotaInfo.classList.add('hidden');
                 return false;
             }
         }
 
-        // Validasi setiap kali input berubah
-        areaInput.addEventListener('input', validateArea);
+        function updateQuotaInfo() {
+            const areaId = areaIdHidden.value;
+            const typeId = certTypeSelect.value;
+            if (!areaId || !typeId) {
+                quotaInfo.classList.add('hidden');
+                return;
+            }
+            const key = areaId + '_' + typeId;
+            const quota = quotaData[key] || 0;
+            if (quota > 0) {
+                quotaText.textContent = 'Kuota: ' + quota + ' (maksimal ' + quota + ' sertifikat aktif)';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-blue-600';
+            } else {
+                quotaText.textContent = 'Tidak ada batasan kuota';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-gray-500';
+            }
+        }
 
-        // Saat form disubmit, validasi ulang dan cegah jika tidak valid
+        areaInput.addEventListener('input', validateArea);
+        areaInput.addEventListener('blur', validateArea);
+        certTypeSelect.addEventListener('change', updateQuotaInfo);
+
         form.addEventListener('submit', function(e) {
             if (!validateArea()) {
                 e.preventDefault();
@@ -209,9 +241,8 @@
             }
         });
 
-        // Jika pengguna memilih dari datalist dengan mouse, event input sudah cukup.
-        // Tapi untuk keamanan, kita panggil validateArea juga saat blur
-        areaInput.addEventListener('blur', validateArea);
+        // Initial call
+        setTimeout(validateArea, 100);
     });
 </script>
 @endsection

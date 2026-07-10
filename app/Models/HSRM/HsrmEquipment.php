@@ -11,9 +11,15 @@ class HsrmEquipment extends Model
 {
     protected $table = 'hsrm_equipments';
 
+    // Konstanta status verifikasi
     const STATUS_PENDING = 'pending';
     const STATUS_VERIFIED = 'verified';
     const STATUS_REJECTED = 'rejected';
+
+    // Konstanta rekomendasi
+    const REKOMENDASI_RECOMMENDED = 'recommended';
+    const REKOMENDASI_NOT_RECOMMENDED = 'not_recommended';
+    const REKOMENDASI_VALID = 'valid';
 
     protected $fillable = [
         'business_unit_id',
@@ -41,10 +47,11 @@ class HsrmEquipment extends Model
         'expired_date' => 'date',
         'approved_at' => 'datetime',
         'status_kepemilikan' => 'boolean',
-        'rekomendasi' => 'boolean',
         'old_attachments' => 'array',
+        // rekomendasi tidak di-cast karena berupa string enum
     ];
 
+    // ========== RELATIONSHIPS ==========
     public function businessUnit()
     {
         return $this->belongsTo(BisnisUnit::class, 'business_unit_id', 'id_bisnis_unit');
@@ -78,5 +85,48 @@ class HsrmEquipment extends Model
     public function equipmentType()
     {
         return $this->belongsTo(HsrmEquipmentType::class, 'equipment_type_id');
+    }
+
+    // ========== HELPER ATTRIBUTES ==========
+    /**
+     * Get recommendation label
+     */
+    public function getRekomendasiLabelAttribute()
+    {
+        return match ($this->rekomendasi) {
+            self::REKOMENDASI_RECOMMENDED => 'Recommended',
+            self::REKOMENDASI_NOT_RECOMMENDED => 'Not Recommended',
+            self::REKOMENDASI_VALID => 'Valid',
+            default => '-',
+        };
+    }
+
+    /**
+     * Get recommendation badge color class
+     */
+    public function getRekomendasiBadgeAttribute()
+    {
+        return match ($this->rekomendasi) {
+            self::REKOMENDASI_RECOMMENDED => 'text-green-600',
+            self::REKOMENDASI_NOT_RECOMMENDED => 'text-red-600',
+            self::REKOMENDASI_VALID => 'text-blue-600',
+            default => 'text-gray-400',
+        };
+    }
+
+    // ========== SCOPES ==========
+    /**
+     * Scope untuk filter rekomendasi
+     */
+    public function scopeRekomendasi($query, $value)
+    {
+        if (in_array($value, [
+            self::REKOMENDASI_RECOMMENDED,
+            self::REKOMENDASI_NOT_RECOMMENDED,
+            self::REKOMENDASI_VALID
+        ])) {
+            return $query->where('rekomendasi', $value);
+        }
+        return $query;
     }
 }

@@ -5,11 +5,12 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl soft-shadow border soft-border">
-    <form action="{{ route('hsrm.equipments.update', $equipment) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('hsrm.equipments.update', $equipment) }}" method="POST" enctype="multipart/form-data" id="equipment-form">
         @csrf
         @method('PUT')
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{-- Business Unit --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit <span class="text-red-500">*</span></label>
                 <select name="business_unit_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
@@ -23,6 +24,7 @@
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Area --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Area <span class="text-red-500">*</span></label>
                 <select name="area_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
@@ -36,6 +38,7 @@
                 @error('area_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- PIC (Admin only) --}}
             @if($isAdmin)
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">PIC</label>
@@ -51,15 +54,17 @@
             </div>
             @endif
 
+            {{-- Equipment Name --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Equipment Name <span class="text-red-500">*</span></label>
                 <input type="text" name="name" value="{{ old('name', $equipment->name) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                 @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Equipment Type with quota info --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-red-500">*</span></label>
-                <select name="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                <select name="equipment_type_id" id="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                     <option value="">Select Type</option>
                     @foreach($equipmentTypes as $type)
                         <option value="{{ $type->id }}" {{ old('equipment_type_id', $equipment->equipment_type_id) == $type->id ? 'selected' : '' }}>
@@ -68,32 +73,38 @@
                     @endforeach
                 </select>
                 @error('equipment_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Info kuota --}}
+                <div id="quota-info" class="mt-1 text-sm hidden">
+                    <span id="quota-text"></span>
+                </div>
             </div>
 
+            {{-- Total Items (HIDDEN, always 1) --}}
+            <input type="hidden" name="total_items" id="total_items" value="1">
+
+            {{-- Capacity --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Capacity <span class="text-red-500">*</span></label>
                 <input type="text" name="capacity" value="{{ old('capacity', $equipment->capacity) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                 @error('capacity') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Total Items <span class="text-red-500">*</span></label>
-                <input type="number" name="total_items" value="{{ old('total_items', $equipment->total_items ?? 1) }}" min="1" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
-                @error('total_items') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-            </div>
-
+            {{-- Location --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
                 <input type="text" name="location" value="{{ old('location', $equipment->location) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
                 @error('location') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Expired Date --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Expired Date <span class="text-red-500">*</span></label>
                 <input type="date" name="expired_date" value="{{ old('expired_date', $equipment->expired_date->format('Y-m-d')) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                 @error('expired_date') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Ownership --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Ownership</label>
                 <div class="flex items-center">
@@ -104,16 +115,18 @@
                 @error('status_kepemilikan') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Recommendation --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
-                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
+                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
                     <option value="1" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '1' ? 'selected' : '' }}>Recommended</option>
-                    <option value="0" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '0' ? 'selected' : '' }}>Not recommended</option>
+                    <option value="0" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '0' ? 'selected' : '' }}>Not Recommended</option>
                 </select>
                 @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Verification Status (read-only) --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
                 <span class="inline-block px-3 py-2 w-full border rounded-lg bg-gray-50 text-gray-600">
@@ -126,12 +139,14 @@
                 </span>
             </div>
 
+            {{-- Notes --}}
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea name="notes" rows="3" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">{{ old('notes', $equipment->notes) }}</textarea>
                 @error('notes') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
+            {{-- Photo --}}
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Photo (JPG/PNG, max 15MB)</label>
                 @php
@@ -165,4 +180,45 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const eqTypeSelect = document.getElementById('equipment_type_id');
+        const quotaInfo = document.getElementById('quota-info');
+        const quotaText = document.getElementById('quota-text');
+        const areaSelect = document.querySelector('select[name="area_id"]');
+        const form = document.getElementById('equipment-form');
+
+        // Data quota dari server
+        const quotaData = @json($quotaData ?? []);
+
+        function updateQuotaInfo() {
+            const areaId = areaSelect ? areaSelect.value : '';
+            const typeId = eqTypeSelect.value;
+            if (!areaId || !typeId) {
+                quotaInfo.classList.add('hidden');
+                return;
+            }
+            const key = areaId + '_' + typeId;
+            const quota = quotaData[key] || 0;
+            if (quota > 0) {
+                quotaText.textContent = 'Kuota total item: ' + quota + ' (maksimal ' + quota + ' item aktif)';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-blue-600';
+            } else {
+                quotaText.textContent = 'Tidak ada batasan kuota';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-gray-500';
+            }
+        }
+
+        if (areaSelect) {
+            areaSelect.addEventListener('change', updateQuotaInfo);
+        }
+        eqTypeSelect.addEventListener('change', updateQuotaInfo);
+
+        // Initial call
+        setTimeout(updateQuotaInfo, 100);
+    });
+</script>
 @endsection

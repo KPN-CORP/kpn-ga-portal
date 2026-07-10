@@ -72,10 +72,10 @@
                 @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Equipment Type --}}
+            {{-- Equipment Type with quota info --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-red-500">*</span></label>
-                <select name="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                <select name="equipment_type_id" id="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                     <option value="">Select Type</option>
                     @foreach($equipmentTypes as $type)
                         <option value="{{ $type->id }}" {{ old('equipment_type_id') == $type->id ? 'selected' : '' }}>
@@ -84,14 +84,15 @@
                     @endforeach
                 </select>
                 @error('equipment_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Info kuota --}}
+                <div id="quota-info" class="mt-1 text-sm hidden">
+                    <span id="quota-text"></span>
+                </div>
             </div>
 
-            {{-- Total Items --}}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Total Items <span class="text-red-500">*</span></label>
-                <input type="number" name="total_items" value="{{ old('total_items', 1) }}" min="1" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
-                @error('total_items') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-            </div>
+            {{-- Total Items (HIDDEN, always 1) --}}
+            <input type="hidden" name="total_items" id="total_items" value="1">
 
             {{-- Capacity --}}
             <div>
@@ -128,10 +129,10 @@
             {{-- Recommendation --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
-                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
+                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
                     <option value="1" {{ old('rekomendasi') == '1' ? 'selected' : '' }}>Recommended</option>
-                    <option value="0" {{ old('rekomendasi') == '0' ? 'selected' : '' }}>Not recommended</option>
+                    <option value="0" {{ old('rekomendasi') == '0' ? 'selected' : '' }}>Not Recommended</option>
                 </select>
                 @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -172,6 +173,12 @@
         const datalist = document.getElementById('area-list');
         const errorDiv = document.getElementById('area-error');
         const form = document.getElementById('equipment-form');
+        const eqTypeSelect = document.getElementById('equipment_type_id');
+        const quotaInfo = document.getElementById('quota-info');
+        const quotaText = document.getElementById('quota-text');
+
+        // Data quota dari server (dikirim dari controller)
+        const quotaData = @json($quotaData ?? []);
 
         function validateArea() {
             const typedValue = areaInput.value.trim();
@@ -189,22 +196,49 @@
                 areaIdHidden.value = foundId;
                 areaInput.classList.remove('border-red-500');
                 errorDiv.classList.add('hidden');
+                updateQuotaInfo();
                 return true;
             } else {
                 if (typedValue === '') {
                     areaIdHidden.value = '';
                     areaInput.classList.remove('border-red-500');
                     errorDiv.classList.add('hidden');
+                    quotaInfo.classList.add('hidden');
                     return true;
                 }
                 areaIdHidden.value = '';
                 areaInput.classList.add('border-red-500');
                 errorDiv.classList.remove('hidden');
+                quotaInfo.classList.add('hidden');
                 return false;
             }
         }
 
+        function updateQuotaInfo() {
+            const areaId = areaIdHidden.value;
+            const typeId = eqTypeSelect.value;
+            if (!areaId || !typeId) {
+                quotaInfo.classList.add('hidden');
+                return;
+            }
+            const key = areaId + '_' + typeId;
+            const quota = quotaData[key] || 0;
+            if (quota > 0) {
+                // Hitung active items saat ini (dari server, kirim via AJAX atau data awal)
+                // Karena kita tidak punya data active di sini, kita bisa tampilkan quota saja.
+                quotaText.textContent = 'Kuota total item: ' + quota + ' (maksimal ' + quota + ' item aktif)';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-blue-600';
+            } else {
+                quotaText.textContent = 'Tidak ada batasan kuota';
+                quotaInfo.classList.remove('hidden');
+                quotaInfo.className = 'mt-1 text-sm text-gray-500';
+            }
+        }
+
         areaInput.addEventListener('input', validateArea);
+        areaInput.addEventListener('blur', validateArea);
+        eqTypeSelect.addEventListener('change', updateQuotaInfo);
 
         form.addEventListener('submit', function(e) {
             if (!validateArea()) {
@@ -212,9 +246,22 @@
                 areaInput.focus();
                 alert('Silakan pilih area dari daftar yang tersedia.');
             }
+
+            // Validasi kuota sisi client (opsional, server tetap final)
+            const areaId = areaIdHidden.value;
+            const typeId = eqTypeSelect.value;
+            const key = areaId + '_' + typeId;
+            const quota = quotaData[key] || 0;
+            if (quota > 0) {
+                // Kita tidak tahu active items dari client, jadi kita skip client-side check,
+                // cukup tampilkan peringatan jika sudah mendekati quota.
+                // Server akan menolak jika melebihi.
+                // Bisa tambahkan AJAX call untuk cek realtime, tapi untuk sederhana kita skip.
+            }
         });
 
-        areaInput.addEventListener('blur', validateArea);
+        // Initial call
+        setTimeout(validateArea, 100);
     });
 </script>
 @endsection

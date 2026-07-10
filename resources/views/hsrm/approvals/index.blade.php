@@ -18,8 +18,10 @@
                     <thead>
                         <tr class="bg-gray-50">
                             <th class="p-3 text-left">Employee</th>
+                            <th class="p-3 text-left">Certificate Number</th>
                             <th class="p-3 text-left">Type</th>
                             <th class="p-3 text-left">Area</th>
+                            <th class="p-3 text-left">Recommendation</th>
                             <th class="p-3 text-left">Status</th>
                             <th class="p-3 text-center">Actions</th>
                         </tr>
@@ -28,8 +30,20 @@
                         @forelse($certificates as $cert)
                         <tr class="border-t hover:bg-gray-50 transition">
                             <td class="p-3">{{ $cert->employee_name }}</td>
+                            <td class="p-3 font-mono text-xs">{{ $cert->nik }}</td>
                             <td class="p-3">{{ $cert->certificateType->name ?? '-' }}</td>
                             <td class="p-3">{{ $cert->area->nama_area ?? '-' }}</td>
+                            <td class="p-3">
+                                @if($cert->rekomendasi === 'recommended')
+                                    <span class="text-green-600">Recommended</span>
+                                @elseif($cert->rekomendasi === 'not_recommended')
+                                    <span class="text-red-600">Not Recommended</span>
+                                @elseif($cert->rekomendasi === 'valid')
+                                    <span class="text-blue-600">Valid</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                             <td class="p-3">
                                 <span class="status-badge status-pending">Pending</span>
                             </td>
@@ -53,7 +67,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="p-4 text-center text-gray-500">No pending certificates.</td>
+                            <td colspan="7" class="p-4 text-center text-gray-500">No pending certificates.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -67,8 +81,21 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <div class="font-semibold">{{ $cert->employee_name }}</div>
+                            <div class="text-sm text-gray-500 font-mono">Certificate #: {{ $cert->nik }}</div>
                             <div class="text-sm text-gray-500">{{ $cert->certificateType->name ?? '-' }}</div>
                             <div class="text-sm text-gray-500">Area: {{ $cert->area->nama_area ?? '-' }}</div>
+                            <div class="text-sm text-gray-500">
+                                Recommendation: 
+                                @if($cert->rekomendasi === 'recommended')
+                                    <span class="text-green-600">Recommended</span>
+                                @elseif($cert->rekomendasi === 'not_recommended')
+                                    <span class="text-red-600">Not Recommended</span>
+                                @elseif($cert->rekomendasi === 'valid')
+                                    <span class="text-blue-600">Valid</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </div>
                         </div>
                         <span class="status-badge status-pending">Pending</span>
                     </div>
@@ -109,6 +136,7 @@
                             <th class="p-3 text-left">Name</th>
                             <th class="p-3 text-left">Type</th>
                             <th class="p-3 text-left">Area</th>
+                            <th class="p-3 text-left">Recommendation</th>
                             <th class="p-3 text-left">Status</th>
                             <th class="p-3 text-center">Actions</th>
                         </tr>
@@ -119,6 +147,17 @@
                             <td class="p-3">{{ $eq->name }}</td>
                             <td class="p-3">{{ $eq->equipmentType->name ?? '-' }}</td>
                             <td class="p-3">{{ $eq->area->nama_area ?? '-' }}</td>
+                            <td class="p-3">
+                                @if($eq->rekomendasi === 'recommended')
+                                    <span class="text-green-600">Recommended</span>
+                                @elseif($eq->rekomendasi === 'not_recommended')
+                                    <span class="text-red-600">Not Recommended</span>
+                                @elseif($eq->rekomendasi === 'valid')
+                                    <span class="text-blue-600">Valid</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </td>
                             <td class="p-3">
                                 <span class="status-badge status-pending">Pending</span>
                             </td>
@@ -142,7 +181,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="p-4 text-center text-gray-500">No pending equipments.</td>
+                            <td colspan="6" class="p-4 text-center text-gray-500">No pending equipments.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -158,6 +197,18 @@
                             <div class="font-semibold">{{ $eq->name }}</div>
                             <div class="text-sm text-gray-500">{{ $eq->equipmentType->name ?? '-' }}</div>
                             <div class="text-sm text-gray-500">Area: {{ $eq->area->nama_area ?? '-' }}</div>
+                            <div class="text-sm text-gray-500">
+                                Recommendation: 
+                                @if($eq->rekomendasi === 'recommended')
+                                    <span class="text-green-600">Recommended</span>
+                                @elseif($eq->rekomendasi === 'not_recommended')
+                                    <span class="text-red-600">Not Recommended</span>
+                                @elseif($eq->rekomendasi === 'valid')
+                                    <span class="text-blue-600">Valid</span>
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </div>
                         </div>
                         <span class="status-badge status-pending">Pending</span>
                     </div>

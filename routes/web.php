@@ -625,6 +625,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/certificates/filter/{filter}', [HsrmCertificateController::class, 'index'])->name('certificates.filter');
         Route::get('/equipments/filter/{filter}', [HsrmEquipmentController::class, 'index'])->name('equipments.filter');
         Route::get('approvals', [App\Http\Controllers\HSRM\HsrmApprovalController::class, 'index'])->name('approvals.index');
+
+        // === Admin Quota Management ===
+        Route::get('admin/quotas', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'index'])->name('admin.quotas.index');
+        Route::post('admin/quotas/update', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'update'])->name('admin.quotas.update');
+        Route::get('admin/quotas/export', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'export'])->name('admin.quotas.export');
     });
 
     Route::get('/no-access', function () {

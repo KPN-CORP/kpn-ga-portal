@@ -56,7 +56,7 @@
 
             {{-- Employee Name --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Employee Name / Company <span class="text-red-500">*</span></label>
                 <input type="text" name="employee_name" value="{{ old('employee_name', $cert->employee_name) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
                 @error('employee_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -125,29 +125,14 @@
 
             {{-- Recommendation --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Recommendation
-                </label>
-
-                <select name="rekomendasi"
-                    class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-
+                <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
+                <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
-
-                    <option value="1"
-                        {{ old('rekomendasi', $cert->rekomendasi ?? '') == '1' ? 'selected' : '' }}>
-                        Recommended
-                    </option>
-
-                    <option value="0"
-                        {{ old('rekomendasi', $cert->rekomendasi ?? '') == '0' ? 'selected' : '' }}>
-                        Not recommended
-                    </option>
+                    <option value="recommended" {{ old('rekomendasi', $cert->rekomendasi) == 'recommended' ? 'selected' : '' }}>Recommended</option>
+                    <option value="not_recommended" {{ old('rekomendasi', $cert->rekomendasi) == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="valid" {{ old('rekomendasi', $cert->rekomendasi) == 'valid' ? 'selected' : '' }}>Valid</option>
                 </select>
-
-                @error('rekomendasi')
-                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                @enderror
+                @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             {{-- Verification Status (read-only) --}}
