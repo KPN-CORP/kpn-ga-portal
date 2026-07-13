@@ -52,7 +52,6 @@ class HsrmEquipmentExport implements FromQuery, WithHeadings, WithMapping, Shoul
     public function headings(): array
     {
         return [
-            // 'ID',
             'Name',
             'Type',
             'Capacity',
@@ -67,14 +66,14 @@ class HsrmEquipmentExport implements FromQuery, WithHeadings, WithMapping, Shoul
             'Created By',
             'Approved By',
             'Approved At',
-            // 'Photo Path',
+            'Created At',
+            'Updated At',
         ];
     }
 
     public function map($eq): array
     {
         return [
-            // $eq->id,
             $eq->name,
             $eq->equipmentType->name ?? '-',
             $eq->capacity,
@@ -82,14 +81,15 @@ class HsrmEquipmentExport implements FromQuery, WithHeadings, WithMapping, Shoul
             $eq->expired_date ? $eq->expired_date->format('d-m-Y') : '-',
             ucfirst($eq->status_verif),
             $eq->status_kepemilikan ? 'Checked' : 'Unchecked',
-            $eq->rekomendasi === true ? 'Recommended' : ($eq->rekomendasi === false ? 'Not Recommended' : '-'),
+            $eq->rekomendasi_label ?? '-',
             $eq->businessUnit->nama_bisnis_unit ?? '-',
             $eq->area->nama_area ?? '-',
             $eq->notes ?? '-',
             $eq->creator->name ?? '-',
             $eq->approver->name ?? '-',
             $eq->approved_at ? $eq->approved_at->format('d-m-Y H:i') : '-',
-            // $eq->photo_path ?? '-',
+            $eq->created_at ? $eq->created_at->format('d-m-Y H:i') : '-',
+            $eq->updated_at ? $eq->updated_at->format('d-m-Y H:i') : '-',
         ];
     }
 

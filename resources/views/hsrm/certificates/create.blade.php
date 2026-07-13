@@ -9,10 +9,10 @@
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- Business Unit --}}
+            {{-- Business Unit (disabled / terkunci) --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit <span class="text-red-500">*</span></label>
-                <select name="business_unit_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
+                <select id="business_unit_id_display" class="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-600" disabled>
                     <option value="">Select Business Unit</option>
                     @foreach($businessUnits as $bu)
                         <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -20,6 +20,7 @@
                         </option>
                     @endforeach
                 </select>
+                <input type="hidden" name="business_unit_id" id="business_unit_id" value="{{ old('business_unit_id') }}">
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
@@ -40,7 +41,9 @@
 
                 <datalist id="area-list">
                     @foreach($areas as $area)
-                        <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}">
+                        <option value="{{ $area->nama_area }}" 
+                                data-id="{{ $area->id_area_kerja }}" 
+                                data-bisnis-unit="{{ $area->id_bisnis_unit }}">
                     @endforeach
                 </datalist>
 
@@ -79,7 +82,7 @@
                 @error('nik') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Certificate Type with quota info --}}
+            {{-- Certificate Type with custom option --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Certificate Type <span class="text-red-500">*</span></label>
                 <select name="certificate_type_id" id="certificate_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
@@ -89,8 +92,20 @@
                             {{ $type->name }}
                         </option>
                     @endforeach
+                    <option value="other" {{ old('certificate_type_id') == 'other' ? 'selected' : '' }}>Other (custom)</option>
                 </select>
                 @error('certificate_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Input custom type (muncul jika pilih "other") --}}
+                <div id="custom_type_container" class="mt-2 {{ old('certificate_type_id') == 'other' ? '' : 'hidden' }}">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Certificate Type Name</label>
+                    <input type="text" name="custom_certificate_type" id="custom_certificate_type" 
+                           value="{{ old('custom_certificate_type') }}" 
+                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter new certificate type name...">
+                    <p class="text-xs text-gray-400 mt-1">This will be created automatically upon approval.</p>
+                    @error('custom_certificate_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
 
                 {{-- Info kuota --}}
                 <div id="quota-info" class="mt-1 text-sm hidden">
@@ -169,28 +184,58 @@
         const errorDiv = document.getElementById('area-error');
         const form = document.getElementById('certificate-form');
         const certTypeSelect = document.getElementById('certificate_type_id');
+        const customContainer = document.getElementById('custom_type_container');
+        const customInput = document.getElementById('custom_certificate_type');
         const quotaInfo = document.getElementById('quota-info');
         const quotaText = document.getElementById('quota-text');
+        const businessUnitSelect = document.getElementById('business_unit_id');
+        const businessUnitDisplay = document.getElementById('business_unit_id_display');
 
         // Data quota dari server
         const quotaData = @json($quotaData ?? []);
 
+        // Fungsi untuk mengisi Business Unit
+        function setBusinessUnit(buId) {
+            if (buId) {
+                businessUnitSelect.value = buId;
+                // Set display select juga
+                const displayOptions = businessUnitDisplay.options;
+                for (let opt of displayOptions) {
+                    if (opt.value == buId) {
+                        businessUnitDisplay.value = buId;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fungsi validasi area
         function validateArea() {
             const typedValue = areaInput.value.trim();
             const options = datalist.options;
             let found = false;
             let foundId = null;
+            let foundBu = null;
+
             for (let opt of options) {
                 if (opt.value === typedValue) {
                     found = true;
                     foundId = opt.dataset.id;
+                    foundBu = opt.dataset.bisnisUnit;
                     break;
                 }
             }
+
             if (found && foundId) {
                 areaIdHidden.value = foundId;
                 areaInput.classList.remove('border-red-500');
                 errorDiv.classList.add('hidden');
+                
+                // Auto-fill Business Unit
+                if (foundBu) {
+                    setBusinessUnit(foundBu);
+                }
+                
                 updateQuotaInfo();
                 return true;
             } else {
@@ -199,6 +244,9 @@
                     areaInput.classList.remove('border-red-500');
                     errorDiv.classList.add('hidden');
                     quotaInfo.classList.add('hidden');
+                    // Kosongkan business unit
+                    businessUnitSelect.value = '';
+                    businessUnitDisplay.value = '';
                     return true;
                 }
                 areaIdHidden.value = '';
@@ -209,10 +257,11 @@
             }
         }
 
+        // Fungsi update quota info
         function updateQuotaInfo() {
             const areaId = areaIdHidden.value;
             const typeId = certTypeSelect.value;
-            if (!areaId || !typeId) {
+            if (!areaId || !typeId || typeId === 'other') {
                 quotaInfo.classList.add('hidden');
                 return;
             }
@@ -229,19 +278,61 @@
             }
         }
 
+        // Event: area input
         areaInput.addEventListener('input', validateArea);
         areaInput.addEventListener('blur', validateArea);
-        certTypeSelect.addEventListener('change', updateQuotaInfo);
+        areaInput.addEventListener('change', validateArea);
 
+        // Event: certificate type change
+        certTypeSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customContainer.classList.remove('hidden');
+                customInput.setAttribute('required', 'required');
+                quotaInfo.classList.add('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+                customInput.removeAttribute('required');
+                customInput.value = '';
+                updateQuotaInfo();
+            }
+        });
+
+        // Event: form submit
         form.addEventListener('submit', function(e) {
             if (!validateArea()) {
                 e.preventDefault();
                 areaInput.focus();
                 alert('Silakan pilih area dari daftar yang tersedia.');
+                return;
+            }
+
+            // Jika custom type dipilih, pastikan diisi
+            if (certTypeSelect.value === 'other') {
+                const customVal = customInput.value.trim();
+                if (!customVal) {
+                    e.preventDefault();
+                    customInput.focus();
+                    alert('Silakan isi nama tipe sertifikat baru.');
+                    return;
+                }
             }
         });
 
-        // Initial call
+        // Inisialisasi: jika sudah ada value old, set business unit
+        const initialAreaId = areaIdHidden.value;
+        if (initialAreaId) {
+            // Cari option di datalist yang sesuai
+            const options = datalist.options;
+            for (let opt of options) {
+                if (opt.dataset.id == initialAreaId) {
+                    const bu = opt.dataset.bisnisUnit;
+                    if (bu) setBusinessUnit(bu);
+                    break;
+                }
+            }
+        }
+
+        // Initial quota info
         setTimeout(validateArea, 100);
     });
 </script>

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Models\LoginLog;
 
 class LoginController extends Controller
 {
@@ -28,6 +29,8 @@ class LoginController extends Controller
         ]);
 
         $input = $request->username;
+        $ip = $request->ip();
+        $userAgent = $request->userAgent();
 
         // Cari user berdasarkan username atau email
         $user = User::where('username', $input)
@@ -35,6 +38,14 @@ class LoginController extends Controller
                     ->first();
 
         if (!$user) {
+            LoginLog::create([
+                'username'   => $input,
+                'email'      => null,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
+                'status'     => 'failed',
+                'message'    => 'User tidak ditemukan'
+            ]);
             return back()->withErrors([
                 'username' => 'Username atau password salah (login melalui Apps Darwinbox).'
             ]);
@@ -42,6 +53,15 @@ class LoginController extends Controller
 
         // 🔐 BLOK LOGIN MANUAL UNTUK AKUN SSO
         if ($user->login_type === 'sso') {
+            LoginLog::create([
+                'user_id'    => $user->id,
+                'username'   => $user->username,
+                'email'      => $user->email,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
+                'status'     => 'blocked',
+                'message'    => 'Percobaan login manual pada akun SSO'
+            ]);
             return back()->withErrors([
                 'username' => 'Akun ini hanya bisa login melalui Darwinbox.'
             ]);
@@ -49,14 +69,37 @@ class LoginController extends Controller
 
         // Cek password hash
         if (!Hash::check($request->password, $user->password)) {
+            LoginLog::create([
+                'user_id'    => $user->id,
+                'username'   => $user->username,
+                'email'      => $user->email,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
+                'status'     => 'failed',
+                'message'    => 'Password salah'
+            ]);
             return back()->withErrors([
                 'username' => 'Username atau password salah (login melalui Apps Darwinbox)'
             ]);
         }
 
-        // Login sukses
+        // ✅ LOGIN SUKSES
         Auth::login($user);
         $request->session()->regenerate();
+
+        // ⭐⭐⭐ TAMBAHKAN BARIS INI ⭐⭐⭐
+        $user->update(['last_login_at' => now()]);
+
+        // Catat log sukses
+        LoginLog::create([
+            'user_id'    => $user->id,
+            'username'   => $user->username,
+            'email'      => $user->email,
+            'ip_address' => $ip,
+            'user_agent' => $userAgent,
+            'status'     => 'success',
+            'message'    => null
+        ]);
 
         return redirect()->intended('/dashboard');
     }
@@ -66,6 +109,18 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
+        if (Auth::check()) {
+            LoginLog::create([
+                'user_id'    => Auth::id(),
+                'username'   => Auth::user()->username,
+                'email'      => Auth::user()->email,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'status'     => 'logout',
+                'message'    => 'User logout'
+            ]);
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

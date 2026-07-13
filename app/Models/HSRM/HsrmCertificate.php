@@ -28,6 +28,7 @@ class HsrmCertificate extends Model
         'employee_name',
         'nik',
         'certificate_type_id',
+        'custom_certificate_type',
         'instansi_pengurusan',
         'expired_date',
         'status_verif',

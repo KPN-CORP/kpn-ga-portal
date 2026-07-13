@@ -27,6 +27,7 @@ class HsrmEquipment extends Model
         'pic_user_id',
         'name',
         'equipment_type_id',
+        'custom_equipment_type',
         'capacity',
         'total_items',
         'location',

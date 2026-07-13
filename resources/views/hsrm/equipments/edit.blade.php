@@ -10,27 +10,31 @@
         @method('PUT')
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- Business Unit --}}
+            {{-- Business Unit (disabled, auto-filled) --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit <span class="text-red-500">*</span></label>
-                <select name="business_unit_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                <select name="business_unit_id_display" id="business_unit_id_display" class="w-full border rounded-lg px-3 py-2 bg-gray-100 soft-border" disabled>
                     <option value="">Select Business Unit</option>
                     @foreach($businessUnits as $bu)
-                        <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id', $equipment->business_unit_id) == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        <option value="{{ $bu->id_bisnis_unit }}" 
+                            {{ old('business_unit_id', $equipment->business_unit_id) == $bu->id_bisnis_unit ? 'selected' : '' }}>
                             {{ $bu->nama_bisnis_unit }}
                         </option>
                     @endforeach
                 </select>
+                <input type="hidden" name="business_unit_id" id="business_unit_id" value="{{ old('business_unit_id', $equipment->business_unit_id) }}">
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
             {{-- Area --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Area <span class="text-red-500">*</span></label>
-                <select name="area_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                <select name="area_id" id="area_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                     <option value="">Select Area</option>
                     @foreach($areas as $area)
-                        <option value="{{ $area->id_area_kerja }}" {{ old('area_id', $equipment->area_id) == $area->id_area_kerja ? 'selected' : '' }}>
+                        <option value="{{ $area->id_area_kerja }}" 
+                                data-bisnis-unit="{{ $area->id_bisnis_unit }}"
+                                {{ old('area_id', $equipment->area_id) == $area->id_area_kerja ? 'selected' : '' }}>
                             {{ $area->nama_area }}
                         </option>
                     @endforeach
@@ -61,18 +65,32 @@
                 @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Equipment Type with quota info --}}
+            {{-- Equipment Type with custom option --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-red-500">*</span></label>
                 <select name="equipment_type_id" id="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
                     <option value="">Select Type</option>
                     @foreach($equipmentTypes as $type)
-                        <option value="{{ $type->id }}" {{ old('equipment_type_id', $equipment->equipment_type_id) == $type->id ? 'selected' : '' }}>
+                        <option value="{{ $type->id }}" 
+                            {{ old('equipment_type_id', $equipment->equipment_type_id) == $type->id ? 'selected' : '' }}>
                             {{ $type->name }}
                         </option>
                     @endforeach
+                    <option value="other" {{ old('equipment_type_id', $equipment->equipment_type_id) == 'other' || $equipment->custom_equipment_type ? 'selected' : '' }}>
+                        Other (custom)
+                    </option>
                 </select>
                 @error('equipment_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Input custom type --}}
+                <div id="custom_type_container" class="mt-2 {{ old('equipment_type_id', $equipment->equipment_type_id) == 'other' || $equipment->custom_equipment_type ? '' : 'hidden' }}">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Equipment Type Name</label>
+                    <input type="text" name="custom_equipment_type" id="custom_equipment_type" 
+                           value="{{ old('custom_equipment_type', $equipment->custom_equipment_type) }}" 
+                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border"
+                           placeholder="Enter new equipment type name...">
+                    <p class="text-xs text-gray-400 mt-1">This will be created automatically upon approval.</p>
+                </div>
 
                 {{-- Info kuota --}}
                 <div id="quota-info" class="mt-1 text-sm hidden">
@@ -120,8 +138,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
                 <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
-                    <option value="1" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '1' ? 'selected' : '' }}>Recommended</option>
-                    <option value="0" {{ old('rekomendasi', (string) $equipment->rekomendasi) == '0' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="recommended" {{ old('rekomendasi', $equipment->rekomendasi) == 'recommended' ? 'selected' : '' }}>Recommended</option>
+                    <option value="not_recommended" {{ old('rekomendasi', $equipment->rekomendasi) == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="valid" {{ old('rekomendasi', $equipment->rekomendasi) == 'valid' ? 'selected' : '' }}>Valid</option>
                 </select>
                 @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -186,16 +205,29 @@
         const eqTypeSelect = document.getElementById('equipment_type_id');
         const quotaInfo = document.getElementById('quota-info');
         const quotaText = document.getElementById('quota-text');
-        const areaSelect = document.querySelector('select[name="area_id"]');
+        const areaSelect = document.getElementById('area_id');
+        const businessUnitDisplay = document.getElementById('business_unit_id_display');
+        const businessUnitHidden = document.getElementById('business_unit_id');
+        const customContainer = document.getElementById('custom_type_container');
+        const customInput = document.getElementById('custom_equipment_type');
         const form = document.getElementById('equipment-form');
 
         // Data quota dari server
         const quotaData = @json($quotaData ?? []);
 
+        function autoFillBusinessUnit() {
+            const selectedOption = areaSelect.options[areaSelect.selectedIndex];
+            if (selectedOption && selectedOption.dataset.bisnisUnit) {
+                const buId = selectedOption.dataset.bisnisUnit;
+                businessUnitDisplay.value = buId;
+                businessUnitHidden.value = buId;
+            }
+        }
+
         function updateQuotaInfo() {
-            const areaId = areaSelect ? areaSelect.value : '';
+            const areaId = areaSelect.value;
             const typeId = eqTypeSelect.value;
-            if (!areaId || !typeId) {
+            if (!areaId || !typeId || typeId === 'other') {
                 quotaInfo.classList.add('hidden');
                 return;
             }
@@ -212,13 +244,37 @@
             }
         }
 
-        if (areaSelect) {
-            areaSelect.addEventListener('change', updateQuotaInfo);
-        }
-        eqTypeSelect.addEventListener('change', updateQuotaInfo);
+        // Toggle custom input
+        eqTypeSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customContainer.classList.remove('hidden');
+                customInput.setAttribute('required', 'required');
+                quotaInfo.classList.add('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+                customInput.removeAttribute('required');
+                customInput.value = '';
+                updateQuotaInfo();
+            }
+        });
+
+        areaSelect.addEventListener('change', function() {
+            autoFillBusinessUnit();
+            updateQuotaInfo();
+        });
 
         // Initial call
+        autoFillBusinessUnit();
         setTimeout(updateQuotaInfo, 100);
+
+        form.addEventListener('submit', function(e) {
+            // Jika custom type, cek apakah sudah diisi
+            if (eqTypeSelect.value === 'other' && !customInput.value.trim()) {
+                e.preventDefault();
+                customInput.focus();
+                alert('Silakan isi nama tipe peralatan baru.');
+            }
+        });
     });
 </script>
 @endsection

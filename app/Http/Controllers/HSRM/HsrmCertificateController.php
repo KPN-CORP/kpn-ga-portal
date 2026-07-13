@@ -112,21 +112,35 @@ class HsrmCertificateController extends Controller
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
 
-        $data = $request->validate([
+        // Validasi dasar
+        $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
             'pic_user_id' => 'nullable|exists:users,id',
             'employee_name' => 'required|string|max:255',
             'nik' => 'required|string|max:50',
-            'certificate_type_id' => 'required|exists:hsrm_certificate_types,id',
             'instansi_pengurusan' => 'nullable|string|max:255',
             'expired_date' => 'required|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:15360',
-        ]);
+        ];
 
+        // Validasi: certificate_type_id atau custom_certificate_type harus diisi
+        if ($request->filled('custom_certificate_type')) {
+            $rules['custom_certificate_type'] = 'required|string|max:255|unique:hsrm_certificate_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['certificate_type_id'] = null; // kosongkan jika custom
+        } else {
+            $rules['certificate_type_id'] = 'required|exists:hsrm_certificate_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_certificate_type'] = null;
+        }
+
+        // Otorisasi area untuk non-admin
         if (!$isAdmin) {
             $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
             if (!in_array($data['area_id'], $allowedAreaIds)) {
@@ -135,22 +149,24 @@ class HsrmCertificateController extends Controller
             unset($data['pic_user_id']);
         }
 
-        // Validasi kuota
-        $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
-                    ->where('certificate_type_id', $data['certificate_type_id'])
-                    ->first();
+        // Validasi kuota hanya jika certificate_type_id ada (bukan custom)
+        if (!empty($data['certificate_type_id'])) {
+            $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
+                        ->where('certificate_type_id', $data['certificate_type_id'])
+                        ->first();
 
-        if ($quota && $quota->quota > 0) {
-            $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
-                            ->where('certificate_type_id', $data['certificate_type_id'])
-                            ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
-                            ->count();
+            if ($quota && $quota->quota > 0) {
+                $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
+                                ->where('certificate_type_id', $data['certificate_type_id'])
+                                ->where('status_verif', 'verified')
+                                ->where('expired_date', '>', now())
+                                ->count();
 
-            if ($activeCount >= $quota->quota) {
-                return back()->withErrors([
-                    'certificate_type_id' => 'Kuota untuk tipe sertifikat ini sudah penuh (maksimal '.$quota->quota.'). Silakan perpanjang yang expired atau hubungi admin.'
-                ])->withInput();
+                if ($activeCount >= $quota->quota) {
+                    return back()->withErrors([
+                        'certificate_type_id' => 'Kuota untuk tipe sertifikat ini sudah penuh (maksimal '.$quota->quota.').'
+                    ])->withInput();
+                }
             }
         }
 
@@ -191,7 +207,24 @@ class HsrmCertificateController extends Controller
         $pics = User::whereHas('hsrmAreas')->get();
         $certificateTypes = HsrmCertificateType::orderBy('name')->get();
 
-        return view('hsrm.certificates.edit', compact('cert', 'areas', 'businessUnits', 'pics', 'isAdmin', 'certificateTypes'));
+        // Ambil quota data untuk info
+        $quotaData = [];
+        if ($isAdmin) {
+            $allQuotas = HsrmCertificateQuota::with(['area', 'certificateType'])->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->certificate_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        } else {
+            $areaIds = $areas->pluck('id_area_kerja')->toArray();
+            $allQuotas = HsrmCertificateQuota::whereIn('area_id', $areaIds)->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->certificate_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        }
+
+        return view('hsrm.certificates.edit', compact('cert', 'areas', 'businessUnits', 'pics', 'isAdmin', 'certificateTypes', 'quotaData'));
     }
 
     public function update(Request $request, $id)
@@ -202,20 +235,31 @@ class HsrmCertificateController extends Controller
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
 
-        $data = $request->validate([
+        $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
             'pic_user_id' => 'nullable|exists:users,id',
             'employee_name' => 'required|string|max:255',
             'nik' => 'required|string|max:50',
-            'certificate_type_id' => 'required|exists:hsrm_certificate_types,id',
             'instansi_pengurusan' => 'nullable|string|max:255',
             'expired_date' => 'required|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:15360',
-        ]);
+        ];
+
+        if ($request->filled('custom_certificate_type')) {
+            $rules['custom_certificate_type'] = 'required|string|max:255|unique:hsrm_certificate_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['certificate_type_id'] = null;
+        } else {
+            $rules['certificate_type_id'] = 'required|exists:hsrm_certificate_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_certificate_type'] = null;
+        }
 
         if (!$isAdmin) {
             $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
@@ -225,11 +269,11 @@ class HsrmCertificateController extends Controller
             unset($data['pic_user_id']);
         }
 
-        // === VALIDASI KUOTA jika area atau tipe berubah ===
+        // Validasi kuota jika area atau tipe berubah dan bukan custom
         $areaChanged = ($cert->area_id != $data['area_id']);
         $typeChanged = ($cert->certificate_type_id != $data['certificate_type_id']);
 
-        if ($areaChanged || $typeChanged) {
+        if (!empty($data['certificate_type_id']) && ($areaChanged || $typeChanged)) {
             $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
                         ->where('certificate_type_id', $data['certificate_type_id'])
                         ->first();
@@ -268,8 +312,7 @@ class HsrmCertificateController extends Controller
             }
         }
 
-        // === RESET APPROVAL STATUS ===
-        // Setiap perubahan data akan mengembalikan status ke pending
+        // Reset approval status
         $data['status_verif'] = HsrmCertificate::STATUS_PENDING;
         $data['approved_by'] = null;
         $data['approved_at'] = null;
@@ -316,11 +359,28 @@ class HsrmCertificateController extends Controller
         $cert = HsrmCertificate::findOrFail($id);
         $this->authorizeApprove($cert);
 
-        $cert->update([
-            'status_verif' => HsrmCertificate::STATUS_VERIFIED,
-            'approved_by' => auth()->id(),
-            'approved_at' => now(),
-        ]);
+        // Jika ada custom type, buat tipe baru
+        if ($cert->custom_certificate_type) {
+            // Cek apakah sudah ada (unique)
+            $existing = HsrmCertificateType::where('name', $cert->custom_certificate_type)->first();
+            if (!$existing) {
+                $newType = HsrmCertificateType::create([
+                    'name' => $cert->custom_certificate_type,
+                    'description' => 'Auto-created from custom certificate on ' . now()->format('d-m-Y H:i'),
+                ]);
+                $cert->certificate_type_id = $newType->id;
+                $cert->custom_certificate_type = null;
+            } else {
+                // Jika sudah ada, gunakan yang sudah ada dan kosongkan custom
+                $cert->certificate_type_id = $existing->id;
+                $cert->custom_certificate_type = null;
+            }
+        }
+
+        $cert->status_verif = HsrmCertificate::STATUS_VERIFIED;
+        $cert->approved_by = auth()->id();
+        $cert->approved_at = now();
+        $cert->save();
 
         HsrmLog::create([
             'user_id' => auth()->id(),
@@ -330,7 +390,7 @@ class HsrmCertificateController extends Controller
             'new_data' => $cert->toArray(),
         ]);
 
-        return redirect()->back()->with('success', 'Certificate approved.');
+        return redirect()->back()->with('success', 'Certificate approved. Custom type has been added if any.');
     }
 
     public function reject($id)

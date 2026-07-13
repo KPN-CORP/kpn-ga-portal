@@ -87,7 +87,7 @@ class HsrmEquipmentController extends Controller
         $pics = User::whereHas('hsrmAreas')->get();
         $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
 
-        // Ambil semua quota untuk area-area yang dimiliki user (atau semua jika admin)
+        // Ambil semua quota untuk area
         $quotaData = [];
         if ($isAdmin) {
             $allQuotas = HsrmEquipmentQuota::with(['area', 'equipmentType'])->get();
@@ -112,12 +112,12 @@ class HsrmEquipmentController extends Controller
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
 
-        $data = $request->validate([
+        // Validasi dasar
+        $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
             'pic_user_id' => 'nullable|exists:users,id',
             'name' => 'required|string|max:255',
-            'equipment_type_id' => 'required|exists:hsrm_equipment_types,id',
             'capacity' => 'required|string|max:50',
             'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
@@ -126,8 +126,22 @@ class HsrmEquipmentController extends Controller
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
-        ]);
+        ];
 
+        // Validasi custom atau pilih dari dropdown
+        if ($request->filled('custom_equipment_type')) {
+            $rules['custom_equipment_type'] = 'required|string|max:255|unique:hsrm_equipment_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['equipment_type_id'] = null;
+        } else {
+            $rules['equipment_type_id'] = 'required|exists:hsrm_equipment_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_equipment_type'] = null;
+        }
+
+        // Otorisasi area untuk PIC
         if (!$isAdmin) {
             $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
             if (!in_array($data['area_id'], $allowedAreaIds)) {
@@ -136,30 +150,32 @@ class HsrmEquipmentController extends Controller
             unset($data['pic_user_id']);
         }
 
-        // Validasi kuota (total items)
-        $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
-                    ->where('equipment_type_id', $data['equipment_type_id'])
-                    ->first();
+        // Validasi kuota untuk tipe yang sudah ada (bukan custom)
+        if (!empty($data['equipment_type_id'])) {
+            $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
+                        ->where('equipment_type_id', $data['equipment_type_id'])
+                        ->first();
 
-        if ($quota && $quota->quota > 0) {
-            $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
-                            ->where('equipment_type_id', $data['equipment_type_id'])
-                            ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
-                            ->sum('total_items');
+            if ($quota && $quota->quota > 0) {
+                $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
+                                ->where('equipment_type_id', $data['equipment_type_id'])
+                                ->where('status_verif', 'verified')
+                                ->where('expired_date', '>', now())
+                                ->sum('total_items');
 
-            $newTotal = $activeItems + $data['total_items'];
-
-            if ($newTotal > $quota->quota) {
-                return back()->withErrors([
-                    'total_items' => 'Kuota untuk tipe peralatan ini adalah '.$quota->quota.' item. Saat ini sudah ada '.$activeItems.' item aktif. Anda hanya bisa menambahkan maksimal '.($quota->quota - $activeItems).' item lagi.'
-                ])->withInput();
+                $newTotal = $activeItems + ($data['total_items'] ?? 1);
+                if ($newTotal > $quota->quota) {
+                    return back()->withErrors([
+                        'equipment_type_id' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif, saat ini '.$activeItems.' aktif).'
+                    ])->withInput();
+                }
             }
         }
 
         $data['created_by'] = $user->id;
         $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
         $data['old_attachments'] = [];
+        $data['total_items'] = 1; // selalu 1
 
         if ($request->hasFile('photo')) {
             $path = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
@@ -194,7 +210,18 @@ class HsrmEquipmentController extends Controller
         $pics = User::whereHas('hsrmAreas')->get();
         $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
 
-        return view('hsrm.equipments.edit', compact('equipment', 'areas', 'businessUnits', 'pics', 'isAdmin', 'equipmentTypes'));
+        // Ambil quota data
+        $quotaData = [];
+        $areaIds = $areas->pluck('id_area_kerja')->toArray();
+        if (!empty($areaIds)) {
+            $allQuotas = HsrmEquipmentQuota::whereIn('area_id', $areaIds)->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        }
+
+        return view('hsrm.equipments.edit', compact('equipment', 'areas', 'businessUnits', 'pics', 'isAdmin', 'equipmentTypes', 'quotaData'));
     }
 
     public function update(Request $request, $id)
@@ -205,12 +232,12 @@ class HsrmEquipmentController extends Controller
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
 
-        $data = $request->validate([
+        // Validasi
+        $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
             'pic_user_id' => 'nullable|exists:users,id',
             'name' => 'required|string|max:255',
-            'equipment_type_id' => 'required|exists:hsrm_equipment_types,id',
             'capacity' => 'required|string|max:50',
             'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
@@ -219,7 +246,19 @@ class HsrmEquipmentController extends Controller
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
             'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
-        ]);
+        ];
+
+        if ($request->filled('custom_equipment_type')) {
+            $rules['custom_equipment_type'] = 'required|string|max:255|unique:hsrm_equipment_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['equipment_type_id'] = null;
+        } else {
+            $rules['equipment_type_id'] = 'required|exists:hsrm_equipment_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_equipment_type'] = null;
+        }
 
         if (!$isAdmin) {
             $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
@@ -229,12 +268,11 @@ class HsrmEquipmentController extends Controller
             unset($data['pic_user_id']);
         }
 
-        // === VALIDASI KUOTA jika area atau tipe berubah atau total_items berubah ===
+        // Validasi kuota jika area atau tipe berubah
         $areaChanged = ($equipment->area_id != $data['area_id']);
         $typeChanged = ($equipment->equipment_type_id != $data['equipment_type_id']);
-        $itemsChanged = ($equipment->total_items != $data['total_items']);
 
-        if ($areaChanged || $typeChanged || $itemsChanged) {
+        if (($areaChanged || $typeChanged) && !empty($data['equipment_type_id'])) {
             $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
                         ->where('equipment_type_id', $data['equipment_type_id'])
                         ->first();
@@ -247,11 +285,10 @@ class HsrmEquipmentController extends Controller
                                 ->where('id', '!=', $equipment->id)
                                 ->sum('total_items');
 
-                $newTotal = $activeItems + $data['total_items'];
-
+                $newTotal = $activeItems + ($data['total_items'] ?? 1);
                 if ($newTotal > $quota->quota) {
                     return back()->withErrors([
-                        'total_items' => 'Kuota untuk tipe peralatan ini adalah '.$quota->quota.' item. Saat ini (tanpa item ini) ada '.$activeItems.' item aktif. Anda hanya bisa mengatur total menjadi maksimal '.($quota->quota - $activeItems).' item untuk tipe ini.'
+                        'equipment_type_id' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif).'
                     ])->withInput();
                 }
             }
@@ -275,7 +312,7 @@ class HsrmEquipmentController extends Controller
             }
         }
 
-        // === RESET APPROVAL STATUS ===
+        $data['total_items'] = 1; // selalu 1
         $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
         $data['approved_by'] = null;
         $data['approved_at'] = null;
@@ -322,11 +359,49 @@ class HsrmEquipmentController extends Controller
         $equipment = HsrmEquipment::findOrFail($id);
         $this->authorizeApprove($equipment);
 
-        $equipment->update([
-            'status_verif' => HsrmEquipment::STATUS_VERIFIED,
-            'approved_by' => auth()->id(),
-            'approved_at' => now(),
-        ]);
+        // Jika ada custom type, buat tipe baru
+        if ($equipment->custom_equipment_type) {
+            $existing = HsrmEquipmentType::where('name', $equipment->custom_equipment_type)->first();
+            if (!$existing) {
+                $newType = HsrmEquipmentType::create([
+                    'name' => $equipment->custom_equipment_type,
+                    'description' => 'Auto-created from custom equipment',
+                ]);
+                $equipment->equipment_type_id = $newType->id;
+                $equipment->custom_equipment_type = null;
+            } else {
+                $equipment->equipment_type_id = $existing->id;
+                $equipment->custom_equipment_type = null;
+            }
+        }
+
+        // Validasi kuota untuk tipe yang sudah ada (bukan custom)
+        if ($equipment->equipment_type_id) {
+            $quota = HsrmEquipmentQuota::where('area_id', $equipment->area_id)
+                        ->where('equipment_type_id', $equipment->equipment_type_id)
+                        ->first();
+
+            if ($quota && $quota->quota > 0) {
+                $activeItems = HsrmEquipment::where('area_id', $equipment->area_id)
+                                ->where('equipment_type_id', $equipment->equipment_type_id)
+                                ->where('status_verif', 'verified')
+                                ->where('expired_date', '>', now())
+                                ->where('id', '!=', $equipment->id)
+                                ->sum('total_items');
+
+                $newTotal = $activeItems + ($equipment->total_items ?? 1);
+                if ($newTotal > $quota->quota) {
+                    return back()->withErrors([
+                        'error' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif, saat ini '.$activeItems.' aktif). Tidak bisa approve.'
+                    ]);
+                }
+            }
+        }
+
+        $equipment->status_verif = HsrmEquipment::STATUS_VERIFIED;
+        $equipment->approved_by = auth()->id();
+        $equipment->approved_at = now();
+        $equipment->save();
 
         HsrmLog::create([
             'user_id' => auth()->id(),
@@ -336,7 +411,7 @@ class HsrmEquipmentController extends Controller
             'new_data' => $equipment->toArray(),
         ]);
 
-        return redirect()->back()->with('success', 'Equipment approved.');
+        return redirect()->back()->with('success', 'Equipment approved. Custom type has been added if any.');
     }
 
     public function reject($id)

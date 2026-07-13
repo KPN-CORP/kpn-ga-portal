@@ -9,10 +9,10 @@
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- Business Unit --}}
+            {{-- Business Unit (disabled, auto-filled) --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit <span class="text-red-500">*</span></label>
-                <select name="business_unit_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                <select name="business_unit_id_display" id="business_unit_id_display" class="w-full border rounded-lg px-3 py-2 bg-gray-100 soft-border" disabled>
                     <option value="">Select Business Unit</option>
                     @foreach($businessUnits as $bu)
                         <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -20,6 +20,7 @@
                         </option>
                     @endforeach
                 </select>
+                <input type="hidden" name="business_unit_id" id="business_unit_id" value="{{ old('business_unit_id') }}">
                 @error('business_unit_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
@@ -40,7 +41,7 @@
 
                 <datalist id="area-list">
                     @foreach($areas as $area)
-                        <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}">
+                        <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}" data-bisnis-unit="{{ $area->id_bisnis_unit }}">
                     @endforeach
                 </datalist>
 
@@ -72,7 +73,7 @@
                 @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Equipment Type with quota info --}}
+            {{-- Equipment Type with custom option --}}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-red-500">*</span></label>
                 <select name="equipment_type_id" id="equipment_type_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
@@ -82,8 +83,19 @@
                             {{ $type->name }}
                         </option>
                     @endforeach
+                    <option value="other" {{ old('equipment_type_id') == 'other' ? 'selected' : '' }}>Other (custom)</option>
                 </select>
                 @error('equipment_type_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                {{-- Input custom type --}}
+                <div id="custom_type_container" class="mt-2 {{ old('equipment_type_id') == 'other' ? '' : 'hidden' }}">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Equipment Type Name</label>
+                    <input type="text" name="custom_equipment_type" id="custom_equipment_type" 
+                           value="{{ old('custom_equipment_type') }}" 
+                           class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border"
+                           placeholder="Enter new equipment type name...">
+                    <p class="text-xs text-gray-400 mt-1">This will be created automatically upon approval.</p>
+                </div>
 
                 {{-- Info kuota --}}
                 <div id="quota-info" class="mt-1 text-sm hidden">
@@ -131,8 +143,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation</label>
                 <select name="rekomendasi" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                     <option value="">- Select -</option>
-                    <option value="1" {{ old('rekomendasi') == '1' ? 'selected' : '' }}>Recommended</option>
-                    <option value="0" {{ old('rekomendasi') == '0' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="recommended" {{ old('rekomendasi') == 'recommended' ? 'selected' : '' }}>Recommended</option>
+                    <option value="not_recommended" {{ old('rekomendasi') == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
+                    <option value="valid" {{ old('rekomendasi') == 'valid' ? 'selected' : '' }}>Valid</option>
                 </select>
                 @error('rekomendasi') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
@@ -176,8 +189,12 @@
         const eqTypeSelect = document.getElementById('equipment_type_id');
         const quotaInfo = document.getElementById('quota-info');
         const quotaText = document.getElementById('quota-text');
+        const businessUnitDisplay = document.getElementById('business_unit_id_display');
+        const businessUnitHidden = document.getElementById('business_unit_id');
+        const customContainer = document.getElementById('custom_type_container');
+        const customInput = document.getElementById('custom_equipment_type');
 
-        // Data quota dari server (dikirim dari controller)
+        // Data quota dari server
         const quotaData = @json($quotaData ?? []);
 
         function validateArea() {
@@ -185,17 +202,28 @@
             const options = datalist.options;
             let found = false;
             let foundId = null;
+            let foundBu = null;
+
             for (let opt of options) {
                 if (opt.value === typedValue) {
                     found = true;
                     foundId = opt.dataset.id;
+                    foundBu = opt.dataset.bisnisUnit;
                     break;
                 }
             }
+
             if (found && foundId) {
                 areaIdHidden.value = foundId;
                 areaInput.classList.remove('border-red-500');
                 errorDiv.classList.add('hidden');
+                
+                // Auto-fill Business Unit
+                if (foundBu) {
+                    businessUnitDisplay.value = foundBu;
+                    businessUnitHidden.value = foundBu;
+                }
+                
                 updateQuotaInfo();
                 return true;
             } else {
@@ -217,15 +245,13 @@
         function updateQuotaInfo() {
             const areaId = areaIdHidden.value;
             const typeId = eqTypeSelect.value;
-            if (!areaId || !typeId) {
+            if (!areaId || !typeId || typeId === 'other') {
                 quotaInfo.classList.add('hidden');
                 return;
             }
             const key = areaId + '_' + typeId;
             const quota = quotaData[key] || 0;
             if (quota > 0) {
-                // Hitung active items saat ini (dari server, kirim via AJAX atau data awal)
-                // Karena kita tidak punya data active di sini, kita bisa tampilkan quota saja.
                 quotaText.textContent = 'Kuota total item: ' + quota + ' (maksimal ' + quota + ' item aktif)';
                 quotaInfo.classList.remove('hidden');
                 quotaInfo.className = 'mt-1 text-sm text-blue-600';
@@ -236,9 +262,23 @@
             }
         }
 
+        // Toggle custom input
+        eqTypeSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                customContainer.classList.remove('hidden');
+                customInput.setAttribute('required', 'required');
+                quotaInfo.classList.add('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+                customInput.removeAttribute('required');
+                customInput.value = '';
+                updateQuotaInfo();
+            }
+        });
+
         areaInput.addEventListener('input', validateArea);
         areaInput.addEventListener('blur', validateArea);
-        eqTypeSelect.addEventListener('change', updateQuotaInfo);
+        areaInput.addEventListener('change', validateArea);
 
         form.addEventListener('submit', function(e) {
             if (!validateArea()) {
@@ -247,16 +287,11 @@
                 alert('Silakan pilih area dari daftar yang tersedia.');
             }
 
-            // Validasi kuota sisi client (opsional, server tetap final)
-            const areaId = areaIdHidden.value;
-            const typeId = eqTypeSelect.value;
-            const key = areaId + '_' + typeId;
-            const quota = quotaData[key] || 0;
-            if (quota > 0) {
-                // Kita tidak tahu active items dari client, jadi kita skip client-side check,
-                // cukup tampilkan peringatan jika sudah mendekati quota.
-                // Server akan menolak jika melebihi.
-                // Bisa tambahkan AJAX call untuk cek realtime, tapi untuk sederhana kita skip.
+            // Jika custom type, cek apakah sudah diisi
+            if (eqTypeSelect.value === 'other' && !customInput.value.trim()) {
+                e.preventDefault();
+                customInput.focus();
+                alert('Silakan isi nama tipe peralatan baru.');
             }
         });
 

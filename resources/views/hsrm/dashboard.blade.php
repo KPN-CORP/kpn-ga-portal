@@ -109,6 +109,40 @@
     .stat-link:hover {
         opacity: 0.8;
     }
+    .area-input {
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.875rem;
+        width: 180px;
+        transition: all 0.15s;
+    }
+    .area-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+    }
+    .filter-btn {
+        background: #f3f4f6;
+        padding: 0.4rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        border: 1px solid #d1d5db;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .filter-btn:hover {
+        background: #e5e7eb;
+    }
+    .filter-btn-clear {
+        color: #6b7280;
+        font-size: 0.875rem;
+        text-decoration: none;
+        padding: 0.4rem 0.5rem;
+    }
+    .filter-btn-clear:hover {
+        color: #1f2937;
+    }
     @media (max-width: 640px) {
         .chart-container.budget-chart {
             min-height: 400px;
@@ -119,6 +153,21 @@
         .chart-container {
             min-height: 300px;
         }
+        .area-input {
+            width: 140px;
+        }
+    }
+    .input-error {
+        border-color: #ef4444 !important;
+    }
+    .area-error-text {
+        color: #ef4444;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    .area-error-text.show {
+        display: block;
     }
 </style>
 @endpush
@@ -126,7 +175,7 @@
 @section('content')
 {{-- Filter --}}
 <div class="flex flex-wrap justify-between items-center mb-6 gap-3">
-    <div class="flex items-center space-x-3">
+    <div class="flex items-center space-x-3 flex-wrap gap-2">
         <label class="text-sm font-medium text-gray-700">View:</label>
         <select id="viewFilter" class="border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
             <option value="certificates" {{ $view == 'certificates' ? 'selected' : '' }}>📄 Certificates</option>
@@ -136,6 +185,34 @@
             @endif
             <option value="all" {{ $view == 'all' ? 'selected' : '' }}>📊 All</option>
         </select>
+
+        {{-- Area filter for admin only --}}
+        @if(session('hsrm_role') === 'admin')
+            <form method="GET" action="{{ route('hsrm.dashboard') }}" id="area-filter-form" class="flex items-center gap-2">
+                <input type="hidden" name="view" value="{{ $view }}">
+                <div class="relative">
+                    <input type="text"
+                           id="area_name"
+                           name="area_name"
+                           list="area-list"
+                           value="{{ $selectedArea ? $selectedArea->nama_area : '' }}"
+                           class="area-input @error('area_id') input-error @enderror"
+                           placeholder="Filter area..."
+                           autocomplete="off">
+                    <input type="hidden" name="area_id" id="area_id" value="{{ $selectedArea ? $selectedArea->id_area_kerja : '' }}">
+                    <datalist id="area-list">
+                        @foreach($areas as $area)
+                            <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}">
+                        @endforeach
+                    </datalist>
+                    <div id="area-error" class="area-error-text">Area tidak valid. Pilih dari daftar.</div>
+                </div>
+                <button type="submit" class="filter-btn">Filter</button>
+                @if($selectedArea)
+                    <a href="{{ route('hsrm.dashboard', ['view' => $view]) }}" class="filter-btn-clear">Clear</a>
+                @endif
+            </form>
+        @endif
     </div>
     <div class="text-sm text-gray-500 bg-gray-50/80 px-4 py-2 rounded-full border border-gray-200/60">
         @if($view == 'certificates')
@@ -146,6 +223,9 @@
             Showing <strong>Budget & Quota</strong> summary
         @else
             Showing <strong>All</strong> data
+        @endif
+        @if($selectedArea)
+            <span class="ml-2">| Area: <strong>{{ $selectedArea->nama_area }}</strong></span>
         @endif
     </div>
 </div>
@@ -161,7 +241,7 @@
         </div>
 
         {{-- Grafik Budget per Area --}}
-        @if(isset($budgetData) && count($budgetData) > 0)
+        @if(isset($budgetData) && $budgetData->count() > 0)
         <div class="chart-card mb-5">
             <div class="chart-title">Budget per Area (Rp)</div>
             <div class="chart-container budget-chart" style="height:550px;">
@@ -169,9 +249,9 @@
             </div>
         </div>
         @else
-        <!-- <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-5 rounded-lg">
-            <p class="text-yellow-700">No budget data available. Please set budgets in the <a href="{{ route('hsrm.admin.quotas.index') }}" class="underline font-semibold">Budget & Quota Management</a> page.</p>
-        </div> -->
+        <div class="bg-gray-50 p-8 text-center text-gray-500 rounded-xl border mb-5">
+            <i class="fas fa-info-circle mr-2"></i> Tidak ada data budget untuk area ini.
+        </div>
         @endif
 
         {{-- Grafik Quota Fulfillment --}}
@@ -371,6 +451,7 @@
                 <div>
                     <span class="font-medium text-gray-800">{{ $cert->employee_name }}</span>
                     <span class="text-xs text-gray-500 ml-2">{{ $cert->certificateType->name ?? '-' }}</span>
+                    <span class="text-xs text-gray-400 ml-2">({{ $cert->area->nama_area ?? '-' }})</span>
                 </div>
                 <div class="flex items-center space-x-3">
                     <span class="status-badge 
@@ -401,6 +482,7 @@
                 <div>
                     <span class="font-medium text-gray-800">{{ $eq->name }}</span>
                     <span class="text-xs text-gray-500 ml-2">{{ $eq->equipmentType->name ?? '-' }}</span>
+                    <span class="text-xs text-gray-400 ml-2">({{ $eq->area->nama_area ?? '-' }})</span>
                 </div>
                 <div class="flex items-center space-x-3">
                     <span class="status-badge 
@@ -422,15 +504,77 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Filter
+        // ============================================================
+        // VIEW FILTER
+        // ============================================================
         document.getElementById('viewFilter').addEventListener('change', function() {
             const view = this.value;
             const url = new URL(window.location.href);
             url.searchParams.set('view', view);
+            // Hapus area_id jika view berubah ke budget (tapi tetap pertahankan jika ada)
             window.location.href = url.toString();
         });
 
-        // Register plugin
+        // ============================================================
+        // AREA VALIDATION (Datalist)
+        // ============================================================
+        const areaInput = document.getElementById('area_name');
+        const areaIdHidden = document.getElementById('area_id');
+        const datalist = document.getElementById('area-list');
+        const errorDiv = document.getElementById('area-error');
+        const form = document.getElementById('area-filter-form');
+
+        if (areaInput) {
+            function validateArea() {
+                const typedValue = areaInput.value.trim();
+                const options = datalist.options;
+                let found = false;
+                let foundId = null;
+
+                for (let opt of options) {
+                    if (opt.value === typedValue) {
+                        found = true;
+                        foundId = opt.dataset.id;
+                        break;
+                    }
+                }
+
+                if (found && foundId) {
+                    areaIdHidden.value = foundId;
+                    areaInput.classList.remove('input-error');
+                    errorDiv.classList.remove('show');
+                    return true;
+                } else {
+                    if (typedValue === '') {
+                        areaIdHidden.value = '';
+                        areaInput.classList.remove('input-error');
+                        errorDiv.classList.remove('show');
+                        return true;
+                    }
+                    areaIdHidden.value = '';
+                    areaInput.classList.add('input-error');
+                    errorDiv.classList.add('show');
+                    return false;
+                }
+            }
+
+            areaInput.addEventListener('input', validateArea);
+            areaInput.addEventListener('blur', validateArea);
+
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    if (!validateArea()) {
+                        e.preventDefault();
+                        areaInput.focus();
+                        alert('Silakan pilih area dari daftar yang tersedia.');
+                    }
+                });
+            }
+        }
+
+        // ============================================================
+        // REGISTER CHART PLUGIN
+        // ============================================================
         Chart.register(ChartDataLabels);
 
         // --- Pie chart config ---
@@ -469,7 +613,7 @@
             }
         };
 
-        // --- Bar chart config (untuk certificates dan equipments) ---
+        // --- Bar chart config ---
         const barOptions = {
             type: 'bar',
             options: {
@@ -540,168 +684,187 @@
         // CERTIFICATES CHARTS
         // ============================================================
         @if($view == 'certificates' || $view == 'all')
-            new Chart(document.getElementById('certStatusChart'), {
-                ...pieOptions,
-                data: {
-                    labels: ['Active', 'Warning', 'Expired'],
-                    datasets: [{
-                        data: [
-                            {{ $certData['active'] ?? 0 }},
-                            {{ $certData['warning'] ?? 0 }},
-                            {{ $certData['expired'] ?? 0 }}
-                        ],
-                        backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                }
-            });
+            const certStatusEl = document.getElementById('certStatusChart');
+            if (certStatusEl) {
+                new Chart(certStatusEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Active', 'Warning', 'Expired'],
+                        datasets: [{
+                            data: [
+                                {{ $certData['active'] ?? 0 }},
+                                {{ $certData['warning'] ?? 0 }},
+                                {{ $certData['expired'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
-            new Chart(document.getElementById('certRecommendChart'), {
-                ...pieOptions,
-                data: {
-                    labels: ['Recommended', 'Not Recommended', 'Valid'],
-                    datasets: [{
-                        data: [
-                            {{ $certData['recommended'] ?? 0 }},
-                            {{ $certData['not_recommended'] ?? 0 }},
-                            {{ $certData['valid'] ?? 0 }}
-                        ],
-                        backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                }
-            });
+            const certRecommendEl = document.getElementById('certRecommendChart');
+            if (certRecommendEl) {
+                new Chart(certRecommendEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Recommended', 'Not Recommended', 'Valid'],
+                        datasets: [{
+                            data: [
+                                {{ $certData['recommended'] ?? 0 }},
+                                {{ $certData['not_recommended'] ?? 0 }},
+                                {{ $certData['valid'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
-            new Chart(document.getElementById('certAreaChart'), {
-                ...barOptions,
-                data: {
-                    labels: @json($certData['area_labels'] ?? []),
-                    datasets: [{
-                        label: 'Certificates',
-                        data: @json($certData['area_data'] ?? []),
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.7)',
-                            'rgba(99, 102, 241, 0.7)',
-                            'rgba(139, 92, 246, 0.7)',
-                            'rgba(168, 85, 247, 0.7)',
-                            'rgba(192, 132, 252, 0.7)',
-                            'rgba(236, 72, 153, 0.7)',
-                            'rgba(244, 63, 94, 0.7)',
-                            'rgba(239, 68, 68, 0.7)',
-                            'rgba(251, 146, 60, 0.7)',
-                            'rgba(251, 191, 36, 0.7)',
-                        ],
-                        borderColor: [
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(99, 102, 241, 1)',
-                            'rgba(139, 92, 246, 1)',
-                            'rgba(168, 85, 247, 1)',
-                            'rgba(192, 132, 252, 1)',
-                            'rgba(236, 72, 153, 1)',
-                            'rgba(244, 63, 94, 1)',
-                            'rgba(239, 68, 68, 1)',
-                            'rgba(251, 146, 60, 1)',
-                            'rgba(251, 191, 36, 1)',
-                        ],
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        maxBarThickness: 50
-                    }]
-                }
-            });
+            const certAreaEl = document.getElementById('certAreaChart');
+            if (certAreaEl && @json($certData['area_labels'] ?? []).length > 0) {
+                new Chart(certAreaEl, {
+                    ...barOptions,
+                    data: {
+                        labels: @json($certData['area_labels'] ?? []),
+                        datasets: [{
+                            label: 'Certificates',
+                            data: @json($certData['area_data'] ?? []),
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(99, 102, 241, 0.7)',
+                                'rgba(139, 92, 246, 0.7)',
+                                'rgba(168, 85, 247, 0.7)',
+                                'rgba(192, 132, 252, 0.7)',
+                                'rgba(236, 72, 153, 0.7)',
+                                'rgba(244, 63, 94, 0.7)',
+                                'rgba(239, 68, 68, 0.7)',
+                                'rgba(251, 146, 60, 0.7)',
+                                'rgba(251, 191, 36, 0.7)',
+                            ],
+                            borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(99, 102, 241, 1)',
+                                'rgba(139, 92, 246, 1)',
+                                'rgba(168, 85, 247, 1)',
+                                'rgba(192, 132, 252, 1)',
+                                'rgba(236, 72, 153, 1)',
+                                'rgba(244, 63, 94, 1)',
+                                'rgba(239, 68, 68, 1)',
+                                'rgba(251, 146, 60, 1)',
+                                'rgba(251, 191, 36, 1)',
+                            ],
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            maxBarThickness: 50
+                        }]
+                    }
+                });
+            }
         @endif
 
         // ============================================================
         // EQUIPMENTS CHARTS
         // ============================================================
         @if($view == 'equipments' || $view == 'all')
-            new Chart(document.getElementById('eqStatusChart'), {
-                ...pieOptions,
-                data: {
-                    labels: ['Active', 'Warning', 'Expired'],
-                    datasets: [{
-                        data: [
-                            {{ $eqData['total_items_active'] ?? 0 }},
-                            {{ $eqData['total_items_warning'] ?? 0 }},
-                            {{ $eqData['total_items_expired'] ?? 0 }}
-                        ],
-                        backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                }
-            });
+            const eqStatusEl = document.getElementById('eqStatusChart');
+            if (eqStatusEl) {
+                new Chart(eqStatusEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Active', 'Warning', 'Expired'],
+                        datasets: [{
+                            data: [
+                                {{ $eqData['total_items_active'] ?? 0 }},
+                                {{ $eqData['total_items_warning'] ?? 0 }},
+                                {{ $eqData['total_items_expired'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
-            new Chart(document.getElementById('eqRecommendChart'), {
-                ...pieOptions,
-                data: {
-                    labels: ['Recommended', 'Not Recommended', 'Valid'],
-                    datasets: [{
-                        data: [
-                            {{ $eqData['total_items_recommended'] ?? 0 }},
-                            {{ $eqData['total_items_not_recommended'] ?? 0 }},
-                            {{ $eqData['total_items_valid'] ?? 0 }}
-                        ],
-                        backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
-                        borderWidth: 0,
-                        hoverOffset: 6
-                    }]
-                }
-            });
+            const eqRecommendEl = document.getElementById('eqRecommendChart');
+            if (eqRecommendEl) {
+                new Chart(eqRecommendEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Recommended', 'Not Recommended', 'Valid'],
+                        datasets: [{
+                            data: [
+                                {{ $eqData['total_items_recommended'] ?? 0 }},
+                                {{ $eqData['total_items_not_recommended'] ?? 0 }},
+                                {{ $eqData['total_items_valid'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
-            new Chart(document.getElementById('eqAreaChart'), {
-                ...barOptions,
-                data: {
-                    labels: @json($eqData['area_labels'] ?? []),
-                    datasets: [{
-                        label: 'Equipments',
-                        data: @json($eqData['area_data'] ?? []),
-                        backgroundColor: [
-                            'rgba(168, 85, 247, 0.7)',
-                            'rgba(192, 132, 252, 0.7)',
-                            'rgba(216, 180, 254, 0.7)',
-                            'rgba(236, 72, 153, 0.7)',
-                            'rgba(244, 63, 94, 0.7)',
-                            'rgba(239, 68, 68, 0.7)',
-                            'rgba(251, 146, 60, 0.7)',
-                            'rgba(251, 191, 36, 0.7)',
-                            'rgba(59, 130, 246, 0.7)',
-                            'rgba(99, 102, 241, 0.7)',
-                        ],
-                        borderColor: [
-                            'rgba(168, 85, 247, 1)',
-                            'rgba(192, 132, 252, 1)',
-                            'rgba(216, 180, 254, 1)',
-                            'rgba(236, 72, 153, 1)',
-                            'rgba(244, 63, 94, 1)',
-                            'rgba(239, 68, 68, 1)',
-                            'rgba(251, 146, 60, 1)',
-                            'rgba(251, 191, 36, 1)',
-                            'rgba(59, 130, 246, 1)',
-                            'rgba(99, 102, 241, 1)',
-                        ],
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        maxBarThickness: 50
-                    }]
-                }
-            });
+            const eqAreaEl = document.getElementById('eqAreaChart');
+            if (eqAreaEl && @json($eqData['area_labels'] ?? []).length > 0) {
+                new Chart(eqAreaEl, {
+                    ...barOptions,
+                    data: {
+                        labels: @json($eqData['area_labels'] ?? []),
+                        datasets: [{
+                            label: 'Equipments',
+                            data: @json($eqData['area_data'] ?? []),
+                            backgroundColor: [
+                                'rgba(168, 85, 247, 0.7)',
+                                'rgba(192, 132, 252, 0.7)',
+                                'rgba(216, 180, 254, 0.7)',
+                                'rgba(236, 72, 153, 0.7)',
+                                'rgba(244, 63, 94, 0.7)',
+                                'rgba(239, 68, 68, 0.7)',
+                                'rgba(251, 146, 60, 0.7)',
+                                'rgba(251, 191, 36, 0.7)',
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(99, 102, 241, 0.7)',
+                            ],
+                            borderColor: [
+                                'rgba(168, 85, 247, 1)',
+                                'rgba(192, 132, 252, 1)',
+                                'rgba(216, 180, 254, 1)',
+                                'rgba(236, 72, 153, 1)',
+                                'rgba(244, 63, 94, 1)',
+                                'rgba(239, 68, 68, 1)',
+                                'rgba(251, 146, 60, 1)',
+                                'rgba(251, 191, 36, 1)',
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(99, 102, 241, 1)',
+                            ],
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            maxBarThickness: 50
+                        }]
+                    }
+                });
+            }
         @endif
 
         // ============================================================
         // BUDGET & QUOTA CHARTS (Admin only)
         // ============================================================
         @if(($view == 'budget' || $view == 'all') && session('hsrm_role') === 'admin')
-            // --- Grafik Budget (jika ada data) ---
-            @if(isset($budgetData) && count($budgetData) > 0)
-                const budgetItems = @json($budgetData->values());
-                const budgetLabels = budgetItems.map(item => item.area_name);
-                const budgetValues = budgetItems.map(item => item.total_budget);
+            // --- Grafik Budget ---
+            @if(isset($budgetData) && $budgetData->count() > 0)
+                const budgetEl = document.getElementById('budgetAreaChart');
+                if (budgetEl) {
+                    const budgetItems = @json($budgetData->values());
+                    const budgetLabels = budgetItems.map(item => item.area_name);
+                    const budgetValues = budgetItems.map(item => item.total_budget);
 
-                if (budgetLabels.length > 0) {
-                    new Chart(document.getElementById('budgetAreaChart'), {
+                    new Chart(budgetEl, {
                         type: 'bar',
                         data: {
                             labels: budgetLabels,
@@ -755,15 +918,16 @@
                 }
             @endif
 
-            // --- Grafik Certificate Quota (selalu tampil jika ada data) ---
-            @if(isset($certQuotaData) && count($certQuotaData) > 0)
-                const certQuotaItems = @json($certQuotaData->values());
-                const certLabels = certQuotaItems.map(item => item.area_name);
-                const certQuota = certQuotaItems.map(item => item.certificate_quota);
-                const certActive = certQuotaItems.map(item => item.certificate_active);
+            // --- Grafik Certificate Quota ---
+            @if(isset($certQuotaData) && $certQuotaData->count() > 0)
+                const certQuotaEl = document.getElementById('quotaCertFulfillmentChart');
+                if (certQuotaEl) {
+                    const certQuotaItems = @json($certQuotaData->values());
+                    const certLabels = certQuotaItems.map(item => item.area_name);
+                    const certQuota = certQuotaItems.map(item => item.certificate_quota);
+                    const certActive = certQuotaItems.map(item => item.certificate_active);
 
-                if (certLabels.length > 0) {
-                    new Chart(document.getElementById('quotaCertFulfillmentChart'), {
+                    new Chart(certQuotaEl, {
                         type: 'bar',
                         data: {
                             labels: certLabels,
@@ -819,20 +983,18 @@
                         }
                     });
                 }
-            @else
-                // Jika tidak ada data, tampilkan pesan di canvas (opsional)
-                document.getElementById('quotaCertFulfillmentChart').getContext('2d').fillText('No data available', 50, 50);
             @endif
 
-            // --- Grafik Equipment Quota (selalu tampil jika ada data) ---
-            @if(isset($eqQuotaData) && count($eqQuotaData) > 0)
-                const eqQuotaItems = @json($eqQuotaData->values());
-                const eqLabels = eqQuotaItems.map(item => item.area_name);
-                const eqQuota = eqQuotaItems.map(item => item.equipment_quota);
-                const eqActive = eqQuotaItems.map(item => item.equipment_active);
+            // --- Grafik Equipment Quota ---
+            @if(isset($eqQuotaData) && $eqQuotaData->count() > 0)
+                const eqQuotaEl = document.getElementById('quotaEqFulfillmentChart');
+                if (eqQuotaEl) {
+                    const eqQuotaItems = @json($eqQuotaData->values());
+                    const eqLabels = eqQuotaItems.map(item => item.area_name);
+                    const eqQuota = eqQuotaItems.map(item => item.equipment_quota);
+                    const eqActive = eqQuotaItems.map(item => item.equipment_active);
 
-                if (eqLabels.length > 0) {
-                    new Chart(document.getElementById('quotaEqFulfillmentChart'), {
+                    new Chart(eqQuotaEl, {
                         type: 'bar',
                         data: {
                             labels: eqLabels,
@@ -888,8 +1050,6 @@
                         }
                     });
                 }
-            @else
-                document.getElementById('quotaEqFulfillmentChart').getContext('2d').fillText('No data available', 50, 50);
             @endif
         @endif
     });

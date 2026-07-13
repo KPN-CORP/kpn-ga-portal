@@ -28,7 +28,8 @@ class User extends Authenticatable
         'company_name',
         'office_city',
         'office_mobile',
-        'login_type'
+        'login_type',
+        'last_login_at',
     ];
     
     protected $hidden = [

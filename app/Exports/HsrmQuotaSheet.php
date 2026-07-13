@@ -23,7 +23,7 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
     protected $title;
     protected $mode;
     protected $areaId;
-    protected $type; // 'certificate' or 'equipment'
+    protected $type;
 
     public function __construct($title, $mode, $areaId, $type)
     {
@@ -51,6 +51,8 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                 'Status',
                 'Budget (Rp)',
                 'Action',
+                'Created At',
+                'Updated At',
             ];
         } else {
             return [
@@ -62,6 +64,8 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                 'Status',
                 'Budget (Rp)',
                 'Action',
+                'Created At',
+                'Updated At',
             ];
         }
     }
@@ -71,13 +75,11 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
         $data = [];
 
         if ($this->mode === 'single') {
-            // Satu area tertentu
             $area = AreaKerja::find($this->areaId);
             if ($area) {
                 $data = $this->getDataForArea($area);
             }
         } else {
-            // Semua area yang memiliki data (aktif/expired/quota)
             $areas = $this->getAreasWithData();
             foreach ($areas as $area) {
                 $areaData = $this->getDataForArea($area);
@@ -85,12 +87,11 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
             }
         }
 
-        // Jika kosong, tambahkan baris 'Tidak ada data'
         if (empty($data)) {
             if ($this->type === 'certificate') {
-                $data[] = ['Tidak ada data sertifikat', '', '', '', '', '', '', '', ''];
+                $data[] = ['Tidak ada data sertifikat', '', '', '', '', '', '', '', '', '', ''];
             } else {
-                $data[] = ['Tidak ada data peralatan', '', '', '', '', '', '', ''];
+                $data[] = ['Tidak ada data peralatan', '', '', '', '', '', '', '', '', ''];
             }
         }
 
@@ -138,8 +139,9 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                 $budgetVal = $quota ? $quota->budget : 0;
                 $regulatory = $quota ? $quota->regulatory : '-';
                 $appType = $quota ? $quota->application_type : '-';
+                $createdAt = $quota ? ($quota->created_at ? $quota->created_at->format('d-m-Y H:i') : '-') : '-';
+                $updatedAt = $quota ? ($quota->updated_at ? $quota->updated_at->format('d-m-Y H:i') : '-') : '-';
 
-                // Status
                 $diff = $active - $quotaVal;
                 if ($diff < 0) {
                     $status = 'Short ' . abs($diff);
@@ -162,6 +164,8 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                     $status,
                     $budgetVal,
                     $appType,
+                    $createdAt,
+                    $updatedAt,
                 ];
             }
         } else {
@@ -185,6 +189,8 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                 $quotaVal = $quota ? $quota->quota : 0;
                 $budgetVal = $quota ? $quota->budget : 0;
                 $appType = $quota ? $quota->application_type : '-';
+                $createdAt = $quota ? ($quota->created_at ? $quota->created_at->format('d-m-Y H:i') : '-') : '-';
+                $updatedAt = $quota ? ($quota->updated_at ? $quota->updated_at->format('d-m-Y H:i') : '-') : '-';
 
                 $diff = $active - $quotaVal;
                 if ($diff < 0) {
@@ -207,6 +213,8 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
                     $status,
                     $budgetVal,
                     $appType,
+                    $createdAt,
+                    $updatedAt,
                 ];
             }
         }
@@ -219,7 +227,6 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
         $highestRow = $sheet->getHighestRow();
         $highestColumn = $sheet->getHighestColumn();
 
-        // Header style
         $sheet->getStyle('A1:' . $highestColumn . '1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 11],
             'fill' => [
@@ -232,12 +239,10 @@ class HsrmQuotaSheet implements FromArray, WithHeadings, WithStyles, WithTitle
             ],
         ]);
 
-        // Auto size columns
         foreach (range('A', $highestColumn) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        // Border untuk semua data
         if ($highestRow > 1) {
             $sheet->getStyle('A1:' . $highestColumn . $highestRow)
                 ->getBorders()

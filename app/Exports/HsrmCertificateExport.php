@@ -27,22 +27,18 @@ class HsrmCertificateExport implements FromQuery, WithHeadings, WithMapping, Sho
     {
         $query = HsrmCertificate::with(['businessUnit', 'area', 'certificateType', 'creator', 'approver']);
 
-        // Filter berdasarkan role
         if (!$this->isAdmin) {
             $query->whereIn('area_id', $this->areaIds);
         }
 
-        // Filter status_verif
         if (!empty($this->filters['status_verif'])) {
             $query->where('status_verif', $this->filters['status_verif']);
         }
 
-        // Filter area (jika admin pilih area tertentu)
         if (!empty($this->filters['area_id']) && $this->isAdmin) {
             $query->where('area_id', $this->filters['area_id']);
         }
 
-        // Filter rentang tanggal expired
         if (!empty($this->filters['expired_from'])) {
             $query->whereDate('expired_date', '>=', $this->filters['expired_from']);
         }
@@ -56,7 +52,6 @@ class HsrmCertificateExport implements FromQuery, WithHeadings, WithMapping, Sho
     public function headings(): array
     {
         return [
-            // 'ID',
             'Employee Name',
             'Certificate Number',
             'Certificate Type',
@@ -71,14 +66,14 @@ class HsrmCertificateExport implements FromQuery, WithHeadings, WithMapping, Sho
             'Created By',
             'Approved By',
             'Approved At',
-            // 'Attachment Path',
+            'Created At',
+            'Updated At',
         ];
     }
 
     public function map($cert): array
     {
         return [
-            // $cert->id,
             $cert->employee_name,
             $cert->nik,
             $cert->certificateType->name ?? '-',
@@ -86,14 +81,15 @@ class HsrmCertificateExport implements FromQuery, WithHeadings, WithMapping, Sho
             $cert->expired_date ? $cert->expired_date->format('d-m-Y') : '-',
             ucfirst($cert->status_verif),
             $cert->status_kepemilikan ? 'Checked' : 'Unchecked',
-            $cert->rekomendasi === true ? 'Recommended' : ($cert->rekomendasi === false ? 'Not Recommended' : '-'),
+            $cert->rekomendasi_label ?? '-',
             $cert->businessUnit->nama_bisnis_unit ?? '-',
             $cert->area->nama_area ?? '-',
             $cert->notes ?? '-',
             $cert->creator->name ?? '-',
             $cert->approver->name ?? '-',
             $cert->approved_at ? $cert->approved_at->format('d-m-Y H:i') : '-',
-            // $cert->attachment_path ?? '-',
+            $cert->created_at ? $cert->created_at->format('d-m-Y H:i') : '-',
+            $cert->updated_at ? $cert->updated_at->format('d-m-Y H:i') : '-',
         ];
     }
 
