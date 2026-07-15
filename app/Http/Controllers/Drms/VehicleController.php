@@ -22,24 +22,89 @@ class VehicleController extends Controller
         return $profile->business_unit_id;
     }
 
-    public function index()
+    /**
+     * Display a listing of the vehicles with filters.
+     */
+    public function index(Request $request)
     {
         $user = Auth::user();
-        if ($user->isDrmsSuperAdmin()) {
-            $vehicles = Vehicle::latest()->get();
-        } else {
-            $businessUnitId = $this->getUserBusinessUnitId();
-            $vehicles = Vehicle::where('business_unit_id', $businessUnitId)->latest()->get();
+        $businessUnitId = $this->getUserBusinessUnitId();
+
+        $query = Vehicle::with('businessUnit');
+
+        // Filter berdasarkan Business Unit (kecuali superadmin)
+        if (!$user->isDrmsSuperAdmin()) {
+            $query->where('business_unit_id', $businessUnitId);
         }
-        return view('drms.vehicles.index', compact('vehicles'));
+
+        // Filter: Business Unit (khusus superadmin)
+        if ($user->isDrmsSuperAdmin() && $request->filled('business_unit_id')) {
+            $query->where('business_unit_id', $request->business_unit_id);
+        }
+
+        // Filter: Pencarian (plat nomor atau tipe)
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('plate_number', 'LIKE', $search)
+                  ->orWhere('type', 'LIKE', $search);
+            });
+        }
+
+        // Filter: Status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter: GPS Aktif
+        if ($request->filled('gps_enabled')) {
+            $query->where('gps_enabled', $request->gps_enabled == '1');
+        }
+
+        // Filter: Bahan Bakar
+        if ($request->filled('fuel_type')) {
+            $query->where('fuel_type', $request->fuel_type);
+        }
+
+        // Order by
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        $vehicles = $query->paginate(20)->appends($request->query());
+
+        // Ambil daftar business unit untuk dropdown (superadmin)
+        $businessUnits = [];
+        if ($user->isDrmsSuperAdmin()) {
+            $businessUnits = \App\Models\BisnisUnit::orderBy('nama_bisnis_unit')->get();
+        }
+
+        // Ambil daftar fuel type unik untuk dropdown filter
+        $fuelTypes = Vehicle::select('fuel_type')
+            ->whereNotNull('fuel_type')
+            ->distinct()
+            ->pluck('fuel_type')
+            ->toArray();
+
+        return view('drms.vehicles.index', compact(
+            'vehicles',
+            'businessUnits',
+            'fuelTypes'
+        ));
     }
 
+    /**
+     * Show the form for creating a new vehicle.
+     */
     public function create()
     {
         $this->getUserBusinessUnitId(); // validasi akses
         return view('drms.vehicles.create');
     }
 
+    /**
+     * Store a newly created vehicle in storage.
+     */
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -50,9 +115,10 @@ class VehicleController extends Controller
             'capacity'     => 'nullable|integer|min:1',
             'status'       => 'required|in:available,in_use,maintenance',
             'gps_enabled'  => 'sometimes|boolean',
+            'fuel_type'    => 'nullable|in:Bensin,Solar,Listrik,Hybrid,Lainnya',
         ]);
 
-        // Konversi checkbox: jika tidak ada, bernilai false
+        // Konversi checkbox
         $data['gps_enabled'] = $request->has('gps_enabled');
 
         if ($user->isDrmsSuperAdmin()) {
@@ -67,6 +133,9 @@ class VehicleController extends Controller
             ->with('success', 'Kendaraan berhasil ditambahkan.');
     }
 
+    /**
+     * Show the form for editing the specified vehicle.
+     */
     public function edit(Vehicle $vehicle)
     {
         $user = Auth::user();
@@ -79,6 +148,9 @@ class VehicleController extends Controller
         return view('drms.vehicles.edit', compact('vehicle'));
     }
 
+    /**
+     * Update the specified vehicle in storage.
+     */
     public function update(Request $request, Vehicle $vehicle)
     {
         $user = Auth::user();
@@ -95,6 +167,7 @@ class VehicleController extends Controller
             'capacity'     => 'nullable|integer|min:1',
             'status'       => 'required|in:available,in_use,maintenance',
             'gps_enabled'  => 'sometimes|boolean',
+            'fuel_type'    => 'nullable|in:Bensin,Solar,Listrik,Hybrid,Lainnya',
         ]);
 
         $data['gps_enabled'] = $request->has('gps_enabled');
@@ -104,6 +177,9 @@ class VehicleController extends Controller
             ->with('success', 'Kendaraan berhasil diperbarui.');
     }
 
+    /**
+     * Remove the specified vehicle from storage.
+     */
     public function destroy(Vehicle $vehicle)
     {
         $user = Auth::user();

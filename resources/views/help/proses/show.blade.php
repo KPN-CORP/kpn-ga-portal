@@ -8,7 +8,7 @@
             <div class="flex-1">
                 <div class="flex flex-wrap items-center gap-2 mb-2">
                     <h2 class="text-xl md:text-2xl font-bold text-gray-800">{{ $tiket->judul }}</h2>
-                    
+
                     @php
                         $statusColors = [
                             'OPEN' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -33,33 +33,33 @@
                             'LOW' => 'bg-gray-100 text-gray-800 border-gray-200'
                         ];
                     @endphp
-                    
+
                     <span class="px-3 py-1 text-sm font-medium rounded-full border {{ $statusColors[$tiket->status] }}">
                         {{ $statusLabels[$tiket->status] ?? $tiket->status }}
                     </span>
-                    
+
                     <span class="px-3 py-1 text-sm font-medium rounded-full border {{ $priorityColors[$tiket->prioritas] }}">
                         {{ $tiket->prioritas }}
                     </span>
                 </div>
-                
+
                 <p class="text-gray-600 text-sm">{{ $tiket->nomor_tiket }}</p>
                 <p class="text-sm text-gray-500">Dibuat: {{ $tiket->created_at->format('d/m/Y H:i') }}</p>
             </div>
-            
+
             <div class="flex items-center gap-3">
-                <a href="{{ route('help.tiket.pdf', $tiket) }}" 
+                <a href="{{ route('help.tiket.pdf', $tiket) }}"
                    target="_blank"
                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
                     <i class="fas fa-file-pdf mr-2"></i> Download PDF
                 </a>
-                <a href="{{ route('help.proses.index') }}" 
+                <a href="{{ route('help.proses.index') }}"
                    class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i> Kembali
                 </a>
             </div>
         </div>
-        
+
         <!-- Info Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <div>
@@ -79,7 +79,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div>
                 <h3 class="text-sm font-medium text-gray-500 mb-2">Kategori</h3>
                 <div class="flex items-center mb-2">
@@ -97,7 +97,7 @@
                 </div>
                 @endif
             </div>
-            
+
             <div>
                 <h3 class="text-sm font-medium text-gray-500 mb-2">Penanggung Jawab</h3>
                 <div class="flex items-center">
@@ -124,7 +124,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Konten Utama -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Kolom Kiri (2/3) -->
@@ -137,14 +137,14 @@
                     <p class="text-gray-700 whitespace-pre-line">{{ $tiket->deskripsi }}</p>
                 </div>
             </div>
-            
+
             <!-- Diskusi Tiket -->
             @include('help.partials.diskusi', [
                 'tiket' => $tiket,
                 'userRole' => 'staff',
                 'showInput' => $tiket->status !== 'CLOSED'
             ])
-            
+
             <!-- Lampiran -->
             @include('help.partials.lampiran', [
                 'lampiran' => $lampiran,
@@ -152,25 +152,24 @@
                 'userRole' => 'staff'
             ])
         </div>
-        
+
         <!-- Kolom Kanan (1/3) -->
         <div class="space-y-6">
             @php
                 $currentUser = auth()->user();
                 $currentPelanggan = null;
                 $currentPelangganId = null;
-                
+
                 if ($currentUser) {
                     $currentPelanggan = $currentUser->pelanggan;
                     $currentPelangganId = $currentPelanggan ? $currentPelanggan->id_pelanggan : null;
                 }
-                
+
                 $isAssigned = false;
                 if ($tiket->ditugaskan_ke && $currentPelangganId) {
                     $isAssigned = ($tiket->ditugaskan_ke == $currentPelangganId);
                 }
-                
-                // Izinkan mengambil tiket jika status OPEN atau HELP_GA_CORP
+
                 $canTake = ($tiket->status === 'OPEN' || $tiket->status === 'HELP_GA_CORP');
                 $showUploadForm = ($tiket->status === 'ON_PROCESS' && $isAssigned);
                 $showWaitingForm = ($tiket->status === 'ON_PROCESS' && $isAssigned);
@@ -178,12 +177,14 @@
                 $showCompleteButton = ($tiket->status === 'ON_PROCESS' && $isAssigned);
                 $showCloseButton = ($tiket->status === 'DONE' && $isAssigned);
                 $showTransferButton = (in_array($tiket->status, ['ON_PROCESS', 'WAITING']) && $isAssigned);
+
+                $hasFullAccess = $currentUser && $currentUser->hasFullGaHelpAccess();
             @endphp
-            
+
             @if($showUploadForm)
                 @include('help.partials.upload-foto-selesai', ['tiket' => $tiket])
             @endif
-            
+
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                     <i class="fas fa-tasks text-blue-500 mr-2"></i> Aksi Tiket
@@ -192,55 +193,64 @@
                     @if($canTake)
                         <form action="{{ route('help.proses.take', $tiket) }}" method="POST" id="takeForm">
                             @csrf
-                            <button type="button" 
+                            <button type="button"
                                     onclick="takeTicket()"
                                     class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors">
                                 <i class="fas fa-hand-paper mr-2"></i> Ambil Tiket
                             </button>
                         </form>
                     @endif
-                    
+
                     @if($showCompleteButton)
                         <form action="{{ route('help.proses.complete', $tiket) }}" method="POST">
                             @csrf
                             <input type="hidden" name="catatan" value="Tiket telah diselesaikan oleh petugas.">
-                            <button type="button" 
+                            <button type="button"
                                     onclick="confirmComplete(this)"
                                     class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors">
                                 <i class="fas fa-check-circle mr-2"></i> Selesaikan Tiket
                             </button>
                         </form>
                     @endif
-                    
+
                     @if($showTransferButton)
-                        <button type="button" 
+                        <button type="button"
                                 onclick="openTransferModal()"
                                 class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
                             <i class="fas fa-exchange-alt mr-2"></i> Alihkan ke GA Corp
                         </button>
                     @endif
-                    
+
                     @if($showCloseButton)
                         <form action="{{ route('help.proses.close', $tiket) }}" method="POST">
                             @csrf
-                            <button type="button" 
+                            <button type="button"
                                     onclick="confirmClose(this)"
                                     class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-gray-800 hover:bg-gray-900 text-white font-medium rounded-lg transition-colors">
                                 <i class="fas fa-lock mr-2"></i> Tutup Tiket
                             </button>
                         </form>
                     @endif
+
+                    {{-- Tombol Reassign (hanya full access) --}}
+                    @if($hasFullAccess)
+                        <button type="button"
+                                onclick="openReassignModal()"
+                                class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors">
+                            <i class="fas fa-user-edit mr-2"></i> Alihkan Tanggung Jawab
+                        </button>
+                    @endif
                 </div>
             </div>
-            
+
             @if($showWaitingForm)
                 @include('help.partials.set-waiting', ['tiket' => $tiket])
             @endif
-            
+
             @if($showResumeForm)
                 @include('help.partials.resume-process', ['tiket' => $tiket])
             @endif
-            
+
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                     <i class="fas fa-history text-gray-500 mr-2"></i> Timeline Status
@@ -309,7 +319,7 @@
                             placeholder="Contoh: Membutuhkan penanganan khusus, perlu persetujuan Corp, kendala teknis, dll."
                             required></textarea>
                         <p class="mt-2 text-xs text-gray-500">
-                            <i class="fas fa-info-circle"></i> 
+                            <i class="fas fa-info-circle"></i>
                             Tiket akan dialihkan ke GA Corp dengan status <strong>HELP GA CORP</strong> dan dapat diambil oleh petugas GA.
                         </p>
                     </div>
@@ -329,269 +339,264 @@
     </div>
 </div>
 
+<!-- MODAL REASSIGN -->
+<div id="reassignModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeReassignModal()"></div>
+        <div class="relative bg-white rounded-lg w-full max-w-md transform transition-all">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fas fa-user-edit text-purple-600 mr-2"></i>
+                        Alihkan Tanggung Jawab
+                    </h3>
+                    <button type="button" onclick="closeReassignModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form action="{{ route('help.proses.reassign', $tiket) }}" method="POST" id="reassignForm">
+                    @csrf
+                    <div class="mb-4">
+                        <label for="target_pelanggan_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Pilih Petugas GA <span class="text-red-500">*</span>
+                        </label>
+                        <select name="target_pelanggan_id" id="target_pelanggan_id"
+                                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 text-sm"
+                                required>
+                            <option value="">-- Pilih Petugas --</option>
+                            @foreach($assignableUsers as $staff)
+                                @if($staff->id_pelanggan != auth()->user()->pelanggan->id_pelanggan)
+                                    <option value="{{ $staff->id_pelanggan }}">
+                                        {{ $staff->user->name ?? $staff->nama_pelanggan }}
+                                        ({{ $staff->user->email ?? '' }})
+                                    </option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label for="alasan" class="block text-sm font-medium text-gray-700 mb-2">
+                            Alasan Pengalihan <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="alasan" id="alasan" rows="3"
+                            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 text-sm"
+                            placeholder="Contoh: Petugas sedang cuti, membutuhkan keahlian khusus, distribusi beban kerja..."
+                            required></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="closeReassignModal()"
+                            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors">
+                            Batal
+                        </button>
+                        <button type="button" onclick="confirmReassign()"
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors">
+                            <i class="fas fa-check mr-2"></i> Alihkan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Image Viewer Modal -->
 @include('help.partials.image-viewer')
 
 @endsection
 
 @push('scripts')
-<!-- CDN SweetAlert2 yang lebih stabil (unpkg) -->
 <script src="https://unpkg.com/sweetalert2@11"></script>
 
 <script>
-    // ==================== FUNGSI MODAL TRANSFER ====================
+    // ==================== MODAL TRANSFER ====================
     window.openTransferModal = function() {
-        console.log('Opening transfer modal');
-        const modal = document.getElementById('transferModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
-        } else {
-            console.error('Modal transfer tidak ditemukan!');
-            alert('Error: Modal tidak ditemukan. Refresh halaman dan coba lagi.');
-        }
+        document.getElementById('transferModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
     };
-    
+
     window.closeTransferModal = function() {
-        console.log('Closing transfer modal');
-        const modal = document.getElementById('transferModal');
-        if (modal) {
-            modal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-            const form = document.getElementById('transferForm');
-            if (form) form.reset();
-        }
+        document.getElementById('transferModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        document.getElementById('transferForm').reset();
     };
-    
+
     window.confirmTransfer = function() {
         const alasan = document.getElementById('alasan_transfer');
         if (!alasan.value.trim()) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Peringatan',
-                    text: 'Silakan isi alasan pengalihan terlebih dahulu!',
-                    confirmButtonColor: '#f59e0b',
-                });
-            } else {
-                alert('Peringatan: Silakan isi alasan pengalihan terlebih dahulu!');
-            }
+            Swal.fire('Peringatan', 'Silakan isi alasan pengalihan terlebih dahulu!', 'warning');
             return;
         }
         if (alasan.value.trim().length < 5) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Peringatan',
-                    text: 'Alasan pengalihan minimal 5 karakter!',
-                    confirmButtonColor: '#f59e0b',
-                });
-            } else {
-                alert('Peringatan: Alasan pengalihan minimal 5 karakter!');
-            }
+            Swal.fire('Peringatan', 'Alasan pengalihan minimal 5 karakter!', 'warning');
             return;
         }
-        
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Alihkan ke GA Corp',
-                text: 'Apakah Anda yakin ingin mengalihkan tiket ini ke GA Corp?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Alihkan',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#6366f1',
-                cancelButtonColor: '#6b7280',
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('transferForm').submit();
-                }
-            });
-        } else {
-            if (confirm('Apakah Anda yakin ingin mengalihkan tiket ini ke GA Corp?')) {
+        Swal.fire({
+            title: 'Alihkan ke GA Corp',
+            text: 'Apakah Anda yakin?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Alihkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#6366f1',
+        }).then((result) => {
+            if (result.isConfirmed) {
                 document.getElementById('transferForm').submit();
             }
-        }
+        });
     };
-    
-    // ==================== FUNGSI KONFIRMASI DENGAN FALLBACK ====================
-    window.takeTicket = function() {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Ambil Tiket',
-                text: 'Apakah Anda yakin ingin mengambil tiket ini?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Ambil',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#10b981',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('takeForm').submit();
-                }
-            });
-        } else {
-            if (confirm('Ambil tiket ini?')) {
-                document.getElementById('takeForm').submit();
-            }
-        }
+
+    // ==================== MODAL REASSIGN ====================
+    window.openReassignModal = function() {
+        document.getElementById('reassignModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
     };
-    
-    window.confirmComplete = function(button) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Selesaikan Tiket',
-                text: 'Apakah Anda yakin ingin menyelesaikan tiket ini?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Selesaikan',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#22c55e',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    button.closest('form').submit();
-                }
-            });
-        } else {
-            if (confirm('Selesaikan tiket ini?')) {
-                button.closest('form').submit();
-            }
-        }
+
+    window.closeReassignModal = function() {
+        document.getElementById('reassignModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        document.getElementById('reassignForm').reset();
     };
-    
-    window.confirmClose = function(button) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Tutup Tiket',
-                text: 'Apakah Anda yakin ingin menutup tiket ini? Tiket tidak dapat diubah lagi.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Tutup',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#6b7280',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    button.closest('form').submit();
-                }
-            });
-        } else {
-            if (confirm('Tutup tiket ini?')) {
-                button.closest('form').submit();
-            }
+
+    window.confirmReassign = function() {
+        const target = document.getElementById('target_pelanggan_id');
+        const alasan = document.getElementById('alasan');
+
+        if (!target.value) {
+            Swal.fire('Peringatan', 'Silakan pilih petugas GA terlebih dahulu!', 'warning');
+            return;
         }
-    };
-    
-    window.confirmResume = function(button) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Lanjutkan Proses',
-                text: 'Apakah Anda yakin ingin mengembalikan tiket ke status ON_PROCESS?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya, Lanjutkan',
-                cancelButtonText: 'Batal',
-                confirmButtonColor: '#3b82f6',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    button.closest('form').submit();
-                }
-            });
-        } else {
-            if (confirm('Lanjutkan proses?')) {
-                button.closest('form').submit();
-            }
+        if (!alasan.value.trim() || alasan.value.trim().length < 5) {
+            Swal.fire('Peringatan', 'Alasan pengalihan minimal 5 karakter!', 'warning');
+            return;
         }
-    };
-    
-    // ==================== DOM READY (hanya untuk upload form & ESC) ====================
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM Loaded - Script siap');
-        
-        const uploadForm = document.getElementById('uploadFotoForm');
-        if (uploadForm) {
-            uploadForm.addEventListener('submit', function(e) {
-                const files = document.getElementById('foto_hasil').files;
-                if (files.length === 0) {
-                    e.preventDefault();
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Peringatan',
-                            text: 'Silakan pilih foto terlebih dahulu!',
-                            confirmButtonColor: '#f59e0b',
-                        });
-                    } else {
-                        alert('Silakan pilih foto terlebih dahulu!');
-                    }
-                    return false;
-                }
-                return true;
-            });
-        }
-        
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeTransferModal();
+
+        Swal.fire({
+            title: 'Alihkan Tanggung Jawab?',
+            text: 'Apakah Anda yakin ingin mengalihkan tiket ini ke petugas yang dipilih?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Alihkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#8b5cf6',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('reassignForm').submit();
             }
         });
+    };
+
+    // ==================== FUNGSI KONFIRMASI LAIN ====================
+    window.takeTicket = function() {
+        Swal.fire({
+            title: 'Ambil Tiket',
+            text: 'Apakah Anda yakin?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Ambil',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#10b981',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('takeForm').submit();
+            }
+        });
+    };
+
+    window.confirmComplete = function(button) {
+        Swal.fire({
+            title: 'Selesaikan Tiket',
+            text: 'Apakah Anda yakin?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Selesaikan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#22c55e',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                button.closest('form').submit();
+            }
+        });
+    };
+
+    window.confirmClose = function(button) {
+        Swal.fire({
+            title: 'Tutup Tiket',
+            text: 'Tiket tidak dapat diubah lagi. Lanjutkan?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Tutup',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#6b7280',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                button.closest('form').submit();
+            }
+        });
+    };
+
+    window.confirmResume = function(button) {
+        Swal.fire({
+            title: 'Lanjutkan Proses',
+            text: 'Kembalikan ke ON_PROCESS?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Lanjutkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#3b82f6',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                button.closest('form').submit();
+            }
+        });
+    };
+
+    // ==================== ESC ====================
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeTransferModal();
+            closeReassignModal();
+        }
     });
-    
-    // ==================== NOTIFIKASI SESSION ====================
+
+    // ==================== NOTIFIKASI ====================
     @if(session('success'))
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil!',
-                html: `{!! session('success') !!}`,
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#22c55e',
-            });
-        } else {
-            alert('Berhasil: {!! session('success') !!}');
-        }
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil!',
+            html: `{!! session('success') !!}`,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#22c55e',
+        });
     @endif
-    
+
     @if(session('error'))
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal!',
-                html: `{!! session('error') !!}`,
-                confirmButtonText: 'Mengerti',
-                confirmButtonColor: '#ef4444',
-            });
-        } else {
-            alert('Gagal: {!! session('error') !!}');
-        }
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal!',
+            html: `{!! session('error') !!}`,
+            confirmButtonText: 'Mengerti',
+            confirmButtonColor: '#ef4444',
+        });
     @endif
-    
+
     @if(session('warning'))
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Peringatan',
-                html: `{!! session('warning') !!}`,
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#f59e0b',
-            });
-        } else {
-            alert('Peringatan: {!! session('warning') !!}');
-        }
+        Swal.fire({
+            icon: 'warning',
+            title: 'Peringatan',
+            html: `{!! session('warning') !!}`,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#f59e0b',
+        });
     @endif
-    
+
     @if(session('info'))
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'info',
-                title: 'Informasi',
-                html: `{!! session('info') !!}`,
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#3b82f6',
-            });
-        } else {
-            alert('Info: {!! session('info') !!}');
-        }
+        Swal.fire({
+            icon: 'info',
+            title: 'Informasi',
+            html: `{!! session('info') !!}`,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#3b82f6',
+        });
     @endif
 </script>
 @endpush
@@ -609,7 +614,7 @@
         background: #c1c1c1;
         border-radius: 2px;
     }
-    
+
     .overflow-x-auto::-webkit-scrollbar {
         height: 6px;
     }
@@ -624,7 +629,7 @@
     .overflow-x-auto::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
     }
-    
+
     #imageViewer {
         transition: opacity 0.3s ease;
         cursor: pointer;
@@ -633,7 +638,7 @@
         transition: opacity 0.3s ease;
         cursor: default;
     }
-    
+
     .swal2-popup {
         border-radius: 8px !important;
     }
@@ -643,14 +648,14 @@
     .swal2-html-container {
         font-size: 0.875rem !important;
     }
-    
-    #transferModal {
+
+    #transferModal, #reassignModal {
         transition: opacity 0.3s ease;
     }
-    #transferModal.hidden {
+    #transferModal.hidden, #reassignModal.hidden {
         display: none;
     }
-    #transferModal:not(.hidden) {
+    #transferModal:not(.hidden), #reassignModal:not(.hidden) {
         display: block;
     }
 </style>

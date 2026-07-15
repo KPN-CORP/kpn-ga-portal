@@ -5,27 +5,57 @@ namespace App\Http\Controllers\Drms;
 use App\Http\Controllers\Controller;
 use App\Models\Drms\Driver;
 use App\Models\Drms\DriverRequest;
+use App\Models\BisnisUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DriverController extends Controller
 {
-    public function index()
+    /**
+     * Display a listing of drivers with filters.
+     */
+    public function index(Request $request)
     {
         $user = Auth::user();
+        $query = Driver::with('businessUnit');
 
-        if ($user->isDrmsSuperAdmin()) {
-            // Superadmin bisa lihat semua driver
-            $drivers = Driver::latest()->get();
-        } else {
+        // Jika bukan superadmin, batasi berdasarkan business unit
+        if (!$user->isDrmsSuperAdmin()) {
             $businessUnitId = $user->drmsProfile->business_unit_id ?? null;
             if (!$businessUnitId) {
                 abort(403, 'Anda tidak memiliki unit bisnis.');
             }
-            $drivers = Driver::where('business_unit_id', $businessUnitId)->latest()->get();
+            $query->where('business_unit_id', $businessUnitId);
         }
 
-        return view('drms.drivers.index', compact('drivers'));
+        // Filter pencarian (nama atau telepon)
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', $search)
+                  ->orWhere('phone', 'LIKE', $search);
+            });
+        }
+
+        // Filter status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter business unit (khusus superadmin)
+        if ($user->isDrmsSuperAdmin() && $request->filled('business_unit_id')) {
+            $query->where('business_unit_id', $request->business_unit_id);
+        }
+
+        $drivers = $query->latest()->paginate(20)->appends($request->query());
+
+        // Ambil daftar business unit untuk dropdown filter (khusus superadmin)
+        $businessUnits = [];
+        if ($user->isDrmsSuperAdmin()) {
+            $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
+        }
+
+        return view('drms.drivers.index', compact('drivers', 'businessUnits'));
     }
 
     public function create()
@@ -104,39 +134,81 @@ class DriverController extends Controller
     }
 
     public function schedule(Request $request)
-    {
-        $user = Auth::user();
-        $businessUnitId = null;
+{
+    $user = Auth::user();
+    $businessUnitId = null;
 
-        if ($user->isDrmsSuperAdmin()) {
-            // Superadmin: bisa pilih BU atau lihat semua? Untuk schedule, kita batasi pilih BU via filter.
-            // Jika ingin melihat semua driver dari semua BU, query tanpa where business_unit_id.
-            $drivers = Driver::latest()->get();
-        } else {
-            $businessUnitId = $user->drmsProfile->business_unit_id ?? null;
-            if (!$businessUnitId) {
-                abort(403);
-            }
-            $drivers = Driver::where('business_unit_id', $businessUnitId)->get();
+    // Ambil filter
+    $date = $request->get('date', now()->format('Y-m-d'));
+    $searchDriver = $request->get('search');
+    $statusFilter = $request->get('status'); // pending, on_trip, completed, all
+
+    // Query driver
+    $driverQuery = Driver::with('businessUnit');
+
+    if ($user->isDrmsSuperAdmin()) {
+        // Superadmin bisa lihat semua
+        if ($request->filled('business_unit_id')) {
+            $driverQuery->where('business_unit_id', $request->business_unit_id);
         }
-
-        $date = $request->get('date', now()->format('Y-m-d'));
-
-        $requests = DriverRequest::with('driver', 'requester')
-            ->whereHas('driver', function ($q) use ($businessUnitId, $user) {
-                if (!$user->isDrmsSuperAdmin() && $businessUnitId) {
-                    $q->where('business_unit_id', $businessUnitId);
-                }
-                // Jika superadmin dan tidak ada filter BU, tampilkan semua request
-            })
-            ->where('usage_date', $date)
-            ->whereIn('status', ['approved_admin', 'completed'])
-            ->orderBy('start_time')
-            ->get()
-            ->groupBy('driver_id');
-
-        return view('drms.drivers.schedule', compact('drivers', 'requests'));
+    } else {
+        $businessUnitId = $user->drmsProfile->business_unit_id ?? null;
+        if (!$businessUnitId) {
+            abort(403);
+        }
+        $driverQuery->where('business_unit_id', $businessUnitId);
     }
+
+    if ($searchDriver) {
+        $driverQuery->where('name', 'LIKE', '%' . $searchDriver . '%');
+    }
+
+    $drivers = $driverQuery->get();
+
+    // Query requests
+    $requestQuery = DriverRequest::with('driver', 'requester', 'requester.drmsProfile.businessUnit')
+        ->where('usage_date', $date)
+        ->whereIn('status', ['approved_admin', 'completed']);
+
+    if ($statusFilter && $statusFilter != 'all') {
+        if ($statusFilter == 'scheduled') {
+            $requestQuery->where('status', 'approved_admin')
+                ->whereTime('start_time', '>', now()->format('H:i:s'));
+        } elseif ($statusFilter == 'on_trip') {
+            $requestQuery->where('status', 'approved_admin')
+                ->whereTime('start_time', '<=', now()->format('H:i:s'))
+                ->whereTime('end_time', '>', now()->format('H:i:s'));
+        } elseif ($statusFilter == 'completed') {
+            $requestQuery->where('status', 'completed');
+        }
+    }
+
+    // Filter berdasarkan driver yang sudah dipilih
+    if ($searchDriver) {
+        $driverIds = $drivers->pluck('id')->toArray();
+        $requestQuery->whereIn('driver_id', $driverIds);
+    } else {
+        // Jika tidak ada filter driver, tetap filter berdasarkan business unit
+        if (!$user->isDrmsSuperAdmin()) {
+            $requestQuery->whereHas('driver', function ($q) use ($businessUnitId) {
+                $q->where('business_unit_id', $businessUnitId);
+            });
+        }
+    }
+
+    $requests = $requestQuery->orderBy('start_time')->get()->groupBy('driver_id');
+
+    // Ambil daftar business unit untuk superadmin
+    $businessUnits = [];
+    if ($user->isDrmsSuperAdmin()) {
+        $businessUnits = \App\Models\BisnisUnit::orderBy('nama_bisnis_unit')->get();
+    }
+
+    return view('drms.drivers.schedule', compact(
+        'drivers', 'requests', 'date', 'searchDriver', 'statusFilter',
+        'businessUnits', 'user'
+    ));
+}
 
     /**
      * Cek apakah driver milik business unit user yang sedang login (kecuali superadmin).

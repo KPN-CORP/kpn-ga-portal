@@ -48,6 +48,11 @@ use App\Http\Controllers\Drms\DriverController;
 use App\Http\Controllers\Drms\DriverDashboardController;
 use App\Http\Controllers\Drms\VehicleController;
 use App\Http\Controllers\Drms\VoucherController;
+use App\Http\Controllers\Drms\VehicleDashboardController;
+use App\Http\Controllers\Drms\VehicleDocumentController;
+use App\Http\Controllers\Drms\ServiceScheduleController;
+use App\Http\Controllers\Drms\RepairController;
+use App\Http\Controllers\Drms\FuelLogController;
 use App\Http\Controllers\Work\WorkReportController;
 use App\Http\Controllers\Work\WorkReportCategoryController;
 use App\Http\Controllers\Memos\MemosController;
@@ -189,6 +194,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
             Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
             Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
+            Route::post('/{tiket}/reassign', [HelpTiketApprovalController::class, 'reassign'])->name('reassign');
         });
 
         Route::get('/log-sistem', [HelpTiketController::class, 'logSistem'])
@@ -250,17 +256,20 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
+        // ===== REQUESTS =====
         Route::get('requests', [RequestController::class, 'index'])->name('requests.index');
         Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
         Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
         Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
 
+        // ===== APPROVAL L1 =====
         Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
             Route::get('/', [AppL1Controller::class, 'index'])->name('index');
             Route::post('{id}/approve', [AppL1Controller::class, 'approve'])->name('approve');
             Route::post('{id}/reject', [AppL1Controller::class, 'reject'])->name('reject');
         });
 
+        // ===== APPROVAL ADMIN =====
         Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
             Route::get('/', [AppAdminController::class, 'index'])->name('index');
             Route::get('export', [AppAdminController::class, 'export'])->name('export');
@@ -273,6 +282,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
         });
 
+        // ===== DRIVER DASHBOARD =====
         Route::middleware(['is_driver'])->group(function () {
             Route::get('/driver/dashboard', [DriverDashboardController::class, 'index'])->name('driver.dashboard');
             Route::get('/driver/requests/{driverRequest}', [DriverDashboardController::class, 'show'])->name('driver.requests.show');
@@ -283,6 +293,7 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('drms.driver.dashboard');
         });
 
+        // ===== VEHICLES MAP (HARUS DI ATAS RESOURCE) =====
         Route::get('vehicles/map', [VehicleMapController::class, 'index'])
             ->name('vehicles.map')
             ->middleware('can:superadmin');
@@ -290,13 +301,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('vehicles/{vehicle}/map', [VehicleMapController::class, 'show'])
             ->name('vehicles.map.single');
 
+        // ===== MASTER DATA (Admin) =====
         Route::middleware(['can:isDrmsAdmin'])->group(function () {
             Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
             Route::resource('drivers', DriverController::class)->except(['show']);
-            Route::resource('vehicles', VehicleController::class);
+            Route::resource('vehicles', VehicleController::class);  // ← resource di bawah custom route
             Route::resource('vouchers', VoucherController::class);
         });
 
+        // ===== DRIVER TRIP LOG =====
         Route::prefix('driver')->group(function () {
             Route::get('/trip-log/{requestId}/create', [DriverTripLogController::class, 'create'])
                 ->name('driver.trip.log.create');
@@ -304,6 +317,7 @@ Route::middleware(['auth'])->group(function () {
                 ->name('driver.trip.log.store');
         });
 
+        // ===== ADMIN OPERATIONAL =====
         Route::prefix('admin')->middleware(['auth'])->group(function () {
             Route::get('/operational-dashboard', [AdminOperationalController::class, 'dashboard'])
                 ->name('admin.operational.dashboard');
@@ -313,18 +327,29 @@ Route::middleware(['auth'])->group(function () {
                 ->name('admin.verify.log');
             Route::post('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLog'])
                 ->name('admin.verify.log.post');
-            Route::get('/vehicle-services', [AdminOperationalController::class, 'vehicleServices'])
-                ->name('admin.vehicle.services');
-            Route::post('/vehicle-services', [AdminOperationalController::class, 'storeVehicleService'])
-                ->name('admin.vehicle.services.store');
-            Route::delete('/vehicle-services/{id}', [AdminOperationalController::class, 'deleteVehicleService'])
-                ->name('admin.vehicle.services.delete');
             Route::get('/operational-export', [AdminOperationalController::class, 'export'])
                 ->name('admin.operational.export');
             Route::get('/monitoring-logs', [AdminOperationalController::class, 'monitoringLogs'])
                 ->name('admin.monitoring.logs');
         });
 
+        
+        // ===== SERVIS RUTIN =====
+        Route::resource('service-schedules', ServiceScheduleController::class);
+
+        // ===== PERBAIKAN =====
+        Route::patch('repairs/{id}/status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
+        Route::resource('repairs', RepairController::class);
+
+        // ===== BBM =====
+        Route::get('fuel-logs/analytics', [FuelLogController::class, 'analytics'])->name('fuel-logs.analytics');
+        Route::patch('fuel-logs/{id}/verify', [FuelLogController::class, 'verify'])->name('fuel-logs.verify');
+        Route::resource('fuel-logs', FuelLogController::class);
+
+        // ===== DOKUMEN KENDARAAN =====
+        Route::resource('vehicle-documents', VehicleDocumentController::class);
+
+        // ===== PRIVATE IMAGE =====
         Route::get('/private-image/{path}', [ImageController::class, 'show'])
             ->where('path', '.*')
             ->middleware(['auth'])

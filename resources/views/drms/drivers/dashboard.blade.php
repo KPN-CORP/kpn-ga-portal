@@ -27,7 +27,6 @@
     <div class="mb-10">
         <h2 class="text-xl font-semibold mb-3 border-b pb-1">Jadwal Perjalanan Aktif</h2>
 
-        {{-- Notifikasi Revisi --}}
         @php
             $revisionLogs = $upcomingRequests->filter(function($req) {
                 return $req->tripLog && $req->tripLog->needsRevision();
@@ -94,7 +93,6 @@
                         @endif
                     </div>
 
-                    {{-- Link Maps --}}
                     <div class="mt-3 flex flex-wrap gap-3 border-t pt-3">
                         @if($req->pickup_maps_link)
                             <a href="{{ $req->pickup_maps_link }}" target="_blank" class="inline-flex items-center text-blue-600 hover:underline text-sm">
@@ -122,7 +120,6 @@
                     <div class="mt-3 flex justify-between items-center flex-wrap gap-2">
                         <a href="{{ route('drms.driver.requests.show', $req->id) }}" class="text-blue-600 hover:underline">Detail Lengkap →</a>
                         <div class="flex gap-2">
-                            {{-- TOMBOL ISI / PERBAIKI LOG --}}
                             <a href="{{ route('drms.driver.trip.log.create', $req->id) }}" 
                                class="{{ $needsRevision ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700' }} text-white px-3 py-1 rounded text-xs font-semibold transition">
                                 {{ $needsRevision ? '📝 Perbaiki Log' : '📝 Isi Log' }}
@@ -180,7 +177,6 @@
                         <div><span class="font-medium">Pemohon:</span> {{ $req->requester->name ?? '-' }}</div>
                     </div>
 
-                    {{-- Link Maps --}}
                     <div class="mt-3 flex flex-wrap gap-3 border-t pt-3">
                         @if($req->pickup_maps_link)
                             <a href="{{ $req->pickup_maps_link }}" target="_blank" class="inline-flex items-center text-blue-600 hover:underline text-sm">

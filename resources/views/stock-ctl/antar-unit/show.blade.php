@@ -9,7 +9,6 @@
 
     <div class="bg-white border rounded-xl overflow-hidden">
         <div class="p-6 space-y-4">
-            {{-- Header --}}
             <div class="grid grid-cols-2 gap-4 pb-4 border-b">
                 <div>
                     <span class="text-gray-500 text-xs uppercase">No. Permintaan</span>
@@ -29,7 +28,6 @@
                 </div>
             </div>
 
-            {{-- Informasi Pemohon --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <span class="text-gray-500 text-xs uppercase">Pemohon</span>
@@ -41,7 +39,6 @@
                 </div>
             </div>
 
-            {{-- Barang & Jumlah --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <span class="text-gray-500 text-xs uppercase">Barang</span>
@@ -53,7 +50,6 @@
                 </div>
             </div>
 
-            {{-- Unit Asal & Tujuan --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <span class="text-gray-500 text-xs uppercase">Unit Asal</span>
@@ -65,13 +61,11 @@
                 </div>
             </div>
 
-            {{-- Keterangan --}}
             <div>
                 <span class="text-gray-500 text-xs uppercase">Keterangan</span>
                 <p class="bg-gray-50 p-3 rounded-lg mt-1">{{ $request->keterangan ?: '-' }}</p>
             </div>
 
-            {{-- Informasi Approval (jika sudah diproses) --}}
             @if($request->status != 'pending')
                 <div class="border-t pt-4 mt-2">
                     <div class="grid grid-cols-2 gap-4">

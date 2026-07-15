@@ -7,14 +7,9 @@
     <title>GA Portal - Driver</title>
     <link rel="shortcut icon" href="{{ asset('KPN123.png') }}" type="image/x-icon">
 
-    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
@@ -81,29 +76,46 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    {{-- Dashboard Driver --}}
+                    {{-- Dashboard --}}
                     <li>
-                        <a href="{{ route('dashboard') }}" 
+                        <a href="{{ route('dashboard') }}"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
                             <span>Dashboard</span>
                         </a>
                     </li>
 
-                    {{-- Menu Tambahan jika diperlukan --}}
+                    {{-- Perjalanan --}}
                     <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Perjalanan</li>
                     <li>
-                        <a href="{{ route('drms.driver.dashboard') }}" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
+                        <a href="{{ route('drms.driver.dashboard') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.driver.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-calendar-check mr-3 text-gray-500 opacity-70"></i>
                             <span>Jadwal Aktif</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('drms.driver.dashboard') }}?date={{ now()->format('Y-m-d') }}" 
+                        <a href="{{ route('drms.driver.dashboard') }}?date={{ now()->format('Y-m-d') }}"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
                             <i class="fas fa-history mr-3 text-gray-500 opacity-70"></i>
                             <span>History</span>
+                        </a>
+                    </li>
+
+                    {{-- BBM (Driver bisa isi tanpa perjalanan) --}}
+                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Lainnya</li>
+                    <li>
+                        <a href="{{ route('drms.fuel-logs.create') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.create') ? 'active' : '' }}">
+                            <i class="fas fa-gas-pump mr-3 text-gray-500 opacity-70"></i>
+                            <span>Isi BBM</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('drms.fuel-logs.index') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.index') ? 'active' : '' }}">
+                            <i class="fas fa-list mr-3 text-gray-500 opacity-70"></i>
+                            <span>Riwayat BBM</span>
                         </a>
                     </li>
                 </ul>

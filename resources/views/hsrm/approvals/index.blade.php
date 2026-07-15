@@ -56,11 +56,11 @@
                                     </a>
                                     <form action="{{ route('hsrm.certificates.approve', $cert) }}" method="POST" class="inline">
                                         @csrf
-                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Approve</button>
+                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                                     </form>
                                     <form action="{{ route('hsrm.certificates.reject', $cert) }}" method="POST" class="inline">
                                         @csrf
-                                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
                                 </div>
                             </td>
@@ -106,11 +106,11 @@
                         </a>
                         <form action="{{ route('hsrm.certificates.approve', $cert) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Approve</button>
+                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                         </form>
                         <form action="{{ route('hsrm.certificates.reject', $cert) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Reject</button>
+                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
                     </div>
                 </div>
@@ -170,11 +170,11 @@
                                     </a>
                                     <form action="{{ route('hsrm.equipments.approve', $eq) }}" method="POST" class="inline">
                                         @csrf
-                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Approve</button>
+                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                                     </form>
                                     <form action="{{ route('hsrm.equipments.reject', $eq) }}" method="POST" class="inline">
                                         @csrf
-                                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
                                 </div>
                             </td>
@@ -219,11 +219,11 @@
                         </a>
                         <form action="{{ route('hsrm.equipments.approve', $eq) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Approve</button>
+                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                         </form>
                         <form action="{{ route('hsrm.equipments.reject', $eq) }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Reject</button>
+                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
                     </div>
                 </div>

@@ -125,11 +125,10 @@
                                 </span>
                             @endif
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-sm">
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
                             <div><span class="text-gray-500">📟 Odometer:</span> {{ $log->odometer_start ?? '-' }} → {{ $log->odometer_finish ?? '-' }}</div>
                             <div><span class="text-gray-500">📏 Jarak:</span> {{ $log->distance ?? '-' }} km</div>
-                            <div><span class="text-gray-500">⛽ Efisiensi:</span> {{ $log->efficiency ?? '-' }} {{ $log->fuel_type == 'listrik' ? 'km/kWh' : 'km/liter' }}</div>
-                            <div><span class="text-gray-500">💰 Biaya:</span> Rp {{ number_format($log->fuel_cost, 0, ',', '.') }}</div>
+                            <div><span class="text-gray-500">📅 Dikirim:</span> {{ $log->submitted_at ? $log->submitted_at->format('d M Y H:i') : '-' }}</div>
                         </div>
                         @if($log->verification_notes)
                             <div class="mt-2 text-sm bg-gray-50 p-2 rounded border border-gray-200">

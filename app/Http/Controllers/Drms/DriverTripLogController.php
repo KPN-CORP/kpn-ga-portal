@@ -26,7 +26,6 @@ class DriverTripLogController extends Controller
             return redirect()->back()->with('info', 'Log perjalanan ini sudah diverifikasi admin.');
         }
 
-        // Cek apakah dalam masa revisi dan batas waktu
         if ($log && $log->needsRevision() && $log->revision_requested_at) {
             if (now()->diffInDays($log->revision_requested_at) >= 7) {
                 return redirect()->back()->with('error', 'Batas waktu revisi 7 hari telah lewat. Log tidak dapat diperbaiki.');
@@ -44,7 +43,6 @@ class DriverTripLogController extends Controller
             abort(403);
         }
 
-        // Cek status log
         $log = TripLog::where('request_id', $requestId)->first();
         if ($log) {
             if ($log->is_verified) {
@@ -63,13 +61,8 @@ class DriverTripLogController extends Controller
         $this->validate($request, [
             'odometer_start' => 'nullable|integer|min:0',
             'odometer_finish' => 'nullable|integer|min:0|gte:odometer_start',
-            'fuel_type' => 'nullable|in:bensin,listrik',
-            'fuel_volume' => 'nullable|numeric|min:0',
-            'fuel_price_per_unit' => 'nullable|numeric|min:0',
-            'fuel_cost' => 'nullable|numeric|min:0',
             'photo_before' => 'nullable|image|max:5120',
             'photo_after' => 'nullable|image|max:5120',
-            'photo_fuel_receipt' => 'nullable|image|max:5120',
             'notes' => 'nullable|string|max:500',
         ]);
 
@@ -78,16 +71,8 @@ class DriverTripLogController extends Controller
             $log = TripLog::firstOrNew(['request_id' => $requestId]);
             
             $log->fill($request->only([
-                'odometer_start', 'odometer_finish',
-                'fuel_type', 'fuel_volume', 'fuel_price_per_unit',
-                'notes'
+                'odometer_start', 'odometer_finish', 'notes'
             ]));
-
-            if ($request->filled('fuel_volume') && $request->filled('fuel_price_per_unit')) {
-                $log->fuel_cost = $request->fuel_volume * $request->fuel_price_per_unit;
-            } elseif ($request->filled('fuel_cost')) {
-                $log->fuel_cost = $request->fuel_cost;
-            }
 
             if ($request->hasFile('photo_before')) {
                 if ($log->photo_before) ImageHelper::deleteImage($log->photo_before);
@@ -103,13 +88,6 @@ class DriverTripLogController extends Controller
                     'trip_logs/after'
                 );
             }
-            if ($request->hasFile('photo_fuel_receipt')) {
-                if ($log->photo_fuel_receipt) ImageHelper::deleteImage($log->photo_fuel_receipt);
-                $log->photo_fuel_receipt = ImageHelper::compressAndStore(
-                    $request->file('photo_fuel_receipt'),
-                    'trip_logs/receipt'
-                );
-            }
 
             if ($request->has('submit') && $request->submit == '1') {
                 $log->is_submitted = 1;
@@ -119,13 +97,12 @@ class DriverTripLogController extends Controller
                 $log->verified_at = null;
                 $log->verification_notes = null;
                 $log->revision_note = null;
-                $log->revision_requested_at = null; // reset revisi
+                $log->revision_requested_at = null;
             } else {
                 $log->is_submitted = 0;
             }
 
             $log->save();
-
             DB::commit();
 
             $message = $log->is_submitted ? 'Log berhasil dikirim ke admin.' : 'Log berhasil disimpan sebagai draft.';

@@ -137,7 +137,6 @@ function showApproveModal(id, jumlahDiminta, satuan, idBarang, idUnitPengirim) {
     areaSelect.innerHTML = '<option value="">-- Pilih Area --</option>';
     areaSelect.disabled = true;
 
-    // URL manual untuk get-areas
     const urlAreas = "{{ url('stock-ctl/antar-unit/get-areas') }}" + "?id_bisnis_unit=" + idUnitPengirim;
     fetch(urlAreas)
         .then(res => res.json())
@@ -178,7 +177,6 @@ function fetchStokByArea(idArea) {
         return;
     }
 
-    // URL manual untuk cek-stok-unit
     const urlStok = "{{ url('stock-ctl/antar-unit/cek-stok-unit') }}" + "?id_barang=" + currentIdBarang + "&id_area=" + idArea;
     fetch(urlStok)
         .then(res => res.json())

@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Drms;
 
 use App\Http\Controllers\Controller;
 use App\Models\Drms\Voucher;
+use App\Models\BisnisUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class VoucherController extends Controller
 {
     /**
-     * Ambil business_unit_id user dari profil DRMS, dengan fallback untuk superadmin.
+     * Ambil business_unit_id user, null jika superadmin.
      */
     private function getUserBusinessUnitId()
     {
@@ -25,21 +26,53 @@ class VoucherController extends Controller
         return $profile->business_unit_id;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        if ($user->isDrmsSuperAdmin()) {
-            $vouchers = Voucher::latest()->get();
-        } else {
-            $businessUnitId = $this->getUserBusinessUnitId();
-            $vouchers = Voucher::where('business_unit_id', $businessUnitId)->latest()->get();
+        $businessUnitId = $this->getUserBusinessUnitId();
+
+        $query = Voucher::with('businessUnit');
+
+        // Filter Business Unit (kecuali superadmin)
+        if ($businessUnitId) {
+            $query->where('business_unit_id', $businessUnitId);
         }
-        return view('drms.vouchers.index', compact('vouchers'));
+
+        // Filter pencarian (kode)
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where('code', 'LIKE', $search);
+        }
+
+        // Filter Status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter Tipe
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+
+        // Filter Business Unit (khusus superadmin)
+        if ($user->isDrmsSuperAdmin() && $request->filled('business_unit_id')) {
+            $query->where('business_unit_id', $request->business_unit_id);
+        }
+
+        $vouchers = $query->latest()->paginate(20)->appends($request->query());
+
+        // Ambil daftar business unit untuk dropdown (khusus superadmin)
+        $businessUnits = [];
+        if ($user->isDrmsSuperAdmin()) {
+            $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
+        }
+
+        return view('drms.vouchers.index', compact('vouchers', 'businessUnits'));
     }
 
     public function create()
     {
-        $this->getUserBusinessUnitId();
+        $this->getUserBusinessUnitId(); // validasi akses
         return view('drms.vouchers.create');
     }
 

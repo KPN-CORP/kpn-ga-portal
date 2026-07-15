@@ -1143,9 +1143,91 @@ class HelpTiketApprovalController extends Controller
         return 'Staff GA';
     }
 
-    /**
-     * Get label status untuk pesan error
-     */
+    public function reassign(Request $request, HelpTiket $tiket)
+    {
+        $user = Auth::user();
+        
+        // 1. Otorisasi: hanya user dengan ga_help_full_akses
+        if (!$user->hasFullGaHelpAccess()) {
+            abort(403, 'Anda tidak memiliki izin untuk mengalihkan tiket.');
+        }
+        
+        // 2. Validasi input
+        $validated = $request->validate([
+            'target_pelanggan_id' => 'required|exists:tb_pelanggan,id_pelanggan',
+            'alasan'             => 'required|string|min:5|max:500',
+        ]);
+        
+        $targetPelanggan = Pelanggan::find($validated['target_pelanggan_id']);
+        
+        // 3. Pastikan target adalah petugas GA yang valid
+        //    (mempunyai akses ga_help_proses atau ga_help_full_akses)
+        $isValidStaff = $targetPelanggan->user && 
+                        $targetPelanggan->user->accessMenu && 
+                        ($targetPelanggan->user->accessMenu->ga_help_proses || 
+                        $targetPelanggan->user->accessMenu->ga_help_full_akses);
+        
+        if (!$isValidStaff) {
+            return back()->with('error', 'User yang dipilih bukan petugas GA yang valid.');
+        }
+        
+        // 4. Jangan biarkan mengalihkan ke dirinya sendiri
+        if ($targetPelanggan->id_pelanggan == $user->pelanggan->id_pelanggan) {
+            return back()->with('error', 'Tidak dapat mengalihkan ke diri sendiri.');
+        }
+        
+        try {
+            DB::beginTransaction();
+            
+            $oldPIC = $tiket->ditugaskanKe ? 
+                ($tiket->ditugaskanKe->user->name ?? $tiket->ditugaskanKe->nama_pelanggan) : 
+                'Belum ditugaskan';
+            $newPIC = $targetPelanggan->user->name ?? $targetPelanggan->nama_pelanggan;
+            
+            // 5. Update tiket
+            $tiket->ditugaskan_ke = $targetPelanggan->id_pelanggan;
+            // Jika status masih OPEN, ubah menjadi ON_PROCESS (opsional)
+            if ($tiket->status === self::STATUS_TIKET['OPEN']) {
+                $tiket->status = self::STATUS_TIKET['ON_PROCESS'];
+                $tiket->diproses_pada = now();
+            }
+            $tiket->save();
+            
+            // 6. Catat log status (status lama & baru sama, karena hanya ganti PIC)
+            HelpLogStatus::create([
+                'tiket_id'    => $tiket->id,
+                'pengguna_id' => $user->pelanggan->id_pelanggan,
+                'status_lama' => $tiket->status, // status saat ini (sudah diupdate)
+                'status_baru' => $tiket->status,
+                'catatan'     => "Pengalihan penanggung jawab dari {$oldPIC} ke {$newPIC}. Alasan: " . $validated['alasan'],
+            ]);
+            
+            // 7. Tambahkan komentar sistem
+            HelpKomentar::create([
+                'tiket_id'        => $tiket->id,
+                'pengguna_id'     => $user->pelanggan->id_pelanggan,
+                'komentar'        => "🔄 **Penanggung jawab dialihkan**\n\n" .
+                                    "Dari: **{$oldPIC}**\n" .
+                                    "Ke: **{$newPIC}**\n\n" .
+                                    "**Alasan:** {$validated['alasan']}",
+                'pesan_sistem'    => true,
+                'tipe_pesan_sistem' => 'REASSIGNED',
+            ]);
+            
+            DB::commit();
+            
+            return redirect()->route('help.proses.show', $tiket->id)
+                ->with('success', "✅ Tiket berhasil dialihkan ke {$newPIC}.");
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Gagal reassign tiket', [
+                'tiket_id' => $tiket->id,
+                'error'    => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Gagal mengalihkan tiket: ' . $e->getMessage());
+        }
+    }
     private function getStatusLabel($status)
     {
         $labels = [

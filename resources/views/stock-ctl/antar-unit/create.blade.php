@@ -6,16 +6,21 @@
         @csrf
         <div class="mb-4">
             <label>Barang</label>
-            <select name="id_barang" class="w-full border rounded-lg p-2" required>
+            <select name="id_barang" id="id_barang" class="w-full border rounded-lg p-2" required>
                 <option value="">Pilih Barang</option>
                 @foreach($barang as $b)
-                <option value="{{ $b->id_barang }}">{{ $b->kode_barang }} - {{ $b->nama_barang }}</option>
+                <option value="{{ $b->id_barang }}" data-satuan="{{ $b->satuan }}">
+                    {{ $b->kode_barang }} - {{ $b->nama_barang }}
+                </option>
                 @endforeach
             </select>
         </div>
         <div class="mb-4">
             <label>Jumlah</label>
-            <input type="number" step="0.01" name="jumlah" class="w-full border rounded-lg p-2" required>
+            <div class="flex items-center gap-2">
+                <input type="number" step="0.01" name="jumlah" id="jumlah" class="flex-1 border rounded-lg p-2" required>
+                <span id="satuan_tampilan" class="text-sm text-gray-600 w-16 bg-gray-100 px-2 py-2 rounded-lg text-center">-</span>
+            </div>
         </div>
         <div class="mb-4">
             <label>Unit Asal (Anda)</label>
@@ -42,4 +47,12 @@
         </div>
     </form>
 </div>
+
+<script>
+document.getElementById('id_barang').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    const satuan = selected.getAttribute('data-satuan') || '-';
+    document.getElementById('satuan_tampilan').textContent = satuan;
+});
+</script>
 @endsection

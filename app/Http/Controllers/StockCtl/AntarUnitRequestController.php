@@ -10,15 +10,43 @@ use Illuminate\Support\Facades\Auth;
 
 class AntarUnitRequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $access = session('stock_ctl_access');
         $query = AntarUnitRequest::with('barang', 'unitAsal', 'unitTujuan', 'pemohon');
+
+        // Filter by unit asal
+        if ($request->filled('unit_asal')) {
+            $query->where('id_bisnis_unit_asal', $request->unit_asal);
+        }
+
+        // Filter by unit tujuan
+        if ($request->filled('unit_tujuan')) {
+            $query->where('id_bisnis_unit_tujuan', $request->unit_tujuan);
+        }
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Batasan akses: jika bukan super, hanya tampilkan unit asal sendiri
         if (!$access['is_super']) {
             $query->where('id_bisnis_unit_asal', $access['id_bisnis_unit']);
         }
-        $requests = $query->orderBy('created_at', 'desc')->paginate(15);
-        return view('stock-ctl.antar-unit.index', compact('requests'));
+
+        // Jumlah data per halaman
+        $perPage = $request->input('per_page', 15);
+        if (!in_array($perPage, [15, 25, 50, 100])) {
+            $perPage = 15;
+        }
+
+        $requests = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        // Ambil semua unit untuk dropdown filter
+        $units = BisnisUnit::all();
+
+        return view('stock-ctl.antar-unit.index', compact('requests', 'units', 'perPage'));
     }
 
     public function create()

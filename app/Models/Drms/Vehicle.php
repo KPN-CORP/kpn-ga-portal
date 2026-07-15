@@ -14,6 +14,7 @@ class Vehicle extends Model
         'plate_number', 
         'capacity', 
         'status', 
+        'fuel_type',
         'business_unit_id',
         'gps_enabled'   // tambahan
     ];
@@ -31,5 +32,25 @@ class Vehicle extends Model
     public function requests()
     {
         return $this->hasMany(DriverRequest::class);
+    }
+
+    public function serviceSchedules()
+    {
+        return $this->hasMany(ServiceSchedule::class);
+    }
+
+    public function repairs()
+    {
+        return $this->hasMany(Repair::class);
+    }
+
+    public function fuelLogs()
+    {
+        return $this->hasMany(FuelLog::class);
+    }
+
+    public function document()
+    {
+        return $this->hasOne(VehicleDocument::class);
     }
 }

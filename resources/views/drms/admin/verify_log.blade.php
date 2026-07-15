@@ -11,7 +11,7 @@
         </p>
     </div>
 
-    {{-- Informasi Perjalanan --}}
+    {{-- Informasi Perjalanan (Odometer) --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-gray-50 p-4 rounded-xl">
             <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">📟 Odometer</h3>
@@ -31,34 +31,23 @@
             </div>
         </div>
 
+        {{-- Informasi Tambahan (jika ada) --}}
         <div class="bg-gray-50 p-4 rounded-xl">
-            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">⛽ Efisiensi & Biaya</h3>
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <p class="text-xs text-gray-400">Efisiensi</p>
-                    <p class="text-lg font-bold text-blue-600">
-                        {{ number_format($log->efficiency, 1, ',', '.') }}
-                        <span class="text-sm font-normal text-gray-500">
-                            {{ $log->fuel_type == 'listrik' ? 'km/kWh' : 'km/liter' }}
-                        </span>
-                    </p>
+            <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">📝 Catatan Driver</h3>
+            <p class="text-gray-700">{{ $log->notes ?? '-' }}</p>
+            @if($log->is_submitted)
+                <div class="mt-2 pt-2 border-t border-gray-200">
+                    <p class="text-xs text-gray-400">Dikirim Pada</p>
+                    <p class="font-medium">{{ $log->submitted_at ? $log->submitted_at->format('d M Y H:i') : '-' }}</p>
                 </div>
-                <div>
-                    <p class="text-xs text-gray-400">Total Biaya BBM</p>
-                    <p class="text-lg font-bold text-red-600">Rp {{ number_format($log->fuel_cost, 0, ',', '.') }}</p>
-                </div>
-            </div>
-            <div class="mt-2 pt-2 border-t border-gray-200">
-                <p class="text-xs text-gray-400">Jenis Pengisian</p>
-                <p class="font-medium capitalize">{{ $log->fuel_type ?? '-' }}</p>
-            </div>
+            @endif
         </div>
     </div>
 
     {{-- Foto-foto --}}
     <div class="bg-gray-50 p-4 rounded-xl mb-6">
-        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">📸 Dokumentasi</h3>
-        <div class="grid grid-cols-3 gap-3">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">📸 Dokumentasi Speedometer</h3>
+        <div class="grid grid-cols-2 gap-3">
             @if($log->photo_before)
                 <a href="{{ route('drms.private.image', $log->photo_before) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
                     <img src="{{ route('drms.private.image', $log->photo_before) }}" alt="Foto Sebelum" class="w-full h-32 object-cover group-hover:scale-105 transition duration-300">
@@ -75,16 +64,8 @@
                     </div>
                 </a>
             @endif
-            @if($log->photo_fuel_receipt)
-                <a href="{{ route('drms.private.image', $log->photo_fuel_receipt) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
-                    <img src="{{ route('drms.private.image', $log->photo_fuel_receipt) }}" alt="Foto Struk" class="w-full h-32 object-cover group-hover:scale-105 transition duration-300">
-                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                        <p class="text-xs text-white font-medium">🧾 Struk</p>
-                    </div>
-                </a>
-            @endif
-            @if(!$log->photo_before && !$log->photo_after && !$log->photo_fuel_receipt)
-                <p class="col-span-3 text-sm text-gray-400 italic">Tidak ada foto yang diunggah.</p>
+            @if(!$log->photo_before && !$log->photo_after)
+                <p class="col-span-2 text-sm text-gray-400 italic">Tidak ada foto yang diunggah.</p>
             @endif
         </div>
     </div>

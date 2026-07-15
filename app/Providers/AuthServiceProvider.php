@@ -32,9 +32,9 @@ class AuthServiceProvider extends ServiceProvider
             return $user->isDrmsAdmin();
         });
 
-        // (Opsional) Gate untuk superadmin
-        // Gate::define('isDrmsSuperAdmin', function (User $user) {
-        //     return $user->isDrmsSuperAdmin();
-        // });
+        Gate::define('superadmin', function (User $user) {
+            // Gunakan relasi drmsProfile untuk cek is_drms_superadmin
+            return $user->drmsProfile && $user->drmsProfile->is_drms_superadmin == 1;
+        });
     }
 }
