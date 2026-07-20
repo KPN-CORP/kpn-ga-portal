@@ -72,10 +72,18 @@ class HsrmEquipmentController extends Controller
             $query->whereDate('expired_date', '<=', request('expired_to'));
         }
 
-        $equipments = $query->latest()->get();
-        $areas = AreaKerja::all();
+        // 🔽 FILTER TYPE
+        if (request('equipment_type_id')) {
+            $query->where('equipment_type_id', request('equipment_type_id'));
+        }
 
-        return view('hsrm.equipments.index', compact('equipments', 'areas'));
+        // 🔽 PAGINATION (15 item per halaman)
+        $equipments = $query->latest()->paginate(15);
+
+        $areas = AreaKerja::all();
+        $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
+
+        return view('hsrm.equipments.index', compact('equipments', 'areas', 'equipmentTypes'));
     }
 
     public function create()
@@ -457,6 +465,7 @@ class HsrmEquipmentController extends Controller
             'area_id' => request('area_id'),
             'expired_from' => request('expired_from'),
             'expired_to' => request('expired_to'),
+            'equipment_type_id' => request('equipment_type_id'), // tambahkan untuk export
         ];
 
         return Excel::download(
