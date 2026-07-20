@@ -72,10 +72,17 @@ class HsrmCertificateController extends Controller
             $query->whereDate('expired_date', '<=', request('expired_to'));
         }
 
+        // 🔽 TAMBAH FILTER TYPE
+        if (request('certificate_type_id')) {
+            $query->where('certificate_type_id', request('certificate_type_id'));
+        }
+
         $certificates = $query->latest()->get();
         $areas = AreaKerja::all();
+        // Ambil semua tipe sertifikat untuk dropdown filter
+        $certificateTypes = HsrmCertificateType::orderBy('name')->get();
 
-        return view('hsrm.certificates.index', compact('certificates', 'areas'));
+        return view('hsrm.certificates.index', compact('certificates', 'areas', 'certificateTypes'));
     }
 
     public function create()
@@ -442,6 +449,7 @@ class HsrmCertificateController extends Controller
             'area_id' => request('area_id'),
             'expired_from' => request('expired_from'),
             'expired_to' => request('expired_to'),
+            'certificate_type_id' => request('certificate_type_id'), // tambahkan untuk export
         ];
 
         return Excel::download(

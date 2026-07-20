@@ -32,6 +32,17 @@
                 </option>
             @endforeach
         </select>
+
+        {{-- 🔽 TAMBAHAN DROPDOWN FILTER TYPE --}}
+        <select name="certificate_type_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="">All Types</option>
+            @foreach($certificateTypes as $type)
+                <option value="{{ $type->id }}" {{ request('certificate_type_id') == $type->id ? 'selected' : '' }}>
+                    {{ $type->name }}
+                </option>
+            @endforeach
+        </select>
+
         <input type="date" name="expired_from" value="{{ request('expired_from') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired From">
         <input type="date" name="expired_to" value="{{ request('expired_to') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired To">
         <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Filter</button>
