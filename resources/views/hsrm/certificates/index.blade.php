@@ -33,7 +33,7 @@
             @endforeach
         </select>
 
-        {{-- 🔽 TAMBAHAN DROPDOWN FILTER TYPE --}}
+        {{-- FILTER TYPE --}}
         <select name="certificate_type_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             <option value="">All Types</option>
             @foreach($certificateTypes as $type)
@@ -114,7 +114,7 @@
     </table>
 </div>
 
-{{-- CARD VIEW (HP / Mobile) --}}
+{{-- CARD VIEW (Mobile) --}}
 <div class="md:hidden space-y-4">
     @forelse($certificates as $cert)
     <div class="bg-white rounded-xl soft-shadow border soft-border p-4">
@@ -184,5 +184,10 @@
         No certificates found.
     </div>
     @endforelse
+</div>
+
+{{-- PAGINATION --}}
+<div class="mt-6">
+    {{ $certificates->appends(request()->query())->links() }}
 </div>
 @endsection

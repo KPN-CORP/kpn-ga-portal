@@ -52,6 +52,7 @@ class HsrmCertificateController extends Controller
             }
         }
 
+        // Filter pencarian
         if (request('search')) {
             $search = request('search');
             $query->where(function ($q) use ($search) {
@@ -59,12 +60,18 @@ class HsrmCertificateController extends Controller
                   ->orWhere('nik', 'like', "%$search%");
             });
         }
+
+        // Filter status verifikasi
         if (request('status_verif')) {
             $query->where('status_verif', request('status_verif'));
         }
+
+        // Filter area
         if (request('area_id')) {
             $query->where('area_id', request('area_id'));
         }
+
+        // Filter tanggal kadaluarsa
         if (request('expired_from')) {
             $query->whereDate('expired_date', '>=', request('expired_from'));
         }
@@ -72,14 +79,15 @@ class HsrmCertificateController extends Controller
             $query->whereDate('expired_date', '<=', request('expired_to'));
         }
 
-        // 🔽 TAMBAH FILTER TYPE
+        // 🔽 TAMBAHAN: Filter tipe sertifikat
         if (request('certificate_type_id')) {
             $query->where('certificate_type_id', request('certificate_type_id'));
         }
 
-        $certificates = $query->latest()->get();
+        // 🔽 PAGINATION (15 item per halaman)
+        $certificates = $query->latest()->paginate(15);
+
         $areas = AreaKerja::all();
-        // Ambil semua tipe sertifikat untuk dropdown filter
         $certificateTypes = HsrmCertificateType::orderBy('name')->get();
 
         return view('hsrm.certificates.index', compact('certificates', 'areas', 'certificateTypes'));
