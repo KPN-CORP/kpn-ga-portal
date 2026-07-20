@@ -170,7 +170,7 @@
                 <label class="flex items-center">
                     <input type="radio" name="transport_type" value="voucher" class="mr-2" 
                            {{ old('transport_type', $driverRequest->transport_type) == 'voucher' ? 'checked' : '' }}>
-                    Voucher (Grab/Gojek/Taxi)
+                    Voucher (Grab/Gojek/Bluebird)
                 </label>
                 <label class="flex items-center">
                     <input type="radio" name="transport_type" value="rental" class="mr-2" 

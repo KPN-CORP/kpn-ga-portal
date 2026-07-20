@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-6">
-    <h1 class="text-2xl font-bold mb-6">📊 Analisis Konsumsi BBM</h1>
+    <h1 class="text-2xl font-bold mb-6">📊 Analisis Konsumsi</h1>
 
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
@@ -38,7 +38,7 @@
                     <td class="px-6 py-4">{{ $data['fuel_type'] ?? 'Bensin' }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data BBM terverifikasi.</td></tr>
+                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -88,6 +88,7 @@
         @elseif($row->status=='Terkirim') bg-green-100 text-green-700
         @elseif($row->status=='Belum Terkirim') bg-yellow-100 text-yellow-700
         @elseif($row->status=='Ditolak') bg-red-100 text-red-700
+        @elseif($row->status=='Dokumen Belum Tersedia') bg-purple-100 text-purple-700
         @else bg-slate-200 text-slate-700 @endif">
             {{ $row->status }}
         </span>
@@ -127,6 +128,15 @@
                     <button type="submit" 
                             class="px-3 py-1 border border-green-600 text-green-600 rounded hover:bg-green-50 transition">
                         Antar
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ route('messenger.kembalikan', $row->no_transaksi) }}" class="inline"
+                      onsubmit="return confirm('Kembalikan transaksi ini karena dokumen belum tersedia?');">
+                    @csrf
+                    <button type="submit"
+                            class="px-3 py-1 border border-purple-600 text-purple-600 rounded hover:bg-purple-50 transition">
+                        Kembalikan
                     </button>
                 </form>
                 
@@ -192,6 +202,7 @@
             @elseif($row->status=='Terkirim') bg-green-100 text-green-700
             @elseif($row->status=='Belum Terkirim') bg-yellow-100 text-yellow-700
             @elseif($row->status=='Ditolak') bg-red-100 text-red-700
+            @elseif($row->status=='Dokumen Belum Tersedia') bg-purple-100 text-purple-700
             @else bg-slate-200 text-slate-700 @endif">
             {{ $row->status }}
         </span>
@@ -472,6 +483,7 @@
                 @elseif($row->status=='Terkirim') bg-green-100 text-green-700
                 @elseif($row->status=='Belum Terkirim') bg-yellow-100 text-yellow-700
                 @elseif($row->status=='Ditolak') bg-red-100 text-red-700
+                @elseif($row->status=='Dokumen Belum Tersedia') bg-purple-100 text-purple-700
                 @else bg-slate-100 text-slate-700 @endif">
                 {{ $row->status }}
             </span>
@@ -517,6 +529,13 @@
                 Tolak
             </button>
         </div>
+        <form method="POST" action="{{ route('messenger.kembalikan', $row->no_transaksi) }}" class="w-full mt-2"
+              onsubmit="return confirm('Kembalikan transaksi ini karena dokumen belum tersedia?');">
+            @csrf
+            <button type="submit" class="w-full border border-purple-600 text-purple-600 rounded py-2 hover:bg-purple-50 transition">
+                Kembalikan
+            </button>
+        </form>
         @endif
 
         @if($row->status=='Proses Pengiriman' && $row->kurir == $kurir_id)
@@ -525,7 +544,7 @@
                     class="flex-1 border border-blue-600 text-blue-600 rounded py-2 hover:bg-blue-50 transition">
                 Selesaikan
             </button>
-            
+
             <button @click="tolak=true"
                     class="flex-1 border border-red-600 text-red-600 rounded py-2 hover:bg-red-50 transition">
                 Tolak

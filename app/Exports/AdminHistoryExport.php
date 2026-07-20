@@ -41,7 +41,8 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             'Jenis Transportasi',
             'Driver',
             'Kendaraan',
-            'Voucher',
+            'Kode Voucher',
+            'Jenis Voucher',
             'Status',
             'Disetujui Atasan (Tanggal)',
             'Diproses GA (Tanggal)',
@@ -51,6 +52,8 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
 
     public function map($req): array
     {
+        $voucher = $req->voucher;
+
         return [
             $req->request_no,
             $req->requester->name ?? '-',
@@ -65,7 +68,8 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             $req->transport_type ? ucfirst(str_replace('_', ' ', $req->transport_type)) : '-',
             $req->driver->name ?? '-',
             $req->vehicle->plate_number ?? '-',
-            $req->voucher->code ?? '-',
+            $voucher ? $voucher->code : '-',
+            $voucher ? ucfirst($voucher->type) : '-',
             $req->status === 'approved_admin' ? 'Disetujui' : ($req->status === 'rejected_admin' ? 'Ditolak' : 'Selesai'),
             $req->approved_l1_at ? $req->approved_l1_at->format('d-m-Y H:i') : '-',
             $req->approved_admin_at ? $req->approved_admin_at->format('d-m-Y H:i') : '-',

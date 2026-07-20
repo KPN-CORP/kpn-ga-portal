@@ -223,7 +223,7 @@
                                     <a href="{{ route('drms.fuel-logs.index') }}"
                                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.*') ? 'active' : '' }}">
                                         <i class="fas fa-gas-pump mr-3 text-gray-500 opacity-70"></i>
-                                        <span>BBM Logs</span>
+                                        <span> Logs Pengisian</span>
                                         @php
                                             $pendingFuel = \App\Models\Drms\FuelLog::where('is_verified', 0)->count();
                                         @endphp
@@ -236,7 +236,7 @@
                                     <a href="{{ route('drms.fuel-logs.analytics') }}"
                                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.analytics') ? 'active' : '' }}">
                                         <i class="fas fa-chart-bar mr-3 text-gray-500 opacity-70"></i>
-                                        <span>Analisis BBM</span>
+                                        <span>Insight Pengisian</span>
                                     </a>
                                 </li>
                             </ul>

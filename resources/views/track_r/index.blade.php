@@ -110,23 +110,24 @@
         </form>
     </div>
 
-    {{-- TABEL DESKTOP --}}
-    <div class="hidden sm:block overflow-x-auto">
+    {{-- TABEL DESKTOP (diperbaiki agar tidak scroll horizontal & No Dokumen wrap) --}}
+    <div class="hidden sm:block">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-100 transition-all">
-            <table class="min-w-full table-auto">
+            <table class="w-full table-fixed">
                 <thead>
                     <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                        <th class="px-4 py-3 text-left">No Dokumen</th>
-                        <th class="px-4 py-3 text-left">Judul</th>
-                        <th class="px-4 py-3 text-left">Pengirim</th>
+                        {{-- Lebar kolom disesuaikan secara proporsional --}}
+                        <th class="px-4 py-3 text-left w-1/12">No Dokumen</th>
+                        <th class="px-4 py-3 text-left w-2/12">Judul</th>
+                        <th class="px-4 py-3 text-left w-1/12">Pengirim</th>
                         @if(auth()->user()->isSuperadminTrack())
-                            <th class="px-4 py-3 text-left">Unit Bisnis</th>
+                            <th class="px-4 py-3 text-left w-1/12">Unit Bisnis</th>
                         @endif
-                        <th class="px-4 py-3 text-left">Tgl Kirim</th>
-                        <th class="px-4 py-3 text-left">Penerima</th>
-                        <th class="px-4 py-3 text-left">Status</th>
-                        <th class="px-4 py-3 text-left">Update</th>
-                        <th class="px-4 py-3 text-right">Aksi</th>
+                        <th class="px-4 py-3 text-left w-1/12">Tgl Kirim</th>
+                        <th class="px-4 py-3 text-left w-2/12">Penerima</th>
+                        <th class="px-4 py-3 text-left w-1/12">Status</th>
+                        <th class="px-4 py-3 text-left w-1/12">Update</th>
+                        <th class="px-4 py-3 text-right w-1/12">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -138,7 +139,8 @@
                             $otherRecipients = $doc->recipients->where('id', '!=', $doc->penerima_id);
                         @endphp
                         <tr class="group hover:bg-slate-50/60 transition duration-150">
-                            <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700 whitespace-nowrap">
+                            {{-- No Dokumen: wrap & max-width agar turun ke bawah jika panjang --}}
+                            <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700 break-words max-w-[150px]">
                                 {{ $doc->nomor_dokumen }}
                             </td>
                             <td class="px-4 py-3">
@@ -151,17 +153,18 @@
                                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0">
                                         <i class="fas fa-user text-blue-600 text-xs"></i>
                                     </div>
-                                    <span class="text-sm text-slate-700 truncate max-w-[120px]">{{ $doc->pengirim->name ?? '-' }}</span>
+                                    <span class="text-sm text-slate-700 truncate max-w-[100px]">{{ $doc->pengirim->name ?? '-' }}</span>
                                 </div>
                             </td>
                             @if(auth()->user()->isSuperadminTrack())
                                 <td class="px-4 py-3">
-                                    <span class="text-xs bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+                                    <span class="text-xs bg-gray-100 px-2 py-1 rounded-full truncate max-w-[120px] block">
                                         {{ $doc->pengirim->company_name ?? '-' }}
                                     </span>
                                 </td>
                             @endif
-                            <td class="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                            {{-- Tgl Kirim: tanpa whitespace-nowrap --}}
+                            <td class="px-4 py-3 text-sm text-slate-500">
                                 {{ $doc->created_at->format('d/m/Y H:i') }}
                             </td>
                             <td class="px-4 py-3">
@@ -170,7 +173,7 @@
                                         <i class="fas fa-user-check text-emerald-600 text-xs"></i>
                                     </div>
                                     <div class="text-sm">
-                                        <span class="text-slate-700">{{ $doc->penerima->name ?? '-' }}</span>
+                                        <span class="text-slate-700 truncate max-w-[80px] inline-block">{{ $doc->penerima->name ?? '-' }}</span>
                                         @if($otherRecipients->count() > 0)
                                             <span class="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-1 cursor-help"
                                                   title="{{ $otherRecipients->pluck('name')->implode(', ') }}">
@@ -180,18 +183,19 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }}">
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm {{ statusColorClass($statusLabel) }} whitespace-nowrap">
                                     <i class="{{ statusIcon($statusLabel) }} text-[11px]"></i>
                                     {{ $statusLabel }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                            {{-- Update: tanpa whitespace-nowrap --}}
+                            <td class="px-4 py-3 text-sm text-slate-500">
                                 {{ $doc->updated_at->format('d/m/Y H:i') }}
                             </td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <td class="px-4 py-3 text-right">
                                 <a href="{{ route('track-r.show', $doc->id) }}"
-                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all">
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-blue-100 hover:text-blue-700 transition-all whitespace-nowrap">
                                     <i class="fas fa-eye text-xs"></i> Detail
                                 </a>
                             </td>

@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container mx-auto max-w-2xl">
-    <h1 class="text-2xl font-bold mb-4">Edit Log BBM</h1>
+    <h1 class="text-2xl font-bold mb-4">Edit Log</h1>
 
     @if($errors->any())
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

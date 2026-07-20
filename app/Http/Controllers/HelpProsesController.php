@@ -61,17 +61,21 @@ class HelpProsesController extends Controller
             }
         }
 
+        // ========== DEFAULT STATUS = 'OPEN' ==========
+        $status = $request->get('status', 'OPEN');
+        if ($status) {
+            $query->where('status', $status);
+        }
+        // =============================================
+
+        // Filter lainnya (search, bisnis_unit, prioritas, kategori, tanggal)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nomor_tiket', 'LIKE', "%{$search}%")
-                  ->orWhere('judul', 'LIKE', "%{$search}%")
-                  ->orWhere('deskripsi', 'LIKE', "%{$search}%");
+                ->orWhere('judul', 'LIKE', "%{$search}%")
+                ->orWhere('deskripsi', 'LIKE', "%{$search}%");
             });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
         }
 
         if ($request->filled('bisnis_unit_id')) {

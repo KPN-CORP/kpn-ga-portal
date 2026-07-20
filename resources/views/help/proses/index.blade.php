@@ -1,4 +1,3 @@
-{{-- resources/views/help/proses/index.blade.php --}}
 @extends('layouts.app-sidebar')
 
 @section('content')
@@ -25,7 +24,44 @@
         </div>
     </div>
 
-    {{-- FILTER SECTION --}}
+    {{-- ============ TOMBOL FILTER STATUS ============ --}}
+    @php
+        $activeStatus = request('status', 'OPEN');
+    @endphp
+    <div class="flex flex-wrap gap-2 px-2 sm:px-0">
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'OPEN'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'OPEN' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            OPEN
+        </a>
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'ON_PROCESS'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'ON_PROCESS' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            ON PROCESS
+        </a>
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'WAITING'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'WAITING' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            WAITING
+        </a>
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'DONE'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'DONE' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            DONE
+        </a>
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'CLOSED'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'CLOSED' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            CLOSED
+        </a>
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'HELP_GA_CORP'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'HELP_GA_CORP' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            HELP GA CORP
+        </a>
+    </div>
+
+    {{-- FILTER SECTION (lanjutan) --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('help.proses.index') }}" id="filterForm">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -283,8 +319,8 @@
         <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-full mb-4">
             <i class="fas fa-check-circle text-2xl text-blue-400"></i>
         </div>
-        <h3 class="text-lg font-medium text-gray-700 mb-2">Tidak ada tiket yang perlu diproses</h3>
-        <p class="text-gray-500">Semua tiket sudah ditangani atau belum ada tiket yang dibuat.</p>
+        <h3 class="text-lg font-medium text-gray-700 mb-2">Tidak ada tiket yang open</h3>
+        <p class="text-gray-500">Semua tiket ditangani atau belum ada tiket yang dibuat.</p>
     </div>
     @else
     <div class="bg-white border rounded-xl overflow-x-auto">
@@ -302,18 +338,13 @@
             <tbody class="divide-y">
                 @foreach($tiket as $item)
                 <tr class="hover:bg-gray-50">
-                    {{-- No. Tiket --}}
                     <td class="px-4 py-3">
                         <div class="text-blue-600 font-medium">{{ $item->nomor_tiket }}</div>
                         <div class="text-xs text-gray-500">{{ $item->created_at->format('d M Y H:i') }}</div>
                     </td>
-
-                    {{-- Judul --}}
                     <td class="px-4 py-3">
                         <div class="font-medium">{{ Str::limit($item->judul, 25) }}</div>
                     </td>
-
-                    {{-- Pelapor (Desktop) --}}
                     <td class="px-4 py-3 hidden md:table-cell">
                         <div class="flex items-center">
                             @php
@@ -345,8 +376,6 @@
                             @endif
                         </div>
                     </td>
-
-                    {{-- Kategori (Desktop) --}}
                     <td class="px-4 py-3 hidden md:table-cell">
                         <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
                             {{ $item->kategori->nama ?? '-' }}
@@ -366,8 +395,6 @@
                             </span>
                         </div>
                     </td>
-
-                    {{-- Status dengan Penanggung Jawab --}}
                     <td class="px-4 py-3">
                         @php
                             $statusColors = [
@@ -422,8 +449,6 @@
                             @endif
                         </div>
                     </td>
-
-                    {{-- Action --}}
                     <td class="px-4 py-3">
                         <div class="flex flex-col gap-2">
                             <a href="{{ route('help.proses.show', $item) }}"

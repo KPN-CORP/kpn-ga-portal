@@ -113,33 +113,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/access-data', [DashboardController::class, 'getAccessData'])->name('api.access.data');
 
     Route::prefix('messenger')->middleware('auth')->group(function () {
-        Route::middleware('messenger.access:status_messenger')
-            ->get('/', [MessengerController::class, 'index'])
-            ->name('messenger.index');
-        Route::middleware('messenger.access:request_messenger')
-            ->get('/request', [MessengerController::class, 'request'])
-            ->name('messenger.request');
-        Route::middleware('messenger.access:request_messenger')
-            ->post('/', [MessengerController::class, 'store'])
-            ->name('messenger.store');
-        Route::middleware('messenger.access:proses_messenger')
-            ->get('/proses', [MessengerController::class, 'proses'])
-            ->name('messenger.proses');
-        Route::middleware('messenger.access:proses_messenger')->group(function () {
-            Route::post('/{no_transaksi}/antar', [MessengerController::class, 'antar'])->name('messenger.antar');
-            Route::post('/{no_transaksi}/tolak', [MessengerController::class, 'tolak'])->name('messenger.tolak');
-            Route::post('/{no_transaksi}/selesaikan', [MessengerController::class, 'selesaikan'])->name('messenger.selesaikan');
-        });
-        Route::middleware('messenger.access:detail_messenger')->group(function () {
-            Route::get('/{no_transaksi}/print', [MessengerController::class, 'print'])->name('messenger.print');
-            Route::post('/{no_transaksi}/cancel', [MessengerController::class, 'cancel'])->name('messenger.cancel');
-        });
-        Route::middleware('messenger.access:detail_messenger')
-            ->get('/file/{type}/{filename}', [MessengerController::class, 'getFile'])
-            ->name('messenger.file');
-        Route::middleware('messenger.access:detail_messenger')
-            ->get('/{id}', [MessengerController::class, 'detail'])
-            ->name('messenger.detail');
+        Route::middleware('messenger.access:status_messenger')->get('/', [App\Http\Controllers\MessengerController::class, 'index'])->name('messenger.index');
+        Route::middleware('messenger.access:request_messenger')->get('/request', [App\Http\Controllers\MessengerController::class, 'request'])->name('messenger.request');
+        Route::middleware('messenger.access:request_messenger')->post('/', [App\Http\Controllers\MessengerController::class, 'store'])->name('messenger.store');
+        Route::middleware('messenger.access:proses_messenger')->get('/proses', [App\Http\Controllers\MessengerController::class, 'proses'])->name('messenger.proses');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/antar', [App\Http\Controllers\MessengerController::class, 'antar'])->name('messenger.antar');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/tolak', [App\Http\Controllers\MessengerController::class, 'tolak'])->name('messenger.tolak');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/selesaikan', [App\Http\Controllers\MessengerController::class, 'selesaikan'])->name('messenger.selesaikan');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/kembalikan', [App\Http\Controllers\MessengerController::class, 'kembalikan'])->name('messenger.kembalikan');
+        Route::middleware('messenger.access:detail_messenger')->get('/{no_transaksi}/print', [App\Http\Controllers\MessengerController::class, 'print'])->name('messenger.print');
+        Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/cancel', [App\Http\Controllers\MessengerController::class, 'cancel'])->name('messenger.cancel');
+        Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/kirim-ulang', [App\Http\Controllers\MessengerController::class, 'kirimUlang'])->name('messenger.kirimUlang');
+        Route::middleware('messenger.access:detail_messenger')->get('/file/{type}/{filename}', [App\Http\Controllers\MessengerController::class, 'getFile'])->name('messenger.file');
+        Route::middleware('messenger.access:detail_messenger')->get('/{id}', [App\Http\Controllers\MessengerController::class, 'detail'])->name('messenger.detail');
     });
 
     Route::prefix('mailing')->name('mailing.')->middleware(['auth'])->group(function () {

@@ -108,14 +108,14 @@
                         <a href="{{ route('drms.fuel-logs.create') }}"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.create') ? 'active' : '' }}">
                             <i class="fas fa-gas-pump mr-3 text-gray-500 opacity-70"></i>
-                            <span>Isi BBM</span>
+                            <span>BBM/Charger</span>
                         </a>
                     </li>
                     <li>
                         <a href="{{ route('drms.fuel-logs.index') }}"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.fuel-logs.index') ? 'active' : '' }}">
                             <i class="fas fa-list mr-3 text-gray-500 opacity-70"></i>
-                            <span>Riwayat BBM</span>
+                            <span>Riwayat</span>
                         </a>
                     </li>
                 </ul>

@@ -76,7 +76,7 @@
     </div>
 
     {{-- STATISTIK UTAMA --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>
             <p class="text-xl font-bold text-blue-600">Rp {{ number_format($stats['total_operational_cost'] ?? 0, 0, ',', '.') }}</p>
@@ -88,6 +88,10 @@
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
             <p class="text-xs text-gray-500 uppercase">Service</p>
             <p class="text-xl font-bold text-orange-600">Rp {{ number_format($stats['total_service_cost'] ?? 0, 0, ',', '.') }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+            <p class="text-xs text-gray-500 uppercase">Perbaikan</p>
+            <p class="text-xl font-bold text-red-600">Rp {{ number_format($stats['total_repair_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 {{ ($stats['pending_verification'] ?? 0) > 0 ? 'border-red-500' : 'border-green-500' }}">
             <p class="text-xs text-gray-500 uppercase">Menunggu Verifikasi</p>
@@ -158,6 +162,7 @@
                         <th class="px-4 py-2 text-left">Kendaraan</th>
                         <th class="px-4 py-2 text-left">BBM/Charge (Rp)</th>
                         <th class="px-4 py-2 text-left">Service (Rp)</th>
+                        <th class="px-4 py-2 text-left">Perbaikan (Rp)</th>
                         <th class="px-4 py-2 text-left">Total Biaya (Rp)</th>
                         <th class="px-4 py-2 text-left">Jarak (km)</th>
                         <th class="px-4 py-2 text-left">Liter/kWh</th>
@@ -169,6 +174,7 @@
                         <td class="px-4 py-2 font-medium">{{ $v['plate_number'] }}</td>
                         <td class="px-4 py-2">{{ number_format($v['fuel_cost'], 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($v['service_cost'], 0, ',', '.') }}</td>
+                        <td class="px-4 py-2">{{ number_format($v['repair_cost'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($v['total_cost'], 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($v['distance'], 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($v['fuel_liters'], 2, ',', '.') }}</td>
@@ -178,6 +184,7 @@
                         <td class="px-4 py-2">TOTAL</td>
                         <td class="px-4 py-2">{{ number_format($totals['total_fuel_cost'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($totals['total_service_cost'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="px-4 py-2">{{ number_format($totals['total_repair_cost'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($totals['total_operational_cost'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($totals['total_distance'] ?? 0, 0, ',', '.') }}</td>
                         <td class="px-4 py-2">{{ number_format($totals['total_fuel_liters'] ?? 0, 2, ',', '.') }}</td>
@@ -257,10 +264,15 @@
     </div>
 </div>
 
-{{-- CHART.JS --}}
+{{-- CHART.JS & PLUGIN DATALABELS --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Daftarkan plugin datalabels secara global
+    Chart.register(ChartDataLabels);
+
     const monthlyData = @json($chartData);
     const efficiencyData = @json($efficiencyData);
     const transportData = @json($transportDistribution);
@@ -286,13 +298,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     backgroundColor: 'rgba(249,115,22,0.7)',
                     borderColor: 'rgba(249,115,22,1)',
                     borderWidth: 1
+                },
+                {
+                    label: 'Perbaikan',
+                    data: monthlyData.map(d => d.repair),
+                    backgroundColor: 'rgba(239,68,68,0.7)',
+                    borderColor: 'rgba(239,68,68,1)',
+                    borderWidth: 1
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
+            plugins: { 
+                legend: { position: 'top' },
+                datalabels: { display: false } // matikan datalabels di grafik ini
+            },
             scales: {
                 y: {
                     beginAtZero: true,
@@ -302,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ========== CHART PER KENDARAAN DINAMIS ==========
+    // ========== CHART PER KENDARAAN ==========
     if (vehicleStats.length > 0) {
         let perVehicleChart = null;
         const chartDataMap = {
@@ -354,7 +376,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: { display: false }
+                    },
                     scales: {
                         y: {
                             beginAtZero: true,
@@ -406,7 +431,10 @@ document.addEventListener('DOMContentLoaded', function() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false },
+                    datalabels: { display: false }
+                },
                 scales: { y: { beginAtZero: true } }
             }
         });
@@ -421,6 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
 
     if (values.length > 0) {
+        const total = values.reduce((a, b) => a + b, 0);
         const ctxTrans = document.getElementById('transportChart').getContext('2d');
         new Chart(ctxTrans, {
             type: 'pie',
@@ -435,9 +464,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } }
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { boxWidth: 12, padding: 10 } 
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        font: {
+                            weight: 'bold',
+                            size: 13
+                        },
+                        formatter: function(value, context) {
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return value + '\n' + percentage + '%';
+                        },
+                        textAlign: 'center',
+                        anchor: 'center',
+                        align: 'center',
+                        offset: 0
+                    },
+                    tooltip: {
+                        enabled: false // nonaktifkan tooltip/popup
+                    }
                 }
-            }
+            },
+            plugins: [ChartDataLabels]
         });
     } else {
         transportContainer.innerHTML = '<p class="text-center text-gray-400 text-sm mt-6">Belum ada data distribusi untuk periode ini</p>';

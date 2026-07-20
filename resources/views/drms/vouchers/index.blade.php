@@ -37,7 +37,7 @@
                     <option value="">Semua</option>
                     <option value="grab" {{ request('type') == 'grab' ? 'selected' : '' }}>Grab</option>
                     <option value="gojek" {{ request('type') == 'gojek' ? 'selected' : '' }}>Gojek</option>
-                    <option value="taxi" {{ request('type') == 'taxi' ? 'selected' : '' }}>Taxi</option>
+                    <option value="taxi" {{ request('type') == 'taxi' ? 'selected' : '' }}>Bluebird</option>
                 </select>
             </div>
             @if(auth()->user()->isDrmsSuperAdmin())

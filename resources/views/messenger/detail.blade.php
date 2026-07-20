@@ -58,6 +58,10 @@
 
 @section('content')
 <div class="space-y-4 sm:space-y-6">
+    @php
+        $isOwner = $pelanggan && $transaksi->pengirim == $pelanggan->id_pelanggan;
+    @endphp
+
     <!-- Header dengan Breadcrumb - Responsive -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
@@ -86,6 +90,14 @@
                 <i class="fas fa-print mr-2 text-xs sm:text-sm"></i>
                 <span class="hidden sm:inline">Print</span> PDF
             </a>
+            @if($isOwner && $transaksi->status == 'Dokumen Belum Tersedia')
+            <button type="button"
+                    onclick="confirmKirimUlang()"
+                    class="inline-flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-purple-600 border border-purple-600 rounded-lg font-medium text-xs sm:text-sm text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200">
+                <i class="fas fa-rotate-right mr-2 text-xs sm:text-sm"></i>
+                Kirim Ulang
+            </button>
+            @endif
         </div>
     </div>
 
@@ -111,6 +123,11 @@
                                 'color' => 'bg-orange-100 text-orange-800',
                                 'icon' => 'fas fa-truck',
                                 'badge' => 'bg-orange-500'
+                            ],
+                            'Dokumen Belum Tersedia' => [
+                                'color' => 'bg-purple-100 text-purple-800',
+                                'icon' => 'fas fa-file-circle-exclamation',
+                                'badge' => 'bg-purple-500'
                             ],
                             'Terkirim' => [
                                 'color' => 'bg-green-100 text-green-800',
@@ -170,6 +187,12 @@
                                     } elseif (strpos($statusText, 'Penjemputan Barang') !== false) {
                                         $iconClass = 'fas fa-box';
                                         $iconColor = 'bg-green-500';
+                                    } elseif (strpos($statusText, 'Kirim Ulang') !== false) {
+                                        $iconClass = 'fas fa-rotate-right';
+                                        $iconColor = 'bg-indigo-500';
+                                    } elseif (strpos($statusText, 'Dokumen Belum Tersedia') !== false) {
+                                        $iconClass = 'fas fa-file-circle-exclamation';
+                                        $iconColor = 'bg-purple-500';
                                     } elseif (strpos($statusText, 'Proses Pengiriman') !== false) {
                                         $iconClass = 'fas fa-truck';
                                         $iconColor = 'bg-orange-500';
@@ -211,6 +234,10 @@
                                     Pengiriman telah diregistrasi dalam sistem
                                     @elseif(strpos($item['status'], 'Penjemputan Barang') !== false)
                                     Barang telah dijemput oleh kurir
+                                    @elseif(strpos($item['status'], 'Kirim Ulang') !== false)
+                                    Dokumen sudah tersedia, pengiriman diproses ulang
+                                    @elseif(strpos($item['status'], 'Dokumen Belum Tersedia') !== false)
+                                    Pengiriman dikembalikan karena dokumen belum tersedia
                                     @elseif(strpos($item['status'], 'Proses Pengiriman') !== false)
                                     Barang sedang dalam perjalanan ke tujuan
                                     @elseif(strpos($item['status'], 'Terkirim') !== false)
@@ -766,6 +793,29 @@
                     </div>
                 </div>
             </div>
+            @elseif($isOwner && $transaksi->status == 'Dokumen Belum Tersedia')
+            <div class="bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-sm border border-purple-100 overflow-hidden">
+                <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-purple-200">
+                    <h3 class="text-sm sm:text-lg font-semibold text-purple-900 flex items-center">
+                        <i class="fas fa-file-circle-exclamation text-purple-500 mr-2 text-sm sm:text-base"></i>
+                        Aksi Cepat
+                    </h3>
+                </div>
+                <div class="p-3 sm:p-6">
+                    <div class="space-y-2 sm:space-y-3">
+                        <p class="text-xs sm:text-sm text-purple-600">Kurir mengembalikan pengiriman ini karena dokumen belum tersedia. Kirim ulang jika dokumen sudah siap.</p>
+                        <form action="{{ route('messenger.kirimUlang', $transaksi->no_transaksi) }}" method="POST" id="kirimUlangForm">
+                            @csrf
+                            <button type="button" 
+                                    onclick="confirmKirimUlang()"
+                                    class="w-full inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium rounded-lg hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 text-sm sm:text-base">
+                                <i class="fas fa-rotate-right mr-1 sm:mr-2 text-xs sm:text-sm"></i>
+                                Kirim Ulang (Dokumen Sudah Tersedia)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
             @endif
         </div>
     </div>
@@ -796,6 +846,31 @@ function confirmCancel() {
     }).then((result) => {
         if (result.isConfirmed) {
             document.getElementById('cancelForm').submit();
+        }
+    });
+}
+
+function confirmKirimUlang() {
+    Swal.fire({
+        title: 'Kirim Ulang Pengiriman?',
+        text: "Pastikan dokumen sudah tersedia sebelum mengirim ulang. Pengiriman akan kembali berstatus \"Belum Terkirim\" dan menunggu kurir.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#7e22ce',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Kirim Ulang!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        customClass: {
+            container: 'text-sm sm:text-base',
+            title: 'text-sm sm:text-lg',
+            htmlContainer: 'text-xs sm:text-sm',
+            confirmButton: 'text-xs sm:text-sm',
+            cancelButton: 'text-xs sm:text-sm'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('kirimUlangForm').submit();
         }
     });
 }

@@ -17,6 +17,7 @@ class PermintaanController extends Controller
 {
     /**
      * Menampilkan daftar permintaan user dengan filter.
+     * Default status = 'disetujui' jika tidak ada parameter status.
      */
     public function index(Request $request)
     {
@@ -51,10 +52,15 @@ class PermintaanController extends Controller
             $query->where('id_user_pemohon', $user->id);
         }
 
-        // Filter berdasarkan request
-        if ($request->filled('status')) {
-            $query->where('stock_ctl_permintaan.status', $request->status);
+        // ========== DEFAULT STATUS = 'disetujui' ==========
+        // Jika tidak ada parameter status, set default ke 'disetujui'
+        $status = $request->get('status', 'disetujui');
+        if ($status) {
+            $query->where('stock_ctl_permintaan.status', $status);
         }
+        // ==================================================
+
+        // Filter berdasarkan request (search, pemohon, tanggal)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('barang', function($q) use ($search) {
@@ -94,16 +100,14 @@ class PermintaanController extends Controller
         $userAreaId = $profil->id_area_kerja ?? null;
 
         if ($access['is_super']) {
-            // Superadmin bisa melihat semua barang
             $barang = Barang::all();
         } else {
             if ($userAreaId) {
-                // Hanya barang yang memiliki stok di area kerja user
                 $barang = Barang::whereHas('stok', function ($q) use ($userAreaId) {
                     $q->where('id_area_kerja', $userAreaId);
                 })->get();
             } else {
-                $barang = collect(); // kosong jika profil tidak punya area kerja
+                $barang = collect();
             }
         }
         // =============================================================

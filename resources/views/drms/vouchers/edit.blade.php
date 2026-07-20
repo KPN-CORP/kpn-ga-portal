@@ -39,7 +39,7 @@
                     class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="grab" {{ old('type', $voucher->type) == 'grab' ? 'selected' : '' }}>Grab</option>
                 <option value="gojek" {{ old('type', $voucher->type) == 'gojek' ? 'selected' : '' }}>Gojek</option>
-                <option value="taxi" {{ old('type', $voucher->type) == 'taxi' ? 'selected' : '' }}>Taxi</option>
+                <option value="taxi" {{ old('type', $voucher->type) == 'taxi' ? 'selected' : '' }}>Bluebird</option>
             </select>
         </div>
 

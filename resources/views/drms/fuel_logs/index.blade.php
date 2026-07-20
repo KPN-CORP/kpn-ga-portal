@@ -4,7 +4,7 @@
 <div class="container mx-auto px-4 py-6">
     {{-- Header --}}
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">⛽ Log BBM</h1>
+        <h1 class="text-2xl font-bold">⛽ Log Pengisian</h1>
         <div class="space-x-2">
             <a href="{{ route('drms.fuel-logs.analytics') }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg">📊 Analisis</a>
             <a href="{{ route('drms.fuel-logs.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg">+ Tambah</a>
@@ -91,7 +91,7 @@
             <p class="text-2xl font-bold text-yellow-600">{{ $pendingCount }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-            <p class="text-xs text-gray-500 uppercase">Total BBM</p>
+            <p class="text-xs text-gray-500 uppercase">Total Pengisian</p>
             <p class="text-2xl font-bold text-purple-600">{{ number_format($totalFuel, 2, ',', '.') }}</p>
             <p class="text-xs text-gray-500">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
         </div>
@@ -154,7 +154,7 @@
                     <tr>
                         <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">⛽</div>
-                            <p>Belum ada log BBM.</p>
+                            <p>Belum ada log.</p>
                             @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif

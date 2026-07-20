@@ -133,6 +133,23 @@
                         <i class="fas fa-arrow-left mr-2"></i>Kembali
                     </a>
                 </div>
+
+                <!-- ===== INFORMASI PENTING (TAMBAHAN) ===== -->
+                <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-blue-500 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Informasi Penting</h3>
+                            <div class="mt-1 text-sm text-blue-700">
+                                <p>• Pengirim dokumen menggunakan messenger hanya dalam kota.</p>
+                                <p>• Dokumen yang akan dikirim segera disimpan di GA Corp 46, Jam 10 WIB.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </form>
         </div>
     </main>

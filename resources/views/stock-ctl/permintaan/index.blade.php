@@ -24,7 +24,43 @@
         </div>
     </div>
 
-    {{-- FILTER --}}
+    {{-- TOMBOL FILTER STATUS (hanya 4) --}}
+    @php
+        // Status aktif: jika tidak ada parameter status, default 'disetujui'
+        $activeStatus = request('status', 'disetujui');
+    @endphp
+
+    <div class="flex flex-wrap gap-2 px-2 sm:px-0">
+        {{-- Tombol Pending L1 --}}
+        <a href="{{ route('stock-ctl.permintaan.index', array_merge(request()->except('status'), ['status' => 'pending_l1'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'pending_l1' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            Pending L1
+        </a>
+
+        {{-- Tombol Pending Admin --}}
+        <a href="{{ route('stock-ctl.permintaan.index', array_merge(request()->except('status'), ['status' => 'pending_admin'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'pending_admin' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            Pending Admin
+        </a>
+
+        {{-- Tombol Disetujui --}}
+        <a href="{{ route('stock-ctl.permintaan.index', array_merge(request()->except('status'), ['status' => 'disetujui'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'disetujui' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            Disetujui
+        </a>
+
+        {{-- Tombol Ditolak --}}
+        <a href="{{ route('stock-ctl.permintaan.index', array_merge(request()->except('status'), ['status' => 'ditolak'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'ditolak' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            Ditolak
+        </a>
+    </div>
+
+    {{-- FILTER LANJUTAN (pencarian, tanggal, dll) --}}
     <div id="filterSection" class="bg-white border rounded-xl p-3 sm:p-4 hidden">
         <form method="GET" action="{{ route('stock-ctl.permintaan.index') }}"
               class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -74,7 +110,7 @@
         </form>
     </div>
 
-    {{-- TABLE RESPONSIF --}}
+    {{-- TABLE --}}
     <div class="bg-white border rounded-xl overflow-x-auto shadow-sm">
         <table class="w-full text-sm min-w-[640px]">
             <thead class="bg-gray-50 text-gray-600 text-xs sm:text-sm">
@@ -152,113 +188,107 @@
         <div class="mt-4 px-2 sm:px-0">{{ $permintaan->links() }}</div>
     @endif
 
-{{-- MODAL CREATE dengan Autocomplete Barang --}}
-<div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
-    <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h3 class="text-base sm:text-lg font-semibold mb-4">New Request (Max 5 Item)</h3>
-        <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
-            @csrf
-            {{-- Data barang disediakan di level form agar semua item bisa mengakses --}}
-            <div x-data="{
-                items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
-                maxItems: 5,
-                barangList: {{ Js::from($barang->map(fn($b) => ['id' => $b->id_barang, 'nama' => $b->nama_barang, 'satuan' => $b->satuan])) }}
-            }">
-                <template x-for="(item, index) in items" :key="index">
-                    <div class="mb-4 p-3 border rounded-lg relative">
-                        <button type="button" x-show="items.length > 1" @click="items.splice(index,1)" 
-                                class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xl leading-5">&times;</button>
-                        
-                        {{-- Barang dengan autocomplete --}}
-                        <div class="mb-2">
-                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Barang</label>
-                            <div x-data="{
-                                search: '',
-                                selectedId: item.id_barang,
-                                filteredBarang: [],
-                                showDropdown: false,
-                                init() {
-                                    // Jika item sudah punya id_barang (misal saat edit), tampilkan nama
-                                    if (this.selectedId) {
-                                        const brg = this.barangList.find(b => b.id == this.selectedId);
-                                        if (brg) this.search = brg.nama + ' (' + brg.satuan + ')';
+    {{-- MODAL CREATE --}}
+    <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 class="text-base sm:text-lg font-semibold mb-4">New Request (Max 5 Item)</h3>
+            <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
+                @csrf
+                <div x-data="{
+                    items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
+                    maxItems: 5,
+                    barangList: {{ Js::from($barang->map(fn($b) => ['id' => $b->id_barang, 'nama' => $b->nama_barang, 'satuan' => $b->satuan])) }}
+                }">
+                    <template x-for="(item, index) in items" :key="index">
+                        <div class="mb-4 p-3 border rounded-lg relative">
+                            <button type="button" x-show="items.length > 1" @click="items.splice(index,1)" 
+                                    class="absolute top-2 right-2 text-red-500 hover:text-red-700 text-xl leading-5">&times;</button>
+                            
+                            <div class="mb-2">
+                                <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Barang</label>
+                                <div x-data="{
+                                    search: '',
+                                    selectedId: item.id_barang,
+                                    filteredBarang: [],
+                                    showDropdown: false,
+                                    init() {
+                                        if (this.selectedId) {
+                                            const brg = this.barangList.find(b => b.id == this.selectedId);
+                                            if (brg) this.search = brg.nama + ' (' + brg.satuan + ')';
+                                        }
+                                    },
+                                    filter() {
+                                        const term = this.search.toLowerCase();
+                                        this.filteredBarang = term === '' 
+                                            ? this.barangList 
+                                            : this.barangList.filter(b => 
+                                                b.nama.toLowerCase().includes(term) || 
+                                                b.id.toString().includes(term)
+                                              );
+                                        this.showDropdown = true;
+                                    },
+                                    selectBarang(barang) {
+                                        this.selectedId = barang.id;
+                                        this.search = barang.nama + ' (' + barang.satuan + ')';
+                                        this.showDropdown = false;
+                                        item.id_barang = barang.id;
                                     }
-                                },
-                                filter() {
-                                    const term = this.search.toLowerCase();
-                                    this.filteredBarang = term === '' 
-                                        ? this.barangList 
-                                        : this.barangList.filter(b => 
-                                            b.nama.toLowerCase().includes(term) || 
-                                            b.id.toString().includes(term)
-                                          );
-                                    this.showDropdown = true;
-                                },
-                                selectBarang(barang) {
-                                    this.selectedId = barang.id;
-                                    this.search = barang.nama + ' (' + barang.satuan + ')';
-                                    this.showDropdown = false;
-                                    item.id_barang = barang.id;   // update model item
-                                }
-                            }" class="relative">
-                                <input type="text" 
-                                       x-model="search" 
-                                       @input="filter()" 
-                                       @focus="showDropdown = true; filter()" 
-                                       @click.away="showDropdown = false" 
-                                       placeholder="Ketik nama atau kode barang..." 
-                                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                                <input type="hidden" :name="'items['+index+'][id_barang]'" x-model="selectedId" required>
-                                
-                                {{-- Dropdown hasil pencarian --}}
-                                <div x-show="showDropdown && filteredBarang.length > 0" 
-                                     class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                    <template x-for="barang in filteredBarang" :key="barang.id">
-                                        <div @click="selectBarang(barang)" 
-                                             class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                             x-text="barang.nama + ' (' + barang.satuan + ')'"></div>
-                                    </template>
-                                </div>
-                                <div x-show="showDropdown && filteredBarang.length === 0" 
-                                     class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg p-2 text-sm text-gray-500">
-                                    Barang tidak ditemukan
+                                }" class="relative">
+                                    <input type="text" 
+                                           x-model="search" 
+                                           @input="filter()" 
+                                           @focus="showDropdown = true; filter()" 
+                                           @click.away="showDropdown = false" 
+                                           placeholder="Ketik nama atau kode barang..." 
+                                           class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                                    <input type="hidden" :name="'items['+index+'][id_barang]'" x-model="selectedId" required>
+                                    
+                                    <div x-show="showDropdown && filteredBarang.length > 0" 
+                                         class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        <template x-for="barang in filteredBarang" :key="barang.id">
+                                            <div @click="selectBarang(barang)" 
+                                                 class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                 x-text="barang.nama + ' (' + barang.satuan + ')'"></div>
+                                        </template>
+                                    </div>
+                                    <div x-show="showDropdown && filteredBarang.length === 0" 
+                                         class="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg p-2 text-sm text-gray-500">
+                                        Barang tidak ditemukan
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="mb-2">
+                                <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Jumlah</label>
+                                <input type="number" step="0.01" x-model="item.jumlah" :name="'items['+index+'][jumlah]'" 
+                                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Alasan <span class="text-red-500">*</span></label>
+                                <textarea x-model="item.keterangan" :name="'items['+index+'][keterangan]'" rows="2" required 
+                                          class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
                         </div>
-                        
-                        {{-- Jumlah --}}
-                        <div class="mb-2">
-                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Jumlah</label>
-                            <input type="number" step="0.01" x-model="item.jumlah" :name="'items['+index+'][jumlah]'" 
-                                   class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
-                        </div>
-                        
-                        {{-- Alasan --}}
-                        <div>
-                            <label class="block text-xs sm:text-sm font-medium text-gray-600 mb-1">Alasan <span class="text-red-500">*</span></label>
-                            <textarea x-model="item.keterangan" :name="'items['+index+'][keterangan]'" rows="2" required 
-                                      class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></textarea>
-                        </div>
-                    </div>
-                </template>
+                    </template>
+                    
+                    <button type="button" 
+                            @click="if(items.length < maxItems) items.push({ id_barang: '', jumlah: 1, keterangan: '' })" 
+                            :disabled="items.length >= maxItems" 
+                            class="mb-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-50">
+                        + Tambah Barang (max 5)
+                    </button>
+                </div>
                 
-                <button type="button" 
-                        @click="if(items.length < maxItems) items.push({ id_barang: '', jumlah: 1, keterangan: '' })" 
-                        :disabled="items.length >= maxItems" 
-                        class="mb-4 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-50">
-                    + Tambah Barang (max 5)
-                </button>
-            </div>
-            
-            <div class="flex justify-end gap-2">
-                <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Ajukan</button>
-            </div>
-        </form>
+                <div class="flex justify-end gap-2">
+                    <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Ajukan</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
-    {{-- MODAL DETAIL (Responsif) --}}
+    {{-- MODAL DETAIL --}}
     <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
         <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 class="text-base sm:text-lg font-semibold mb-4">Request Details</h3>

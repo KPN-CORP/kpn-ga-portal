@@ -69,7 +69,7 @@
                         class="mt-1 w-full border rounded-lg px-3 py-2
                                text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
-                    @foreach(['Belum Terkirim','Proses Pengiriman','Terkirim','Ditolak','Batal'] as $s)
+                    @foreach(['Belum Terkirim','Proses Pengiriman','Dokumen Belum Tersedia','Terkirim','Ditolak','Batal'] as $s)
                         <option value="{{ $s }}" {{ request('status')==$s?'selected':'' }}>
                             {{ $s }}
                         </option>
@@ -106,10 +106,12 @@
         $badge = match($item->status){
             'Belum Terkirim'=>'bg-blue-100 text-blue-700',
             'Proses Pengiriman'=>'bg-orange-100 text-orange-700',
+            'Dokumen Belum Tersedia'=>'bg-purple-100 text-purple-700',
             'Terkirim'=>'bg-green-100 text-green-700',
             'Ditolak'=>'bg-red-100 text-red-700',
             default=>'bg-gray-100 text-gray-700'
         };
+        $isOwner = $pelanggan && $item->pengirim == $pelanggan->id_pelanggan;
         @endphp
 
         <div class="bg-white rounded-xl border p-4 shadow-sm">
@@ -175,11 +177,22 @@
 
                 </div>
 
-                <div class="pt-3">
+                <div class="pt-3 flex items-center justify-between gap-2">
                     <a href="{{ route('messenger.detail',$item->no_transaksi) }}"
                     class="inline-block text-blue-600 font-semibold text-sm">
                     Lihat Detail →
                     </a>
+
+                    @if($isOwner && $item->status=='Dokumen Belum Tersedia')
+                    <form method="POST" action="{{ route('messenger.kirimUlang', $item->no_transaksi) }}"
+                          onsubmit="return confirm('Kirim ulang pengiriman ini karena dokumen sudah tersedia?');">
+                        @csrf
+                        <button type="submit"
+                                class="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 transition">
+                            Kirim Ulang
+                        </button>
+                    </form>
+                    @endif
                 </div>
 
             </div>
@@ -214,10 +227,12 @@
                 $badge = match($item->status){
                     'Belum Terkirim'=>'bg-blue-100 text-blue-700',
                     'Proses Pengiriman'=>'bg-orange-100 text-orange-700',
+                    'Dokumen Belum Tersedia'=>'bg-purple-100 text-purple-700',
                     'Terkirim'=>'bg-green-100 text-green-700',
                     'Ditolak'=>'bg-red-100 text-red-700',
                     default=>'bg-gray-100 text-gray-700'
                 };
+                $isOwner = $pelanggan && $item->pengirim == $pelanggan->id_pelanggan;
                 @endphp
 
                 <tr class="hover:bg-gray-50 transition">
@@ -240,10 +255,22 @@
                         {{ \Carbon\Carbon::parse($item->created_at)->format('d M Y') }}
                     </td>
                     <td class="px-4 py-3">
-                        <a href="{{ route('messenger.detail',$item->no_transaksi) }}"
-                           class="text-blue-600 font-semibold hover:underline">
-                            Detail
-                        </a>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('messenger.detail',$item->no_transaksi) }}"
+                               class="text-blue-600 font-semibold hover:underline">
+                                Detail
+                            </a>
+                            @if($isOwner && $item->status=='Dokumen Belum Tersedia')
+                            <form method="POST" action="{{ route('messenger.kirimUlang', $item->no_transaksi) }}"
+                                  onsubmit="return confirm('Kirim ulang pengiriman ini karena dokumen sudah tersedia?');">
+                                @csrf
+                                <button type="submit"
+                                        class="px-2 py-1 bg-purple-600 text-white rounded text-xs font-semibold hover:bg-purple-700 transition">
+                                    Kirim Ulang
+                                </button>
+                            </form>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @endforeach

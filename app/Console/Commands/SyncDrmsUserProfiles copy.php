@@ -60,29 +60,13 @@ class SyncDrmsUserProfiles extends Command
             $isDrmsUser = $access && $access->drms_user;
             $isDrmsAdmin = $access && $access->drms_admin;
 
-            // ==========================================================
-            // MODIFIKASI: jaga agar area untuk id profil 133 tidak berubah
-            // ==========================================================
-            // Cari profil yang sudah ada untuk user ini
-            $existingProfile = DrmsUserProfile::where('user_id', $user->id)->first();
-
-            // Nilai default area dari HCIS
-            $areaToSave = $hcis->office_area ?? null;
-
-            // Jika profil sudah ada dan id-nya 133, gunakan area yang lama
-            if ($existingProfile && $existingProfile->id == 133) {
-                $areaToSave = $existingProfile->area;
-                $this->line("  [LOCKED] User {$user->username} area dipertahankan (ID profil 133): '{$areaToSave}'");
-            }
-            // ==========================================================
-
             // Update atau insert ke drms_user_profiles
             DrmsUserProfile::updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'business_unit_id' => $businessUnitId,
                     'unit' => $hcis->unit ?? null,
-                    'area' => $areaToSave, // menggunakan nilai yang sudah ditentukan
+                    'area' => $hcis->office_area ?? null,
                     'approver_user_id' => $approverUserId,
                     'is_approver' => $isApprover,
                     'is_drms_user' => $isDrmsUser,

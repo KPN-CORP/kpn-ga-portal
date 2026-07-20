@@ -344,11 +344,13 @@ class MessengerController extends Controller
             $hasAccessAll = true;
         }
 
-        if (!$hasAccessAll) {
-            $pelanggan = DB::table('tb_pelanggan')
-                ->where('id_login', Auth::id())
-                ->first();
+        // Selalu ambil data pelanggan (baris login saat ini) supaya bisa
+        // dipakai di view untuk cek kepemilikan transaksi (mis. tombol "Kirim Ulang")
+        $pelanggan = DB::table('tb_pelanggan')
+            ->where('id_login', Auth::id())
+            ->first();
 
+        if (!$hasAccessAll) {
             if ($pelanggan && $transaksi->pengirim != $pelanggan->id_pelanggan) {
                 abort(403, 'Anda tidak memiliki akses ke transaksi ini');
             }
@@ -377,7 +379,9 @@ class MessengerController extends Controller
         return view('messenger.detail', compact(
             'transaksi',
             'pengirim',
-            'kurir'
+            'kurir',
+            'pelanggan',
+            'hasAccessAll'
         ));
     }
 
@@ -544,6 +548,72 @@ class MessengerController extends Controller
     }
 
     /* =====================================================
+     |  KEMBALIKAN (DOKUMEN BELUM TERSEDIA)
+     ===================================================== */
+    public function kembalikan($no_transaksi)
+    {
+        $kurir = DB::table('tb_pelanggan')
+            ->where('id_login', Auth::id())
+            ->first();
+
+        if (!$kurir) {
+            return back()->with('error', 'Data kurir tidak ditemukan. Silakan login ulang.');
+        }
+
+        $trx = DB::table('tb_transaksi')
+            ->where('no_transaksi', $no_transaksi)
+            ->first();
+
+        if (!$trx) {
+            return back()->with('error', 'Transaksi tidak ditemukan');
+        }
+
+        // Cek hak akses: admin (akses penuh) atau kurir yang berhak menangani transaksi ini
+        $user = Auth::user();
+        $access = DB::table('tb_access_menu')
+            ->where('username', $user->username)
+            ->first();
+
+        $hasAccessAll = false;
+        if ($access && isset($access->akses_messenger_all) && (int)$access->akses_messenger_all === 1) {
+            $hasAccessAll = true;
+        }
+
+        $canAccess = $hasAccessAll || $trx->kurir == 0 || $trx->kurir == $kurir->id_pelanggan;
+
+        if (!$canAccess) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk transaksi ini.');
+        }
+
+        if (!in_array($trx->status, ['Belum Terkirim', 'Pengiriman Dibuat'])) {
+            return back()->with('error', 'Status tidak valid. Harus "Belum Terkirim".');
+        }
+
+        try {
+            $waktu = $this->appendWaktu($trx->waktu, 'Dokumen Belum Tersedia');
+
+            DB::table('tb_transaksi')
+                ->where('no_transaksi', $no_transaksi)
+                ->update([
+                    'status'     => 'Dokumen Belum Tersedia',
+                    'kurir'      => $kurir->id_pelanggan,
+                    'waktu'      => $waktu,
+                    'updated_at' => now()
+                ]);
+
+            return back()->with('success', '✅ Transaksi dikembalikan. Menunggu dokumen tersedia dari pengirim.');
+
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengembalikan transaksi:', [
+                'no_transaksi' => $no_transaksi,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', '❌ Gagal mengembalikan transaksi: ' . $e->getMessage());
+        }
+    }
+
+    /* =====================================================
      |  SELESAIKAN PENGIRIMAN - DENGAN KOMPRESI GAMBAR
      ===================================================== */
     public function selesaikan(Request $request, $no_transaksi)
@@ -689,6 +759,67 @@ class MessengerController extends Controller
             ]);
             
             return back()->with('error', '❌ Gagal membatalkan transaksi: ' . $e->getMessage());
+        }
+    }
+
+    /* =====================================================
+     |  KIRIM ULANG (SETELAH DOKUMEN TERSEDIA)
+     ===================================================== */
+    public function kirimUlang($no_transaksi)
+    {
+        $trx = DB::table('tb_transaksi')
+            ->where('no_transaksi', $no_transaksi)
+            ->first();
+
+        if (!$trx) {
+            return back()->with('error', 'Transaksi tidak ditemukan');
+        }
+
+        $user = Auth::user();
+        $access = DB::table('tb_access_menu')
+            ->where('username', $user->username)
+            ->first();
+
+        $hasAccessAll = false;
+        if ($access && isset($access->akses_messenger_all) && (int)$access->akses_messenger_all === 1) {
+            $hasAccessAll = true;
+        }
+
+        if (!$hasAccessAll) {
+            $pelanggan = DB::table('tb_pelanggan')
+                ->where('id_login', Auth::id())
+                ->first();
+
+            if (!$pelanggan || $trx->pengirim != $pelanggan->id_pelanggan) {
+                abort(403, 'Anda tidak memiliki akses untuk mengirim ulang transaksi ini');
+            }
+        }
+
+        if ($trx->status !== 'Dokumen Belum Tersedia') {
+            return back()->with('error', 'Status tidak valid. Harus "Dokumen Belum Tersedia".');
+        }
+
+        try {
+            $waktu = $this->appendWaktu($trx->waktu, 'Kirim Ulang (dokumen sudah tersedia)');
+
+            DB::table('tb_transaksi')
+                ->where('no_transaksi', $no_transaksi)
+                ->update([
+                    'status'     => 'Belum Terkirim',
+                    'kurir'      => 0,
+                    'waktu'      => $waktu,
+                    'updated_at' => now()
+                ]);
+
+            return back()->with('success', '✅ Pengiriman dikirim ulang dan menunggu kurir mengambil kembali.');
+
+        } catch (\Exception $e) {
+            \Log::error('Gagal mengirim ulang transaksi:', [
+                'no_transaksi' => $no_transaksi,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', '❌ Gagal mengirim ulang transaksi: ' . $e->getMessage());
         }
     }
 
