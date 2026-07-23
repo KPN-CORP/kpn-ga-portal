@@ -183,7 +183,6 @@ class HsrmEquipmentController extends Controller
         $data['created_by'] = $user->id;
         $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
         $data['old_attachments'] = [];
-        $data['total_items'] = 1; // selalu 1
 
         if ($request->hasFile('photo')) {
             $path = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
@@ -320,7 +319,6 @@ class HsrmEquipmentController extends Controller
             }
         }
 
-        $data['total_items'] = 1; // selalu 1
         $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
         $data['approved_by'] = null;
         $data['approved_at'] = null;

@@ -274,9 +274,15 @@
 </div>
 
 {{-- Konten Tabel --}}
+@php
+    $activeFilter = request('filter', 'all_data_unit');
+    $showCertificate = in_array($activeFilter, ['all_data_unit', 'all', 'certificate']);
+    $showEquipment = in_array($activeFilter, ['all_data_unit', 'all', 'equipment']);
+@endphp
 @if($selectedArea)
 <div class="space-y-8">
-    <!-- Certificate Quotas -->
+    {{-- Certificate Quotas --}}
+    @if($showCertificate)
     <div>
         <h3 class="text-lg font-semibold mb-3">📄 Certificates – {{ $selectedArea->nama_area }}</h3>
         <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
@@ -378,8 +384,10 @@
             </table>
         </div>
     </div>
+    @endif
 
-    <!-- Equipment Quotas -->
+    {{-- Equipment Quotas --}}
+    @if($showEquipment)
     <div>
         <h3 class="text-lg font-semibold mb-3">🔧 Equipments – {{ $selectedArea->nama_area }}</h3>
         <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
@@ -474,6 +482,7 @@
             </table>
         </div>
     </div>
+    @endif
 </div>
 @else
     <div class="bg-gray-50 p-8 text-center text-gray-500 rounded-xl border">

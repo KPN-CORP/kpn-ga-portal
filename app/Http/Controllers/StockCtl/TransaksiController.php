@@ -47,7 +47,8 @@ class TransaksiController extends Controller
     public function createMasuk()
     {
         $access = session('stock_ctl_access');
-        $barang = Barang::all();
+        // Urutkan barang berdasarkan nama
+        $barang = Barang::orderBy('nama_barang', 'asc')->get();
         $areas = $access['is_super'] 
             ? AreaKerja::with('bisnisUnit')->get() 
             : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->get();
@@ -96,7 +97,8 @@ class TransaksiController extends Controller
     public function createKeluar()
     {
         $access = session('stock_ctl_access');
-        $barang = Barang::all();
+        // Urutkan barang berdasarkan nama
+        $barang = Barang::orderBy('nama_barang', 'asc')->get();
         $areas = $access['is_super'] 
             ? AreaKerja::with('bisnisUnit')->get() 
             : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->get();
@@ -157,11 +159,6 @@ class TransaksiController extends Controller
         return view('stock-ctl.transaksi.transfer', compact('barang', 'areas'));
     }
 
-    /**
-     * Menangani transfer stok antar area
-     * - Mengecek stok sebelum transaksi, jika tidak cukup redirect back dengan pesan error
-     * - Jika stok cukup, proses dalam transaction
-     */
     public function storeTransfer(Request $request)
     {
         $request->validate([
@@ -184,7 +181,6 @@ class TransaksiController extends Controller
             }
         }
 
-        // Cek stok SEBELUM transaksi (agar bisa redirect dengan error, bukan exception)
         $stokAsal = Stok::where('id_barang', $request->id_barang)
                         ->where('id_area_kerja', $request->id_area_asal)
                         ->first();
@@ -196,21 +192,17 @@ class TransaksiController extends Controller
                              ->withInput();
         }
 
-        // Proses transfer dalam transaction
         try {
             DB::transaction(function () use ($request) {
-                // Kurangi stok asal
                 Stok::where('id_barang', $request->id_barang)
                     ->where('id_area_kerja', $request->id_area_asal)
                     ->decrement('jumlah', $request->jumlah);
 
-                // Tambah stok tujuan
                 Stok::updateOrCreate(
                     ['id_barang' => $request->id_barang, 'id_area_kerja' => $request->id_area_tujuan],
                     ['jumlah' => DB::raw('jumlah + ' . $request->jumlah)]
                 );
 
-                // Catat transaksi
                 Transaksi::create([
                     'jenis'          => 'transfer',
                     'id_barang'      => $request->id_barang,
@@ -231,9 +223,6 @@ class TransaksiController extends Controller
         }
     }
 
-    /**
-     * AJAX endpoint untuk mengambil jumlah stok barang di area tertentu
-     */
     public function cekStok(Request $request)
     {
         $request->validate([

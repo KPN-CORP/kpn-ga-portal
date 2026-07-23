@@ -11,7 +11,7 @@
         <form method="POST" action="{{ route('stock-ctl.transaksi.masuk.store') }}" id="form-barang-masuk">
             @csrf
 
-            {{-- Area Tujuan (dengan datalist) --}}
+            {{-- Area Tujuan --}}
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-600 mb-1">Area Tujuan</label>
                 <input type="text"
@@ -36,7 +36,7 @@
                 @error('id_area_tujuan') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Barang (dengan datalist) --}}
+            {{-- Barang --}}
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-600 mb-1">Barang</label>
                 <input type="text"
@@ -61,10 +61,16 @@
                 @error('id_barang') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
+            {{-- Tampilkan stok tersedia di area tujuan --}}
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                <span class="font-medium">Stok tersedia di area tujuan:</span>
+                <span id="stok_tersedia" class="ml-2 text-blue-600 font-bold">-</span>
+            </div>
+
             {{-- Jumlah --}}
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-600 mb-1">Jumlah</label>
-                <input type="number" step="0.01" name="jumlah" value="{{ old('jumlah') }}" 
+                <input type="number" step="0.01" name="jumlah" id="jumlah" value="{{ old('jumlah') }}" 
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
                 @error('jumlah') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
@@ -120,7 +126,7 @@
                     areaIdHidden.value = '';
                     areaInput.classList.remove('border-red-500');
                     areaError.classList.add('hidden');
-                    return true; // kosong dianggap valid (akan dicek required)
+                    return true;
                 }
                 areaIdHidden.value = '';
                 areaInput.classList.add('border-red-500');
@@ -171,6 +177,50 @@
 
         barangInput.addEventListener('input', validateBarang);
         barangInput.addEventListener('blur', validateBarang);
+
+        // ========== CEK STOK ==========
+        const stokSpan = document.getElementById('stok_tersedia');
+        const jumlahInput = document.getElementById('jumlah');
+
+        function fetchStok() {
+            const idBarang = document.getElementById('id_barang').value;
+            const idArea = document.getElementById('id_area_tujuan').value;
+
+            if (!idBarang || !idArea) {
+                stokSpan.innerText = '-';
+                return;
+            }
+
+            stokSpan.innerText = 'Loading...';
+
+            fetch(`{{ route('stock-ctl.cek-stok') }}?id_barang=${idBarang}&id_area=${idArea}`)
+                .then(response => response.json())
+                .then(data => {
+                    stokSpan.innerText = data.stok;
+                    // Validasi jumlah tidak melebihi stok
+                    if (jumlahInput.value && parseFloat(jumlahInput.value) > data.stok) {
+                        jumlahInput.setCustomValidity('Jumlah melebihi stok tersedia');
+                    } else {
+                        jumlahInput.setCustomValidity('');
+                    }
+                })
+                .catch(() => {
+                    stokSpan.innerText = 'Gagal ambil stok';
+                });
+        }
+
+        areaInput.addEventListener('change', fetchStok);
+        barangInput.addEventListener('change', fetchStok);
+
+        // Event saat jumlah diubah
+        jumlahInput.addEventListener('input', function() {
+            const stok = parseFloat(stokSpan.innerText);
+            if (!isNaN(stok) && this.value && parseFloat(this.value) > stok) {
+                this.setCustomValidity('Jumlah melebihi stok tersedia');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
 
         // ========== VALIDASI SAAT SUBMIT ==========
         const form = document.getElementById('form-barang-masuk');

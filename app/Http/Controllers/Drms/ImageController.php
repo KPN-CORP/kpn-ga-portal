@@ -59,8 +59,13 @@ class ImageController extends Controller
             $requestBu = $log->request->current_business_unit_id ?? $log->request->requester->drmsProfile->business_unit_id;
             if ($requestBu == $buId) return;
         }
-        $service = \App\Models\Drms\VehicleService::where('photo_evidence', $path)->first();
-        if ($service && $service->business_unit_id == $buId) return;
+
+        $fuelLog = \App\Models\Drms\FuelLog::where('receipt_file', $path)->first();
+        if ($fuelLog && $fuelLog->vehicle && $fuelLog->vehicle->business_unit_id == $buId) return;
+
+        $service = \App\Models\Drms\ServiceSchedule::where('invoice_file', $path)->first();
+        if ($service && $service->vehicle && $service->vehicle->business_unit_id == $buId) return;
+
         abort(403);
     }
 
@@ -71,6 +76,10 @@ class ImageController extends Controller
             ->orWhere('photo_fuel_receipt', $path)
             ->first();
         if ($log && $log->request->driver_id == $driverId) return;
+
+        $fuelLog = \App\Models\Drms\FuelLog::where('receipt_file', $path)->first();
+        if ($fuelLog && $fuelLog->driver_id == $driverId) return;
+
         abort(403);
     }
 }

@@ -103,8 +103,14 @@
                 </div>
             </div>
 
-            {{-- Total Items (HIDDEN, always 1) --}}
-            <input type="hidden" name="total_items" id="total_items" value="1">
+            {{-- Total Items --}}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total Items <span class="text-red-500">*</span></label>
+                <input type="number" name="total_items" id="total_items" min="1" step="1"
+                       value="{{ old('total_items', 1) }}"
+                       class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border" required>
+                @error('total_items') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            </div>
 
             {{-- Capacity --}}
             <div>

@@ -144,7 +144,7 @@
                             <h3 class="text-sm font-medium text-blue-800">Informasi Penting</h3>
                             <div class="mt-1 text-sm text-blue-700">
                                 <p>• Pengirim dokumen menggunakan messenger hanya dalam kota.</p>
-                                <p>• Dokumen yang akan dikirim segera disimpan di GA Corp 46, Jam 10 WIB.</p>
+                                <p>• Dokumen yang akan dikirim segera disimpan di GA Corp 46, Sebelum Jam 10 WIB.</p>
                             </div>
                         </div>
                     </div>

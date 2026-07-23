@@ -57,8 +57,8 @@
                 <input type="number" name="fuel_liters" id="fuel_liters" value="{{ old('fuel_liters') }}" class="w-full border rounded px-3 py-2" min="0.01" step="0.01" required>
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">Harga/unit <span class="text-red-500">*</span></label>
-                <input type="number" name="fuel_price_per_liter" value="{{ old('fuel_price_per_liter') }}" class="w-full border rounded px-3 py-2" min="0" step="0.01" required>
+                <label class="block text-sm font-medium text-gray-700">Harga Total <span class="text-red-500">*</span></label>
+                <input type="number" name="fuel_total_price" value="{{ old('fuel_total_price') }}" class="w-full border rounded px-3 py-2" min="0" step="0.01" required>
             </div>
         </div>
 

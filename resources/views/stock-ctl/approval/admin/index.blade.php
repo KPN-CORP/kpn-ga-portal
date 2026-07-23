@@ -16,22 +16,27 @@
             <thead class="bg-gray-50 text-gray-600">
                 <tr>
                     <th class="px-4 py-3 text-left">No. Permintaan</th>
-                    <th class="px-4 py-3 text-left">Tanggal</th>
-                    <th class="px-4 py-3 text-left">Pemohon</th>
+                    <th class="px-4 py-3 text-left">Pemohon</th> {{-- Gabungan --}}
                     <th class="px-4 py-3 text-left">Area</th>
                     <th class="px-4 py-3 text-left">Barang</th>
                     <th class="px-4 py-3 text-left">Jumlah</th>
                     <th class="px-4 py-3 text-left">Keterangan</th>
-                    <th class="px-4 py-3 text-left">Disetujui L1</th>
+                    <th class="px-4 py-3 text-left">Approval L1</th>
                     <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($permintaan as $item)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-mono text-sm">G-SC-{{ $item->id_permintaan }}</td>
-                    <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}</td>
-                    <td class="px-4 py-3">{{ $item->pemohon->name ?? '-' }}</td>
+                    <td class="px-4 py-3 font-mono text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col">
+                            <span class="font-medium text-gray-800">{{ $item->pemohon->name ?? '-' }}</span>
+                            <span class="text-xs text-gray-500">
+                                {{ \Carbon\Carbon::parse($item->tanggal_permintaan)->format('d M Y H:i') }}
+                            </span>
+                        </div>
+                    </td>
                     <td class="px-4 py-3">
                         {{ $item->areaKerja->nama_area ?? '-' }}
                         @if($item->areaKerja && $item->areaKerja->bisnisUnit)
@@ -41,7 +46,24 @@
                     <td class="px-4 py-3">{{ $item->barang->nama_barang ?? '-' }}</td>
                     <td class="px-4 py-3">{{ number_format($item->jumlah) }} {{ $item->barang->satuan ?? '' }}</td>
                     <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
-                    <td class="px-4 py-3">{{ $item->approverL1->name ?? '-' }}</td>
+                    <td class="px-4 py-3">
+                        @php
+                            $approverName = $item->approverL1->name ?? '-';
+                            $approveDate = $item->approved_l1_at 
+                                ? \Carbon\Carbon::parse($item->approved_l1_at)->format('d M Y H:i') 
+                                : null;
+                        @endphp
+                        @if($approverName !== '-' && $approveDate)
+                            <div class="flex flex-col">
+                                <span class="font-medium text-gray-800">{{ $approverName }}</span>
+                                <span class="text-xs text-gray-500">{{ $approveDate }}</span>
+                            </div>
+                        @elseif($approverName !== '-')
+                            <span class="text-gray-600">{{ $approverName }}</span>
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3">
                         <div class="flex gap-2">
                             <button onclick="showApproveModal({{ $item->id_permintaan }}, {{ $item->jumlah }}, '{{ addslashes($item->barang->satuan ?? '') }}')" 
@@ -57,7 +79,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="py-10 text-center text-gray-500">Tidak ada permintaan pending</td>
+                    <td colspan="8" class="py-10 text-center text-gray-500">Tidak ada permintaan pending</td>
                 </tr>
                 @endforelse
             </tbody>

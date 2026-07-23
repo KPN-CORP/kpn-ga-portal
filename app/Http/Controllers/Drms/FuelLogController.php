@@ -66,10 +66,15 @@ class FuelLogController extends Controller
             'filling_date' => 'required|date',
             'odometer_start' => 'required|integer|min:0',
             'fuel_liters' => 'required|numeric|min:0.01',
-            'fuel_price_per_liter' => 'required|numeric|min:0',
+            'fuel_total_price' => 'required|numeric|min:0',
             'receipt_file' => 'nullable|image|max:5120',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
+            ? $validated['fuel_total_price'] / $validated['fuel_liters']
+            : 0;
+        unset($validated['fuel_total_price']);
 
         $driver = Auth::user()->driver;
         $validated['driver_id'] = $driver ? $driver->id : null;
@@ -107,10 +112,15 @@ class FuelLogController extends Controller
             'filling_date' => 'required|date',
             'odometer_start' => 'required|integer|min:0',
             'fuel_liters' => 'required|numeric|min:0.01',
-            'fuel_price_per_liter' => 'required|numeric|min:0',
+            'fuel_total_price' => 'required|numeric|min:0',
             'receipt_file' => 'nullable|image|max:5120',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
+            ? $validated['fuel_total_price'] / $validated['fuel_liters']
+            : 0;
+        unset($validated['fuel_total_price']);
 
         $driver = Auth::user()->driver;
         $validated['driver_id'] = $driver ? $driver->id : null;

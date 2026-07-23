@@ -14,7 +14,7 @@
         <div><dt class="text-sm text-gray-500">Odometer Saat Ini</dt><dd class="font-medium">{{ number_format($log->odometer_start, 0, ',', '.') }} km</dd></div>
         <div><dt class="text-sm text-gray-500">Jenis Pengisian</dt><dd class="font-medium">{{ $log->vehicle->fuel_type ?? 'Bensin' }}</dd></div>
         <div><dt class="text-sm text-gray-500">Jumlah</dt><dd class="font-medium">{{ number_format($log->fuel_liters, 2, ',', '.') }} {{ $log->vehicle->fuel_type == 'Listrik' ? 'kWh' : 'Liter' }}</dd></div>
-        <div><dt class="text-sm text-gray-500">Harga/unit</dt><dd class="font-medium">Rp {{ number_format($log->fuel_price_per_liter, 0, ',', '.') }}</dd></div>
+        <!-- <div><dt class="text-sm text-gray-500">Harga/unit (kalkulasi)</dt><dd class="font-medium">Rp {{ number_format($log->fuel_price_per_liter, 0, ',', '.') }}</dd></div> -->
         <div><dt class="text-sm text-gray-500">Total Biaya</dt><dd class="font-medium text-red-600">Rp {{ number_format($log->total_cost, 0, ',', '.') }}</dd></div>
         <div><dt class="text-sm text-gray-500">Status</dt>
             <dd>
