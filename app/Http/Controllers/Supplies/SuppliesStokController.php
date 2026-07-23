@@ -42,10 +42,12 @@ class SuppliesStokController extends Controller
             'jumlah' => 'required|numeric|min:0.01',
         ]);
         DB::transaction(function () use ($request) {
-            SuppliesStok::updateOrCreate(
+            $stok = SuppliesStok::firstOrCreate(
                 ['id_barang' => $request->id_barang, 'id_bisnis_unit' => $request->id_bisnis_unit],
-                ['jumlah' => DB::raw('jumlah + ' . $request->jumlah)]
+                ['jumlah' => 0]
             );
+            $stok->increment('jumlah', $request->jumlah);
+
             SuppliesTransaksi::create([
                 'jenis' => 'masuk',
                 'id_barang' => $request->id_barang,

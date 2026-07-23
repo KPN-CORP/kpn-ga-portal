@@ -54,7 +54,12 @@ class FuelLogController extends Controller
     public function create()
     {
         $buId = $this->getBusinessUnitId();
-        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
+        // Semua driver (dari BU yang sama) bisa mengisi log BBM untuk kendaraan
+        // yang berstatus "available" (tersedia). Tidak ada pembatasan per-driver.
+        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
+            ->where('status', 'available')
+            ->orderBy('plate_number')
+            ->get();
         $driver = Auth::user()->driver;
         return view('drms.fuel_logs.create', compact('vehicles', 'driver'));
     }
@@ -99,7 +104,13 @@ class FuelLogController extends Controller
     {
         $log = FuelLog::findOrFail($id);
         $buId = $this->getBusinessUnitId();
-        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
+        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
+            ->where(function ($q) use ($log) {
+                $q->where('status', 'available')
+                  ->orWhere('id', $log->vehicle_id); // tetap tampilkan kendaraan yang sudah dipilih di log ini
+            })
+            ->orderBy('plate_number')
+            ->get();
         $driver = Auth::user()->driver;
         return view('drms.fuel_logs.edit', compact('log', 'vehicles', 'driver'));
     }
@@ -151,15 +162,28 @@ class FuelLogController extends Controller
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM dihapus.');
     }
 
-    public function analytics()
+    public function analytics(Request $request)
     {
         $buId = $this->getBusinessUnitId();
-        $logs = FuelLog::with('vehicle')
+
+        $query = FuelLog::with('vehicle')
             ->where('is_verified', 1)
-            ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))
-            ->orderBy('vehicle_id')
-            ->orderBy('filling_date')
-            ->get();
+            ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)));
+
+        // Filter per kendaraan
+        if ($request->filled('vehicle_id')) {
+            $query->where('vehicle_id', $request->vehicle_id);
+        }
+
+        // Filter periode (bulan ini / bulan lalu / custom range)
+        if ($request->filled('date_from')) {
+            $query->whereDate('filling_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('filling_date', '<=', $request->date_to);
+        }
+
+        $logs = $query->orderBy('vehicle_id')->orderBy('filling_date')->get();
 
         $grouped = $logs->groupBy('vehicle_id');
         $result = [];
@@ -167,21 +191,29 @@ class FuelLogController extends Controller
             $vehicle = $items->first()->vehicle;
             if (!$vehicle) continue;
 
+            // Total liter/kWh yang benar-benar dibeli pada periode ini (untuk info biaya & volume)
             $totalLiters = $items->sum('fuel_liters');
             $totalCost = $items->sum('total_cost');
             $count = $items->count();
 
             $totalDistance = 0;
+            $litersForConsumption = 0; // liter yang "berpasangan" dengan jarak tempuh (tanpa liter pengisian pertama)
             $prevOdometer = null;
             foreach ($items as $item) {
                 if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
                     $totalDistance += ($item->odometer_start - $prevOdometer);
+                    // liter pengisian ini dianggap "menutup" jarak sejak pengisian sebelumnya
+                    $litersForConsumption += $item->fuel_liters;
                 }
                 $prevOdometer = $item->odometer_start;
             }
 
-            $avgConsumption = ($totalDistance > 0) ? round(($totalLiters / $totalDistance) * 100, 2) : null;
+            // Konsumsi dihitung dari liter yang berpasangan dengan jarak saja,
+            // supaya tidak bias oleh liter pengisian pertama yang tidak punya jarak pembanding.
+            $avgConsumption = ($totalDistance > 0) ? round(($litersForConsumption / $totalDistance) * 100, 2) : null;
+
             $result[] = [
+                'vehicle_id' => $vehicleId,
                 'plate_number' => $vehicle->plate_number,
                 'avg_consumption' => $avgConsumption,
                 'total_liters' => $totalLiters,
@@ -197,6 +229,19 @@ class FuelLogController extends Controller
             return $a['avg_consumption'] <=> $b['avg_consumption'];
         });
 
-        return view('drms.fuel_logs.analytics', compact('result'));
+        // Ringkasan total keseluruhan untuk periode/filter yang sedang aktif
+        $summary = [
+            'total_liters'   => $logs->sum('fuel_liters'),
+            'total_cost'     => $logs->sum('total_cost'),
+            'total_distance' => array_sum(array_column($result, 'total_distance')),
+            'count'          => $logs->count(),
+        ];
+
+        // Daftar kendaraan untuk dropdown filter
+        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
+            ->orderBy('plate_number')
+            ->get();
+
+        return view('drms.fuel_logs.analytics', compact('result', 'summary', 'vehicles'));
     }
 }

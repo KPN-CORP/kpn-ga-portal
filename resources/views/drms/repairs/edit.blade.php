@@ -15,11 +15,15 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Kendaraan <span class="text-red-500">*</span></label>
-            <select name="vehicle_id" class="w-full border rounded px-3 py-2" required>
-                @foreach($vehicles as $v)
-                    <option value="{{ $v->id }}" {{ old('vehicle_id', $repair->vehicle_id) == $v->id ? 'selected' : '' }}>{{ $v->plate_number }} - {{ $v->type }}</option>
-                @endforeach
-            </select>
+            @include('drms.partials.vehicle-search', [
+                'vehicles' => $vehicles,
+                'name' => 'vehicle_id',
+                'selectedId' => old('vehicle_id', $repair->vehicle_id),
+                'placeholder' => 'Cari plat nomor / tipe kendaraan...',
+                'required' => true,
+                'allowAll' => false,
+                'uid' => 'repairs_edit_vehicle',
+            ])
         </div>
 
         <div class="mb-4">
@@ -42,7 +46,7 @@
             <textarea name="parts_replaced" rows="2" class="w-full border rounded px-3 py-2">{{ old('parts_replaced', $repair->parts_replaced) }}</textarea>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">Biaya Jasa</label>
                 <input type="number" name="labor_cost" value="{{ old('labor_cost', $repair->labor_cost) }}" class="w-full border rounded px-3 py-2" min="0" step="0.01">

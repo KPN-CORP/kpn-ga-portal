@@ -229,7 +229,7 @@ class AppAdminController extends Controller
         $vehicles = $vehiclesQuery->get();
 
         // ----- QUERY VOUCHER (opsional, ikuti logika yang sama) -----
-        $vouchersQuery = Voucher::where('status', 'available');
+        $vouchersQuery = Voucher::with(['businessUnit', 'inputBusinessUnit'])->where('status', 'available');
         if (!$showAllBu) {
             $vouchersQuery->where('business_unit_id', $businessUnitId);
         }

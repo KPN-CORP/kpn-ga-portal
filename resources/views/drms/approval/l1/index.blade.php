@@ -47,8 +47,24 @@
         </form>
     </div>
 
+    {{-- TAB SWITCHER --}}
+    <div class="flex gap-2 border-b border-gray-200">
+        <button type="button" @click="activeTab = 'pending'"
+                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
+                :class="activeTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+            Menunggu Persetujuan
+            <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ $pendingRequests->count() > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500' }}">{{ $pendingRequests->count() }}</span>
+        </button>
+        <button type="button" @click="activeTab = 'history'"
+                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
+                :class="activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+            History Approval
+            <span class="ml-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ $historyRequests->total() }}</span>
+        </button>
+    </div>
+
     {{-- ==================== PENDING REQUESTS ==================== --}}
-    <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
+    <div x-show="activeTab === 'pending'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div class="bg-gray-50 px-6 py-3 border-b">
             <h2 class="font-semibold text-gray-700">Permintaan Menunggu Persetujuan</h2>
         </div>
@@ -202,7 +218,7 @@
     </div>
 
     {{-- ==================== HISTORY REQUESTS ==================== --}}
-    <div class="bg-white border rounded-xl overflow-hidden shadow-sm mt-8">
+    <div x-show="activeTab === 'history'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div class="bg-gray-50 px-6 py-3 border-b">
             <h2 class="font-semibold text-gray-700">History Persetujuan</h2>
         </div>
@@ -437,6 +453,7 @@
 <script>
 function approvalL1Modal() {
     return {
+        activeTab: 'pending',
         rejectModalOpen: false,
         rejectRequestId: null,
         detailModalOpen: false,

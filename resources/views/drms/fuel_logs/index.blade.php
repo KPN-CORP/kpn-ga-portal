@@ -27,16 +27,19 @@
                        placeholder="Cari kendaraan, driver..." 
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div>
+            <div class="relative">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
-                <select name="vehicle_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua Kendaraan</option>
-                    @foreach($vehicles as $v)
-                        <option value="{{ $v->id }}" {{ request('vehicle_id') == $v->id ? 'selected' : '' }}>
-                            {{ $v->plate_number }} - {{ $v->type }}
-                        </option>
-                    @endforeach
-                </select>
+                @php
+                    $selectedVehicle = request('vehicle_id') ? $vehicles->firstWhere('id', (int) request('vehicle_id')) : null;
+                    $selectedVehicleLabel = $selectedVehicle ? $selectedVehicle->plate_number . ' - ' . $selectedVehicle->type : '';
+                @endphp
+                <input type="text" id="vehicle_search" autocomplete="off"
+                       placeholder="Ketik plat nomor / tipe..."
+                       value="{{ $selectedVehicleLabel }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <input type="hidden" name="vehicle_id" id="vehicle_id" value="{{ request('vehicle_id') }}">
+                <div id="vehicle_suggestions"
+                     class="hidden absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
@@ -169,4 +172,64 @@
         </div>
     </div>
 </div>
+
+{{-- Autocomplete pencarian kendaraan untuk filter (tanpa dropdown) --}}
+<script>
+    const VEHICLES_FILTER_DATA = [
+        @foreach($vehicles as $v)
+        { id: {{ $v->id }}, label: @json($v->plate_number . ' - ' . $v->type) },
+        @endforeach
+    ];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput   = document.getElementById('vehicle_search');
+        const hiddenInput   = document.getElementById('vehicle_id');
+        const suggestionBox = document.getElementById('vehicle_suggestions');
+
+        function hideSuggestions() {
+            suggestionBox.innerHTML = '';
+            suggestionBox.classList.add('hidden');
+        }
+
+        function renderSuggestions(list) {
+            const items = [{ id: '', label: 'Semua Kendaraan' }, ...list];
+            suggestionBox.innerHTML = items.map(v => `
+                <div class="vehicle-option px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
+                     data-id="${v.id}" data-label="${v.label.replace(/"/g, '&quot;')}">
+                    ${v.label}
+                </div>
+            `).join('');
+            suggestionBox.classList.remove('hidden');
+
+            suggestionBox.querySelectorAll('.vehicle-option').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    hiddenInput.value = this.getAttribute('data-id');
+                    searchInput.value = this.getAttribute('data-id') ? this.getAttribute('data-label') : '';
+                    hideSuggestions();
+                });
+            });
+        }
+
+        function search(term) {
+            const q = term.trim().toLowerCase();
+            if (!q) return VEHICLES_FILTER_DATA;
+            return VEHICLES_FILTER_DATA.filter(v => v.label.toLowerCase().includes(q));
+        }
+
+        searchInput.addEventListener('input', function () {
+            hiddenInput.value = '';
+            renderSuggestions(search(this.value));
+        });
+
+        searchInput.addEventListener('focus', function () {
+            renderSuggestions(search(this.value));
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!searchInput.contains(e.target) && !suggestionBox.contains(e.target)) {
+                hideSuggestions();
+            }
+        });
+    });
+</script>
 @endsection

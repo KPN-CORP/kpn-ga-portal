@@ -47,6 +47,22 @@
             </select>
         </div>
 
+        @if($isSpecialBu ?? false)
+        <div class="mb-4">
+            <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit Tujuan</label>
+            <select name="input_business_unit_id" id="input_business_unit_id"
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Pilih Business Unit Tujuan --</option>
+                @foreach($businessUnits as $bu)
+                    <option value="{{ $bu->id_bisnis_unit }}" {{ old('input_business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        {{ $bu->nama_bisnis_unit }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Khusus KPN Corporation: pilih business unit tujuan penggunaan voucher ini.</p>
+        </div>
+        @endif
+
         <div class="flex justify-end space-x-2">
             <a href="{{ route('drms.vouchers.index') }}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Batal</a>
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Simpan</button>

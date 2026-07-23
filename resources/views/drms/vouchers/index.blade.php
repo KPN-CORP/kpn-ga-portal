@@ -53,11 +53,24 @@
                 </select>
             </div>
             @endif
+            @if($isSpecialBu ?? false)
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit Tujuan</label>
+                <select name="input_business_unit_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua</option>
+                    @foreach($businessUnits as $bu)
+                        <option value="{{ $bu->id_bisnis_unit }}" {{ request('input_business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                            {{ $bu->nama_bisnis_unit }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id']))
+                @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'input_business_unit_id']))
                     <a href="{{ route('drms.vouchers.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -98,6 +111,9 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business Unit</th>
+                        @if($isSpecialBu ?? false)
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business Unit Tujuan</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -121,13 +137,16 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">{{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}</td>
+                        @if($isSpecialBu ?? false)
+                        <td class="px-6 py-4">{{ $v->inputBusinessUnit->nama_bisnis_unit ?? '-' }}</td>
+                        @endif
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                        <td colspan="{{ ($isSpecialBu ?? false) ? 6 : 5 }}" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">🎫</div>
                             <p>Belum ada voucher.</p>
-                            @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id']))
+                            @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'input_business_unit_id']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif
                             <a href="{{ route('drms.vouchers.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Voucher</a>

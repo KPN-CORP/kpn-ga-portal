@@ -16,27 +16,28 @@
 
     {{-- FILTER --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" action="{{ route('drms.repairs.index') }}" class="flex flex-wrap gap-3 items-end">
+        <form method="GET" action="{{ route('drms.repairs.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
                 <input type="text" name="search" value="{{ request('search') }}" 
                        placeholder="Cari kendaraan / keluhan..." 
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-44">
+                       class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
-                <select name="vehicle_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua</option>
-                    @foreach($vehicles as $v)
-                        <option value="{{ $v->id }}" {{ request('vehicle_id') == $v->id ? 'selected' : '' }}>
-                            {{ $v->plate_number }}
-                        </option>
-                    @endforeach
-                </select>
+                @include('drms.partials.vehicle-search', [
+                    'vehicles' => $vehicles,
+                    'name' => 'vehicle_id',
+                    'selectedId' => request('vehicle_id'),
+                    'placeholder' => 'Cari plat nomor...',
+                    'required' => false,
+                    'allowAll' => true,
+                    'uid' => 'repairs_filter_vehicle',
+                ])
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
-                <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="status" class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
                     <option value="open" {{ request('status') == 'open' ? 'selected' : '' }}>🟡 Open</option>
                     <option value="progress" {{ request('status') == 'progress' ? 'selected' : '' }}>🔵 Progress</option>
@@ -46,19 +47,19 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Dari Tanggal</label>
                 <input type="date" name="date_from" value="{{ request('date_from') }}" 
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                       class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Sampai Tanggal</label>
                 <input type="date" name="date_to" value="{{ request('date_to') }}" 
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                       class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <div class="flex gap-2 sm:col-span-2 lg:col-span-5">
+                <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
                 @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
-                    <a href="{{ route('drms.repairs.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <a href="{{ route('drms.repairs.index') }}" class="flex-1 sm:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif

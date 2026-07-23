@@ -15,12 +15,15 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Kendaraan <span class="text-red-500">*</span></label>
-            <select name="vehicle_id" class="w-full border rounded px-3 py-2" required>
-                <option value="">Pilih Kendaraan</option>
-                @foreach($vehicles as $v)
-                    <option value="{{ $v->id }}" {{ old('vehicle_id') == $v->id ? 'selected' : '' }}>{{ $v->plate_number }} - {{ $v->type }}</option>
-                @endforeach
-            </select>
+            @include('drms.partials.vehicle-search', [
+                'vehicles' => $vehicles,
+                'name' => 'vehicle_id',
+                'selectedId' => old('vehicle_id'),
+                'placeholder' => 'Cari plat nomor / tipe kendaraan...',
+                'required' => true,
+                'allowAll' => false,
+                'uid' => 'service_schedules_create_vehicle',
+            ])
         </div>
 
         <div class="mb-4">

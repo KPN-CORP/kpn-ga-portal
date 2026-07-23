@@ -15,15 +15,18 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Kendaraan <span class="text-red-500">*</span></label>
-            <select name="vehicle_id" class="w-full border rounded px-3 py-2" required>
-                <option value="">Pilih Kendaraan</option>
-                @foreach($vehicles as $v)
-                    <option value="{{ $v->id }}" {{ old('vehicle_id') == $v->id ? 'selected' : '' }}>{{ $v->plate_number }} - {{ $v->type }}</option>
-                @endforeach
-            </select>
+            @include('drms.partials.vehicle-search', [
+                'vehicles' => $vehicles,
+                'name' => 'vehicle_id',
+                'selectedId' => old('vehicle_id'),
+                'placeholder' => 'Cari plat nomor / tipe kendaraan...',
+                'required' => true,
+                'allowAll' => false,
+                'uid' => 'vehicle_documents_create_vehicle',
+            ])
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">STNK Berlaku Sampai</label>
                 <input type="date" name="stnk_expiry" value="{{ old('stnk_expiry') }}" class="w-full border rounded px-3 py-2">
@@ -34,7 +37,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">Pajak Tahunan</label>
                 <input type="date" name="tax_yearly_expiry" value="{{ old('tax_yearly_expiry') }}" class="w-full border rounded px-3 py-2">
@@ -50,7 +53,7 @@
             <input type="date" name="tax_5year_expiry" value="{{ old('tax_5year_expiry') }}" class="w-full border rounded px-3 py-2">
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">Asuransi</label>
                 <input type="date" name="insurance_expiry" value="{{ old('insurance_expiry') }}" class="w-full border rounded px-3 py-2">

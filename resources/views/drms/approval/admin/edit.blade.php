@@ -248,6 +248,9 @@
                         (Rp {{ number_format($voucher->nominal,0,',','.') }})
                         @if($voucher->businessUnit)
                             - {{ $voucher->businessUnit->nama_bisnis_unit }}
+                            @if($voucher->inputBusinessUnit)
+                                ({{ $voucher->inputBusinessUnit->nama_bisnis_unit }})
+                            @endif
                         @endif
                     </option>
                 @endforeach
