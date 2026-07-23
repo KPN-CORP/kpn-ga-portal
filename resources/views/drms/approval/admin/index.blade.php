@@ -465,7 +465,7 @@
                 @csrf
                 @method('PUT')
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Business Unit Tujuan</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Dibebankan ke BU</label>
                     <select name="target_business_unit_id" class="w-full border rounded-lg px-3 py-2 text-sm" required>
                         <option value="">-- Pilih BU --</option>
                         @foreach($businessUnits as $bu)

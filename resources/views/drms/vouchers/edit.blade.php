@@ -64,10 +64,10 @@
 
         @if($isSpecialBu ?? false)
         <div class="mb-4">
-            <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit Tujuan</label>
+            <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Dibebankan ke BU</label>
             <select name="input_business_unit_id" id="input_business_unit_id"
                     class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">-- Pilih Business Unit Tujuan --</option>
+                <option value="">-- Pilih Dibebankan ke BU --</option>
                 @foreach($businessUnits as $bu)
                     <option value="{{ $bu->id_bisnis_unit }}" {{ old('input_business_unit_id', $voucher->input_business_unit_id) == $bu->id_bisnis_unit ? 'selected' : '' }}>
                         {{ $bu->nama_bisnis_unit }}

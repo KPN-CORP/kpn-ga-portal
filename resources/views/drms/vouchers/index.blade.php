@@ -55,7 +55,7 @@
             @endif
             @if($isSpecialBu ?? false)
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit Tujuan</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Dibebankan ke BU</label>
                 <select name="input_business_unit_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
                     @foreach($businessUnits as $bu)
@@ -112,7 +112,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business Unit</th>
                         @if($isSpecialBu ?? false)
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business Unit Tujuan</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dibebankan ke BU</th>
                         @endif
                     </tr>
                 </thead>
