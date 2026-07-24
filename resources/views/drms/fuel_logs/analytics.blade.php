@@ -117,7 +117,7 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kendaraan</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rata-rata Konsumsi (L/100km atau kWh/100km)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rata-rata Konsumsi</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Liter/kWh</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Biaya</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Jarak (km)</th>
