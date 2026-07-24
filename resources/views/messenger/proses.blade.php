@@ -127,7 +127,7 @@
                     @csrf
                     <button type="submit" 
                             class="px-3 py-1 border border-green-600 text-green-600 rounded hover:bg-green-50 transition">
-                        Antar
+                        Ambil
                     </button>
                 </form>
 
@@ -136,14 +136,14 @@
                     @csrf
                     <button type="submit"
                             class="px-3 py-1 border border-purple-600 text-purple-600 rounded hover:bg-purple-50 transition">
-                        Kembalikan
+                        Dok Belum Tersedia
                     </button>
                 </form>
                 
-                <button @click="tolak=true"
+                <!-- <button @click="tolak=true"
                         class="px-3 py-1 border border-red-600 text-red-600 rounded hover:bg-red-50 transition">
                     Tolak
-                </button>
+                </button> -->
             </div>
             @endif
 

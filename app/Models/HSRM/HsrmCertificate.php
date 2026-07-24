@@ -14,7 +14,7 @@ class HsrmCertificate extends Model
     // Konstanta status verifikasi
     const STATUS_PENDING = 'pending';
     const STATUS_VERIFIED = 'verified';
-    const STATUS_REJECTED = 'rejected';
+    const STATUS_REVISION = 'revision';
 
     // Konstanta rekomendasi
     const REKOMENDASI_RECOMMENDED = 'recommended';

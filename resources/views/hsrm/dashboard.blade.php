@@ -87,7 +87,7 @@
     }
     .status-pending { background: #fef3c7; color: #d97706; }
     .status-verified { background: #d1fae5; color: #059669; }
-    .status-rejected { background: #fee2e2; color: #dc2626; }
+    .status-revision { background: #fee2e2; color: #dc2626; }
     .recent-item {
         display: flex;
         justify-content: space-between;
@@ -457,7 +457,7 @@
                     <span class="status-badge 
                         @if($cert->status_verif == 'pending') status-pending
                         @elseif($cert->status_verif == 'verified') status-verified
-                        @else status-rejected @endif">
+                        @else status-revision @endif">
                         {{ ucfirst($cert->status_verif) }}
                     </span>
                     <span class="text-xs text-gray-400">{{ $cert->updated_at->diffForHumans() }}</span>
@@ -488,7 +488,7 @@
                     <span class="status-badge 
                         @if($eq->status_verif == 'pending') status-pending
                         @elseif($eq->status_verif == 'verified') status-verified
-                        @else status-rejected @endif">
+                        @else status-revision @endif">
                         {{ ucfirst($eq->status_verif) }}
                     </span>
                     <span class="text-xs text-gray-400">{{ $eq->updated_at->diffForHumans() }}</span>

@@ -153,7 +153,7 @@
                     <span class="status-badge 
                         @if($cert->status_verif == 'pending') status-pending
                         @elseif($cert->status_verif == 'verified') status-verified
-                        @else status-rejected @endif">
+                        @else status-revision @endif">
                         {{ ucfirst($cert->status_verif) }}
                     </span>
                 </span>

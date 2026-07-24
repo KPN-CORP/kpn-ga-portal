@@ -58,7 +58,7 @@
                                         @csrf
                                         <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                                     </form>
-                                    <form action="{{ route('hsrm.certificates.reject', $cert) }}" method="POST" class="inline">
+                                    <form action="{{ route('hsrm.certificates.revision', $cert) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
@@ -108,7 +108,7 @@
                             @csrf
                             <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                         </form>
-                        <form action="{{ route('hsrm.certificates.reject', $cert) }}" method="POST" class="inline">
+                        <form action="{{ route('hsrm.certificates.revision', $cert) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
@@ -172,7 +172,7 @@
                                         @csrf
                                         <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                                     </form>
-                                    <form action="{{ route('hsrm.equipments.reject', $eq) }}" method="POST" class="inline">
+                                    <form action="{{ route('hsrm.equipments.revision', $eq) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
@@ -221,7 +221,7 @@
                             @csrf
                             <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
                         </form>
-                        <form action="{{ route('hsrm.equipments.reject', $eq) }}" method="POST" class="inline">
+                        <form action="{{ route('hsrm.equipments.revision', $eq) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>

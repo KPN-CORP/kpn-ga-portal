@@ -8,6 +8,11 @@
 
     {{-- FORM FILTER --}}
     <form method="GET" action="{{ route('stock-ctl.antar-unit.index') }}" class="bg-white p-4 rounded-xl border flex flex-wrap items-end gap-4">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-600 mb-1">Cari</label>
+            <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama/kode barang atau pemohon..." class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+
         <div class="flex-1 min-w-[150px]">
             <label class="block text-sm font-medium text-gray-600 mb-1">Unit Asal</label>
             <select name="unit_asal" class="w-full border rounded-lg px-3 py-2 text-sm">
@@ -74,7 +79,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($requests as $r)
+                @forelse($requests as $r)
                 <tr>
                     <td class="px-4 py-2">#{{ $r->id }}</td>
                     <td>{{ $r->barang->nama_barang }}</td>
@@ -93,7 +98,11 @@
                     <td>{{ $r->created_at->format('d M Y H:i') }}</td>
                     <td><a href="{{ route('stock-ctl.antar-unit.show', $r->id) }}" class="text-blue-600">Detail</a></td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="8" class="text-center py-6 text-gray-500">Tidak ada data yang cocok.</td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
         <div class="px-4 py-3">

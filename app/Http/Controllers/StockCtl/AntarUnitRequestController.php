@@ -15,6 +15,19 @@ class AntarUnitRequestController extends Controller
         $access = session('stock_ctl_access');
         $query = AntarUnitRequest::with('barang', 'unitAsal', 'unitTujuan', 'pemohon');
 
+        // Filter pencarian (nama/kode barang atau nama pemohon)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('barang', function ($sub) use ($search) {
+                    $sub->where('nama_barang', 'like', "%{$search}%")
+                        ->orWhere('kode_barang', 'like', "%{$search}%");
+                })->orWhereHas('pemohon', function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%");
+                });
+            });
+        }
+
         // Filter by unit asal
         if ($request->filled('unit_asal')) {
             $query->where('id_bisnis_unit_asal', $request->unit_asal);

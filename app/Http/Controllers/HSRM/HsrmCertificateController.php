@@ -408,26 +408,26 @@ class HsrmCertificateController extends Controller
         return redirect()->back()->with('success', 'Certificate approved. Custom type has been added if any.');
     }
 
-    public function reject($id)
+    public function revision($id)
     {
         $cert = HsrmCertificate::findOrFail($id);
         $this->authorizeApprove($cert);
 
         $cert->update([
-            'status_verif' => HsrmCertificate::STATUS_REJECTED,
+            'status_verif' => HsrmCertificate::STATUS_REVISION,
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);
 
         HsrmLog::create([
             'user_id' => auth()->id(),
-            'action' => 'reject',
+            'action' => 'revision',
             'module' => 'certificate',
             'record_id' => $cert->id,
             'new_data' => $cert->toArray(),
         ]);
 
-        return redirect()->back()->with('success', 'Certificate rejected.');
+        return redirect()->back()->with('success', 'Certificate sent back for revision.');
     }
 
     public function show($id)

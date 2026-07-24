@@ -143,8 +143,12 @@
                         <div class="ml-3">
                             <h3 class="text-sm font-medium text-blue-800">Informasi Penting</h3>
                             <div class="mt-1 text-sm text-blue-700">
-                                <p>• Pengirim dokumen menggunakan messenger hanya dalam kota.</p>
-                                <p>• Dokumen yang akan dikirim segera disimpan di GA Corp 46, Sebelum Jam 10 WIB.</p>
+                                <p>• Pengiriman dokumen menggunakan Messenger hanya untuk dalam kota.</p>
+                                <p>• Dokumen harus sudah disimpan di GA Corp 46 sebelum pukul 10.00 WIB.</p>
+                                <p>• Jika hingga pukul 10.00 WIB dokumen belum tersedia:</p>
+                                <p>&nbsp;&nbsp;&nbsp;- Permintaan akan dikembalikan di sistem oleh Messenger.</p>
+                                <p>&nbsp;&nbsp;&nbsp;- Catatan: <strong>Dokumen tidak tersedia.</strong></p>
+                                <p>&nbsp;&nbsp;&nbsp;- Setelah dokumen tersedia, klik <strong>"Kirim Ulang"</strong>.</p>
                             </div>
                         </div>
                     </div>

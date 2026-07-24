@@ -22,7 +22,7 @@
             <option value="">All Status</option>
             <option value="pending" {{ request('status_verif') == 'pending' ? 'selected' : '' }}>Pending</option>
             <option value="verified" {{ request('status_verif') == 'verified' ? 'selected' : '' }}>Verified</option>
-            <option value="rejected" {{ request('status_verif') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+            <option value="revision" {{ request('status_verif') == 'revision' ? 'selected' : '' }}>Revision</option>
         </select>
         <select name="area_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             <option value="">All Areas</option>
@@ -80,7 +80,7 @@
                     <span class="status-badge 
                         @if($cert->status_verif == 'pending') status-pending
                         @elseif($cert->status_verif == 'verified') status-verified
-                        @else status-rejected @endif">
+                        @else status-revision @endif">
                         {{ ucfirst($cert->status_verif) }}
                     </span>
                 </td>
@@ -126,7 +126,7 @@
             <span class="status-badge 
                 @if($cert->status_verif == 'pending') status-pending
                 @elseif($cert->status_verif == 'verified') status-verified
-                @else status-rejected @endif">
+                @else status-revision @endif">
                 {{ ucfirst($cert->status_verif) }}
             </span>
         </div>

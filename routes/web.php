@@ -626,9 +626,9 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('certificates', App\Http\Controllers\HSRM\HsrmCertificateController::class);
         Route::resource('equipments', App\Http\Controllers\HSRM\HsrmEquipmentController::class);
         Route::post('certificates/{certificate}/approve', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'approve'])->name('certificates.approve');
-        Route::post('certificates/{certificate}/reject', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'reject'])->name('certificates.reject');
+        Route::post('certificates/{certificate}/revision', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'revision'])->name('certificates.revision');
         Route::post('equipments/{equipment}/approve', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'approve'])->name('equipments.approve');
-        Route::post('equipments/{equipment}/reject', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'reject'])->name('equipments.reject');
+        Route::post('equipments/{equipment}/revision', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'revision'])->name('equipments.revision');
         Route::resource('certificate-types', App\Http\Controllers\HSRM\HsrmCertificateTypeController::class)->except(['show']);
         Route::resource('equipment-types', App\Http\Controllers\HSRM\HsrmEquipmentTypeController::class)->except(['show']);
         Route::get('logs', [App\Http\Controllers\HSRM\HsrmLogController::class, 'index'])->name('logs.index');

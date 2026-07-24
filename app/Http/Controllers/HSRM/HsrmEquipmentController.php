@@ -420,26 +420,26 @@ class HsrmEquipmentController extends Controller
         return redirect()->back()->with('success', 'Equipment approved. Custom type has been added if any.');
     }
 
-    public function reject($id)
+    public function revision($id)
     {
         $equipment = HsrmEquipment::findOrFail($id);
         $this->authorizeApprove($equipment);
 
         $equipment->update([
-            'status_verif' => HsrmEquipment::STATUS_REJECTED,
+            'status_verif' => HsrmEquipment::STATUS_REVISION,
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);
 
         HsrmLog::create([
             'user_id' => auth()->id(),
-            'action' => 'reject',
+            'action' => 'revision',
             'module' => 'equipment',
             'record_id' => $equipment->id,
             'new_data' => $equipment->toArray(),
         ]);
 
-        return redirect()->back()->with('success', 'Equipment rejected.');
+        return redirect()->back()->with('success', 'Equipment sent back for revision.');
     }
 
     public function show($id)

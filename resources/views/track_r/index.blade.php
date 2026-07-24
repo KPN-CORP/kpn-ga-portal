@@ -282,12 +282,12 @@
 
     {{-- PAGINATION --}}
     @if($documents->hasPages())
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-            <div class="text-sm text-slate-500 bg-slate-50/50 px-4 py-2 rounded-full self-start">
+        <div class="flex flex-col items-center gap-3 pt-2">
+            <div class="text-xs sm:text-sm text-slate-500 bg-slate-50/50 px-4 py-2 rounded-full text-center">
                 <i class="fas fa-file-alt mr-1.5 text-slate-400"></i>
                 Menampilkan {{ $documents->firstItem() }} – {{ $documents->lastItem() }} dari {{ $documents->total() }} dokumen
             </div>
-            <div class="pagination-modern">
+            <div class="pagination-modern w-full">
                 {{ $documents->links() }}
             </div>
         </div>
@@ -299,35 +299,82 @@
 </div>
 
 <style>
-    /* Custom pagination modern */
-    .pagination-modern nav div,
-    .pagination-modern nav[role="navigation"] {
+    /* Custom pagination modern — CSS murni, tanpa @apply (tidak jalan di <style> mentah) */
+
+    /* Blok Previous/Next bawaan Laravel yang hanya tampil di mobile (sm:hidden) —
+       disembunyikan karena kita satukan tampilan dengan blok nomor halaman di bawah */
+    .pagination-modern nav > div:first-child {
+        display: none;
+    }
+
+    /* Paksa blok nomor halaman (bawaan hidden sm:flex) selalu tampil,
+       jaga-jaga kalau utility class Tailwind responsive tidak ter-compile */
+    .pagination-modern nav > div:nth-child(2) {
+        display: block !important;
+        width: 100%;
+    }
+
+    /* Sembunyikan teks "Showing X to Y of Z results" bawaan Laravel (duplikat
+       dengan teks "Menampilkan ... dokumen" yang sudah kita tampilkan di atas) */
+    .pagination-modern nav > div:nth-child(2) > div:first-child {
+        display: none;
+    }
+
+    .pagination-modern nav > div:nth-child(2) > div:last-child {
+        width: 100%;
         display: flex;
         justify-content: center;
     }
-    .pagination-modern .flex.items-center.justify-between {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
+
     .pagination-modern .relative.z-0.inline-flex {
         box-shadow: none;
-        gap: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.4rem;
+        max-width: 100%;
     }
+
     .pagination-modern .relative.inline-flex.items-center {
-        @apply px-3 py-2 text-sm rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.8125rem;
+        line-height: 1.2;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        transition: all .2s ease;
+        min-width: 2.25rem;
+        text-align: center;
     }
+
+    .pagination-modern a.relative.inline-flex.items-center:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #334155;
+    }
+
+    .pagination-modern span[aria-current="page"] .relative.inline-flex.items-center,
     .pagination-modern span.relative.inline-flex.items-center {
-        @apply border-blue-200 bg-blue-50 text-blue-700 font-semibold;
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 600;
     }
+
     .pagination-modern .relative.inline-flex.items-center svg {
-        @apply w-4 h-4;
+        width: 1rem;
+        height: 1rem;
     }
+
     @media (max-width: 640px) {
+        .pagination-modern .relative.inline-flex.items-center {
+            padding: 0.45rem 0.65rem;
+            font-size: 0.75rem;
+            min-width: 2rem;
+        }
         .pagination-modern .relative.z-0.inline-flex {
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 0.4rem;
+            gap: 0.3rem;
         }
     }
 </style>
