@@ -225,7 +225,20 @@
                                         <i class="fas fa-gas-pump mr-3 text-gray-500 opacity-70"></i>
                                         <span> Logs Pengisian</span>
                                         @php
-                                            $pendingFuel = \App\Models\Drms\FuelLog::where('is_verified', 0)->count();
+                                            // FIX: sebelumnya query ini menghitung SEMUA fuel log yang belum
+                                            // diverifikasi tanpa filter business unit, sehingga badge muncul
+                                            // untuk BU lain padahal halaman index() sudah difilter per-BU.
+                                            $fuelBuId = auth()->user()->isDrmsSuperAdmin()
+                                                ? null
+                                                : (auth()->user()->drmsProfile->business_unit_id ?? null);
+
+                                            $pendingFuel = \App\Models\Drms\FuelLog::where('is_verified', 0)
+                                                ->when($fuelBuId, function ($q) use ($fuelBuId) {
+                                                    $q->whereHas('vehicle', function ($sq) use ($fuelBuId) {
+                                                        $sq->where('business_unit_id', $fuelBuId);
+                                                    });
+                                                })
+                                                ->count();
                                         @endphp
                                         @if($pendingFuel > 0)
                                             <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">{{ $pendingFuel }}</span>
