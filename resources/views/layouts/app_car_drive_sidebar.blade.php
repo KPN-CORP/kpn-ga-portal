@@ -118,6 +118,13 @@
                             <span>Riwayat</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ route('drms.driver.expenses.index') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.driver.expenses.*') ? 'active' : '' }}">
+                            <i class="fas fa-receipt mr-3 text-gray-500 opacity-70"></i>
+                            <span>Laporan Pengeluaran</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 

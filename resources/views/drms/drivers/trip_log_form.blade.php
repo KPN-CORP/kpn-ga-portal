@@ -45,12 +45,28 @@
         {{-- ODOMETER --}}
         <div class="bg-gray-50 p-4 rounded-xl mb-6">
             <h3 class="font-semibold text-gray-700 mb-3">📟 Odometer</h3>
+            @php
+                // Start (km) diambil otomatis dari odometer_finish trip sebelumnya (kendaraan yang sama)
+                // supaya driver tidak perlu input ulang data yang sama (double input).
+                $startValue = old('odometer_start', $log->odometer_start ?? $previousOdometerFinish ?? null);
+                $startIsAuto = !($log->odometer_start ?? null) && !old('odometer_start') && $previousOdometerFinish !== null;
+            @endphp
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs text-gray-500">Start (km)</label>
-                    <input type="number" name="odometer_start" value="{{ old('odometer_start', $log->odometer_start ?? '') }}"
-                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg" 
-                           min="0" step="any" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                    <label class="block text-xs text-gray-500">
+                        Start (km)
+                        @if($startIsAuto)
+                            <span class="text-emerald-600">(otomatis dari trip sebelumnya)</span>
+                        @endif
+                    </label>
+                    <input type="number" name="odometer_start" value="{{ $startValue }}"
+                           class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg {{ $startIsAuto ? 'text-gray-500 bg-gray-100' : '' }}"
+                           min="0" step="any" placeholder="0"
+                           {{ $isLocked ? 'disabled' : '' }}
+                           {{ ($startIsAuto && !$isLocked) ? 'readonly' : '' }}>
+                    @if(!$startIsAuto && !$previousOdometerFinish && !($log->odometer_start ?? null))
+                        <p class="text-xs text-gray-400 mt-1">Belum ada data trip sebelumnya untuk kendaraan ini, silakan isi manual.</p>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500">Finish (km)</label>

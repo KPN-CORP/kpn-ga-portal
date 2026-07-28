@@ -520,20 +520,20 @@
                   class="flex-1">
                 @csrf
                 <button type="submit" class="w-full border border-green-600 text-green-600 rounded py-2 hover:bg-green-50 transition">
-                    Antar
+                    Ambil
                 </button>
             </form>
             
-            <button @click="tolak=true"
+            <!-- <button @click="tolak=true"
                     class="flex-1 border border-red-600 text-red-600 rounded py-2 hover:bg-red-50 transition">
                 Tolak
-            </button>
+            </button> -->
         </div>
         <form method="POST" action="{{ route('messenger.kembalikan', $row->no_transaksi) }}" class="w-full mt-2"
               onsubmit="return confirm('Kembalikan transaksi ini karena dokumen belum tersedia?');">
             @csrf
             <button type="submit" class="w-full border border-purple-600 text-purple-600 rounded py-2 hover:bg-purple-50 transition">
-                Kembalikan
+                Dok Belum Tersedia
             </button>
         </form>
         @endif

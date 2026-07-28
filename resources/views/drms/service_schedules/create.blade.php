@@ -61,7 +61,7 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Upload Invoice</label>
-            <input type="file" name="invoice_file" accept="image/*" class="w-full border rounded px-3 py-2">
+            <input type="file" name="invoice_file" accept="image/*,application/pdf" class="w-full border rounded px-3 py-2">
         </div>
 
         <div class="mb-4">

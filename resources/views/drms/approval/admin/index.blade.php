@@ -320,12 +320,16 @@
                         <td class="px-4 py-3">
                             <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold hover:underline">Detail</button>
                             @if($req->status === 'approved_admin')
-                                <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-2" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
-                                    @csrf
-                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold">
-                                        ✅ Selesaikan
-                                    </button>
-                                </form>
+                                @if($req->canComplete)
+                                    <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-2" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
+                                        @csrf
+                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold">
+                                            ✅ Selesaikan
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="ml-2 text-xs text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒 {{ $req->completeBlockReason }}</span>
+                                @endif
                             @endif
                         </td>
                     </tr>
@@ -396,10 +400,14 @@
                         <td class="px-3 pt-3 pb-1 text-right">
                             <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold">Detail</button>
                             @if($req->status === 'approved_admin')
-                                <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-1" onsubmit="return confirm('Tandai selesai?')">
-                                    @csrf
-                                    <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
-                                </form>
+                                @if($req->canComplete)
+                                    <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-1" onsubmit="return confirm('Tandai selesai?')">
+                                        @csrf
+                                        <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
+                                    </form>
+                                @else
+                                    <span class="text-[11px] text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒</span>
+                                @endif
                             @endif
                         </td>
                     </tr>

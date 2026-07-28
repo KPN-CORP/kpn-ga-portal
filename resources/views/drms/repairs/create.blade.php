@@ -10,7 +10,7 @@
         </div>
     @endif
 
-    <form action="{{ route('drms.repairs.store') }}" method="POST" class="bg-white p-6 rounded shadow">
+    <form action="{{ route('drms.repairs.store') }}" method="POST" enctype="multipart/form-data" class="bg-white p-6 rounded shadow">
         @csrf
 
         <div class="mb-4">
@@ -64,6 +64,11 @@
                 <option value="progress" {{ old('status') == 'progress' ? 'selected' : '' }}>Progress</option>
                 <option value="done" {{ old('status') == 'done' ? 'selected' : '' }}>Selesai</option>
             </select>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">Upload Invoice/Nota (gambar atau PDF)</label>
+            <input type="file" name="invoice_file" accept="image/*,application/pdf" class="w-full border rounded px-3 py-2">
         </div>
 
         <div class="mb-4">

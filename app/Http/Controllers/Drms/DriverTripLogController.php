@@ -32,7 +32,21 @@ class DriverTripLogController extends Controller
             }
         }
 
-        return view('drms.drivers.trip_log_form', compact('request', 'log'));
+        // Ambil odometer finish dari trip log kendaraan yang sama paling akhir,
+        // supaya Start (km) otomatis terisi dan driver tidak perlu input ulang (double input).
+        $previousOdometerFinish = null;
+        if ($request->vehicle_id) {
+            $previousLog = TripLog::whereHas('request', function ($q) use ($request, $requestId) {
+                    $q->where('vehicle_id', $request->vehicle_id)
+                      ->where('id', '!=', $requestId);
+                })
+                ->whereNotNull('odometer_finish')
+                ->orderByDesc('id')
+                ->first();
+            $previousOdometerFinish = $previousLog->odometer_finish ?? null;
+        }
+
+        return view('drms.drivers.trip_log_form', compact('request', 'log', 'previousOdometerFinish'));
     }
 
     public function store(Request $request, $requestId)
@@ -69,10 +83,26 @@ class DriverTripLogController extends Controller
         DB::beginTransaction();
         try {
             $log = TripLog::firstOrNew(['request_id' => $requestId]);
-            
+
             $log->fill($request->only([
                 'odometer_start', 'odometer_finish', 'notes'
             ]));
+
+            // Safety net: jika odometer_start belum pernah tersimpan dan tidak dikirim
+            // dari form (field Start (km) bersifat readonly di sisi tampilan), ambil
+            // otomatis dari odometer_finish trip terakhir kendaraan yang sama.
+            if (!$log->odometer_start && !$request->filled('odometer_start')) {
+                $previousLog = TripLog::whereHas('request', function ($q) use ($requestData, $requestId) {
+                        $q->where('vehicle_id', $requestData->vehicle_id)
+                          ->where('id', '!=', $requestId);
+                    })
+                    ->whereNotNull('odometer_finish')
+                    ->orderByDesc('id')
+                    ->first();
+                if ($previousLog) {
+                    $log->odometer_start = $previousLog->odometer_finish;
+                }
+            }
 
             if ($request->hasFile('photo_before')) {
                 if ($log->photo_before) ImageHelper::deleteImage($log->photo_before);

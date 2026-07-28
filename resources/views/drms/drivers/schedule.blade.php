@@ -134,10 +134,14 @@
                                     $end = $req->end_time ? \Carbon\Carbon::parse($req->usage_date->format('Y-m-d') . ' ' . $req->end_time) : null;
                                     $now = now();
                                     $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
+                                    $completedTooEarly = false;
 
                                     if ($req->status == 'completed') {
                                         $statusText = '✅ Selesai';
                                         $statusColor = 'bg-gray-100 text-gray-700';
+                                        // Data lama (sebelum perbaikan validasi) mungkin masih ada yang
+                                        // berstatus "completed" padahal tanggal/jamnya belum tiba.
+                                        $completedTooEarly = $now->lessThan($start);
                                     } elseif ($req->status == 'approved_admin') {
                                         if ($now->lessThan($start)) {
                                             $statusText = '⏳ Terjadwal';
@@ -168,6 +172,11 @@
                                         <span class="px-2 py-0.5 rounded-full text-xs {{ $statusColor }}">
                                             {{ $statusText }}
                                         </span>
+                                        @if(!empty($completedTooEarly) && $completedTooEarly)
+                                            <span class="ml-1 px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700" title="Ditandai selesai sebelum tanggal/jam jadwalnya">
+                                                ⚠️ Selesai lebih awal
+                                            </span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

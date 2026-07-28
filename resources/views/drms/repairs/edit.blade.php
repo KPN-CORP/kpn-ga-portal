@@ -10,7 +10,7 @@
         </div>
     @endif
 
-    <form action="{{ route('drms.repairs.update', $repair->id) }}" method="POST" class="bg-white p-6 rounded shadow">
+    <form action="{{ route('drms.repairs.update', $repair->id) }}" method="POST" enctype="multipart/form-data" class="bg-white p-6 rounded shadow">
         @csrf @method('PUT')
 
         <div class="mb-4">
@@ -64,6 +64,14 @@
                 <option value="progress" {{ old('status', $repair->status) == 'progress' ? 'selected' : '' }}>Progress</option>
                 <option value="done" {{ old('status', $repair->status) == 'done' ? 'selected' : '' }}>Selesai</option>
             </select>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">Upload Invoice/Nota (biarkan kosong jika tidak mengganti)</label>
+            <input type="file" name="invoice_file" accept="image/*,application/pdf" class="w-full border rounded px-3 py-2">
+            @if($repair->invoice_file)
+                <a href="{{ route('drms.private.image', $repair->invoice_file) }}" target="_blank" class="text-blue-600 text-sm">Lihat invoice saat ini</a>
+            @endif
         </div>
 
         <div class="mb-4">

@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Drms;
 use App\Http\Controllers\Controller;
 use App\Models\Drms\Voucher;
 use App\Models\BisnisUnit;
+use App\Imports\VoucherImport;
+use App\Exports\VoucherTemplateExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class VoucherController extends Controller
 {
@@ -84,6 +87,13 @@ class VoucherController extends Controller
             $query->where('input_business_unit_id', $request->input_business_unit_id);
         }
 
+        // Filter Bulan (default: bulan sekarang). Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        $month = $request->get('month', now()->format('Y-m'));
+        if ($month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $monthNum] = explode('-', $month);
+            $query->whereYear('created_at', $year)->whereMonth('created_at', $monthNum);
+        }
+
         $vouchers = $query->latest()->paginate(20)->appends($request->query());
 
         // Ambil daftar business unit untuk dropdown (khusus superadmin, dan untuk filter/pilihan input_business_unit_id)
@@ -92,7 +102,7 @@ class VoucherController extends Controller
             $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
         }
 
-        return view('drms.vouchers.index', compact('vouchers', 'businessUnits', 'isSpecialBu'));
+        return view('drms.vouchers.index', compact('vouchers', 'businessUnits', 'isSpecialBu', 'month'));
     }
 
     public function create()
@@ -114,10 +124,11 @@ class VoucherController extends Controller
         $isSpecialBu = $this->isSpecialBusinessUnitUser();
 
         $rules = [
-            'code'    => 'required|string|unique:drms_vouchers',
-            'nominal' => 'required|numeric|min:0',
-            'type'    => 'required|in:grab,gojek,taxi',
-            'status'  => 'required|in:available,used',
+            'code'       => 'required|string|unique:drms_vouchers',
+            'nominal'    => 'required|numeric|min:0',
+            'type'       => 'required|in:grab,gojek,taxi',
+            'status'     => 'required|in:available,used',
+            'expired_at' => 'nullable|date',
         ];
 
         if ($isSpecialBu) {
@@ -172,10 +183,11 @@ class VoucherController extends Controller
         $isSpecialBu = $this->isSpecialBusinessUnitUser();
 
         $rules = [
-            'code'    => 'required|string|unique:drms_vouchers,code,' . $voucher->id,
-            'nominal' => 'required|numeric|min:0',
-            'type'    => 'required|in:grab,gojek,taxi',
-            'status'  => 'required|in:available,used',
+            'code'       => 'required|string|unique:drms_vouchers,code,' . $voucher->id,
+            'nominal'    => 'required|numeric|min:0',
+            'type'       => 'required|in:grab,gojek,taxi',
+            'status'     => 'required|in:available,used',
+            'expired_at' => 'nullable|date',
         ];
 
         if ($isSpecialBu) {
@@ -207,5 +219,79 @@ class VoucherController extends Controller
         $voucher->delete();
         return redirect()->route('drms.vouchers.index')
             ->with('success', 'Voucher dihapus.');
+    }
+
+    /**
+     * Halaman upload voucher massal (bulk import).
+     */
+    public function uploadForm()
+    {
+        $this->getUserBusinessUnitId(); // validasi akses
+        $user = Auth::user();
+        $businessUnits = $user->isDrmsSuperAdmin()
+            ? BisnisUnit::orderBy('nama_bisnis_unit')->get()
+            : collect();
+
+        return view('drms.vouchers.upload', compact('businessUnits'));
+    }
+
+    /**
+     * Download template upload voucher (.xlsx).
+     * Tipe 'single'  = 1 voucher per baris.
+     * Tipe 'double'  = 2 voucher per baris.
+     */
+    public function downloadTemplate($type)
+    {
+        $this->getUserBusinessUnitId(); // validasi akses
+
+        $type = $type === 'double' ? 'double' : 'single';
+        $filename = $type === 'double'
+            ? 'template_voucher_2_per_baris.xlsx'
+            : 'template_voucher_1_per_baris.xlsx';
+
+        return Excel::download(new VoucherTemplateExport($type), $filename);
+    }
+
+    /**
+     * Proses upload voucher dari file Excel/CSV (1 atau 2 voucher per baris).
+     * Voucher otomatis mengambil business unit user yang input (kecuali superadmin memilih BU).
+     */
+    public function upload(Request $request)
+    {
+        $user = Auth::user();
+
+        $rules = [
+            'format' => 'required|in:single,double',
+            'file'   => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ];
+        if ($user->isDrmsSuperAdmin()) {
+            $rules['business_unit_id'] = 'required|exists:tb_bisnis_unit,id_bisnis_unit';
+        }
+        $request->validate($rules, [], [
+            'business_unit_id' => 'Business Unit',
+        ]);
+
+        $businessUnitId = $user->isDrmsSuperAdmin()
+            ? $request->business_unit_id
+            : $this->getUserBusinessUnitId();
+
+        $import = new VoucherImport($request->format, $businessUnitId);
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            return back()->with('error', 'File tidak sesuai format template. Pastikan header kolom tidak diubah.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
+        }
+
+        $message = "{$import->created} voucher berhasil diupload.";
+        if ($import->skipped) {
+            $message .= " {$import->skipped} baris dilewati (lihat rincian di bawah).";
+        }
+
+        return redirect()->route('drms.vouchers.index')
+            ->with($import->created > 0 ? 'success' : 'error', $message)
+            ->with('upload_errors', $import->errors);
     }
 }

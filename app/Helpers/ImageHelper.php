@@ -9,14 +9,14 @@ use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 class ImageHelper
 {
     /**
-     * Kompres gambar ke maksimal 1.5 MB dan simpan ke storage/private
+     * Kompres gambar ke maksimal 2 MB dan simpan ke storage/private
      *
      * @param \Illuminate\Http\UploadedFile $file
      * @param string $path
      * @param int $maxSize KB
      * @return string|false
      */
-    public static function compressAndStore($file, $path, $maxSize = 1500)
+    public static function compressAndStore($file, $path, $maxSize = 2048)
     {
         try {
             // Buat ImageManager dengan driver GD
@@ -62,6 +62,39 @@ class ImageHelper
             \Log::error('ImageHelper compressAndStore error: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Untuk field yang boleh diisi gambar ATAU PDF (invoice servis/perbaikan).
+     * - Gambar tetap dikompres ke maksimal 2 MB lewat compressAndStore().
+     * - PDF disimpan apa adanya (tanpa dikompres, karena bukan format gambar),
+     *   ke disk & folder yang sama persis (storage/app/private/{$path}/...),
+     *   supaya tetap bisa dibaca lewat ImageController::show() / deleteImage().
+     *
+     * @param \Illuminate\Http\UploadedFile $file
+     * @param string $path
+     * @return string|false
+     */
+    public static function compressOrStoreFile($file, $path)
+    {
+        $extension = strtolower($file->getClientOriginalExtension());
+        $mime = $file->getMimeType();
+
+        if ($extension === 'pdf' || $mime === 'application/pdf') {
+            try {
+                $filename = uniqid() . '_' . time() . '.pdf';
+                $fullPath = $path . '/' . $filename;
+
+                Storage::disk('private')->put($fullPath, file_get_contents($file->getRealPath()));
+
+                return $fullPath;
+            } catch (\Exception $e) {
+                \Log::error('ImageHelper compressOrStoreFile (pdf) error: ' . $e->getMessage());
+                return false;
+            }
+        }
+
+        return self::compressAndStore($file, $path);
     }
 
     public static function deleteImage($path)

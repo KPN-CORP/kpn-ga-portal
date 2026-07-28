@@ -89,6 +89,25 @@ class AppAdminController extends Controller
 
         $historyRequests = $historyQuery->latest()->paginate(10)->appends($request->query());
 
+        // Untuk request berstatus approved_admin, tentukan apakah tombol "Selesaikan" boleh aktif:
+        // log perjalanan sudah disubmit driver DAN tanggal jadwalnya (usage_date) sudah tiba.
+        foreach ($historyRequests as $req) {
+            if ($req->status !== 'approved_admin') {
+                $req->canComplete = false;
+                continue;
+            }
+            $log = \App\Models\Drms\TripLog::where('request_id', $req->id)->first();
+            $logOk = $log && $log->is_submitted && $log->odometer_start !== null && $log->odometer_finish !== null;
+            $usageDate = $req->usage_date instanceof \Carbon\Carbon
+                ? $req->usage_date->copy()->startOfDay()
+                : \Carbon\Carbon::parse($req->usage_date)->startOfDay();
+            $dateOk = now()->startOfDay()->gte($usageDate);
+            $req->canComplete = $logOk && $dateOk;
+            $req->completeBlockReason = !$logOk
+                ? 'Log Perjalanan belum diisi/disubmit driver'
+                : (!$dateOk ? 'Belum tanggal jadwal (' . $usageDate->format('d M Y') . ')' : null);
+        }
+
         // Ambil semua business unit untuk dropdown forward modal
         $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
@@ -420,6 +439,20 @@ class AppAdminController extends Controller
 
         if ($driverRequest->status !== 'approved_admin') {
             return back()->withErrors('Hanya permintaan dengan status Disetujui yang bisa diselesaikan.');
+        }
+
+        // 1) Tidak boleh selesai sebelum Log Perjalanan diisi & disubmit driver.
+        $log = \App\Models\Drms\TripLog::where('request_id', $driverRequest->id)->first();
+        if (!$log || !$log->is_submitted || $log->odometer_start === null || $log->odometer_finish === null) {
+            return back()->withErrors('Permintaan belum bisa diselesaikan karena Log Perjalanan (odometer start/finish) belum diisi & disubmit oleh driver.');
+        }
+
+        // 2) Tidak boleh selesai sebelum tanggal jadwalnya (usage_date) tiba.
+        $usageDate = $driverRequest->usage_date instanceof \Carbon\Carbon
+            ? $driverRequest->usage_date->copy()->startOfDay()
+            : \Carbon\Carbon::parse($driverRequest->usage_date)->startOfDay();
+        if (now()->startOfDay()->lt($usageDate)) {
+            return back()->withErrors('Permintaan ini terjadwal pada ' . $usageDate->format('d M Y') . '. Belum bisa diselesaikan sebelum tanggal tersebut.');
         }
 
         DB::beginTransaction();

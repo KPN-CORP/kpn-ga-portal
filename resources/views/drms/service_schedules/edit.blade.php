@@ -60,7 +60,7 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Upload Invoice (biarkan kosong jika tidak mengganti)</label>
-            <input type="file" name="invoice_file" accept="image/*" class="w-full border rounded px-3 py-2">
+            <input type="file" name="invoice_file" accept="image/*,application/pdf" class="w-full border rounded px-3 py-2">
             @if($service->invoice_file)
                 <a href="{{ route('drms.private.image', $service->invoice_file) }}" target="_blank" class="text-blue-600 text-sm">Lihat invoice saat ini</a>
             @endif

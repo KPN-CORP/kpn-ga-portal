@@ -2,9 +2,14 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-6">
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold">Dashboard Driver: {{ auth()->user()->driver->name ?? 'Driver' }}</h1>
-        <p class="text-gray-600">Jadwal perjalanan Anda</p>
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <div>
+            <h1 class="text-2xl font-bold">Dashboard Driver: {{ auth()->user()->driver->name ?? 'Driver' }}</h1>
+            <p class="text-gray-600">Jadwal perjalanan Anda</p>
+        </div>
+        <a href="{{ route('drms.driver.expenses.index') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            🧾 Input Laporan Pengeluaran
+        </a>
     </div>
 
     {{-- Filter Tanggal --}}
@@ -125,12 +130,22 @@
                                 {{ $needsRevision ? '📝 Perbaiki Log' : '📝 Isi Log' }}
                             </a>
                             @if($req->status === 'approved_admin' && !$needsRevision)
-                                <form action="{{ route('drms.driver.requests.complete', $req->id) }}" method="POST" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
-                                    @csrf
-                                    <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-green-700">
-                                        ✅ Selesaikan
-                                    </button>
-                                </form>
+                                @if($req->logSubmitted && $req->dateArrived)
+                                    <form action="{{ route('drms.driver.requests.complete', $req->id) }}" method="POST" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
+                                        @csrf
+                                        <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-green-700">
+                                            ✅ Selesaikan
+                                        </button>
+                                    </form>
+                                @elseif(!$req->logSubmitted)
+                                    <span class="text-xs text-gray-400 italic" title="Isi &amp; submit Log Perjalanan terlebih dahulu">
+                                        🔒 Isi Log dulu untuk bisa menyelesaikan
+                                    </span>
+                                @elseif(!$req->dateArrived)
+                                    <span class="text-xs text-gray-400 italic">
+                                        🔒 Belum bisa diselesaikan sebelum {{ \Carbon\Carbon::parse($req->usage_date)->format('d M Y') }}
+                                    </span>
+                                @endif
                             @endif
                         </div>
                     </div>

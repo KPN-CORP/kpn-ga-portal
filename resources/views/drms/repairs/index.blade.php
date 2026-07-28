@@ -45,6 +45,18 @@
                 </select>
             </div>
             <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
+                <select name="month" class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
+                    @foreach(collect(range(0, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
+                        <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
+                            {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-gray-400 mt-1">Diabaikan jika "Dari/Sampai Tanggal" diisi.</p>
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Dari Tanggal</label>
                 <input type="date" name="date_from" value="{{ request('date_from') }}" 
                        class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
@@ -58,7 +70,7 @@
                 <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
                     <a href="{{ route('drms.repairs.index') }}" class="flex-1 sm:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>

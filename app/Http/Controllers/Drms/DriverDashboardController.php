@@ -52,6 +52,12 @@ class DriverDashboardController extends Controller
             $req->logVerified = \App\Models\Drms\TripLog::where('request_id', $req->id)
                 ->where('is_verified', 1)
                 ->exists();
+            // Tanggal jadwal (usage_date) sudah tiba atau belum — perjalanan tidak boleh
+            // ditandai selesai sebelum tanggal jadwalnya.
+            $usageDate = $req->usage_date instanceof \Carbon\Carbon
+                ? $req->usage_date->copy()->startOfDay()
+                : \Carbon\Carbon::parse($req->usage_date)->startOfDay();
+            $req->dateArrived = now()->startOfDay()->gte($usageDate);
         }
 
         return view('drms.drivers.dashboard', compact('driver', 'upcomingRequests', 'historyRequests', 'date'));
@@ -84,6 +90,20 @@ class DriverDashboardController extends Controller
 
         if ($driverRequest->status !== 'approved_admin') {
             return back()->withErrors('Hanya request aktif yang bisa diselesaikan.');
+        }
+
+        // 1) Tidak boleh selesai sebelum Log Perjalanan diisi & disubmit driver.
+        $log = \App\Models\Drms\TripLog::where('request_id', $driverRequest->id)->first();
+        if (!$log || !$log->is_submitted || $log->odometer_start === null || $log->odometer_finish === null) {
+            return back()->withErrors('Perjalanan belum bisa diselesaikan. Silakan isi & submit Log Perjalanan (odometer start/finish) terlebih dahulu.');
+        }
+
+        // 2) Tidak boleh selesai sebelum tanggal jadwalnya (usage_date) tiba.
+        $usageDate = $driverRequest->usage_date instanceof \Carbon\Carbon
+            ? $driverRequest->usage_date->copy()->startOfDay()
+            : \Carbon\Carbon::parse($driverRequest->usage_date)->startOfDay();
+        if (now()->startOfDay()->lt($usageDate)) {
+            return back()->withErrors('Perjalanan ini terjadwal pada ' . $usageDate->format('d M Y') . '. Belum bisa diselesaikan sebelum tanggal tersebut.');
         }
 
         DB::beginTransaction();

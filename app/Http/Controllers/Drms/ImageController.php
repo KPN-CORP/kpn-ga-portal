@@ -66,6 +66,9 @@ class ImageController extends Controller
         $service = \App\Models\Drms\ServiceSchedule::where('invoice_file', $path)->first();
         if ($service && $service->vehicle && $service->vehicle->business_unit_id == $buId) return;
 
+        $repair = \App\Models\Drms\Repair::where('invoice_file', $path)->first();
+        if ($repair && $repair->vehicle && $repair->vehicle->business_unit_id == $buId) return;
+
         abort(403);
     }
 

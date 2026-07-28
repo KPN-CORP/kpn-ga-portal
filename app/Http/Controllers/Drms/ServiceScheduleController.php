@@ -57,12 +57,20 @@ class ServiceScheduleController extends Controller
             $query->where('vehicle_id', $request->vehicle_id);
         }
 
+        // Filter Bulan (default: bulan sekarang), kecuali user sudah memakai filter tanggal manual.
+        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        $month = $request->get('month', now()->format('Y-m'));
+        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $monthNum] = explode('-', $month);
+            $query->whereYear('service_date', $year)->whereMonth('service_date', $monthNum);
+        }
+
         $services = $query->latest()->paginate(20)->appends($request->query());
 
         // Data untuk dropdown filter
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
 
-        return view('drms.service_schedules.index', compact('services', 'vehicles'));
+        return view('drms.service_schedules.index', compact('services', 'vehicles', 'month'));
     }
 
     public function create()
@@ -81,14 +89,14 @@ class ServiceScheduleController extends Controller
             'service_type' => 'required|in:oil_change,filter_change,tune_up,spooring,balancing,general',
             'workshop_name' => 'nullable|string|max:255',
             'cost' => 'required|numeric|min:0',
-            'invoice_file' => 'nullable|image|max:5120',
+            'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
             'next_service_odometer' => 'nullable|integer|min:0',
             'next_service_date' => 'nullable|date|after:service_date',
             'notes' => 'nullable|string',
         ]);
 
         if ($request->hasFile('invoice_file')) {
-            $validated['invoice_file'] = ImageHelper::compressAndStore($request->file('invoice_file'), 'service_invoices');
+            $validated['invoice_file'] = ImageHelper::compressOrStoreFile($request->file('invoice_file'), 'service_invoices');
         }
         $validated['created_by'] = Auth::id();
 
@@ -121,7 +129,7 @@ class ServiceScheduleController extends Controller
             'service_type' => 'required|in:oil_change,filter_change,tune_up,spooring,balancing,general',
             'workshop_name' => 'nullable|string|max:255',
             'cost' => 'required|numeric|min:0',
-            'invoice_file' => 'nullable|image|max:5120',
+            'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
             'next_service_odometer' => 'nullable|integer|min:0',
             'next_service_date' => 'nullable|date|after:service_date',
             'notes' => 'nullable|string',
@@ -129,7 +137,7 @@ class ServiceScheduleController extends Controller
 
         if ($request->hasFile('invoice_file')) {
             if ($service->invoice_file) ImageHelper::deleteImage($service->invoice_file);
-            $validated['invoice_file'] = ImageHelper::compressAndStore($request->file('invoice_file'), 'service_invoices');
+            $validated['invoice_file'] = ImageHelper::compressOrStoreFile($request->file('invoice_file'), 'service_invoices');
         }
         $service->update($validated);
         return redirect()->route('drms.service-schedules.index')

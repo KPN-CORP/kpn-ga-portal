@@ -11,7 +11,7 @@ class Repair extends Model
     protected $fillable = [
         'vehicle_id', 'reported_by', 'report_date', 'complaint',
         'diagnosis', 'parts_replaced', 'labor_cost', 'parts_cost',
-        'status', 'completed_at', 'notes', 'created_by'
+        'status', 'completed_at', 'notes', 'invoice_file', 'created_by'
     ];
 
     protected $casts = [

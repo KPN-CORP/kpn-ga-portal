@@ -27,6 +27,9 @@
             </dd>
         </div>
         <div class="col-span-2"><dt class="text-sm text-gray-500">Catatan</dt><dd class="font-medium">{{ $repair->notes ?? '-' }}</dd></div>
+        @if($repair->invoice_file)
+        <div class="col-span-2"><dt class="text-sm text-gray-500">Invoice</dt><dd><a href="{{ route('drms.private.image', $repair->invoice_file) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Invoice</a></dd></div>
+        @endif
         <div><dt class="text-sm text-gray-500">Dilaporkan Oleh</dt><dd class="font-medium">{{ $repair->reporter->name ?? '-' }}</dd></div>
         @if($repair->completed_at)
         <div><dt class="text-sm text-gray-500">Selesai Pada</dt><dd class="font-medium">{{ $repair->completed_at->format('d M Y H:i') }}</dd></div>

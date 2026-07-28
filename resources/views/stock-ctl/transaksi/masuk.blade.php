@@ -196,13 +196,8 @@
             fetch(`{{ route('stock-ctl.cek-stok') }}?id_barang=${idBarang}&id_area=${idArea}`)
                 .then(response => response.json())
                 .then(data => {
+                    // Hanya untuk informasi, barang masuk tidak dibatasi oleh stok yang ada
                     stokSpan.innerText = data.stok;
-                    // Validasi jumlah tidak melebihi stok
-                    if (jumlahInput.value && parseFloat(jumlahInput.value) > data.stok) {
-                        jumlahInput.setCustomValidity('Jumlah melebihi stok tersedia');
-                    } else {
-                        jumlahInput.setCustomValidity('');
-                    }
                 })
                 .catch(() => {
                     stokSpan.innerText = 'Gagal ambil stok';
@@ -211,16 +206,6 @@
 
         areaInput.addEventListener('change', fetchStok);
         barangInput.addEventListener('change', fetchStok);
-
-        // Event saat jumlah diubah
-        jumlahInput.addEventListener('input', function() {
-            const stok = parseFloat(stokSpan.innerText);
-            if (!isNaN(stok) && this.value && parseFloat(this.value) > stok) {
-                this.setCustomValidity('Jumlah melebihi stok tersedia');
-            } else {
-                this.setCustomValidity('');
-            }
-        });
 
         // ========== VALIDASI SAAT SUBMIT ==========
         const form = document.getElementById('form-barang-masuk');

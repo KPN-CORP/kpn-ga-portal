@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Drms;
 use App\Http\Controllers\Controller;
 use App\Models\Drms\Repair;
 use App\Models\Drms\Vehicle;
+use App\Helpers\ImageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -58,12 +59,20 @@ class RepairController extends Controller
             $query->where('vehicle_id', $request->vehicle_id);
         }
 
+        // Filter Bulan (default: bulan sekarang), kecuali user sudah memakai filter tanggal manual.
+        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        $month = $request->get('month', now()->format('Y-m'));
+        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $monthNum] = explode('-', $month);
+            $query->whereYear('report_date', $year)->whereMonth('report_date', $monthNum);
+        }
+
         $repairs = $query->latest()->paginate(20)->appends($request->query());
 
         // Data untuk dropdown filter
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
 
-        return view('drms.repairs.index', compact('repairs', 'vehicles'));
+        return view('drms.repairs.index', compact('repairs', 'vehicles', 'month'));
     }
 
     public function create()
@@ -84,10 +93,16 @@ class RepairController extends Controller
             'labor_cost' => 'nullable|numeric|min:0',
             'parts_cost' => 'nullable|numeric|min:0',
             'status' => 'required|in:open,progress,done',
+            'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
             'notes' => 'nullable|string',
         ]);
         $validated['reported_by'] = Auth::id();
         $validated['created_by'] = Auth::id();
+
+        if ($request->hasFile('invoice_file')) {
+            $validated['invoice_file'] = ImageHelper::compressOrStoreFile($request->file('invoice_file'), 'repair_invoices');
+        }
+
         Repair::create($validated);
         return redirect()->route('drms.repairs.index')
             ->with('success', 'Laporan perbaikan berhasil dibuat.');
@@ -119,11 +134,18 @@ class RepairController extends Controller
             'labor_cost' => 'nullable|numeric|min:0',
             'parts_cost' => 'nullable|numeric|min:0',
             'status' => 'required|in:open,progress,done',
+            'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
             'notes' => 'nullable|string',
         ]);
         if ($validated['status'] === 'done' && $repair->status !== 'done') {
             $validated['completed_at'] = now();
         }
+
+        if ($request->hasFile('invoice_file')) {
+            if ($repair->invoice_file) ImageHelper::deleteImage($repair->invoice_file);
+            $validated['invoice_file'] = ImageHelper::compressOrStoreFile($request->file('invoice_file'), 'repair_invoices');
+        }
+
         $repair->update($validated);
         return redirect()->route('drms.repairs.index')
             ->with('success', 'Perbaikan diperbarui.');
@@ -142,7 +164,9 @@ class RepairController extends Controller
 
     public function destroy($id)
     {
-        Repair::findOrFail($id)->delete();
+        $repair = Repair::findOrFail($id);
+        if ($repair->invoice_file) ImageHelper::deleteImage($repair->invoice_file);
+        $repair->delete();
         return redirect()->route('drms.repairs.index')
             ->with('success', 'Perbaikan dihapus.');
     }

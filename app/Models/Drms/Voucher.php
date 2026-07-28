@@ -8,12 +8,21 @@ use App\Models\BisnisUnit;
 class Voucher extends Model
 {
     protected $table = 'drms_vouchers'; // perbaiki jika masih 'vouchers'
-    protected $fillable = ['code', 'nominal', 'type', 'status', 'business_unit_id', 'input_business_unit_id'];
+    protected $fillable = ['code', 'nominal', 'type', 'status', 'expired_at', 'business_unit_id', 'input_business_unit_id'];
 
     protected $casts = [
         'type' => 'string',
         'status' => 'string',
+        'expired_at' => 'date',
     ];
+
+    /**
+     * Voucher dianggap expired jika tanggal expired sudah lewat.
+     */
+    public function getIsExpiredAttribute(): bool
+    {
+        return $this->expired_at !== null && $this->expired_at->isPast();
+    }
 
     public function businessUnit()
     {

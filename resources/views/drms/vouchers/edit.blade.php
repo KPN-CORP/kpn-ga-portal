@@ -52,6 +52,14 @@
             </select>
         </div>
 
+        <div class="mb-4">
+            <label for="expired_at" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Expired</label>
+            <input type="date" name="expired_at" id="expired_at"
+                   value="{{ old('expired_at', optional($voucher->expired_at)->format('Y-m-d')) }}"
+                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Kosongkan jika voucher tidak memiliki masa berlaku.</p>
+        </div>
+
         {{-- Optional: Tampilkan business unit sebagai informasi readonly jika diperlukan --}}
         @if(isset($voucher->business_unit_id))
             <div class="mb-4">

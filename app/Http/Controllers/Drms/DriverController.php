@@ -172,12 +172,25 @@ class DriverController extends Controller
 
     if ($statusFilter && $statusFilter != 'all') {
         if ($statusFilter == 'scheduled') {
-            $requestQuery->where('status', 'approved_admin')
-                ->whereTime('start_time', '>', now()->format('H:i:s'));
+            $requestQuery->where('status', 'approved_admin');
+            if ($date === now()->format('Y-m-d')) {
+                $requestQuery->whereTime('start_time', '>', now()->format('H:i:s'));
+            }
+            // Untuk tanggal selain hari ini, semua request approved_admin pada tanggal itu
+            // dianggap "scheduled" (belum bisa dibandingkan jam berjalan terhadap tanggal lain).
         } elseif ($statusFilter == 'on_trip') {
-            $requestQuery->where('status', 'approved_admin')
-                ->whereTime('start_time', '<=', now()->format('H:i:s'))
-                ->whereTime('end_time', '>', now()->format('H:i:s'));
+            $requestQuery->where('status', 'approved_admin');
+            if ($date === now()->format('Y-m-d')) {
+                $requestQuery->whereTime('start_time', '<=', now()->format('H:i:s'))
+                    ->whereTime('end_time', '>', now()->format('H:i:s'));
+            } else {
+                // PERBAIKAN: sebelumnya whereTime() di sini hanya membandingkan jam (tanpa
+                // memastikan $date == hari ini), sehingga request di tanggal LAIN (mis. besok)
+                // bisa ikut muncul sebagai "on_trip" hanya karena jam start/end-nya kebetulan
+                // beririsan dengan jam saat ini. Kalau tanggal yang dilihat bukan hari ini,
+                // tidak mungkin ada trip yang sedang "on_trip" saat ini.
+                $requestQuery->whereRaw('1 = 0');
+            }
         } elseif ($statusFilter == 'completed') {
             $requestQuery->where('status', 'completed');
         }

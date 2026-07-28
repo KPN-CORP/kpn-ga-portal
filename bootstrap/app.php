@@ -60,6 +60,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'supplies.access' => \App\Http\Middleware\CheckSuppliesAccess::class,
             'hsrm.access' => \App\Http\Middleware\HsrmAccessMiddleware::class,
             'check.idcard.access' => \App\Http\Middleware\CheckIDCardAccess::class,
+
+            // e-Memo: kelola tim & setting nomor memo (khusus superadmin)
+            'memo.superadmin' => \App\Http\Middleware\EnsureMemoSuperadmin::class,
         ]);
 
         // Middleware groups

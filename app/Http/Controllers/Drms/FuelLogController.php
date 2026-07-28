@@ -54,10 +54,15 @@ class FuelLogController extends Controller
     public function create()
     {
         $buId = $this->getBusinessUnitId();
-        // Semua driver (dari BU yang sama) bisa mengisi log BBM untuk kendaraan
-        // yang berstatus "available" (tersedia). Tidak ada pembatasan per-driver.
+        // PERBAIKAN: sebelumnya hanya kendaraan berstatus "available" yang muncul di form.
+        // Ini membuat driver yang SEDANG dalam perjalanan (kendaraan berstatus "in_use")
+        // tidak bisa mengisi log BBM untuk kendaraan yang sedang dipakainya sendiri —
+        // padahal itu justru skenario paling umum (isi bensin di tengah perjalanan).
+        // Sekarang kendaraan dengan status "available" ATAU "in_use" sama-sama ditampilkan.
+        // Kendaraan berstatus "maintenance" tetap disembunyikan karena memang tidak
+        // seharusnya dipakai/diisi BBM.
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
-            ->where('status', 'available')
+            ->whereIn('status', ['available', 'in_use'])
             ->orderBy('plate_number')
             ->get();
         $driver = Auth::user()->driver;
@@ -102,16 +107,21 @@ class FuelLogController extends Controller
 
     public function edit($id)
     {
-        $log = FuelLog::findOrFail($id);
+        $log = FuelLog::with('driver')->findOrFail($id);
         $buId = $this->getBusinessUnitId();
+        // Sama seperti create(): kendaraan "available" atau "in_use" ditampilkan,
+        // ditambah kendaraan yang sudah tersimpan di log ini apa pun statusnya
+        // (misalnya sudah berubah jadi "maintenance" setelah log dibuat).
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
             ->where(function ($q) use ($log) {
-                $q->where('status', 'available')
+                $q->whereIn('status', ['available', 'in_use'])
                   ->orWhere('id', $log->vehicle_id); // tetap tampilkan kendaraan yang sudah dipilih di log ini
             })
             ->orderBy('plate_number')
             ->get();
-        $driver = Auth::user()->driver;
+        // Driver yang ditampilkan adalah driver ASLI pemilik log ini, bukan driver dari user yang sedang login
+        // (yang mungkin admin dan tidak punya profil driver sama sekali).
+        $driver = $log->driver;
         return view('drms.fuel_logs.edit', compact('log', 'vehicles', 'driver'));
     }
 
@@ -133,8 +143,16 @@ class FuelLogController extends Controller
             : 0;
         unset($validated['fuel_total_price']);
 
-        $driver = Auth::user()->driver;
-        $validated['driver_id'] = $driver ? $driver->id : null;
+        // PERBAIKAN: sebelumnya driver_id selalu ditimpa dengan driver milik user yang sedang
+        // login (Auth::user()->driver). Ini membuat nama driver hilang setiap kali admin
+        // (yang tidak punya profil driver) mengedit/menyetujui log milik driver lain.
+        // Sekarang driver_id asli pada log dipertahankan kecuali yang mengedit adalah
+        // driver itu sendiri (mengedit log miliknya sendiri).
+        $editorDriver = Auth::user()->driver;
+        if ($editorDriver && $editorDriver->id === $log->driver_id) {
+            $validated['driver_id'] = $editorDriver->id;
+        }
+        // Jika bukan driver pemilik log (mis. admin), driver_id yang sudah tersimpan tidak diubah.
 
         if ($request->hasFile('receipt_file')) {
             if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);

@@ -21,13 +21,13 @@ class MemosController extends Controller
     public function index()
     {
         $memos = Memos::viewable(auth()->user())->with('creator')->latest()->paginate(15);
-        return view('Memos.index', compact('memos'));
+        return view('Memos.Memos.index', compact('memos'));
     }
 
     public function create()
     {
         $employees = ApiEmpHcis::limit(100)->get(['employee_id', 'fullname', 'group_company']);
-        return view('Memos.create', compact('employees'));
+        return view('Memos.Memos.create', compact('employees'));
     }
 
     public function store(Request $request)
@@ -125,7 +125,7 @@ class MemosController extends Controller
     public function show(Memos $memo)
     {
         $memo->load('items', 'attachments', 'creator');
-        return view('Memos.show', compact('memo'));
+        return view('Memos.Memos.show', compact('memo'));
     }
 
     public function updateChecklist(Request $request, MemosAttachments $attachment)

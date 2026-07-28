@@ -74,6 +74,7 @@ use App\Http\Controllers\Drms\AdminOperationalController;
 use App\Http\Controllers\Drms\ImageController;
 use App\Http\Controllers\HSRM\HsrmCertificateController;
 use App\Http\Controllers\HSRM\HsrmEquipmentController;
+use App\Http\Controllers\Drms\DriverExpenseReportController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -292,7 +293,15 @@ Route::middleware(['auth'])->group(function () {
             Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
             Route::resource('drivers', DriverController::class)->except(['show']);
             Route::resource('vehicles', VehicleController::class);  // ← resource di bawah custom route
-            Route::resource('vouchers', VoucherController::class);
+
+            // ===== VOUCHER UPLOAD (HARUS DI ATAS RESOURCE) =====
+            Route::get('vouchers/upload', [VoucherController::class, 'uploadForm'])->name('vouchers.upload.form');
+            Route::post('vouchers/upload', [VoucherController::class, 'upload'])->name('vouchers.upload');
+            Route::get('vouchers/template/{type}', [VoucherController::class, 'downloadTemplate'])->name('vouchers.template');
+
+            // Hanya SATU resource, dengan constraint numerik (opsional tapi disarankan)
+            Route::resource('vouchers', VoucherController::class)
+                ->where(['voucher' => '[0-9]+']);
         });
 
         // ===== DRIVER TRIP LOG =====
@@ -301,6 +310,27 @@ Route::middleware(['auth'])->group(function () {
                 ->name('driver.trip.log.create');
             Route::post('/trip-log/{requestId}/store', [DriverTripLogController::class, 'store'])
                 ->name('driver.trip.log.store');
+
+            // ===== LAPORAN PENGELUARAN DRIVER (BARU) =====
+            Route::get('/expenses', [DriverExpenseReportController::class, 'index'])
+                ->name('driver.expenses.index');
+            Route::get('/expenses/create', [DriverExpenseReportController::class, 'create'])
+                ->name('driver.expenses.create');
+            Route::post('/expenses', [DriverExpenseReportController::class, 'store'])
+                ->name('driver.expenses.store');
+            // Detail 1 perjalanan, tetap di jalur "create" (bukan menu terpisah).
+            Route::get('/expenses/create/{driverRequest}', [DriverExpenseReportController::class, 'detail'])
+                ->name('driver.expenses.detail');
+            // 1 perjalanan = 1 PDF.
+            Route::get('/expenses/{driverRequest}/pdf', [DriverExpenseReportController::class, 'pdf'])
+                ->name('driver.expenses.pdf');
+            // Edit satu entri (bukan per-perjalanan) — HARUS di atas rute {expense} PUT/DELETE.
+            Route::get('/expenses/{expense}/edit', [DriverExpenseReportController::class, 'edit'])
+                ->name('driver.expenses.edit');
+            Route::put('/expenses/{expense}', [DriverExpenseReportController::class, 'update'])
+                ->name('driver.expenses.update');
+            Route::delete('/expenses/{expense}', [DriverExpenseReportController::class, 'destroy'])
+                ->name('driver.expenses.destroy');
         });
 
         // ===== ADMIN OPERATIONAL =====
@@ -566,10 +596,33 @@ Route::middleware(['auth'])->group(function () {
         });
 
     Route::middleware(['auth'])->group(function () {
-        Route::resource('memos', MemosController::class);
-        Route::patch('memos/attachment/{attachment}/checklist', [MemosController::class, 'updateChecklist'])->name('memos.checklist');
-        Route::get('/api/terbilang/{amount}', [MemosController::class, 'terbilang'])->name('api.terbilang');
+        Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
+        Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
+        Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
+
+        // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
+        Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'index'])->name('memo-teams.index');
+            Route::get('/create', [\App\Http\Controllers\Memos\MemoTeamController::class, 'create'])->name('memo-teams.create');
+            Route::post('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'store'])->name('memo-teams.store');
+            Route::get('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'show'])->name('memo-teams.show');
+            Route::delete('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'destroy'])->name('memo-teams.destroy');
+
+            Route::post('/{memoTeam}/admins', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addAdmin'])->name('memo-teams.admins.add');
+            Route::delete('/{memoTeam}/admins/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeAdmin'])->name('memo-teams.admins.remove');
+
+            Route::post('/{memoTeam}/members', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addMember'])->name('memo-teams.members.add');
+            Route::delete('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeMember'])->name('memo-teams.members.remove');
+            Route::patch('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateMemberAdmin'])->name('memo-teams.members.update-admin');
+        });
+
+        Route::middleware(['memo.superadmin'])->prefix('memo-number-settings')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'index'])->name('memo-number-settings.index');
+            Route::post('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'store'])->name('memo-number-settings.store');
+            Route::patch('/{memoNumberSetting}/counter', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'updateCounter'])->name('memo-number-settings.counter');
+        });
     });
+
 
     Route::middleware(['auth'])->prefix('feedbacks')->name('feedbacks.')->group(function () {
         Route::get('/', [FeedbackController::class, 'index'])->name('index');
