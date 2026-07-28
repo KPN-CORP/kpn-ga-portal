@@ -145,10 +145,10 @@
                         <td class="px-6 py-4 space-x-2">
                             <a href="{{ route('drms.repairs.show', $repair->id) }}" class="text-blue-600 hover:text-blue-800 text-sm">Detail</a>
                             <a href="{{ route('drms.repairs.edit', $repair->id) }}" class="text-green-600 hover:text-green-800 text-sm">Edit</a>
-                            <form action="{{ route('drms.repairs.destroy', $repair->id) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
+                            <!-- <form action="{{ route('drms.repairs.destroy', $repair->id) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Hapus</button>
-                            </form>
+                            </form> -->
                         </td>
                     </tr>
                     @empty
