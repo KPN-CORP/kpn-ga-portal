@@ -30,6 +30,7 @@
     {{-- Filter Section --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <input type="hidden" name="tab" x-model="activeTab">
             <div>
                 <label class="text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari no. request / pemohon / tujuan" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
@@ -123,6 +124,7 @@
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
                     <tr class="hover:bg-gray-50">
@@ -197,6 +199,7 @@
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
                     <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
@@ -294,6 +297,7 @@
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
                     <tr class="hover:bg-gray-50">
@@ -311,7 +315,12 @@
                             @endif
                         </td>
                         <td class="px-4 py-3">{{ $tujuanFull }}</td>
-                        <td class="px-4 py-3">{{ $req->transport_type ? ucfirst(str_replace('_',' ',$req->transport_type)) : '-' }}</td>
+                        <td class="px-4 py-3">
+                            {{ $req->transport_type ? ucfirst(str_replace('_',' ',$req->transport_type)) : '-' }}
+                            @if($req->merged_into_id)
+                                <span class="block text-xs text-purple-600 font-semibold mt-0.5">🔗 Gabung ke {{ $req->mergedInto->request_no ?? ('#'.$req->merged_into_id) }}</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">
                             <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$req->status] ?? 'bg-gray-100 text-gray-800' }}">
                                 {{ $statusLabels[$req->status] ?? $req->status }}
@@ -391,6 +400,7 @@
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
                     <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
@@ -542,6 +552,7 @@
                     <template x-if="detailItem.driver"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Driver</td><td class="py-2" x-text="detailItem.driver.name + ' (' + (detailItem.driver.phone || '-') + ')'"></td></tr></template>
                     <template x-if="detailItem.vehicle"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Kendaraan</td><td class="py-2" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td></tr></template>
                     <template x-if="detailItem.voucher"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Voucher</td><td class="py-2" x-text="detailItem.voucher.code + ' (' + detailItem.voucher.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(detailItem.voucher.nominal)"></td></tr></template>
+                    <template x-if="detailItem.merged_into"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Gabung Trip</td><td class="py-2 text-purple-600 font-semibold" x-text="'🔗 ' + (detailItem.merged_into.request_no ?? '-')"></td></tr></template>
                 </tbody>
             </table>
             <div class="mt-6 flex justify-end">

@@ -21,6 +21,8 @@ class DriverRequest extends Model
         // Kolom baru untuk forward ke BU lain
         'current_business_unit_id', 'original_business_unit_id',
         'forwarded_by_user_id', 'forwarded_at',
+        // Kolom baru untuk trip gabungan (menumpang ke request lain)
+        'merged_into_id',
     ];
 
     protected $casts = [
@@ -93,6 +95,22 @@ class DriverRequest extends Model
     public function tripLog()
     {
         return $this->hasOne(TripLog::class, 'request_id');
+    }
+
+    /**
+     * Trip induk yang ditumpangi request ini (kalau request ini "menumpang").
+     */
+    public function mergedInto()
+    {
+        return $this->belongsTo(DriverRequest::class, 'merged_into_id');
+    }
+
+    /**
+     * Daftar request "penumpang" yang menumpang ke trip ini (kalau request ini induk).
+     */
+    public function passengers()
+    {
+        return $this->hasMany(DriverRequest::class, 'merged_into_id');
     }
 
     /**

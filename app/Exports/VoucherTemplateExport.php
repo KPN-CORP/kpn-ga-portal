@@ -20,22 +20,22 @@ class VoucherTemplateExport implements FromArray, WithHeadings, WithStyles, Shou
     public function headings(): array
     {
         return $this->type === 'double'
-            ? ['kode_voucher_1', 'nominal_1', 'tipe_1', 'kode_voucher_2', 'nominal_2', 'tipe_2']
-            : ['kode_voucher', 'nominal', 'tipe'];
+            ? ['kode_voucher_1', 'nominal_1', 'tipe_1', 'expired_at_1', 'kode_voucher_2', 'nominal_2', 'tipe_2', 'expired_at_2']
+            : ['kode_voucher', 'nominal', 'tipe', 'expired_at'];
     }
 
     public function array(): array
     {
         if ($this->type === 'double') {
             return [
-                ['GRB1000001', 50000, 'grab', 'GJK1000001', 30000, 'gojek'],
-                ['TXI1000002', 75000, 'taxi', '', '', ''],
+                ['GRB1000001', 50000, 'grab', '2026-12-31', 'GJK1000001', 30000, 'gojek', ''],
+                ['TXI1000002', 75000, 'taxi', '', '', '', '', ''],
             ];
         }
 
         return [
-            ['GRB1000001', 50000, 'grab'],
-            ['GJK1000001', 30000, 'gojek'],
+            ['GRB1000001', 50000, 'grab', '2026-12-31'],
+            ['GJK1000001', 30000, 'gojek', ''],
         ];
     }
 

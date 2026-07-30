@@ -88,7 +88,7 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
-                    @foreach(collect(range(0, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
+                    @foreach(collect(range(-3, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
                         <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
                             {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
                         </option>
@@ -106,7 +106,7 @@
                 @endif
             </div>
         </form>
-        <p class="text-xs text-gray-400 mt-2">Menampilkan voucher yang dibuat pada bulan {{ $month === 'all' ? 'semua bulan' : \Carbon\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}.</p>
+        <p class="text-xs text-gray-400 mt-2">Menampilkan voucher yang expired pada bulan {{ $month === 'all' ? 'semua bulan' : \Carbon\Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y') }}.</p>
     </div>
 
     {{-- QUICK STATS --}}

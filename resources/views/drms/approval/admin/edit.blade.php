@@ -177,6 +177,11 @@
                            {{ old('transport_type', $driverRequest->transport_type) == 'rental' ? 'checked' : '' }}>
                     Mobil Rental
                 </label>
+                <label class="flex items-center">
+                    <input type="radio" name="transport_type" value="merge" class="mr-2" 
+                           {{ old('transport_type') == 'merge' ? 'checked' : '' }}>
+                    🔗 Gabung dengan Perjalanan Lain (searah, trip sudah jalan)
+                </label>
             </div>
         </div>
 
@@ -240,9 +245,21 @@
             <label class="block text-sm font-medium mb-1">Pilih Voucher</label>
             <select name="voucher_id" class="w-full border rounded p-2" id="voucher_select">
                 <option value="">-- Pilih Voucher --</option>
-                @foreach($vouchers as $voucher)
+                @php
+                    // Voucher yang sudah expired tidak boleh ditawarkan lagi, kecuali voucher
+                    // yang memang sudah terpasang sebelumnya di request ini (agar nilai lama tetap tampil).
+                    $selectableVouchers = $vouchers->filter(function ($voucher) use ($driverRequest) {
+                        $isExpired = $voucher->expired_at && Carbon::parse($voucher->expired_at)->isPast();
+                        return !$isExpired || $voucher->id == $driverRequest->voucher_id;
+                    });
+                @endphp
+                @foreach($selectableVouchers as $voucher)
+                    @php
+                        $isExpired = $voucher->expired_at && Carbon::parse($voucher->expired_at)->isPast();
+                    @endphp
                     <option value="{{ $voucher->id }}" 
-                            {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}>
+                            {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}
+                            {{ $isExpired ? 'disabled' : '' }}>
                         {{ $voucher->code }} 
                         - {{ ucfirst($voucher->type) }} 
                         (Rp {{ number_format($voucher->nominal,0,',','.') }})
@@ -252,10 +269,14 @@
                                 ({{ $voucher->inputBusinessUnit->nama_bisnis_unit }})
                             @endif
                         @endif
+                        @if($voucher->expired_at)
+                            - Exp: {{ Carbon::parse($voucher->expired_at)->format('d M Y') }}
+                            @if($isExpired) (Kadaluarsa) @endif
+                        @endif
                     </option>
                 @endforeach
             </select>
-            @if($vouchers->isEmpty())
+            @if($selectableVouchers->isEmpty())
                 <p class="text-xs text-yellow-600 mt-1">Tidak ada voucher tersedia.</p>
             @endif
         </div>
@@ -263,6 +284,28 @@
         {{-- RENTAL FIELDS --}}
         <div id="rental_fields" class="{{ old('transport_type', $driverRequest->transport_type) == 'rental' ? '' : 'hidden' }} mb-4">
             <p class="text-gray-600">Untuk rental, akan diproses lebih lanjut oleh tim GA.</p>
+        </div>
+
+        {{-- MERGE FIELDS --}}
+        <div id="merge_fields" class="{{ old('transport_type') == 'merge' ? '' : 'hidden' }} mb-4">
+            <label class="block text-sm font-medium mb-1">Pilih Perjalanan untuk Digabung</label>
+            <select name="merged_into_id" class="w-full border rounded p-2" id="merge_select">
+                <option value="">-- Pilih Perjalanan --</option>
+                @foreach($mergeableRequests as $trip)
+                    <option value="{{ $trip->id }}" {{ old('merged_into_id') == $trip->id ? 'selected' : '' }}>
+                        {{ $trip->request_no }} 
+                        - {{ $trip->requester->name ?? '-' }}
+                        - {{ $trip->destination }}
+                        ({{ $trip->start_time }}{{ $trip->end_time ? '-'.$trip->end_time : '' }})
+                        - Driver: {{ $trip->driver->name ?? '-' }}, {{ $trip->vehicle->plate_number ?? '-' }}
+                    </option>
+                @endforeach
+            </select>
+            @if($mergeableRequests->isEmpty())
+                <p class="text-xs text-yellow-600 mt-1">Tidak ada perjalanan lain yang sedang jalan pada tanggal yang sama untuk digabung.</p>
+            @else
+                <p class="text-xs text-gray-500 mt-1">Request ini akan memakai driver &amp; kendaraan yang sama dengan perjalanan yang dipilih. Pastikan tujuannya memang searah.</p>
+            @endif
         </div>
 
         <div class="mb-4">
@@ -321,20 +364,25 @@
     const companyFields = document.getElementById('company_fields');
     const voucherFields = document.getElementById('voucher_fields');
     const rentalFields = document.getElementById('rental_fields');
+    const mergeFields = document.getElementById('merge_fields');
     const driverSelect = document.getElementById('driver_select');
     const vehicleSelect = document.getElementById('vehicle_select');
     const voucherSelect = document.getElementById('voucher_select');
+    const mergeSelect = document.getElementById('merge_select');
 
     function setRequiredFields(selected) {
         driverSelect.required = false;
         vehicleSelect.required = false;
         voucherSelect.required = false;
+        mergeSelect.required = false;
 
         if (selected === 'company_driver') {
             driverSelect.required = true;
             vehicleSelect.required = true;
         } else if (selected === 'voucher') {
             voucherSelect.required = true;
+        } else if (selected === 'merge') {
+            mergeSelect.required = true;
         }
     }
 
@@ -344,6 +392,7 @@
         companyFields.classList.add('hidden');
         voucherFields.classList.add('hidden');
         rentalFields.classList.add('hidden');
+        mergeFields.classList.add('hidden');
 
         if (selected === 'company_driver') {
             companyFields.classList.remove('hidden');
@@ -351,6 +400,8 @@
             voucherFields.classList.remove('hidden');
         } else if (selected === 'rental') {
             rentalFields.classList.remove('hidden');
+        } else if (selected === 'merge') {
+            mergeFields.classList.remove('hidden');
         }
         
         setRequiredFields(selected);

@@ -21,16 +21,17 @@
     <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
         <h2 class="font-semibold text-gray-700 mb-2">1. Unduh Template</h2>
         <p class="text-sm text-gray-500 mb-4">Pilih template sesuai format kode voucher yang Anda miliki, isi datanya, lalu upload kembali di bawah.</p>
+        <p class="text-xs text-gray-400 mb-4">Kolom <span class="font-mono">expired_at</span> bersifat opsional (format tanggal: YYYY-MM-DD). Baris yang kolom expired_at-nya dikosongkan akan memakai <span class="font-medium">Tanggal Expired Default</span> di form upload di bawah (jika diisi).</p>
         <div class="flex flex-col sm:flex-row gap-3">
             <a href="{{ route('drms.vouchers.template', 'single') }}"
                class="flex-1 border rounded-lg px-4 py-3 hover:bg-gray-50 transition">
                 <p class="font-medium text-gray-800">📄 Template 1 Voucher / Baris</p>
-                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher, nominal, tipe</p>
+                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher, nominal, tipe, expired_at (opsional)</p>
             </a>
             <a href="{{ route('drms.vouchers.template', 'double') }}"
                class="flex-1 border rounded-lg px-4 py-3 hover:bg-gray-50 transition">
                 <p class="font-medium text-gray-800">📄 Template 2 Voucher / Baris</p>
-                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher_1, nominal_1, tipe_1, kode_voucher_2, nominal_2, tipe_2</p>
+                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher_1, nominal_1, tipe_1, expired_at_1, kode_voucher_2, nominal_2, tipe_2, expired_at_2 (expired_at opsional)</p>
             </a>
         </div>
     </div>
@@ -53,6 +54,13 @@
                         2 Voucher / Baris
                     </label>
                 </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="expired_at" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Expired Default (opsional)</label>
+                <input type="date" name="expired_at" id="expired_at" value="{{ old('expired_at') }}"
+                       class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Dipakai untuk semua baris pada file yang tidak mengisi kolom <span class="font-mono">expired_at</span> sendiri. Kosongkan jika voucher tidak memiliki masa berlaku.</p>
             </div>
 
             @if(($businessUnits ?? collect())->isNotEmpty())

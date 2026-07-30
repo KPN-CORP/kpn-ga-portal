@@ -38,14 +38,21 @@
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">Jenis Servis <span class="text-red-500">*</span></label>
-            <select name="service_type" class="w-full border rounded px-3 py-2" required>
-                <option value="">Pilih</option>
-                <option value="oil_change" {{ old('service_type') == 'oil_change' ? 'selected' : '' }}>Ganti Oli</option>
-                <option value="filter_change" {{ old('service_type') == 'filter_change' ? 'selected' : '' }}>Ganti Filter</option>
-                <option value="tune_up" {{ old('service_type') == 'tune_up' ? 'selected' : '' }}>Tune Up</option>
-                <option value="spooring" {{ old('service_type') == 'spooring' ? 'selected' : '' }}>Spooring</option>
-                <option value="balancing" {{ old('service_type') == 'balancing' ? 'selected' : '' }}>Balancing</option>
-                <option value="general" {{ old('service_type') == 'general' ? 'selected' : '' }}>General</option>
+            <select name="service_type[]" id="service_type" class="w-full border rounded px-3 py-2" multiple required>
+                @php
+                    $oldTypes = old('service_type', []);
+                @endphp
+                <option value="oil_change" {{ in_array('oil_change', $oldTypes) ? 'selected' : '' }}>Ganti Oli</option>
+                <option value="filter_change" {{ in_array('filter_change', $oldTypes) ? 'selected' : '' }}>Ganti Filter</option>
+                <option value="tune_up" {{ in_array('tune_up', $oldTypes) ? 'selected' : '' }}>Tune Up</option>
+                <option value="spooring" {{ in_array('spooring', $oldTypes) ? 'selected' : '' }}>Spooring</option>
+                <option value="balancing" {{ in_array('balancing', $oldTypes) ? 'selected' : '' }}>Balancing</option>
+                <option value="general" {{ in_array('general', $oldTypes) ? 'selected' : '' }}>General</option>
+                @foreach($oldTypes as $t)
+                    @if(!in_array($t, ['oil_change','filter_change','tune_up','spooring','balancing','general']))
+                        <option value="{{ $t }}" selected>{{ $t }}</option>
+                    @endif
+                @endforeach
             </select>
         </div>
 
@@ -85,4 +92,20 @@
         </div>
     </form>
 </div>
+
+{{-- Tom Select: multi-pilih jenis servis + bisa ketik untuk tambah opsi baru --}}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/js/tom-select.complete.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    new TomSelect('#service_type', {
+        plugins: ['remove_button'],
+        create: true,           // boleh ketik jenis servis baru yang belum ada di daftar
+        createOnBlur: true,
+        persist: false,
+        placeholder: 'Pilih atau ketik jenis servis (bisa lebih dari satu)...'
+    });
+});
+</script>
 @endsection

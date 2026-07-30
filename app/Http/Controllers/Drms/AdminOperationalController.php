@@ -88,23 +88,19 @@ class AdminOperationalController extends Controller
                 ->whereYear('report_date', $year)
                 ->sum('total_cost');
 
-            // Distance
-            $fuelLogs = FuelLog::where('vehicle_id', $vehicle->id)
-                ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
-                ->whereYear('filling_date', $year);
-            if ($filterDriverId) $fuelLogs->where('driver_id', $filterDriverId);
-            $fuelLogs = $fuelLogs->orderBy('filling_date')->get(['odometer_start']);
-            $totalDistance = 0;
-            if ($fuelLogs->count() > 1) {
-                $prev = null;
-                foreach ($fuelLogs as $log) {
-                    if ($prev !== null && $log->odometer_start > $prev) {
-                        $totalDistance += ($log->odometer_start - $prev);
-                    }
-                    $prev = $log->odometer_start;
-                }
-            }
+            // Distance — dari Log Perjalanan (TripLog) yang sudah diverifikasi, konsisten
+            // dengan total_distance di getOperationalStats().
+            $vehicleTripLogsQuery = TripLog::where('is_verified', 1)
+                ->whereNotNull('odometer_start')
+                ->whereNotNull('odometer_finish')
+                ->whereHas('request', function ($q) use ($vehicle, $filterDriverId, $month, $year) {
+                    $q->where('vehicle_id', $vehicle->id)
+                      ->whereMonth('usage_date', $month)
+                      ->whereYear('usage_date', $year);
+                    if ($filterDriverId) $q->where('driver_id', $filterDriverId);
+                });
+            $totalDistance = $vehicleTripLogsQuery->get()
+                ->sum(fn ($log) => max(0, $log->odometer_finish - $log->odometer_start));
 
             // Fuel liters
             $fuelLiters = FuelLog::where('vehicle_id', $vehicle->id)
@@ -365,18 +361,6 @@ class AdminOperationalController extends Controller
                 }
             });
 
-        if ($request->has('status')) {
-            if ($request->status == 'pending') {
-                $query->where('is_submitted', 1)->where('is_verified', 0);
-            } elseif ($request->status == 'verified') {
-                $query->where('is_verified', 1);
-            } elseif ($request->status == 'draft') {
-                $query->where('is_submitted', 0)->where('is_verified', 0);
-            } elseif ($request->status == 'revision') {
-                $query->where('is_submitted', 0)->where('is_verified', 0)->whereNotNull('revision_note');
-            }
-        }
-
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
             $query->whereHas('request', function ($q) use ($search) {
@@ -394,8 +378,42 @@ class AdminOperationalController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $logs = $query->latest()->paginate(20);
-        return view('drms.admin.monitoring_logs', compact('logs'));
+        // Filter Bulan (default: bulan sekarang), kecuali sudah pakai filter tanggal manual.
+        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        $month = $request->get('month', now()->format('Y-m'));
+        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $monthNum] = explode('-', $month);
+            $query->whereYear('created_at', $year)->whereMonth('created_at', $monthNum);
+        }
+
+        // PENTING: hitung statistik dari QUERY PENUH (search/tanggal/bulan sudah masuk,
+        // status BELUM difilter di sini) — supaya angkanya total keseluruhan yang cocok
+        // dengan filter pencarian/tanggal/bulan, bukan cuma 20 data di halaman yang tampil.
+        $totalLogs     = (clone $query)->count();
+        $pendingCount  = (clone $query)->where('is_submitted', 1)->where('is_verified', 0)->count();
+        $verifiedCount = (clone $query)->where('is_verified', 1)->count();
+        $revisionCount = (clone $query)->where('is_submitted', 0)->where('is_verified', 0)->whereNotNull('revision_note')->count();
+        $draftCount    = (clone $query)->where('is_submitted', 0)->where('is_verified', 0)->whereNull('revision_note')->count();
+
+        // Filter status untuk daftar/tabel-nya diterapkan SETELAH statistik dihitung,
+        // supaya statistik tetap menampilkan total keseluruhan walau lagi difilter status tertentu.
+        if ($request->has('status')) {
+            if ($request->status == 'pending') {
+                $query->where('is_submitted', 1)->where('is_verified', 0);
+            } elseif ($request->status == 'verified') {
+                $query->where('is_verified', 1);
+            } elseif ($request->status == 'draft') {
+                $query->where('is_submitted', 0)->where('is_verified', 0)->whereNull('revision_note');
+            } elseif ($request->status == 'revision') {
+                $query->where('is_submitted', 0)->where('is_verified', 0)->whereNotNull('revision_note');
+            }
+        }
+
+        $logs = $query->latest()->paginate(20)->appends($request->query());
+
+        return view('drms.admin.monitoring_logs', compact(
+            'logs', 'month', 'totalLogs', 'pendingCount', 'verifiedCount', 'draftCount', 'revisionCount'
+        ));
     }
 
     /**
@@ -513,30 +531,57 @@ class AdminOperationalController extends Controller
             ->when($driverId, fn($q) => $q->whereHas('request', fn($q2) => $q2->where('driver_id', $driverId)))
             ->count();
 
-        // Distance
-        $fuelLogs = FuelLog::where('is_verified', 1)
+        // Distance — diambil dari Log Perjalanan (TripLog) yang sudah diverifikasi,
+        // bukan dari selisih odometer Log BBM. distance = odometer_finish - odometer_start per trip.
+        $totalDistance = TripLog::where('is_verified', 1)
+            ->whereNotNull('odometer_start')
+            ->whereNotNull('odometer_finish')
+            ->whereHas('request', function ($q) use ($buId, $vehicleId, $driverId, $month, $year) {
+                $q->whereMonth('usage_date', $month)->whereYear('usage_date', $year);
+                if ($buId) $this->applyBusinessUnitFilter($q, $buId);
+                if ($vehicleId) $q->where('vehicle_id', $vehicleId);
+                if ($driverId) $q->where('driver_id', $driverId);
+            })
+            ->get()
+            ->sum(fn ($log) => max(0, $log->odometer_finish - $log->odometer_start));
+
+        // Total Perjalanan (Terverifikasi) — jumlah TripLog yang sudah diverifikasi
+        // pada periode (bulan/tahun) & filter yang sama dengan statistik lainnya.
+        $totalTripsQuery = TripLog::where('is_verified', 1)
+            ->whereHas('request', function ($q) use ($buId, $vehicleId, $driverId, $month, $year) {
+                $q->whereMonth('usage_date', $month)->whereYear('usage_date', $year);
+                if ($buId) $this->applyBusinessUnitFilter($q, $buId);
+                if ($vehicleId) $q->where('vehicle_id', $vehicleId);
+                if ($driverId) $q->where('driver_id', $driverId);
+            });
+        $totalTrips = $totalTripsQuery->count();
+
+        // Rata-rata Efisiensi (L/100km) — gabungan seluruh kendaraan yang cocok filter,
+        // pada periode (bulan/tahun) yang sama (bukan per kendaraan seperti di getEfficiencyData()).
+        $effFuelLogs = FuelLog::where('is_verified', 1)
             ->whereMonth('filling_date', $month)
             ->whereYear('filling_date', $year)
             ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))
             ->when($vehicleId, fn($q) => $q->where('vehicle_id', $vehicleId))
             ->when($driverId, fn($q) => $q->where('driver_id', $driverId))
             ->orderBy('vehicle_id')->orderBy('filling_date')
-            ->get(['vehicle_id', 'odometer_start']);
+            ->get(['vehicle_id', 'odometer_start', 'fuel_liters']);
 
-        $totalDistance = 0;
-        if ($fuelLogs->isNotEmpty()) {
-            $grouped = $fuelLogs->groupBy('vehicle_id');
-            foreach ($grouped as $logs) {
-                if ($logs->count() > 1) {
-                    $prev = null;
-                    foreach ($logs as $log) {
-                        if ($prev !== null && $log->odometer_start > $prev) {
-                            $totalDistance += ($log->odometer_start - $prev);
-                        }
-                        $prev = $log->odometer_start;
+        $avgEfficiency = null;
+        if ($effFuelLogs->isNotEmpty()) {
+            $totalEffDistance = 0;
+            $totalEffLiters = 0;
+            foreach ($effFuelLogs->groupBy('vehicle_id') as $items) {
+                $prevOdometer = null;
+                foreach ($items as $item) {
+                    if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
+                        $totalEffDistance += ($item->odometer_start - $prevOdometer);
                     }
+                    $prevOdometer = $item->odometer_start;
+                    $totalEffLiters += $item->fuel_liters;
                 }
             }
+            $avgEfficiency = $totalEffDistance > 0 ? round(($totalEffLiters / $totalEffDistance) * 100, 2) : null;
         }
 
         return [
@@ -546,6 +591,8 @@ class AdminOperationalController extends Controller
             'total_operational_cost' => $totalFuel + $totalService + $totalRepair,
             'total_distance'       => $totalDistance,
             'pending_verification' => $pendingLogs,
+            'total_trips'          => $totalTrips,
+            'avg_efficiency'       => $avgEfficiency,
         ];
     }
 

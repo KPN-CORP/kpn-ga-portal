@@ -46,9 +46,39 @@ class FuelLogController extends Controller
         if ($request->filled('status')) {
             $query->where('is_verified', $request->status == 'verified' ? 1 : 0);
         }
-        $logs = $query->latest()->paginate(20);
+
+        // PENTING: hitung statistik dari QUERY PENUH (semua filter di atas sudah masuk,
+        // sebelum di-paginate) — supaya angkanya total keseluruhan, bukan cuma 20 data
+        // di halaman yang sedang tampil.
+        $totalLogs     = (clone $query)->count();
+        $verifiedCount = (clone $query)->where('is_verified', 1)->count();
+        $pendingCount  = (clone $query)->where('is_verified', 0)->count();
+
+        // Liter (BBM) dan kWh (Listrik) dipisah, bukan digabung jadi satu angka —
+        // karena satuannya beda, jumlahin keduanya jadi satu tidak ada artinya.
+        // Biayanya (Rp) juga dipisah per kategori, biar tiap kartu nampilin nominal
+        // yang benar-benar sesuai isinya (bukan total gabungan semua log).
+        // PENTING: fuel_type di kendaraan bisa NULL (belum diisi) — di SQL,
+        // "fuel_type != 'Listrik'" akan SKIP baris yang NULL (NULL != 'Listrik' = NULL,
+        // bukan true), jadi harus eksplisit ikutkan whereNull juga supaya kendaraan
+        // yang fuel_type-nya belum diisi tetap terhitung sebagai BBM (default), bukan
+        // hilang dari kedua total.
+        $bbmQuery = (clone $query)->whereHas('vehicle', function ($q) {
+            $q->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
+        });
+        $totalLiters = (clone $bbmQuery)->sum('fuel_liters');
+        $totalCostBbm = (clone $bbmQuery)->sum('total_cost');
+
+        $listrikQuery = (clone $query)->whereHas('vehicle', fn($q) => $q->where('fuel_type', 'Listrik'));
+        $totalKwh = (clone $listrikQuery)->sum('fuel_liters');
+        $totalCostListrik = (clone $listrikQuery)->sum('total_cost');
+
+        $logs = $query->latest()->paginate(20)->appends($request->query());
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
-        return view('drms.fuel_logs.index', compact('logs', 'vehicles'));
+        return view('drms.fuel_logs.index', compact(
+            'logs', 'vehicles', 'totalLogs', 'verifiedCount', 'pendingCount',
+            'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik'
+        ));
     }
 
     public function create()

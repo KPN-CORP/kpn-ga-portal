@@ -73,17 +73,13 @@
     </div>
 
     {{-- Quick Stats --}}
-    @php
-        $total = $logs->total();
-        $verifiedCount = $logs->where('is_verified', 1)->count();
-        $pendingCount = $logs->where('is_verified', 0)->count();
-        $totalFuel = $logs->sum('fuel_liters');
-        $totalCost = $logs->sum('total_cost');
-    @endphp
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    {{-- PENTING: total, verified, pending, dan total pengisian di bawah ini dihitung di
+         controller dari QUERY PENUH (sesuai filter yang aktif), BUKAN dari $logs
+         (yang cuma berisi 20 data di halaman yang sedang tampil). --}}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Total Log</p>
-            <p class="text-2xl font-bold">{{ $total }}</p>
+            <p class="text-2xl font-bold">{{ $totalLogs }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
             <p class="text-xs text-gray-500 uppercase">Terverifikasi</p>
@@ -94,9 +90,14 @@
             <p class="text-2xl font-bold text-yellow-600">{{ $pendingCount }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-            <p class="text-xs text-gray-500 uppercase">Total Pengisian</p>
-            <p class="text-2xl font-bold text-purple-600">{{ number_format($totalFuel, 2, ',', '.') }}</p>
-            <p class="text-xs text-gray-500">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
+            <p class="text-xs text-gray-500 uppercase">Total BBM (Liter)</p>
+            <p class="text-2xl font-bold text-purple-600">{{ number_format($totalLiters, 2, ',', '.') }} L</p>
+            <p class="text-xs text-gray-500">Rp {{ number_format($totalCostBbm, 0, ',', '.') }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-500">
+            <p class="text-xs text-gray-500 uppercase">Total Listrik (kWh)</p>
+            <p class="text-2xl font-bold text-indigo-600">{{ number_format($totalKwh, 2, ',', '.') }} kWh</p>
+            <p class="text-xs text-gray-500">Rp {{ number_format($totalCostListrik, 0, ',', '.') }}</p>
         </div>
     </div>
 

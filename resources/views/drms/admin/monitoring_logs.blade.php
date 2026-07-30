@@ -35,6 +35,17 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
+                    <select name="month" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                        <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
+                        @foreach(collect(range(0, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
+                            <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Dari Tanggal</label>
                     <input type="date" name="date_from" value="{{ request('date_from') }}" 
                            class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
@@ -59,17 +70,13 @@
     </div>
 
     {{-- Quick Stats --}}
-    @php
-        $total = $logs->total();
-        $pendingCount = $logs->where('is_submitted', 1)->where('is_verified', 0)->count();
-        $verifiedCount = $logs->where('is_verified', 1)->count();
-        $draftCount = $logs->where('is_submitted', 0)->where('is_verified', 0)->count();
-        $revisionCount = $logs->filter(function($log) { return $log->needsRevision(); })->count();
-    @endphp
+    {{-- PENTING: total, pending, verified, draft, revision di bawah ini dihitung di
+         controller dari QUERY PENUH (sesuai filter search/tanggal/bulan yang aktif),
+         BUKAN dari $logs (yang cuma berisi 20 data di halaman yang sedang tampil). --}}
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Total Log</p>
-            <p class="text-2xl font-bold">{{ $total }}</p>
+            <p class="text-2xl font-bold">{{ $totalLogs }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500 uppercase">Menunggu Verifikasi</p>

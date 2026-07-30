@@ -75,6 +75,9 @@ use App\Http\Controllers\Drms\ImageController;
 use App\Http\Controllers\HSRM\HsrmCertificateController;
 use App\Http\Controllers\HSRM\HsrmEquipmentController;
 use App\Http\Controllers\Drms\DriverExpenseReportController;
+use App\Http\Controllers\Antaran\AntaranController;
+use App\Http\Controllers\Antaran\AntaranKurirController;
+use App\Http\Controllers\Antaran\AntaranTrackingController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -127,6 +130,34 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/kirim-ulang', [App\Http\Controllers\MessengerController::class, 'kirimUlang'])->name('messenger.kirimUlang');
         Route::middleware('messenger.access:detail_messenger')->get('/file/{type}/{filename}', [App\Http\Controllers\MessengerController::class, 'getFile'])->name('messenger.file');
         Route::middleware('messenger.access:detail_messenger')->get('/{id}', [App\Http\Controllers\MessengerController::class, 'detail'])->name('messenger.detail');
+    });
+
+    Route::prefix('antaran')->name('antaran.')->group(function () {
+
+        // --- sisi pengirim (AntaranController) ---
+        Route::get('/',                    [AntaranController::class, 'index'])->name('index');
+        Route::get('/buat',                [AntaranController::class, 'request'])->name('request');
+        Route::post('/buat',               [AntaranController::class, 'store'])->name('store');
+        Route::get('/lacak/{no_transaksi}', [AntaranController::class, 'detail'])->name('detail');
+        Route::post('/{no_transaksi}/kirim-ulang', [AntaranController::class, 'kirimUlang'])->name('kirimUlang');
+        Route::post('/{no_transaksi}/batal',       [AntaranController::class, 'cancel'])->name('cancel');
+
+        // --- sisi kurir (AntaranKurirController) — tidak ada route "tolak" ---
+        Route::get('/tugas',                            [AntaranKurirController::class, 'proses'])->name('proses');
+        Route::post('/tugas/{no_transaksi}/ambil',       [AntaranKurirController::class, 'antar'])->name('antar');
+        Route::post('/tugas/{no_transaksi}/selesai',     [AntaranKurirController::class, 'selesaikan'])->name('selesaikan');
+        Route::post('/tugas/{no_transaksi}/kembalikan',  [AntaranKurirController::class, 'kembalikan'])->name('kembalikan');
+
+        // --- tracking GPS (AntaranTrackingController) ---
+        Route::get('/lacak/{no_transaksi}/json',   [AntaranTrackingController::class, 'lokasiJson'])->name('lokasi.json');
+        Route::post('/lacak/{no_transaksi}/titik', [AntaranTrackingController::class, 'updateLokasi'])->name('lokasi.update');
+
+        // --- halaman peta TERPISAH: rute 1 hari penuh (gabung semua resi kurir hari itu) ---
+        Route::get('/rute-harian',      [AntaranTrackingController::class, 'ruteHarian'])->name('rute.harian');
+        Route::get('/rute-harian/json', [AntaranTrackingController::class, 'ruteHarianJson'])->name('rute.harian.json');
+
+        // File foto tetap pakai route yang sudah ada di Messenger (messenger.file),
+        // karena storage disknya memang sengaja dibagi bersama. Tidak perlu route baru.
     });
 
     Route::prefix('mailing')->name('mailing.')->middleware(['auth'])->group(function () {

@@ -97,6 +97,12 @@
                             <div><span class="font-medium">Kendaraan:</span> {{ $req->vehicle->type }} ({{ $req->vehicle->plate_number }})</div>
                         @endif
                     </div>
+                    @if($req->passengers && $req->passengers->count())
+                        <div class="mt-2 bg-purple-50 border border-purple-200 rounded p-2 text-xs text-purple-800">
+                            🔗 <span class="font-semibold">Trip gabungan</span> — menumpang: 
+                            {{ $req->passengers->pluck('requester.name')->filter()->join(', ') }}
+                        </div>
+                    @endif
 
                     <div class="mt-3 flex flex-wrap gap-3 border-t pt-3">
                         @if($req->pickup_maps_link)
@@ -191,6 +197,12 @@
                         <div><span class="font-medium">Keperluan:</span> {{ \Illuminate\Support\Str::limit($req->purpose, 60) }}</div>
                         <div><span class="font-medium">Pemohon:</span> {{ $req->requester->name ?? '-' }}</div>
                     </div>
+                    @if($req->passengers && $req->passengers->count())
+                        <div class="mt-2 bg-purple-50 border border-purple-200 rounded p-2 text-xs text-purple-800">
+                            🔗 <span class="font-semibold">Trip gabungan</span> — menumpang: 
+                            {{ $req->passengers->pluck('requester.name')->filter()->join(', ') }}
+                        </div>
+                    @endif
 
                     <div class="mt-3 flex flex-wrap gap-3 border-t pt-3">
                         @if($req->pickup_maps_link)

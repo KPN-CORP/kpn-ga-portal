@@ -85,6 +85,9 @@ class DriverExpenseReportController extends Controller
         $requests = DriverRequest::where('driver_id', $driver->id)
             ->whereIn('status', ['approved_admin', 'completed'])
             ->whereNotIn('id', $alreadyReported)
+            // Request yang "menumpang" ke trip lain tidak boleh diisi laporan pengeluaran
+            // sendiri — biayanya dicatat sekali saja di trip induknya, supaya tidak dobel hitung.
+            ->whereNull('merged_into_id')
             ->orderByDesc('usage_date')
             ->limit(30)
             ->get();
@@ -118,10 +121,12 @@ class DriverExpenseReportController extends Controller
             'items.*.*.amount'          => 'required|numeric|min:1',
         ]);
 
-        // Perjalanan wajib ada, milik driver ini, dan berstatus yang eligible.
+        // Perjalanan wajib ada, milik driver ini, berstatus yang eligible, dan BUKAN request
+        // yang menumpang ke trip lain (dicek juga di server, bukan cuma disembunyikan di dropdown).
         $owns = DriverRequest::where('id', $data['request_id'])
             ->where('driver_id', $driver->id)
             ->whereIn('status', ['approved_admin', 'completed'])
+            ->whereNull('merged_into_id')
             ->exists();
         if (!$owns) {
             return back()->withErrors('Perjalanan yang dipilih tidak valid. Laporan pengeluaran harus dikaitkan dengan perjalanan Anda sendiri.')->withInput();

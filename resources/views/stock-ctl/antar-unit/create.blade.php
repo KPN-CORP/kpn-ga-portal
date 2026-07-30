@@ -8,7 +8,7 @@
             <label>Barang</label>
             <select name="id_barang" id="id_barang" class="w-full border rounded-lg p-2" required>
                 <option value="">Pilih Barang</option>
-                @foreach($barang as $b)
+                @foreach($barang->sortBy('nama_barang') as $b)
                 <option value="{{ $b->id_barang }}" data-satuan="{{ $b->satuan }}">
                     {{ $b->kode_barang }} - {{ $b->nama_barang }}
                 </option>
@@ -28,9 +28,9 @@
         </div>
         <div class="mb-4">
             <label>Unit Tujuan</label>
-            <select name="id_bisnis_unit_tujuan" class="w-full border rounded-lg p-2" required>
+            <select name="id_bisnis_unit_tujuan" id="id_bisnis_unit_tujuan" class="w-full border rounded-lg p-2" required>
                 <option value="">Pilih Unit Tujuan</option>
-                @foreach($units as $unit)
+                @foreach($units->sortBy('nama_bisnis_unit') as $unit)
                     @if($unit->id_bisnis_unit != $userUnitId)
                     <option value="{{ $unit->id_bisnis_unit }}">{{ $unit->nama_bisnis_unit }}</option>
                     @endif
@@ -48,11 +48,32 @@
     </form>
 </div>
 
+{{-- Tom Select: dropdown jadi bisa diketik/dicari --}}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/js/tom-select.complete.min.js"></script>
+
 <script>
-document.getElementById('id_barang').addEventListener('change', function() {
-    const selected = this.options[this.selectedIndex];
-    const satuan = selected.getAttribute('data-satuan') || '-';
-    document.getElementById('satuan_tampilan').textContent = satuan;
+document.addEventListener('DOMContentLoaded', function () {
+    // Barang: searchable + tetap update satuan saat berubah
+    const barangSelectEl = document.getElementById('id_barang');
+    const barangTS = new TomSelect(barangSelectEl, {
+        create: false,
+        sortField: { field: "text", direction: "asc" },
+        placeholder: 'Ketik untuk mencari barang...'
+    });
+
+    barangTS.on('change', function (value) {
+        const option = barangSelectEl.querySelector(`option[value="${value}"]`);
+        const satuan = option ? (option.getAttribute('data-satuan') || '-') : '-';
+        document.getElementById('satuan_tampilan').textContent = satuan;
+    });
+
+    // Unit Tujuan: searchable juga
+    new TomSelect('#id_bisnis_unit_tujuan', {
+        create: false,
+        sortField: { field: "text", direction: "asc" },
+        placeholder: 'Ketik untuk mencari unit...'
+    });
 });
 </script>
 @endsection

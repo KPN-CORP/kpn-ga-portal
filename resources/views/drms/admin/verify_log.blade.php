@@ -11,6 +11,40 @@
         </p>
     </div>
 
+    {{-- Detail Perjalanan --}}
+    @php $r = $log->request; @endphp
+    <div class="bg-gray-50 p-4 rounded-xl mb-6">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">🚗 Detail Perjalanan</h3>
+        <div class="grid grid-cols-1 gap-y-2 text-sm">
+            <div><span class="text-gray-400">Pemohon:</span> <span class="font-medium">{{ $r->requester->name ?? '-' }}</span></div>
+            <div><span class="text-gray-400">Kendaraan:</span> <span class="font-medium">{{ $r->vehicle->type ?? '-' }} ({{ $r->vehicle->plate_number ?? '-' }})</span></div>
+            <div>
+                <span class="text-gray-400">Tanggal &amp; Jam:</span>
+                <span class="font-medium">
+                    {{ \Carbon\Carbon::parse($r->usage_date)->format('d M Y') }}, {{ $r->start_time }} - {{ $r->end_time }}
+                    @if($r->trip_type === 'round_trip' && $r->return_date)
+                        (kembali {{ \Carbon\Carbon::parse($r->return_date)->format('d M Y') }} {{ $r->return_time ?? $r->end_time }})
+                    @endif
+                </span>
+            </div>
+            <div><span class="text-gray-400">Tipe:</span> <span class="font-medium">{{ $r->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan' }}</span></div>
+            <div>
+                <span class="text-gray-400">Rute:</span>
+                <span class="font-medium">{{ $r->pickup_location }} → {{ $r->destination }}</span>
+                @if($r->pickup_maps_link)
+                    <a href="{{ $r->pickup_maps_link }}" target="_blank" class="text-blue-600 underline text-xs ml-1">[Map Jemput]</a>
+                @endif
+                @if($r->destination_maps_link)
+                    <a href="{{ $r->destination_maps_link }}" target="_blank" class="text-blue-600 underline text-xs ml-1">[Map Tujuan]</a>
+                @endif
+            </div>
+            <div><span class="text-gray-400">Keperluan:</span> <span class="font-medium">{{ $r->purpose ?? '-' }}</span></div>
+            @if($r->merged_into_id)
+                <div class="text-purple-600 font-semibold">🔗 Trip ini menumpang ke {{ $r->mergedInto->request_no ?? ('#'.$r->merged_into_id) }}</div>
+            @endif
+        </div>
+    </div>
+
     {{-- Informasi Perjalanan (Odometer) --}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-gray-50 p-4 rounded-xl">

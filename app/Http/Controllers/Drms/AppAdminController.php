@@ -51,7 +51,7 @@ class AppAdminController extends Controller
         }
 
         // ------------------- HISTORY REQUESTS (dengan filter) -------------------
-        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher']);
+        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'mergedInto']);
 
         if ($user->isDrmsSuperAdmin()) {
             $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
@@ -248,7 +248,20 @@ class AppAdminController extends Controller
         $vehicles = $vehiclesQuery->get();
 
         // ----- QUERY VOUCHER (opsional, ikuti logika yang sama) -----
-        $vouchersQuery = Voucher::with(['businessUnit', 'inputBusinessUnit'])->where('status', 'available');
+        // Voucher yang sudah expired tidak boleh ditawarkan lagi untuk request baru.
+        // Pengecualian: voucher yang MEMANG sudah terpasang di request ini tetap ditampilkan,
+        // supaya nilai yang sudah tersimpan tidak hilang begitu saja dari pilihan saat form dibuka.
+        $vouchersQuery = Voucher::with(['businessUnit', 'inputBusinessUnit'])
+            ->where(function ($q) use ($driverRequest) {
+                $q->where('status', 'available')
+                  ->where(function ($sub) {
+                      $sub->whereNull('expired_at')
+                          ->orWhereDate('expired_at', '>=', now()->toDateString());
+                  });
+                if ($driverRequest->voucher_id) {
+                    $q->orWhere('id', $driverRequest->voucher_id);
+                }
+            });
         if (!$showAllBu) {
             $vouchersQuery->where('business_unit_id', $businessUnitId);
         }
@@ -256,8 +269,22 @@ class AppAdminController extends Controller
 
         $allBusinessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
+        // ----- QUERY TRIP YANG BISA DIGABUNG -----
+        // Hanya request yang sudah "jalan" (approved_admin), sudah punya driver+kendaraan,
+        // dan dia sendiri BUKAN request yang sedang menumpang ke trip lain (mencegah gabung berlapis).
+        $mergeableQuery = DriverRequest::with(['requester', 'driver', 'vehicle'])
+            ->where('id', '!=', $driverRequest->id)
+            ->where('status', 'approved_admin')
+            ->whereNotNull('driver_id')
+            ->whereNull('merged_into_id')
+            ->where('usage_date', $driverRequest->usage_date);
+        if (!$showAllBu) {
+            $mergeableQuery->where('current_business_unit_id', $businessUnitId);
+        }
+        $mergeableRequests = $mergeableQuery->orderBy('start_time')->get();
+
         return view('drms.approval.admin.edit', compact(
-            'driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits'
+            'driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits', 'mergeableRequests'
         ));
     }
 
@@ -274,12 +301,38 @@ class AppAdminController extends Controller
         }
 
         $data = $request->validate([
-            'transport_type' => 'required|in:company_driver,voucher,rental',
-            'driver_id'      => 'nullable|required_if:transport_type,company_driver|exists:drms_drivers,id',
-            'vehicle_id'     => 'nullable|required_if:transport_type,company_driver|exists:drms_vehicles,id',
-            'voucher_id'     => 'nullable|required_if:transport_type,voucher|exists:drms_vouchers,id',
-            'keterangan'     => 'nullable|string',
+            'transport_type'    => 'required|in:company_driver,voucher,rental,merge',
+            'driver_id'         => 'nullable|required_if:transport_type,company_driver|exists:drms_drivers,id',
+            'vehicle_id'        => 'nullable|required_if:transport_type,company_driver|exists:drms_vehicles,id',
+            'voucher_id'        => 'nullable|required_if:transport_type,voucher|exists:drms_vouchers,id',
+            'merged_into_id'    => 'nullable|required_if:transport_type,merge|exists:drms_requests,id',
+            'keterangan'        => 'nullable|string',
         ]);
+
+        // Validasi ulang di server: voucher yang sudah expired tidak boleh diberikan,
+        // meskipun opsinya lolos dari dropdown (mis. dikirim manual lewat request langsung).
+        if ($data['transport_type'] === 'voucher' && !empty($data['voucher_id'])) {
+            $chosenVoucher = Voucher::find($data['voucher_id']);
+            $isExpired = $chosenVoucher && $chosenVoucher->expired_at
+                && \Carbon\Carbon::parse($chosenVoucher->expired_at)->isPast();
+            if ($isExpired) {
+                return back()->withErrors('Voucher yang dipilih sudah kadaluarsa dan tidak dapat diberikan. Silakan pilih voucher lain.')->withInput();
+            }
+        }
+
+        // Validasi ulang di server untuk penggabungan trip: trip induk harus benar-benar
+        // sudah approved_admin, punya driver, dan bukan dia sendiri sedang menumpang ke trip lain.
+        $mergeTarget = null;
+        if ($data['transport_type'] === 'merge') {
+            $mergeTarget = DriverRequest::find($data['merged_into_id']);
+            if (!$mergeTarget
+                || $mergeTarget->id === $driverRequest->id
+                || $mergeTarget->status !== 'approved_admin'
+                || !$mergeTarget->driver_id
+                || $mergeTarget->merged_into_id) {
+                return back()->withErrors('Trip yang dipilih untuk digabung sudah tidak valid. Silakan pilih ulang.')->withInput();
+            }
+        }
 
         $oldDriverId  = $driverRequest->driver_id;
         $oldVehicleId = $driverRequest->vehicle_id;
@@ -333,11 +386,47 @@ class AppAdminController extends Controller
 
         DB::beginTransaction();
         try {
+            if ($data['transport_type'] === 'merge') {
+                // Menumpang ke trip lain: driver & kendaraan disalin dari trip induk,
+                // TIDAK mengubah status driver/kendaraan (mereka sudah on_trip/in_use dari induknya)
+                // dan TIDAK menyentuh voucher (voucher tetap milik trip induk saja).
+                $driverRequest->update([
+                    'transport_type'    => 'company_driver',
+                    'driver_id'         => $mergeTarget->driver_id,
+                    'vehicle_id'        => $mergeTarget->vehicle_id,
+                    'voucher_id'        => null,
+                    'merged_into_id'    => $mergeTarget->id,
+                    'admin_id'          => Auth::id(),
+                    'status'            => 'approved_admin',
+                    'approved_admin_at' => now(),
+                    'rejection_reason'  => $data['keterangan'] ?? null,
+                ]);
+
+                // Kalau request ini sebelumnya punya driver/kendaraan/voucher sendiri
+                // (mis. sedang diedit ulang dari company_driver ke merge), lepas itu dulu.
+                if ($oldDriverId && $oldDriverId != $mergeTarget->driver_id) {
+                    Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+                }
+                if ($oldVehicleId && $oldVehicleId != $mergeTarget->vehicle_id) {
+                    Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
+                }
+                if ($oldVoucherId) {
+                    Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+                }
+
+                $driverRequest->requester->notify(new RequestApprovedAdminNotification($driverRequest));
+
+                DB::commit();
+                return redirect()->route('drms.approval.admin.index')
+                    ->with('success', 'Request berhasil digabung ke trip ' . ($mergeTarget->request_no ?? ('#' . $mergeTarget->id)) . '.');
+            }
+
             $driverRequest->update([
                 'transport_type'    => $data['transport_type'],
                 'driver_id'         => $data['driver_id'] ?? null,
                 'vehicle_id'        => $data['vehicle_id'] ?? null,
                 'voucher_id'        => $data['voucher_id'] ?? null,
+                'merged_into_id'    => null,
                 'admin_id'          => Auth::id(),
                 'status'            => 'approved_admin',
                 'approved_admin_at' => now(),
@@ -441,6 +530,13 @@ class AppAdminController extends Controller
             return back()->withErrors('Hanya permintaan dengan status Disetujui yang bisa diselesaikan.');
         }
 
+        // Request yang menumpang ke trip lain tidak boleh diselesaikan sendiri-sendiri —
+        // itu bisa salah membebaskan driver/kendaraan padahal trip induknya masih jalan.
+        // Harus diselesaikan lewat trip induknya, yang otomatis akan cascade ke sini juga.
+        if ($driverRequest->merged_into_id) {
+            return back()->withErrors('Perjalanan ini digabung dengan trip lain. Selesaikan lewat trip induknya (ID #' . $driverRequest->merged_into_id . ').');
+        }
+
         // 1) Tidak boleh selesai sebelum Log Perjalanan diisi & disubmit driver.
         $log = \App\Models\Drms\TripLog::where('request_id', $driverRequest->id)->first();
         if (!$log || !$log->is_submitted || $log->odometer_start === null || $log->odometer_finish === null) {
@@ -459,6 +555,15 @@ class AppAdminController extends Controller
         try {
             $driverRequest->update(['status' => 'completed']);
 
+            // Kalau request ini adalah INDUK dari trip gabungan, ikut selesaikan
+            // semua request "penumpang" yang menumpang ke trip ini.
+            $passengers = DriverRequest::where('merged_into_id', $driverRequest->id)
+                ->where('status', '!=', 'completed')
+                ->get();
+            foreach ($passengers as $passenger) {
+                $passenger->update(['status' => 'completed']);
+            }
+
             if ($driverRequest->driver_id) {
                 Driver::where('id', $driverRequest->driver_id)->update(['status' => 'available']);
             }
@@ -468,7 +573,7 @@ class AppAdminController extends Controller
 
             DB::commit();
             return redirect()->route('drms.approval.admin.index')
-                ->with('success', 'Permintaan berhasil diselesaikan.');
+                ->with('success', 'Permintaan berhasil diselesaikan.' . ($passengers->count() ? " ({$passengers->count()} request yang menumpang ikut diselesaikan.)" : ''));
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal menyelesaikan permintaan.');

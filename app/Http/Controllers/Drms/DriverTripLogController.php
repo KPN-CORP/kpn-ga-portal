@@ -21,6 +21,13 @@ class DriverTripLogController extends Controller
             abort(403, 'Anda tidak memiliki akses ke perjalanan ini.');
         }
 
+        // Request yang menumpang ke trip lain tidak punya Log Perjalanan sendiri —
+        // arahkan ke log trip induknya (1 trip fisik = 1 log saja).
+        if ($request->merged_into_id) {
+            return redirect()->route('drms.driver.trip.log.create', $request->merged_into_id)
+                ->with('info', 'Perjalanan ini digabung dengan trip lain. Log perjalanan diisi di trip induknya.');
+        }
+
         $log = TripLog::where('request_id', $requestId)->first();
         if ($log && $log->is_verified) {
             return redirect()->back()->with('info', 'Log perjalanan ini sudah diverifikasi admin.');

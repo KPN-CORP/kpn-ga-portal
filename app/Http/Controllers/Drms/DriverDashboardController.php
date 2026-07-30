@@ -24,15 +24,19 @@ class DriverDashboardController extends Controller
 
         $date = $request->get('date');
 
-        $upcomingQuery = DriverRequest::with(['requester', 'vehicle', 'voucher'])
+        $upcomingQuery = DriverRequest::with(['requester', 'vehicle', 'voucher', 'passengers.requester'])
             ->where('driver_id', $driver->id)
             ->where('status', 'approved_admin')
+            // Request yang "menumpang" ke trip lain tidak ditampilkan sebagai baris terpisah —
+            // dia cukup muncul sebagai info tambahan di baris trip induknya (lihat 'passengers' di atas).
+            ->whereNull('merged_into_id')
             ->orderBy('usage_date', 'asc')
             ->orderBy('start_time', 'asc');
 
-        $historyQuery = DriverRequest::with(['requester', 'vehicle', 'voucher'])
+        $historyQuery = DriverRequest::with(['requester', 'vehicle', 'voucher', 'passengers.requester'])
             ->where('driver_id', $driver->id)
             ->whereIn('status', ['completed', 'rejected_admin'])
+            ->whereNull('merged_into_id')
             ->orderBy('usage_date', 'desc')
             ->orderBy('start_time', 'desc');
 
@@ -110,6 +114,16 @@ class DriverDashboardController extends Controller
         try {
             // 1. Update status request menjadi completed
             $driverRequest->update(['status' => 'completed']);
+
+            // Kalau request ini adalah INDUK dari trip gabungan, ikut selesaikan
+            // semua request "penumpang" yang menumpang ke trip ini (mereka tidak
+            // punya Log Perjalanan sendiri, jadi tidak lewat pengecekan di atas).
+            $passengers = DriverRequest::where('merged_into_id', $driverRequest->id)
+                ->where('status', '!=', 'completed')
+                ->get();
+            foreach ($passengers as $passenger) {
+                $passenger->update(['status' => 'completed']);
+            }
 
             // 2. Update driver menjadi available
             Driver::where('id', $driver->id)->update(['status' => 'available']);

@@ -88,10 +88,11 @@ class VoucherController extends Controller
         }
 
         // Filter Bulan (default: bulan sekarang). Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        // Filter berdasarkan tanggal EXPIRED voucher, bukan tanggal dibuat.
         $month = $request->get('month', now()->format('Y-m'));
         if ($month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
             [$year, $monthNum] = explode('-', $month);
-            $query->whereYear('created_at', $year)->whereMonth('created_at', $monthNum);
+            $query->whereYear('expired_at', $year)->whereMonth('expired_at', $monthNum);
         }
 
         $vouchers = $query->latest()->paginate(20)->appends($request->query());
@@ -261,8 +262,9 @@ class VoucherController extends Controller
         $user = Auth::user();
 
         $rules = [
-            'format' => 'required|in:single,double',
-            'file'   => 'required|file|mimes:xlsx,xls,csv|max:5120',
+            'format'     => 'required|in:single,double',
+            'file'       => 'required|file|mimes:xlsx,xls,csv|max:5120',
+            'expired_at' => 'nullable|date',
         ];
         if ($user->isDrmsSuperAdmin()) {
             $rules['business_unit_id'] = 'required|exists:tb_bisnis_unit,id_bisnis_unit';
@@ -275,7 +277,12 @@ class VoucherController extends Controller
             ? $request->business_unit_id
             : $this->getUserBusinessUnitId();
 
-        $import = new VoucherImport($request->format, $businessUnitId);
+        // Tanggal expired default: dipakai untuk baris yang tidak mengisi kolom
+        // expired_at sendiri di file. VoucherImport yang menentukan prioritasnya
+        // (kolom per baris jika diisi, kalau tidak pakai default ini).
+        $defaultExpiredAt = $request->filled('expired_at') ? $request->expired_at : null;
+
+        $import = new VoucherImport($request->format, $businessUnitId, $defaultExpiredAt);
 
         try {
             Excel::import($import, $request->file('file'));
