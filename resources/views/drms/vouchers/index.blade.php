@@ -86,9 +86,29 @@
             @endif
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
+
+                @php
+                    $months = [];
+
+                    // 3 bulan ke depan
+                    for ($i = 3; $i >= 1; $i--) {
+                        $months[] = now()->copy()->addMonths($i)->format('Y-m');
+                    }
+
+                    // Bulan sekarang + 11 bulan ke belakang
+                    for ($i = 0; $i <= 11; $i++) {
+                        $months[] = now()->copy()->subMonths($i)->format('Y-m');
+                    }
+
+                    $months = array_unique($months);
+                @endphp
+
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
-                    @foreach(collect(range(-3, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
+                    <option value="all" {{ $month === 'all' ? 'selected' : '' }}>
+                        Semua Bulan
+                    </option>
+
+                    @foreach($months as $opt)
                         <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
                             {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
                         </option>

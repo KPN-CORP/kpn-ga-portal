@@ -38,7 +38,7 @@
                     <label class="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
                     <select name="month" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                         <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
-                        @foreach(collect(range(0, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
+                        @foreach(collect(range(0, 11))->map(fn($i) => now()->startOfMonth()->subMonths($i)->format('Y-m'))->unique() as $opt)
                             <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
                                 {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
                             </option>

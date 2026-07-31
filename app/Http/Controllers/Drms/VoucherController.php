@@ -109,14 +109,18 @@ class VoucherController extends Controller
     public function create()
     {
         $this->getUserBusinessUnitId(); // validasi akses
+        $user = Auth::user();
         $isSpecialBu = $this->isSpecialBusinessUnitUser();
+        $isSuperAdmin = $user->isDrmsSuperAdmin();
 
         // Daftar business unit untuk pilihan "Business Unit Tujuan" (khusus user KPN Corporation)
-        $businessUnits = $isSpecialBu
+        // DAN untuk pilihan "Business Unit" utama voucher (khusus superadmin, karena superadmin
+        // tidak terikat ke 1 business unit tertentu sehingga wajib pilih manual).
+        $businessUnits = ($isSpecialBu || $isSuperAdmin)
             ? BisnisUnit::orderBy('nama_bisnis_unit')->get()
             : collect();
 
-        return view('drms.vouchers.create', compact('businessUnits', 'isSpecialBu'));
+        return view('drms.vouchers.create', compact('businessUnits', 'isSpecialBu', 'isSuperAdmin'));
     }
 
     public function store(Request $request)
@@ -164,11 +168,12 @@ class VoucherController extends Controller
         }
 
         $isSpecialBu = $this->isSpecialBusinessUnitUser();
-        $businessUnits = $isSpecialBu
+        $isSuperAdmin = $user->isDrmsSuperAdmin();
+        $businessUnits = ($isSpecialBu || $isSuperAdmin)
             ? BisnisUnit::orderBy('nama_bisnis_unit')->get()
             : collect();
 
-        return view('drms.vouchers.edit', compact('voucher', 'businessUnits', 'isSpecialBu'));
+        return view('drms.vouchers.edit', compact('voucher', 'businessUnits', 'isSpecialBu', 'isSuperAdmin'));
     }
 
     public function update(Request $request, Voucher $voucher)
@@ -194,8 +199,17 @@ class VoucherController extends Controller
         if ($isSpecialBu) {
             $rules['input_business_unit_id'] = 'nullable|exists:tb_bisnis_unit,id_bisnis_unit';
         }
+        if ($user->isDrmsSuperAdmin()) {
+            $rules['business_unit_id'] = 'nullable|exists:tb_bisnis_unit,id_bisnis_unit';
+        }
 
         $data = $request->validate($rules);
+
+        // business_unit_id hanya boleh diubah oleh superadmin (user BU biasa terkunci ke BU-nya sendiri,
+        // sudah dijamin lewat pengecekan akses di atas — tidak boleh edit voucher BU lain sama sekali).
+        if ($user->isDrmsSuperAdmin() && $request->filled('business_unit_id')) {
+            $data['business_unit_id'] = $request->business_unit_id;
+        }
 
         // input_business_unit_id hanya diubah untuk user KPN Corporation, selain itu dibiarkan seperti semula
         if ($isSpecialBu) {

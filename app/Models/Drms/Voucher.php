@@ -17,11 +17,14 @@ class Voucher extends Model
     ];
 
     /**
-     * Voucher dianggap expired jika tanggal expired sudah lewat.
+     * Voucher dianggap expired jika tanggal expired sudah LEWAT — bukan pas hari-H.
+     * expired_at dicasting jadi tanggal (jam 00:00:00), jadi harus dicek sampai akhir
+     * hari (23:59:59) dulu baru dianggap kadaluarsa; voucher masih boleh dipakai
+     * sepanjang hari tanggal expired-nya, baru expired mulai keesokan harinya.
      */
     public function getIsExpiredAttribute(): bool
     {
-        return $this->expired_at !== null && $this->expired_at->isPast();
+        return $this->expired_at !== null && $this->expired_at->copy()->endOfDay()->isPast();
     }
 
     public function businessUnit()

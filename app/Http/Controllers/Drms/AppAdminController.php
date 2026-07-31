@@ -311,11 +311,11 @@ class AppAdminController extends Controller
 
         // Validasi ulang di server: voucher yang sudah expired tidak boleh diberikan,
         // meskipun opsinya lolos dari dropdown (mis. dikirim manual lewat request langsung).
+        // Pakai accessor is_expired dari model Voucher supaya logic "tidak expired di
+        // hari-H, baru besoknya" konsisten di semua tempat (tidak dihitung ulang di sini).
         if ($data['transport_type'] === 'voucher' && !empty($data['voucher_id'])) {
             $chosenVoucher = Voucher::find($data['voucher_id']);
-            $isExpired = $chosenVoucher && $chosenVoucher->expired_at
-                && \Carbon\Carbon::parse($chosenVoucher->expired_at)->isPast();
-            if ($isExpired) {
+            if ($chosenVoucher && $chosenVoucher->is_expired) {
                 return back()->withErrors('Voucher yang dipilih sudah kadaluarsa dan tidak dapat diberikan. Silakan pilih voucher lain.')->withInput();
             }
         }

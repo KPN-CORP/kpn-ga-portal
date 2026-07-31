@@ -60,11 +60,23 @@
             <p class="text-xs text-gray-500 mt-1">Kosongkan jika voucher tidak memiliki masa berlaku.</p>
         </div>
 
-        {{-- Optional: Tampilkan business unit sebagai informasi readonly jika diperlukan --}}
-        @if(isset($voucher->business_unit_id))
+        @if($isSuperAdmin ?? false)
+        <div class="mb-4">
+            <label for="business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+            <select name="business_unit_id" id="business_unit_id" required
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Pilih Business Unit --</option>
+                @foreach($businessUnits as $bu)
+                    <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id', $voucher->business_unit_id) == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        {{ $bu->nama_bisnis_unit }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        @elseif($voucher->businessUnit)
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit ID</label>
-                <input type="text" value="{{ $voucher->business_unit_id }}" disabled
+                <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+                <input type="text" value="{{ $voucher->businessUnit->nama_bisnis_unit }}" disabled
                        class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600">
                 <p class="text-xs text-gray-500 mt-1">Tidak dapat diubah</p>
             </div>

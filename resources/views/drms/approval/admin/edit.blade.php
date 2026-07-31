@@ -249,13 +249,13 @@
                     // Voucher yang sudah expired tidak boleh ditawarkan lagi, kecuali voucher
                     // yang memang sudah terpasang sebelumnya di request ini (agar nilai lama tetap tampil).
                     $selectableVouchers = $vouchers->filter(function ($voucher) use ($driverRequest) {
-                        $isExpired = $voucher->expired_at && Carbon::parse($voucher->expired_at)->isPast();
+                        $isExpired = $voucher->is_expired;
                         return !$isExpired || $voucher->id == $driverRequest->voucher_id;
                     });
                 @endphp
                 @foreach($selectableVouchers as $voucher)
                     @php
-                        $isExpired = $voucher->expired_at && Carbon::parse($voucher->expired_at)->isPast();
+                        $isExpired = $voucher->is_expired;
                     @endphp
                     <option value="{{ $voucher->id }}" 
                             {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}

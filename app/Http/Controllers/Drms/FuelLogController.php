@@ -47,6 +47,14 @@ class FuelLogController extends Controller
             $query->where('is_verified', $request->status == 'verified' ? 1 : 0);
         }
 
+        // Filter Bulan (default: bulan sekarang), kecuali sudah pakai filter tanggal manual.
+        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
+        $month = $request->get('month', now()->format('Y-m'));
+        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $monthNum] = explode('-', $month);
+            $query->whereYear('filling_date', $year)->whereMonth('filling_date', $monthNum);
+        }
+
         // PENTING: hitung statistik dari QUERY PENUH (semua filter di atas sudah masuk,
         // sebelum di-paginate) — supaya angkanya total keseluruhan, bukan cuma 20 data
         // di halaman yang sedang tampil.
@@ -76,7 +84,7 @@ class FuelLogController extends Controller
         $logs = $query->latest()->paginate(20)->appends($request->query());
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
         return view('drms.fuel_logs.index', compact(
-            'logs', 'vehicles', 'totalLogs', 'verifiedCount', 'pendingCount',
+            'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount',
             'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik'
         ));
     }

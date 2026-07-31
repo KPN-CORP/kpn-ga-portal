@@ -32,6 +32,7 @@
                class="flex-1 border rounded-lg px-4 py-3 hover:bg-gray-50 transition">
                 <p class="font-medium text-gray-800">📄 Template 2 Voucher / Baris</p>
                 <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher_1, nominal_1, tipe_1, expired_at_1, kode_voucher_2, nominal_2, tipe_2, expired_at_2 (expired_at opsional)</p>
+                <p class="text-xs text-purple-600 mt-1">⚠️ Kode 1 &amp; kode 2 akan DIGABUNG jadi 1 voucher (code: "kode1 &amp; kode2", nominal dijumlah). Tipe voucher (grab/gojek/taxi) wajib sama di kedua kolom, kalau beda baris akan ditolak.</p>
             </a>
         </div>
     </div>
