@@ -159,7 +159,7 @@
     {{-- KALENDER FULL WIDTH (tanpa Unit Maintenance) --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Agenda & Penempatan</h3>
-        <div id="calendar"></div>
+        <div id="calendar" class="w-full"></div>
     </div>
 
 </div>
@@ -167,6 +167,15 @@
 {{-- CSS & JS FullCalendar --}}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+<style>
+    /* Pastikan grid & bar event FullCalendar selalu mengikuti lebar container penuh */
+    #calendar,
+    #calendar .fc,
+    #calendar .fc-view-harness {
+        width: 100% !important;
+    }
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -190,6 +199,42 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 'auto'
     });
     calendar.render();
+
+    // ==========================================================
+    // FIX: garis/bar event (mis. bar biru penempatan multi-hari)
+    // kadang tidak "full" sampai tepi kanan sel tanggal karena
+    // lebar container belum stabil saat calendar.render() pertama
+    // kali dipanggil (animasi sidebar, zoom halaman, font CDN yang
+    // baru selesai load, dll). calendar.updateSize() memaksa
+    // FullCalendar menghitung ulang lebar & posisi setiap event.
+    // ==========================================================
+    function refreshCalendarSize() {
+        calendar.updateSize();
+    }
+
+    // 1) Recalculate sesaat setelah render pertama (jaga-jaga layout belum settle)
+    setTimeout(refreshCalendarSize, 150);
+    window.addEventListener('load', refreshCalendarSize);
+
+    // 2) Recalculate setiap kali ukuran window berubah
+    window.addEventListener('resize', refreshCalendarSize);
+
+    // 3) Recalculate saat sidebar dibuka/ditutup (toggle mobile) atau
+    //    kapan pun lebar container kalender berubah, meski window
+    //    tidak berubah ukuran (mis. akibat animasi transform sidebar)
+    if (window.ResizeObserver) {
+        var calendarResizeObserver = new ResizeObserver(function() {
+            refreshCalendarSize();
+        });
+        calendarResizeObserver.observe(calendarEl);
+    }
+
+    var sidebarToggleBtn = document.getElementById('sidebar-toggle');
+    if (sidebarToggleBtn) {
+        sidebarToggleBtn.addEventListener('click', function() {
+            setTimeout(refreshCalendarSize, 350); // tunggu animasi sidebar (300ms) selesai
+        });
+    }
 });
 </script>
 @endsection
