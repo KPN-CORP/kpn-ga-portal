@@ -410,6 +410,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/create', [UserController::class, 'create'])->name('apartemen.user.create');
             Route::post('/store', [UserController::class, 'store'])->name('apartemen.user.store');
             Route::get('/show/{id}', [UserController::class, 'show'])->name('apartemen.user.show');
+
+            // Daftar Apartemen sesuai Bisnis Unit user (list, detail, foto & penghuni)
+            Route::get('/daftar-apartemen', [UserController::class, 'daftarApartemen'])->name('apartemen.user.daftar');
+            Route::get('/daftar-apartemen/{id}', [UserController::class, 'daftarApartemenDetail'])->name('apartemen.user.daftar.detail');
         });
 
         Route::middleware('apartemen.access:apt_admin')

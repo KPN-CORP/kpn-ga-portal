@@ -88,116 +88,84 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    @if(true)   {{-- Ganti dengan kondisi role admin --}}
-                        {{-- ADMIN MENU --}}
-                        @if(Route::has('dashboard'))
-                        <li>
-                            <a href="{{ route('dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        @endif
+                    {{-- MENU ADMIN APARTEMEN --}}
+                    @if(Route::has('dashboard'))
+                    <li>
+                        <a href="{{ route('dashboard') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    @endif
 
-                        @php
-                            $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
-                        @endphp
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.dashboard') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-chart-pie mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard Admin</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.index') }}" 
-                               class="sidebar-link flex items-center justify-between p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.index') ? 'active' : '' }}">
-                                <span class="flex items-center">
-                                    <i class="fas fa-inbox mr-3 text-gray-500 opacity-70"></i>
-                                    <span>Permintaan</span>
-                                </span>
-                                @if($pendingCount > 0)
-                                    <span class="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-2">{{ $pendingCount }}</span>
-                                @endif
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.apartemen') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.apartemen*') ? 'active' : '' }}">
-                                <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
-                                <span>Unit</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.monitoring') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.monitoring') ? 'active' : '' }}">
-                                <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
-                                <span>Penghuni Aktif</span>
-                            </a>
-                        </li>
-                        
-                        <li>
-                            <a href="{{ route('apartemen.admin.history') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.history') ? 'active' : '' }}">
-                                <i class="fas fa-history mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat</span>
-                            </a>
-                        </li>
+                    @php
+                        $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
+                    @endphp
 
-                        @if(Route::has('apartemen.admin.access-codes'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.access-codes') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.access-codes*') ? 'active' : '' }}">
-                                <i class="fas fa-qrcode mr-3 text-gray-500 opacity-70"></i>
-                                <span>QR Code Akses</span>
-                            </a>
-                        </li>
-                        @endif
+                    <li>
+                        <a href="{{ route('apartemen.admin.dashboard') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-chart-pie mr-3 text-gray-500 opacity-70"></i>
+                            <span>Dashboard Admin</span>
+                        </a>
+                    </li>
 
-                        @if(Route::has('apartemen.admin.report'))
-                        <li>
-                            <a href="{{ route('apartemen.admin.report') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.report') ? 'active' : '' }}">
-                                <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
-                                <span>Laporan</span>
-                            </a>
-                        </li>
-                        @endif
-                    @else
-                        {{-- USER MENU (jika bukan admin) --}}
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-check-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Status Aktif</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.requests') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
-                                <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat Permintaan</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.create') }}" 
-                               class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
-                                <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Pengajuan Baru</span>
-                            </a>
-                        </li>
+                    <li>
+                        <a href="{{ route('apartemen.admin.index') }}"
+                           class="sidebar-link flex items-center justify-between p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.index') ? 'active' : '' }}">
+                            <span class="flex items-center">
+                                <i class="fas fa-inbox mr-3 text-gray-500 opacity-70"></i>
+                                <span>Permintaan</span>
+                            </span>
+                            @if($pendingCount > 0)
+                                <span class="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-2">{{ $pendingCount }}</span>
+                            @endif
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.apartemen') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.apartemen*') ? 'active' : '' }}">
+                            <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
+                            <span>Apartemen &amp; Unit</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.monitoring') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.monitoring') ? 'active' : '' }}">
+                            <i class="fas fa-users mr-3 text-gray-500 opacity-70"></i>
+                            <span>Penghuni Aktif</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.history') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.history') ? 'active' : '' }}">
+                            <i class="fas fa-history mr-3 text-gray-500 opacity-70"></i>
+                            <span>Riwayat</span>
+                        </a>
+                    </li>
+
+                    @if(Route::has('apartemen.admin.access-codes'))
+                    <li>
+                        <a href="{{ route('apartemen.admin.access-codes') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.access-codes*') ? 'active' : '' }}">
+                            <i class="fas fa-qrcode mr-3 text-gray-500 opacity-70"></i>
+                            <span>QR Code Akses</span>
+                        </a>
+                    </li>
+                    @endif
+
+                    @if(Route::has('apartemen.admin.report'))
+                    <li>
+                        <a href="{{ route('apartemen.admin.report') }}"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.report') ? 'active' : '' }}">
+                            <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
+                            <span>Laporan</span>
+                        </a>
+                    </li>
                     @endif
                 </ul>
             </nav>
@@ -211,14 +179,8 @@
                         </span>
                     </div>
                     <div>
-                        <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'User' }}</h3>
-                        <p class="text-xs text-gray-500 opacity-70">
-                            @if(auth()->user()->can('apartemen.admin') ?? false)
-                                Admin Apartemen
-                            @else
-                                Penghuni
-                            @endif
-                        </p>
+                        <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'Admin' }}</h3>
+                        <p class="text-xs text-gray-500 opacity-70">Admin Apartemen</p>
                     </div>
                 </div>
             </div>

@@ -88,61 +88,39 @@
             <!-- Navigation -->
             <nav class="p-4">
                 <ul class="space-y-1">
-                    @if(true)
-                        {{-- ADMIN MENU (sementara) --}}
-                        @if(Route::has('dashboard'))
-                        <li>
-                            <a href="{{ route('dashboard') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        @endif
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
-                                <span>Status Aktif</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.requests') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
-                                <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat Permintaan</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.create') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
-                                <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Pengajuan Baru</span>
-                            </a>
-                        </li>
-                    @else
-                        {{-- USER MENU (asli) --}}
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
-                                <i class="fas fa-check-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Status Aktif</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.requests') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
-                                <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
-                                <span>Riwayat Permintaan</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ route('apartemen.user.create') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
-                                <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
-                                <span>Pengajuan Baru</span>
-                            </a>
-                        </li>
+                    {{-- MENU PENGHUNI / USER --}}
+                    @if(Route::has('dashboard'))
+                    <li>
+                        <a href="{{ route('dashboard') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-tachometer-alt mr-3 text-gray-500 opacity-70"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
                     @endif
+                    <li>
+                        <a href="{{ route('apartemen.user.index') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.index') ? 'active' : '' }}">
+                            <i class="fas fa-check-circle mr-3 text-gray-500 opacity-70"></i>
+                            <span>Status Aktif</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('apartemen.user.daftar') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.daftar*') ? 'active' : '' }}">
+                            <i class="fas fa-building mr-3 text-gray-500 opacity-70"></i>
+                            <span>Daftar Apartemen</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('apartemen.user.requests') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.requests') ? 'active' : '' }}">
+                            <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
+                            <span>Riwayat Permintaan</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('apartemen.user.create') }}" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.user.create') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle mr-3 text-gray-500 opacity-70"></i>
+                            <span>Pengajuan Baru</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -156,13 +134,7 @@
                     </div>
                     <div>
                         <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'User' }}</h3>
-                        <p class="text-xs text-gray-500 opacity-70">
-                            @if(auth()->user()->can('apartemen.admin') ?? false)
-                                Admin Apartemen
-                            @else
-                                Penghuni
-                            @endif
-                        </p>
+                        <p class="text-xs text-gray-500 opacity-70">Penghuni</p>
                     </div>
                 </div>
             </div>

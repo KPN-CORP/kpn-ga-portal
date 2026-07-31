@@ -7,6 +7,9 @@ use App\Models\Apartemen\ApartemenRequest;
 use App\Models\Apartemen\ApartemenAssign;
 use App\Models\Apartemen\ApartemenPenghuni;
 use App\Models\Apartemen\ApartemenHistory;
+use App\Models\Apartemen\Apartemen;
+use App\Models\Apartemen\ApartemenUnit;
+use App\Models\Apartemen\BisnisUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -394,5 +397,140 @@ private function validatePhoneNumber($phone)
         });
 
         return view('apartemen.user.requests', compact('requests', 'activeCount'));
+    }
+
+    // =================================================================
+    // DAFTAR APARTEMEN (PER BISNIS UNIT) - UNTUK USER
+    // =================================================================
+
+    /**
+     * Menentukan id bisnis unit milik user yang sedang login.
+     *
+     * Karena tabel `users` tidak memiliki kolom bisnis_unit_id secara
+     * langsung, id bisnis unit dicari dengan mencocokkan `group_company`
+     * milik user (tersimpan di tb_access_menu, berdasarkan username)
+     * dengan `nama_bisnis_unit` pada tabel tb_bisnis_unit.
+     *
+     * Jika suatu saat kolom bisnis_unit_id ditambahkan langsung ke tabel
+     * users, method ini otomatis akan memakainya lebih dulu.
+     */
+    private function getUserBisnisUnitId()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return null;
+        }
+
+        // 1) Jika kolom bisnis_unit_id sudah ada langsung di tabel users
+        if (!empty($user->bisnis_unit_id)) {
+            return $user->bisnis_unit_id;
+        }
+
+        // 2) Fallback: cocokkan group_company (tb_access_menu) dengan nama_bisnis_unit
+        $username = $user->username ?? $user->name ?? null;
+
+        if ($username) {
+            $groupCompany = DB::table('tb_access_menu')
+                ->where('username', $username)
+                ->value('group_company');
+
+            if ($groupCompany) {
+                $bisnisUnit = BisnisUnit::where('nama_bisnis_unit', $groupCompany)->first();
+                if ($bisnisUnit) {
+                    return $bisnisUnit->id_bisnis_unit;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Daftar Apartemen sesuai Bisnis Unit user yang login.
+     * Menampilkan apartemen yang memiliki unit untuk bisnis unit tersebut,
+     * lengkap dengan ringkasan foto (gambar 360) & jumlah penghuni.
+     */
+    public function daftarApartemen(Request $request)
+    {
+        $bisnisUnitId = $this->getUserBisnisUnitId();
+        $bisnisUnit = $bisnisUnitId ? BisnisUnit::find($bisnisUnitId) : null;
+
+        $query = Apartemen::withCount([
+            'units as units_count' => function ($q) use ($bisnisUnitId) {
+                if ($bisnisUnitId) {
+                    $q->where('bisnis_unit_id', $bisnisUnitId);
+                }
+            },
+            'units as units_ready' => function ($q) use ($bisnisUnitId) {
+                $q->where('status', 'READY');
+                if ($bisnisUnitId) {
+                    $q->where('bisnis_unit_id', $bisnisUnitId);
+                }
+            },
+            'units as units_terisi' => function ($q) use ($bisnisUnitId) {
+                $q->where('status', 'TERISI');
+                if ($bisnisUnitId) {
+                    $q->where('bisnis_unit_id', $bisnisUnitId);
+                }
+            },
+        ])
+        ->with(['units' => function ($q) use ($bisnisUnitId) {
+            if ($bisnisUnitId) {
+                $q->where('bisnis_unit_id', $bisnisUnitId);
+            }
+            $q->orderBy('nomor_unit');
+        }]);
+
+        // Hanya tampilkan apartemen yang punya unit untuk bisnis unit user
+        if ($bisnisUnitId) {
+            $query->whereHas('units', function ($q) use ($bisnisUnitId) {
+                $q->where('bisnis_unit_id', $bisnisUnitId);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $query->where('nama_apartemen', 'like', '%' . $request->search . '%');
+        }
+
+        $apartemen = $query->orderBy('nama_apartemen')->paginate(9)->withQueryString();
+
+        return view('apartemen.user.daftar-apartemen', compact('apartemen', 'bisnisUnit'));
+    }
+
+    /**
+     * Detail sebuah Apartemen: daftar unit (untuk bisnis unit user),
+     * foto/gambar 360, status, dan siapa saja penghuni aktifnya.
+     */
+    public function daftarApartemenDetail($id, Request $request)
+    {
+        $bisnisUnitId = $this->getUserBisnisUnitId();
+        $bisnisUnit = $bisnisUnitId ? BisnisUnit::find($bisnisUnitId) : null;
+
+        $apartemen = Apartemen::findOrFail($id);
+
+        $unitsQuery = ApartemenUnit::where('apartemen_id', $id)
+            ->with([
+                'bisnisUnit',
+                'activeAssigns.penghuniAktif',
+            ])
+            ->withCount(['assigns as active_assignments' => function ($q) {
+                $q->where('status', 'AKTIF');
+            }]);
+
+        if ($bisnisUnitId) {
+            $unitsQuery->where('bisnis_unit_id', $bisnisUnitId);
+        }
+
+        if ($request->filled('search')) {
+            $unitsQuery->where('nomor_unit', 'like', '%' . $request->search . '%');
+        }
+
+        if ($request->filled('status')) {
+            $unitsQuery->where('status', $request->status);
+        }
+
+        $units = $unitsQuery->orderBy('nomor_unit')->paginate(9)->withQueryString();
+
+        return view('apartemen.user.daftar-apartemen-detail', compact('apartemen', 'units', 'bisnisUnit'));
     }
 }

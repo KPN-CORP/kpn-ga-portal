@@ -69,10 +69,10 @@ class SyncDrmsUserProfiles extends Command
             // Nilai default area dari HCIS
             $areaToSave = $hcis->office_area ?? null;
 
-            // Jika profil sudah ada dan id-nya 133, gunakan area yang lama
-            if ($existingProfile && $existingProfile->id == 133) {
+            // Jika profil sudah ada dan ID-nya 133 atau 44, gunakan area yang lama
+            if ($existingProfile && in_array($existingProfile->id, [44, 133])) {
                 $areaToSave = $existingProfile->area;
-                $this->line("  [LOCKED] User {$user->username} area dipertahankan (ID profil 133): '{$areaToSave}'");
+                $this->line("  [LOCKED] User {$user->username} area dipertahankan (ID profil {$existingProfile->id}): '{$areaToSave}'");
             }
             // ==========================================================
 
