@@ -35,6 +35,7 @@
           <tr class="border-b text-xs text-gray-400">
             <th class="py-2 pr-3 font-medium">Lampiran</th>
             <th class="py-2 pr-3 font-medium">No. Transaksi</th>
+            <th class="py-2 pr-3 font-medium">Dibuat</th>
             <th class="py-2 pr-3 font-medium">Jemput</th>
             <th class="py-2 pr-3 font-medium">Antar</th>
             <th class="py-2 pr-3 font-medium">Pengirim</th>

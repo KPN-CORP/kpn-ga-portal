@@ -25,6 +25,9 @@
     <p class="text-sm font-semibold">{{ $item->no_transaksi }}</p>
     <p class="text-xs text-gray-500">{{ Str::limit($item->deskripsi, 40) }}</p>
   </td>
+  <td class="py-2 pr-3 text-xs text-gray-600 whitespace-nowrap">
+    {{ \Carbon\Carbon::parse($item->created_at)->translatedFormat('d M Y, H:i') }}
+  </td>
   <td class="py-2 pr-3 text-xs text-gray-600">
     <a href="{{ $item->maps_asal }}" target="_blank" class="jne-text underline">{{ Str::limit($item->alamat_asal, 35) }}</a>
   </td>
@@ -63,7 +66,7 @@
 </tr>
 @if ($sudahDiambil && $sedangDiantar)
   <tr id="selesai-tbl-{{ $item->no_transaksi }}" class="hidden border-b last:border-0">
-    <td colspan="8" class="pb-3">
+    <td colspan="9" class="pb-3">
       @include('antaran.partials.form-selesaikan', ['item' => $item])
     </td>
   </tr>

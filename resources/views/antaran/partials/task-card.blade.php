@@ -28,6 +28,7 @@
         @include('antaran.partials.status-badge', ['status' => $item->status])
       </div>
       <p class="text-xs text-gray-500">{{ Str::limit($item->deskripsi, 40) }}</p>
+      <p class="text-[11px] text-gray-400 mt-0.5">Dibuat {{ \Carbon\Carbon::parse($item->created_at)->translatedFormat('d M Y, H:i') }}</p>
     </div>
   </div>
 
