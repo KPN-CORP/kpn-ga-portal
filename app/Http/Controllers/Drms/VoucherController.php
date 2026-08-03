@@ -120,7 +120,17 @@ class VoucherController extends Controller
             ? BisnisUnit::orderBy('nama_bisnis_unit')->get()
             : collect();
 
-        return view('drms.vouchers.create', compact('businessUnits', 'isSpecialBu', 'isSuperAdmin'));
+        // Business Unit milik user sendiri:
+        // - Untuk superadmin: dipakai buat PRE-SELECT dropdown di atas (kalau akun superadmin-nya
+        //   kebetulan juga terhubung ke 1 BU tertentu), tapi tetap bisa diganti bebas.
+        // - Untuk user BU biasa (non-superadmin, non-KPN Corporation): ditampilkan langsung sebagai
+        //   info "Business Unit: <nama BU sendiri>" di form, bukan field "Dibebankan ke BU".
+        $ownBusinessUnitId = $user->drmsProfile?->business_unit_id ?? null;
+        $ownBusinessUnitName = $user->drmsProfile?->businessUnit?->nama_bisnis_unit ?? null;
+
+        return view('drms.vouchers.create', compact(
+            'businessUnits', 'isSpecialBu', 'isSuperAdmin', 'ownBusinessUnitId', 'ownBusinessUnitName'
+        ));
     }
 
     public function store(Request $request)
@@ -138,6 +148,9 @@ class VoucherController extends Controller
 
         if ($isSpecialBu) {
             $rules['input_business_unit_id'] = 'nullable|exists:tb_bisnis_unit,id_bisnis_unit';
+        }
+        if ($user->isDrmsSuperAdmin()) {
+            $rules['business_unit_id'] = 'required|exists:tb_bisnis_unit,id_bisnis_unit';
         }
 
         $data = $request->validate($rules);
@@ -243,40 +256,42 @@ class VoucherController extends Controller
     {
         $this->getUserBusinessUnitId(); // validasi akses
         $user = Auth::user();
-        $businessUnits = $user->isDrmsSuperAdmin()
+        $isSuperAdmin = $user->isDrmsSuperAdmin();
+        $isSpecialBu = $this->isSpecialBusinessUnitUser();
+        $businessUnits = $isSuperAdmin
             ? BisnisUnit::orderBy('nama_bisnis_unit')->get()
             : collect();
 
-        return view('drms.vouchers.upload', compact('businessUnits'));
+        // Kalau akun superadmin kebetulan juga terhubung ke 1 BU tertentu di profilnya,
+        // pre-select itu di dropdown (tetap bisa diganti bebas ke BU lain).
+        $ownBusinessUnitId = $user->drmsProfile?->business_unit_id ?? null;
+
+        return view('drms.vouchers.upload', compact('businessUnits', 'ownBusinessUnitId', 'isSuperAdmin', 'isSpecialBu'));
     }
 
     /**
-     * Download template upload voucher (.xlsx).
-     * Tipe 'single'  = 1 voucher per baris.
-     * Tipe 'double'  = 2 voucher per baris.
+     * Download template upload voucher (.xlsx). Sekarang cuma 1 format template
+     * (kolom kode_voucher mendukung 1 kode atau gabungan "kode1 & kode2" langsung).
      */
-    public function downloadTemplate($type)
+    public function downloadTemplate()
     {
         $this->getUserBusinessUnitId(); // validasi akses
-
-        $type = $type === 'double' ? 'double' : 'single';
-        $filename = $type === 'double'
-            ? 'template_voucher_2_per_baris.xlsx'
-            : 'template_voucher_1_per_baris.xlsx';
-
-        return Excel::download(new VoucherTemplateExport($type), $filename);
+        return Excel::download(new VoucherTemplateExport(), 'template_voucher.xlsx');
     }
 
     /**
-     * Proses upload voucher dari file Excel/CSV (1 atau 2 voucher per baris).
-     * Voucher otomatis mengambil business unit user yang input (kecuali superadmin memilih BU).
+     * Proses upload voucher dari file Excel/CSV.
+     * Voucher otomatis mengambil business unit user yang input, kecuali:
+     * - Superadmin bisa override per baris lewat kolom "Business Unit" di file
+     *   (atau pakai BU default yang dipilih di form kalau kolomnya kosong).
+     * - User BU khusus (KPN Corporation) bisa isi kolom "Dibebankan ke BU" per baris.
      */
     public function upload(Request $request)
     {
         $user = Auth::user();
+        $isSpecialBu = $this->isSpecialBusinessUnitUser();
 
         $rules = [
-            'format'     => 'required|in:single,double',
             'file'       => 'required|file|mimes:xlsx,xls,csv|max:5120',
             'expired_at' => 'nullable|date',
         ];
@@ -296,7 +311,7 @@ class VoucherController extends Controller
         // (kolom per baris jika diisi, kalau tidak pakai default ini).
         $defaultExpiredAt = $request->filled('expired_at') ? $request->expired_at : null;
 
-        $import = new VoucherImport($request->format, $businessUnitId, $defaultExpiredAt);
+        $import = new VoucherImport($businessUnitId, $defaultExpiredAt, $user->isDrmsSuperAdmin(), $isSpecialBu);
 
         try {
             Excel::import($import, $request->file('file'));

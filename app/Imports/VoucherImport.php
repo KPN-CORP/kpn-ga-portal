@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Drms\Voucher;
+use App\Models\BisnisUnit;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -11,6 +12,7 @@ use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 {
     private const VALID_TYPES = ['grab', 'gojek', 'taxi'];
+    private const VALID_STATUS = ['available', 'used'];
 
     public int $created = 0;
     public int $skipped = 0;
@@ -18,16 +20,25 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     /** @var array<int, string> */
     public array $errors = [];
 
+    /** Cache nama BU -> id, supaya tidak query berulang tiap baris. */
+    private ?Collection $businessUnitsByName = null;
+
     /**
-     * @param string $format 'single' (1 voucher/baris) atau 'double' (2 kode digabung jadi 1 voucher/baris)
-     * @param int|null $businessUnitId Business unit yang otomatis dipakai untuk semua voucher yang diupload
-     * @param string|null $defaultExpiredAt Tanggal expired default (Y-m-d), dipakai untuk baris yang
-     *                                      tidak mengisi kolom expired_at sendiri.
+     * @param int|null $defaultBusinessUnitId BU default/fallback (dipilih di form upload),
+     *                                         dipakai kalau kolom "Business Unit" di baris kosong.
+     * @param string|null $defaultExpiredAt Tanggal expired default (Y-m-d), dipakai kalau kolom
+     *                                      expired_at di baris kosong.
+     * @param bool $isSuperAdmin Superadmin boleh override Business Unit per baris lewat kolom
+     *                           "Business Unit". Non-superadmin SELALU pakai BU mereka sendiri
+     *                           (kolom "Business Unit" di file diabaikan, demi keamanan akses).
+     * @param bool $isSpecialBu User dari BU khusus (KPN Corporation) — kolom "Dibebankan ke BU"
+     *                          cuma berlaku untuk user ini, selain itu selalu diabaikan/null.
      */
     public function __construct(
-        protected string $format,
-        protected $businessUnitId,
-        protected $defaultExpiredAt = null
+        protected $defaultBusinessUnitId,
+        protected $defaultExpiredAt = null,
+        protected bool $isSuperAdmin = false,
+        protected bool $isSpecialBu = false
     ) {
     }
 
@@ -38,131 +49,53 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
         foreach ($rows as $row) {
             $rowNum++;
+            $this->processRow($row, $rowNum);
+        }
+    }
 
-            if ($this->format === 'double') {
-                $this->processDoubleRow($row, $rowNum);
-            } else {
-                $this->processSingleSlot(
-                    $row['kode_voucher'] ?? null,
-                    $row['nominal'] ?? null,
-                    $row['tipe'] ?? null,
-                    $row['expired_at'] ?? null,
-                    $rowNum
-                );
+    private function processRow($row, int $rowNum): void
+    {
+        $rawCode = trim((string) ($row['kode_voucher'] ?? ''));
+        if ($rawCode === '') {
+            return; // baris kosong, dilewati tanpa dihitung error
+        }
+
+        // Kode boleh 1 ("wrtgf") atau digabung dengan " & " ("kdfjd & jhdfu") — kalau digabung,
+        // dianggap 1 voucher gabungan; nominal di baris itu adalah TOTAL gabungan, bukan per kode.
+        $code = $rawCode;
+        if (str_contains($code, '&')) {
+            $parts = array_values(array_filter(array_map('trim', explode('&', $code)), fn($p) => $p !== ''));
+            if (count($parts) < 2) {
+                $this->errors[] = "Baris {$rowNum}: format kode gabungan '{$rawCode}' tidak valid (butuh 2 kode dipisah '&').";
+                $this->skipped++;
+                return;
             }
-        }
-    }
-
-    /**
-     * Template "2 voucher per baris": kode_voucher_1 & kode_voucher_2 DIGABUNG jadi
-     * SATU voucher (code: "kode1 & kode2", nominal dijumlah, tipe wajib sama).
-     * Kalau cuma salah satu slot yang diisi (baris ganjil), diperlakukan sebagai
-     * voucher tunggal biasa (tidak digabung, karena memang cuma 1 kode).
-     */
-    private function processDoubleRow($row, int $rowNum): void
-    {
-        $code1 = trim((string) ($row['kode_voucher_1'] ?? ''));
-        $code2 = trim((string) ($row['kode_voucher_2'] ?? ''));
-
-        if ($code1 === '' && $code2 === '') {
-            return; // baris kosong total, dilewati tanpa dihitung error
+            $code = implode(' & ', $parts);
         }
 
-        // Cuma salah satu slot yang diisi -> perlakukan sebagai voucher tunggal (tidak digabung).
-        if ($code2 === '') {
-            $this->processSingleSlot($code1, $row['nominal_1'] ?? null, $row['tipe_1'] ?? null, $row['expired_at_1'] ?? null, $rowNum);
-            return;
-        }
-        if ($code1 === '') {
-            $this->processSingleSlot($code2, $row['nominal_2'] ?? null, $row['tipe_2'] ?? null, $row['expired_at_2'] ?? null, $rowNum);
-            return;
-        }
-
-        // Dua-duanya diisi -> gabung jadi 1 voucher.
-        $type1 = strtolower(trim((string) ($row['tipe_1'] ?? '')));
-        $type2 = strtolower(trim((string) ($row['tipe_2'] ?? '')));
-        if ($type1 === 'bluebird') $type1 = 'taxi';
-        if ($type2 === 'bluebird') $type2 = 'taxi';
-
-        if (!in_array($type1, self::VALID_TYPES, true) || !in_array($type2, self::VALID_TYPES, true)) {
-            $this->errors[] = "Baris {$rowNum}: tipe tidak valid untuk kode {$code1} & {$code2} (harus grab/gojek/taxi).";
-            $this->skipped++;
-            return;
-        }
-
-        if ($type1 !== $type2) {
-            $this->errors[] = "Baris {$rowNum}: tipe_1 ({$type1}) dan tipe_2 ({$type2}) berbeda untuk kode {$code1} & {$code2} — tipe harus sama supaya bisa digabung, baris dilewati.";
-            $this->skipped++;
-            return;
-        }
-
-        $nominal1 = $row['nominal_1'] ?? null;
-        $nominal2 = $row['nominal_2'] ?? null;
-        if (!is_numeric($nominal1) || (float) $nominal1 < 0 || !is_numeric($nominal2) || (float) $nominal2 < 0) {
-            $this->errors[] = "Baris {$rowNum}: nominal tidak valid untuk kode {$code1} & {$code2}.";
-            $this->skipped++;
-            return;
-        }
-
-        $combinedCode = $code1 . ' & ' . $code2;
-
-        if (Voucher::where('code', $combinedCode)->exists()) {
-            $this->errors[] = "Baris {$rowNum}: kode {$combinedCode} sudah ada, dilewati.";
-            $this->skipped++;
-            return;
-        }
-
-        // Tanggal expired: pakai expired_at_1 kalau diisi, kalau kosong pakai expired_at_2,
-        // kalau dua-duanya kosong pakai tanggal default dari form upload (boleh null juga).
-        $expiredRaw = $row['expired_at_1'] ?? null;
-        if ($expiredRaw === null || trim((string) $expiredRaw) === '') {
-            $expiredRaw = $row['expired_at_2'] ?? null;
-        }
-
-        try {
-            $expiredAt = $this->resolveExpiredAt($expiredRaw);
-        } catch (\Exception $e) {
-            $this->errors[] = "Baris {$rowNum}: tanggal expired tidak valid untuk kode {$combinedCode}, voucher dilewati.";
-            $this->skipped++;
-            return;
-        }
-
-        Voucher::create([
-            'code'                   => $combinedCode,
-            'nominal'                => (float) $nominal1 + (float) $nominal2,
-            'type'                   => $type1,
-            'status'                 => 'available',
-            'business_unit_id'       => $this->businessUnitId,
-            'input_business_unit_id' => null,
-            'expired_at'             => $expiredAt,
-        ]);
-        $this->created++;
-    }
-
-    /**
-     * Simpan 1 voucher tunggal (dipakai untuk template "single", dan untuk baris
-     * ganjil di template "double" yang cuma punya 1 kode terisi).
-     */
-    private function processSingleSlot($code, $nominal, $type, $expiredRaw, int $rowNum): void
-    {
-        $code = trim((string) $code);
-        if ($code === '') {
-            return;
-        }
-
-        $type = strtolower(trim((string) $type));
+        $type = strtolower(trim((string) ($row['tipe'] ?? '')));
         if ($type === 'bluebird') {
             $type = 'taxi';
         }
-
         if (!in_array($type, self::VALID_TYPES, true)) {
             $this->errors[] = "Baris {$rowNum}: tipe '{$type}' tidak valid untuk kode {$code} (harus grab/gojek/taxi).";
             $this->skipped++;
             return;
         }
 
+        $nominal = $row['nominal'] ?? null;
         if (!is_numeric($nominal) || (float) $nominal < 0) {
             $this->errors[] = "Baris {$rowNum}: nominal tidak valid untuk kode {$code}.";
+            $this->skipped++;
+            return;
+        }
+
+        $status = strtolower(trim((string) ($row['status'] ?? '')));
+        if ($status === '') {
+            $status = 'available'; // default kalau kolom Status dikosongkan
+        }
+        if (!in_array($status, self::VALID_STATUS, true)) {
+            $this->errors[] = "Baris {$rowNum}: status '{$status}' tidak valid untuk kode {$code} (harus available/used).";
             $this->skipped++;
             return;
         }
@@ -174,28 +107,77 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         }
 
         try {
-            $expiredAt = $this->resolveExpiredAt($expiredRaw);
+            $expiredAt = $this->resolveExpiredAt($row['expired_at'] ?? null);
         } catch (\Exception $e) {
             $this->errors[] = "Baris {$rowNum}: tanggal expired tidak valid untuk kode {$code}, voucher dilewati.";
             $this->skipped++;
             return;
         }
 
+        // Business Unit: hanya superadmin yang boleh override per baris lewat kolom "Business Unit".
+        // Non-superadmin selalu pakai BU mereka sendiri (defaultBusinessUnitId), kolom di file diabaikan.
+        $businessUnitId = $this->defaultBusinessUnitId;
+        if ($this->isSuperAdmin) {
+            $buName = trim((string) ($row['business_unit'] ?? ''));
+            if ($buName !== '') {
+                $found = $this->findBusinessUnitByName($buName);
+                if (!$found) {
+                    $this->errors[] = "Baris {$rowNum}: Business Unit '{$buName}' tidak ditemukan untuk kode {$code}, voucher dilewati.";
+                    $this->skipped++;
+                    return;
+                }
+                $businessUnitId = $found;
+            }
+        }
+        if (!$businessUnitId) {
+            $this->errors[] = "Baris {$rowNum}: Business Unit belum ditentukan untuk kode {$code} (isi kolom Business Unit, atau pilih BU default di form upload).";
+            $this->skipped++;
+            return;
+        }
+
+        // Dibebankan ke BU (input_business_unit_id): cuma berlaku untuk user BU khusus (KPN Corporation).
+        $inputBusinessUnitId = null;
+        if ($this->isSpecialBu) {
+            $dibebankanName = trim((string) ($row['dibebankan_ke_bu'] ?? ''));
+            if ($dibebankanName !== '') {
+                $found = $this->findBusinessUnitByName($dibebankanName);
+                if (!$found) {
+                    $this->errors[] = "Baris {$rowNum}: Business Unit tujuan (Dibebankan ke BU) '{$dibebankanName}' tidak ditemukan untuk kode {$code}, voucher dilewati.";
+                    $this->skipped++;
+                    return;
+                }
+                $inputBusinessUnitId = $found;
+            }
+        }
+
         Voucher::create([
             'code'                   => $code,
             'nominal'                => (float) $nominal,
             'type'                   => $type,
-            'status'                 => 'available',
-            'business_unit_id'       => $this->businessUnitId,
-            'input_business_unit_id' => null,
+            'status'                 => $status,
+            'business_unit_id'       => $businessUnitId,
+            'input_business_unit_id' => $inputBusinessUnitId,
             'expired_at'             => $expiredAt,
         ]);
         $this->created++;
     }
 
     /**
+     * Cari id_bisnis_unit dari nama (case-insensitive), pakai cache supaya query
+     * daftar BU cuma dijalankan sekali per proses upload, bukan per baris.
+     */
+    private function findBusinessUnitByName(string $name): ?int
+    {
+        if ($this->businessUnitsByName === null) {
+            $this->businessUnitsByName = BisnisUnit::pluck('id_bisnis_unit', 'nama_bisnis_unit')
+                ->mapWithKeys(fn ($id, $nama) => [strtolower(trim($nama)) => $id]);
+        }
+        return $this->businessUnitsByName->get(strtolower(trim($name)));
+    }
+
+    /**
      * Tentukan tanggal expired final untuk satu voucher:
-     * - Kalau kolom expired_at di baris/slot diisi, pakai itu (mendukung serial tanggal Excel maupun teks).
+     * - Kalau kolom expired_at di baris diisi, pakai itu (mendukung serial tanggal Excel maupun teks).
      * - Kalau kosong, pakai tanggal expired default dari form upload (boleh null juga).
      *
      * @throws \Exception jika nilai expired_at diisi tapi tidak bisa diparse sebagai tanggal.

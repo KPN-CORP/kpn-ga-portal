@@ -633,6 +633,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth'])->group(function () {
         Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
         Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
+        Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
         Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
 
         // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
@@ -645,6 +646,7 @@ Route::middleware(['auth'])->group(function () {
 
             Route::post('/{memoTeam}/admins', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addAdmin'])->name('memo-teams.admins.add');
             Route::delete('/{memoTeam}/admins/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeAdmin'])->name('memo-teams.admins.remove');
+            Route::patch('/{memoTeam}/admins/{user}/jabatan', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateAdminJabatan'])->name('memo-teams.admins.jabatan');
 
             Route::post('/{memoTeam}/members', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addMember'])->name('memo-teams.members.add');
             Route::delete('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeMember'])->name('memo-teams.members.remove');

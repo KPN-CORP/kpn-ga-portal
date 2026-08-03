@@ -63,6 +63,29 @@ class MemoNumberSetting extends Model
     }
 
     /**
+     * Ambil nama & jabatan penandatangan memo, diambil dari data admin acuan penomoran
+     * ($creator sendiri kalau dia admin, atau admin penanggung jawabnya kalau dia anggota).
+     * Nama & jabatan ini otomatis dipakai untuk mengisi field "Penandatangan" & "Jabatan" di memo.
+     */
+    public static function resolveSigner(User $creator): array
+    {
+        $adminId = self::resolveAdminId($creator);
+
+        if (!$adminId) {
+            return ['admin_id' => null, 'penandatangan' => $creator->name, 'jabatan' => null];
+        }
+
+        $admin = User::find($adminId);
+        $jabatan = MemoTeamAdmin::where('user_id', $adminId)->whereNotNull('jabatan')->value('jabatan');
+
+        return [
+            'admin_id'      => $adminId,
+            'penandatangan' => $admin->name ?? $creator->name,
+            'jabatan'       => $jabatan,
+        ];
+    }
+
+    /**
      * Generate nomor memo berikutnya untuk admin_id tertentu (null = setting default/global).
      * Row-lock dipakai supaya aman kalau ada 2 memo dibuat bersamaan oleh admin yang sama.
      */

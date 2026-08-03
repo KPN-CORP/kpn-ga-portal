@@ -8,34 +8,26 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
+/**
+ * Template upload voucher — SATU format saja (tidak ada lagi single/double terpisah).
+ * Kolom kode_voucher mendukung 1 kode ("wrtgf") ATAU 2 kode digabung dengan " & "
+ * ("kdfjd & jhdfu") langsung di sel yang sama — kalau ada " & ", otomatis dianggap
+ * 1 voucher gabungan (nominal di baris itu dianggap total gabungan, bukan per kode).
+ */
 class VoucherTemplateExport implements FromArray, WithHeadings, WithStyles, ShouldAutoSize
 {
-    /**
-     * @param string $type 'single' (1 voucher/baris) atau 'double' (2 voucher/baris)
-     */
-    public function __construct(protected string $type = 'single')
-    {
-    }
-
     public function headings(): array
     {
-        return $this->type === 'double'
-            ? ['kode_voucher_1', 'nominal_1', 'tipe_1', 'expired_at_1', 'kode_voucher_2', 'nominal_2', 'tipe_2', 'expired_at_2']
-            : ['kode_voucher', 'nominal', 'tipe', 'expired_at'];
+        return ['kode_voucher', 'nominal', 'Status', 'tipe', 'expired_at', 'Business Unit', 'Dibebankan ke BU'];
     }
 
     public function array(): array
     {
-        if ($this->type === 'double') {
-            return [
-                ['GRB1000001', 50000, 'grab', '2026-12-31', 'GJK1000001', 30000, 'gojek', ''],
-                ['TXI1000002', 75000, 'taxi', '', '', '', '', ''],
-            ];
-        }
-
         return [
-            ['GRB1000001', 50000, 'grab', '2026-12-31'],
-            ['GJK1000001', 30000, 'gojek', ''],
+            // 1 voucher biasa
+            ['wrtgf', 50000, 'available', 'grab', '2026-12-31', '', ''],
+            // 2 kode digabung jadi 1 voucher (pisahkan dengan " & ", nominal = total gabungan)
+            ['kdfjd & jhdfu', 100000, 'available', 'gojek', '', '', ''],
         ];
     }
 

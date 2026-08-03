@@ -19,4 +19,13 @@ class MemosItems extends Model
     {
         return $this->belongsTo(Memos::class, 'memo_id');
     }
+
+    /**
+     * Kolom "Nama" lama sekarang tampil di UI sebagai "Keterangan".
+     * Accessor ini supaya view bisa pakai $item->keterangan tanpa perlu migrasi kolom.
+     */
+    public function getKeteranganAttribute()
+    {
+        return $this->nama;
+    }
 }

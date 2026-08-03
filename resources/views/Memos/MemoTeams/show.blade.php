@@ -23,24 +23,41 @@
         <div class="bg-white rounded-xl shadow-sm p-5">
             <h3 class="font-bold mb-3">👤 Admin Tim ({{ $team->admins->count() }})</h3>
 
-            <form method="POST" action="{{ route('memo-teams.admins.add', $team) }}" class="flex gap-2 mb-4">
+            <form method="POST" action="{{ route('memo-teams.admins.add', $team) }}"
+                x-data="userSearchSelect(@js($users))" class="flex flex-col gap-2 mb-4">
                 @csrf
-                <select name="user_id" required class="flex-1 border rounded-lg p-2 text-sm">
-                    <option value="">-- Pilih user jadi admin --</option>
-                    @foreach($users as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->username ?? $u->email }})</option>
-                    @endforeach
-                </select>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap">+ Tambah</button>
+                <div class="relative">
+                    <input type="text" x-model="search" @focus="open = true" @input="open = true"
+                        placeholder="Cari nama user..." autocomplete="off"
+                        class="w-full border rounded-lg p-2 text-sm">
+                    <input type="hidden" name="user_id" :value="selectedId" required>
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                        class="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border rounded-lg shadow-lg">
+                        <template x-for="u in filtered" :key="u.id">
+                            <div @click="select(u)" class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer"
+                                x-text="u.name + (u.username || u.email ? ' (' + (u.username || u.email) + ')' : '')"></div>
+                        </template>
+                        <div x-show="filtered.length === 0" class="px-3 py-2 text-sm text-gray-400">Tidak ditemukan</div>
+                    </div>
+                </div>
+                <input type="text" name="jabatan" placeholder="Jabatan (mis. Manager Finance)" class="border rounded-lg p-2 text-sm">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap">+ Tambah Admin</button>
             </form>
+            <p class="text-xs text-gray-400 mb-3">Nama & jabatan admin di sini otomatis dipakai sebagai Penandatangan pada memo.</p>
 
             <div class="divide-y">
                 @forelse($team->admins as $admin)
-                <div class="flex justify-between items-center py-2">
-                    <span class="text-sm">{{ $admin->name }}</span>
-                    <form method="POST" action="{{ route('memo-teams.admins.remove', [$team, $admin]) }}" onsubmit="return confirm('Keluarkan {{ $admin->name }} dari admin tim ini?')">
+                <div class="flex items-center justify-between py-2 gap-2">
+                    <span class="text-sm flex-1 min-w-0 truncate">{{ $admin->name }}</span>
+                    <form method="POST" action="{{ route('memo-teams.admins.jabatan', [$team, $admin]) }}" class="flex items-center gap-1 shrink-0">
+                        @csrf @method('PATCH')
+                        <input type="text" name="jabatan" value="{{ $admin->pivot->jabatan }}" placeholder="Jabatan belum diisi"
+                            class="text-xs border rounded p-1 w-36">
+                        <button class="text-xs text-blue-600 hover:underline whitespace-nowrap">Simpan</button>
+                    </form>
+                    <form method="POST" action="{{ route('memo-teams.admins.remove', [$team, $admin]) }}" onsubmit="return confirm('Keluarkan {{ $admin->name }} dari admin tim ini?')" class="shrink-0">
                         @csrf @method('DELETE')
-                        <button class="text-xs text-red-500 hover:underline">Keluarkan</button>
+                        <button class="text-xs text-red-500 hover:underline whitespace-nowrap">Keluarkan</button>
                     </form>
                 </div>
                 @empty
@@ -53,14 +70,23 @@
         <div class="bg-white rounded-xl shadow-sm p-5">
             <h3 class="font-bold mb-3">🧑‍🤝‍🧑 Anggota Tim ({{ $team->members->count() }})</h3>
 
-            <form method="POST" action="{{ route('memo-teams.members.add', $team) }}" class="flex flex-col gap-2 mb-4">
+            <form method="POST" action="{{ route('memo-teams.members.add', $team) }}"
+                x-data="userSearchSelect(@js($users))" class="flex flex-col gap-2 mb-4">
                 @csrf
-                <select name="user_id" required class="border rounded-lg p-2 text-sm">
-                    <option value="">-- Pilih user jadi anggota --</option>
-                    @foreach($users as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->username ?? $u->email }})</option>
-                    @endforeach
-                </select>
+                <div class="relative">
+                    <input type="text" x-model="search" @focus="open = true" @input="open = true"
+                        placeholder="Cari nama user..." autocomplete="off"
+                        class="w-full border rounded-lg p-2 text-sm">
+                    <input type="hidden" name="user_id" :value="selectedId" required>
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                        class="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white border rounded-lg shadow-lg">
+                        <template x-for="u in filtered" :key="u.id">
+                            <div @click="select(u)" class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer"
+                                x-text="u.name + (u.username || u.email ? ' (' + (u.username || u.email) + ')' : '')"></div>
+                        </template>
+                        <div x-show="filtered.length === 0" class="px-3 py-2 text-sm text-gray-400">Tidak ditemukan</div>
+                    </div>
+                </div>
                 <select name="responsible_admin_id" class="border rounded-lg p-2 text-sm">
                     <option value="">-- Admin acuan nomor memo (otomatis kalau admin cuma 1) --</option>
                     @foreach($team->admins as $admin)
@@ -104,4 +130,29 @@
         </div>
     </div>
 </div>
+
+<script>
+    function userSearchSelect(users) {
+        return {
+            users: users,
+            search: '',
+            open: false,
+            selectedId: '',
+            get filtered() {
+                if (!this.search) return this.users;
+                const q = this.search.toLowerCase();
+                return this.users.filter(u =>
+                    (u.name || '').toLowerCase().includes(q) ||
+                    (u.username || '').toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q)
+                );
+            },
+            select(u) {
+                this.selectedId = u.id;
+                this.search = u.name + (u.username || u.email ? ' (' + (u.username || u.email) + ')' : '');
+                this.open = false;
+            }
+        }
+    }
+</script>
 @endsection

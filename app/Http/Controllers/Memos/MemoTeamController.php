@@ -72,11 +72,13 @@ class MemoTeamController extends Controller
                 'exists:users,id',
                 Rule::unique('memo_team_admins', 'user_id')->where('team_id', $memoTeam->id),
             ],
+            'jabatan' => 'nullable|string|max:255',
         ]);
 
         MemoTeamAdmin::create([
             'team_id' => $memoTeam->id,
             'user_id' => $request->user_id,
+            'jabatan' => $request->jabatan,
             'assigned_by' => auth()->id(),
         ]);
 
@@ -90,6 +92,23 @@ class MemoTeamController extends Controller
     {
         MemoTeamAdmin::where('team_id', $memoTeam->id)->where('user_id', $user->id)->delete();
         return back()->with('success', 'Admin dikeluarkan dari tim');
+    }
+
+    /**
+     * Ubah jabatan admin yang sudah terdaftar di tim ini. Jabatan ini yang otomatis
+     * dipakai mengisi "Penandatangan" & "Jabatan" pada memo yang dibuat tim ini.
+     */
+    public function updateAdminJabatan(Request $request, MemoTeam $memoTeam, User $user)
+    {
+        $request->validate([
+            'jabatan' => 'nullable|string|max:255',
+        ]);
+
+        MemoTeamAdmin::where('team_id', $memoTeam->id)
+            ->where('user_id', $user->id)
+            ->update(['jabatan' => $request->jabatan]);
+
+        return back()->with('success', 'Jabatan admin diperbarui');
     }
 
     // ---------- Kelola anggota dalam tim ----------

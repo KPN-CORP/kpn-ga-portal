@@ -9,7 +9,7 @@ class MemoTeamAdmin extends Model
 {
     protected $table = 'memo_team_admins';
 
-    protected $fillable = ['team_id', 'user_id', 'assigned_by'];
+    protected $fillable = ['team_id', 'user_id', 'jabatan', 'assigned_by'];
 
     public function team()
     {

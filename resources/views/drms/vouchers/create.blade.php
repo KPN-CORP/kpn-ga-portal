@@ -47,11 +47,12 @@
             </select>
         </div>
 
+        {{-- UPDATED: expired_at is now required --}}
         <div class="mb-4">
             <label for="expired_at" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Expired</label>
-            <input type="date" name="expired_at" id="expired_at" value="{{ old('expired_at') }}"
+            <input type="date" name="expired_at" id="expired_at" value="{{ old('expired_at') }}" required
                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <p class="text-xs text-gray-500 mt-1">Kosongkan jika voucher tidak memiliki masa berlaku.</p>
+            <p class="text-xs text-gray-500 mt-1">Tanggal expired wajib diisi.</p>
         </div>
 
         @if($isSuperAdmin ?? false)
@@ -61,15 +62,24 @@
                     class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">-- Pilih Business Unit --</option>
                 @foreach($businessUnits as $bu)
-                    <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                    <option value="{{ $bu->id_bisnis_unit }}"
+                            {{ old('business_unit_id', $ownBusinessUnitId ?? '') == $bu->id_bisnis_unit ? 'selected' : '' }}>
                         {{ $bu->nama_bisnis_unit }}
                     </option>
                 @endforeach
             </select>
             <p class="text-xs text-gray-500 mt-1">Voucher ini akan tercatat milik Business Unit yang dipilih.</p>
         </div>
+        @elseif($ownBusinessUnitName ?? null)
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+            <input type="text" value="{{ $ownBusinessUnitName }}" disabled
+                   class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600">
+            <p class="text-xs text-gray-500 mt-1">Voucher ini otomatis tercatat milik Business Unit Anda sendiri.</p>
+        </div>
         @endif
 
+        {{-- This field remains optional --}}
         @if($isSpecialBu ?? false)
         <div class="mb-4">
             <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Dibebankan ke BU</label>
@@ -82,7 +92,7 @@
                     </option>
                 @endforeach
             </select>
-            <p class="text-xs text-gray-500 mt-1">Khusus KPN Corporation: pilih business unit tujuan penggunaan voucher ini.</p>
+            <p class="text-xs text-gray-500 mt-1">Khusus KPN Corporation: pilih business unit tujuan penggunaan voucher ini. (Opsional)</p>
         </div>
         @endif
 

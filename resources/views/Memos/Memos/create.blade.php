@@ -1,18 +1,11 @@
 @extends('layouts.app_memos')
-@section('title', 'Buat Memo Baru')
+@section('title', isset($memo) ? 'Edit Draft Memo' : 'Buat Memo Baru')
 @section('content')
 <div x-data="memoCreator()" x-init="init()" class="w-full px-2 md:px-4">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <!-- Panel Form -->
         <div class="bg-white rounded-xl shadow-sm p-5">
-            <h2 class="text-xl font-bold mb-4">📝 Buat E-Memo + AI</h2>
-
-            <!-- Upload AI -->
-            <div @click="triggerUpload" class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition">
-                <input type="file" id="fileInput" @change="processFile" accept=".xlsx,.xls,.pdf,.jpg,.jpeg,.png" hidden>
-                <p>📂 Upload Excel, PDF, atau Gambar<br><span class="text-xs">AI akan ekstrak nama & tagihan</span></p>
-                <div x-show="uploadProgress" x-text="uploadProgress" class="text-sm text-blue-600 mt-2"></div>
-            </div>
+            <h2 class="text-xl font-bold mb-4">📝 {{ isset($memo) ? 'Edit Draft Memo' : 'Buat E-Memo' }}</h2>
 
             <!-- Form Fields -->
             <div class="grid grid-cols-2 gap-3 mt-4">
@@ -40,8 +33,8 @@
                     <table class="min-w-full text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="p-2">Nama</th>
-                                <th class="p-2">PT/Unit</th>
+                                <th class="p-2 w-12">No</th>
+                                <th class="p-2">Keterangan</th>
                                 <template x-for="(col, idx) in dynamicCols" :key="idx">
                                     <th class="p-2">
                                         <input type="text" x-model="col.name" class="w-24 text-center border-none bg-transparent focus:ring-0" placeholder="Kolom">
@@ -55,8 +48,8 @@
                         <tbody>
                             <template x-for="(row, idx) in rows" :key="idx">
                                 <tr>
-                                    <td><input type="text" x-model="row.nama" class="w-full p-1 border rounded" placeholder="Nama"></td>
-                                    <td><input type="text" x-model="row.pt_unit" class="w-full p-1 border rounded" placeholder="PT/Unit"></td>
+                                    <td class="text-center text-gray-500" x-text="idx + 1"></td>
+                                    <td><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" placeholder="Keterangan"></td>
                                     <template x-for="(col, cidx) in dynamicCols" :key="cidx">
                                         <td><input type="text" x-model="row.dynamic[cidx]" class="w-full p-1 border rounded" :placeholder="col.name"></td>
                                     </template>
@@ -81,16 +74,44 @@
                 <div><label class="text-xs text-gray-600">Atas Nama</label><input x-model="form.atas_nama" class="w-full border rounded p-1"></div>
                 <div><label class="text-xs text-gray-600">No Rek</label><input x-model="form.no_rek" class="w-full border rounded p-1"></div>
             </div>
+
+            <!-- Penandatangan (otomatis dari data admin tim) -->
             <div class="grid grid-cols-2 gap-2 mt-2">
-                <div><label class="text-xs text-gray-600">Penandatangan</label><input x-model="form.penandatangan" class="w-full border rounded p-1"></div>
-                <div><label class="text-xs text-gray-600">Jabatan</label><input x-model="form.jabatan" class="w-full border rounded p-1"></div>
+                <div>
+                    <label class="text-xs text-gray-600">Penandatangan <span class="text-gray-400">(otomatis)</span></label>
+                    <input :value="signer.penandatangan || '-'" readonly class="w-full border rounded p-1 bg-gray-100 text-gray-600 cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600">Jabatan <span class="text-gray-400">(otomatis)</span></label>
+                    <input :value="signer.jabatan || '-'" readonly class="w-full border rounded p-1 bg-gray-100 text-gray-600 cursor-not-allowed">
+                </div>
             </div>
+            @if(empty($signer['jabatan']))
+                <p class="text-xs text-amber-600 mt-1">⚠️ Jabatan admin belum diatur. Hubungi superadmin untuk melengkapi jabatan di menu Tim.</p>
+            @endif
 
             <!-- Lampiran -->
             <div class="mt-4">
                 <label class="block text-sm font-medium text-gray-700">📎 Lampiran (PDF/Gambar)</label>
-                <input type="file" multiple @change="handleAttachments" class="w-full text-sm">
-                <div x-show="attachments.length" class="text-xs text-gray-500 mt-1" x-text="attachments.length + ' file siap diupload'"></div>
+                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="handleAttachments" class="w-full text-sm">
+                <div x-show="attachments.length" class="text-xs text-gray-500 mt-1" x-text="attachments.length + ' file baru siap diupload'"></div>
+
+                @if(isset($memo) && $memo->attachments->count())
+                <ul class="mt-2 space-y-1">
+                    @foreach($memo->attachments as $att)
+                    <li class="flex justify-between items-center text-xs bg-gray-50 rounded p-2">
+                        <a href="{{ Storage::url($att->file_path) }}" target="_blank" class="text-blue-600 flex items-center gap-1">
+                            <i class="fa {{ str_contains($att->mime_type,'pdf') ? 'fa-file-pdf' : 'fa-file-image' }}"></i>
+                            {{ $att->original_name }}
+                        </a>
+                        <form action="{{ route('memos.attachments.destroy', $att) }}" method="POST" onsubmit="return confirm('Hapus lampiran ini?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                        </form>
+                    </li>
+                    @endforeach
+                </ul>
+                @endif
             </div>
 
             <!-- Tombol Aksi -->
@@ -98,7 +119,7 @@
                 <button @click="saveMemo('draft')" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition">💾 Simpan Draft</button>
                 <button @click="saveMemo('submitted')" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">✅ Simpan & Submit</button>
             </div>
-            <p class="text-xs text-gray-400 text-center mt-3">Draft akan otomatis dihapus setelah 24 jam</p>
+            <p class="text-xs text-gray-400 text-center mt-3">Draft belum mendapat nomor memo. Nomor otomatis dibuat saat memo disubmit. Draft akan otomatis dihapus setelah 24 jam bila tidak diperbarui.</p>
         </div>
 
         <!-- Preview Panel -->
@@ -115,27 +136,30 @@
 <script>
 function memoCreator() {
     return {
+        memoId: {{ isset($memo) ? $memo->id : 'null' }},
+        signer: @json($signer),
         form: {
-            kepada: '',
-            dari: '',
-            perihal: '',
-            instruksi: '',
-            bank: '',
-            atas_nama: '',
-            no_rek: '',
-            penandatangan: '',
-            jabatan: ''
+            kepada: @json(isset($memo) ? $memo->kepada : ''),
+            dari: @json(isset($memo) ? $memo->dari : ''),
+            perihal: @json(isset($memo) ? $memo->perihal : ''),
+            instruksi: @json(isset($memo) ? $memo->instruksi : ''),
+            bank: @json(isset($memo) ? $memo->bank : ''),
+            atas_nama: @json(isset($memo) ? $memo->atas_nama : ''),
+            no_rek: @json(isset($memo) ? $memo->no_rek : '')
         },
-        rows: [],
-        dynamicCols: [],
+        rows: @json(isset($memo) ? $memo->items->map(fn($i) => [
+                'keterangan' => $i->nama,
+                'dynamic' => array_values($i->dynamic_columns ?? []),
+                'tagihan' => (float) $i->tagihan
+            ])->values() : []),
+        dynamicCols: @json(isset($memo) ? collect($memo->dynamic_columns_definition ?? [])->map(fn($c) => ['name' => $c])->values() : []),
         total: 0,
         attachments: [],
-        uploadProgress: '',
         previewHtml: '',
-        async init() {
-            this.addRow();
+        init() {
+            if (this.rows.length === 0) this.addRow();
             this.calculateTotal();
-            await this.generatePreview();
+            this.generatePreview();
             this.setupPrint();
         },
         calculateTotal() {
@@ -148,8 +172,7 @@ function memoCreator() {
         },
         addRow() {
             this.rows.push({
-                nama: '',
-                pt_unit: '',
+                keterangan: '',
                 dynamic: Array(this.dynamicCols.length).fill(''),
                 tagihan: 0
             });
@@ -180,7 +203,6 @@ function memoCreator() {
                     const printWindow = window.open('', '_blank');
                     printWindow.document.write(`
                         <html><head><title>Cetak Memo</title>
-                        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
                         <style>
                             body { font-family: 'Times New Roman', serif; padding: 20px; margin: 0; background: white; }
                             .memo-container { max-width: 800px; margin: 0 auto; }
@@ -199,63 +221,10 @@ function memoCreator() {
                 });
             }
         },
-        async processFile(e) {
-            let file = e.target.files[0];
-            if (!file) return;
-            this.uploadProgress = 'Memproses AI...';
-            let ext = file.name.split('.').pop().toLowerCase();
-            let extracted = [];
-            try {
-                if (ext === 'xlsx' || ext === 'xls') {
-                    let data = await file.arrayBuffer();
-                    let wb = XLSX.read(data);
-                    let sheet = wb.Sheets[wb.SheetNames[0]];
-                    let rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                    for (let i = 1; i < rows.length; i++) {
-                        let nama = rows[i][0] || '';
-                        let tagihan = parseFloat(String(rows[i][rows[i].length - 1]).replace(/[^0-9.-]/g, '')) || 0;
-                        if (nama && tagihan > 0) extracted.push({ nama, pt_unit: rows[i][1] || '', dynamic: [], tagihan });
-                    }
-                } else if (ext === 'pdf') {
-                    let arrayBuffer = await file.arrayBuffer();
-                    let pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    for (let p = 1; p <= pdf.numPages; p++) {
-                        let page = await pdf.getPage(p);
-                        let text = await page.getTextContent();
-                        let pageText = text.items.map(t => t.str).join(' ');
-                        let matches = pageText.matchAll(/([A-Za-z\s]+?)(?:Rp\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/g);
-                        for (let m of matches) {
-                            let tagihan = parseFloat(m[2].replace(/\./g, '').replace(',', '.'));
-                            if (tagihan > 1000) extracted.push({ nama: m[1].trim(), pt_unit: '', dynamic: [], tagihan });
-                        }
-                    }
-                } else {
-                    let { data: { text } } = await Tesseract.recognize(file, 'ind+eng');
-                    let lines = text.split('\n');
-                    for (let line of lines) {
-                        let priceMatch = line.match(/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/);
-                        if (priceMatch) {
-                            let tagihan = parseFloat(priceMatch[1].replace(/\./g, '').replace(',', '.'));
-                            if (tagihan > 1000) extracted.push({ nama: line.replace(priceMatch[0], '').trim(), pt_unit: '', dynamic: [], tagihan });
-                        }
-                    }
-                }
-                if (extracted.length) {
-                    this.rows.push(...extracted);
-                    this.calculateTotal();
-                    this.uploadProgress = `✅ ${extracted.length} baris diekstrak`;
-                } else {
-                    this.uploadProgress = '⚠️ Tidak ada data terdeteksi';
-                }
-            } catch (err) {
-                this.uploadProgress = '❌ Gagal memproses file';
-            }
-            setTimeout(() => this.uploadProgress = '', 3000);
-        },
         async saveMemo(status) {
-            const validRows = this.rows.filter(r => r.nama.trim() !== '' && parseFloat(r.tagihan) > 0);
+            const validRows = this.rows.filter(r => r.keterangan.trim() !== '' && parseFloat(r.tagihan) > 0);
             if (validRows.length === 0) {
-                alert('Harap isi minimal satu baris rincian dengan nama dan tagihan yang valid.');
+                alert('Harap isi minimal satu baris rincian dengan keterangan dan tagihan yang valid.');
                 return;
             }
             let payload = {
@@ -263,8 +232,7 @@ function memoCreator() {
                 status: status,
                 dynamicColumns: this.dynamicCols.map(c => c.name),
                 items: this.rows.map(r => ({
-                    nama: r.nama,
-                    pt_unit: r.pt_unit,
+                    keterangan: r.keterangan,
                     dynamic_columns: r.dynamic,
                     tagihan: r.tagihan
                 }))
@@ -278,7 +246,11 @@ function memoCreator() {
                 }
             }
             for (let f of this.attachments) fd.append('attachments[]', f);
-            let res = await fetch('{{ route("memos.store") }}', {
+
+            let url = this.memoId ? `/memos/${this.memoId}` : '{{ route("memos.store") }}';
+            if (this.memoId) fd.append('_method', 'PUT');
+
+            let res = await fetch(url, {
                 method: 'POST',
                 body: fd,
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
@@ -293,22 +265,19 @@ function memoCreator() {
         handleAttachments(e) {
             this.attachments = Array.from(e.target.files);
         },
-        triggerUpload() {
-            document.getElementById('fileInput').click();
-        },
         async generatePreview() {
             let dynamicCols = this.dynamicCols.map(c => c.name);
             let itemsHtml = '';
             itemsHtml += '<table class="w-full border-collapse border"><thead><tr>';
-            itemsHtml += '<th>Nama</th><th>PT/Unit</th>';
+            itemsHtml += '<th>No</th><th>Keterangan</th>';
             dynamicCols.forEach(c => itemsHtml += `<th>${this.escapeHtml(c)}</th>`);
             itemsHtml += '<th>Tagihan</th></tr></thead><tbody>';
-            if (this.rows.length === 0 || (this.rows.length === 1 && this.rows[0].nama === '' && this.rows[0].tagihan === 0)) {
+            if (this.rows.length === 0 || (this.rows.length === 1 && this.rows[0].keterangan === '' && this.rows[0].tagihan === 0)) {
                 let colspan = 2 + dynamicCols.length + 1;
                 itemsHtml += `<tr><td colspan="${colspan}" class="text-center text-gray-400">Belum ada data</td></tr>`;
             } else {
-                this.rows.forEach(row => {
-                    itemsHtml += `<tr><td>${this.escapeHtml(row.nama)}</td><td>${this.escapeHtml(row.pt_unit)}</td>`;
+                this.rows.forEach((row, idx) => {
+                    itemsHtml += `<tr><td class="text-center">${idx + 1}</td><td>${this.escapeHtml(row.keterangan)}</td>`;
                     for (let i = 0; i < dynamicCols.length; i++) {
                         let val = row.dynamic[i] || '';
                         itemsHtml += `<td>${this.escapeHtml(val)}</td>`;
@@ -334,7 +303,7 @@ function memoCreator() {
 
             const tgl = new Date().toLocaleDateString('id-ID');
             this.previewHtml = `
-                <div class="text-right text-sm">${tgl}<br>No. (Akan digenerate sistem)</div>
+                <div class="text-right text-sm">${tgl}<br>No. (Akan digenerate sistem saat submit)</div>
                 <h2 class="text-center text-xl font-bold my-3">MEMORANDUM</h2>
                 <p><strong>Kepada</strong> : ${this.escapeHtml(this.form.kepada) || '-'}</p>
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
@@ -343,12 +312,12 @@ function memoCreator() {
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>
                 <div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>
-                <p class="mt-6">Hormat kami,<br><br>${this.escapeHtml(this.form.penandatangan) || '-'}<br>${this.escapeHtml(this.form.jabatan) || '-'}</p>
+                <p class="mt-6">Hormat kami,<br><br>${this.escapeHtml(this.signer.penandatangan) || '-'}<br>${this.escapeHtml(this.signer.jabatan) || '-'}</p>
             `;
         },
         escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]);
+            return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]);
         }
     }
 }

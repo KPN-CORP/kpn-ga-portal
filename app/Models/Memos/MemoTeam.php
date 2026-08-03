@@ -20,7 +20,7 @@ class MemoTeam extends Model
     public function admins()
     {
         return $this->belongsToMany(User::class, 'memo_team_admins', 'team_id', 'user_id')
-            ->withPivot('assigned_by')
+            ->withPivot('jabatan', 'assigned_by')
             ->withTimestamps();
     }
 

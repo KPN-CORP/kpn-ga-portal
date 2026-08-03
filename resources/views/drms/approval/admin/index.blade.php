@@ -30,7 +30,6 @@
     {{-- Filter Section --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <input type="hidden" name="tab" x-model="activeTab">
             <div>
                 <label class="text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari no. request / pemohon / tujuan" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">

@@ -31,7 +31,17 @@ class Memos extends Model
             $memo->team_id  = $memo->team_id  ?? MemoNumberSetting::resolveTeamId($creator);
             $memo->admin_id = $memo->admin_id ?? MemoNumberSetting::resolveAdminId($creator);
 
-            $memo->memo_number = MemoNumberSetting::generateNumberForAdmin($memo->admin_id);
+            // Draft belum dapat nomor memo. Nomor baru digenerate begitu memo berstatus 'submitted',
+            // baik saat pertama kali dibuat langsung sebagai submitted, maupun saat draft di-submit belakangan.
+            if ($memo->status === 'submitted' && empty($memo->memo_number)) {
+                $memo->memo_number = MemoNumberSetting::generateNumberForAdmin($memo->admin_id);
+            }
+        });
+
+        static::updating(function ($memo) {
+            if ($memo->status === 'submitted' && empty($memo->memo_number)) {
+                $memo->memo_number = MemoNumberSetting::generateNumberForAdmin($memo->admin_id);
+            }
         });
     }
 

@@ -20,21 +20,29 @@
     {{-- TEMPLATE --}}
     <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
         <h2 class="font-semibold text-gray-700 mb-2">1. Unduh Template</h2>
-        <p class="text-sm text-gray-500 mb-4">Pilih template sesuai format kode voucher yang Anda miliki, isi datanya, lalu upload kembali di bawah.</p>
-        <p class="text-xs text-gray-400 mb-4">Kolom <span class="font-mono">expired_at</span> bersifat opsional (format tanggal: YYYY-MM-DD). Baris yang kolom expired_at-nya dikosongkan akan memakai <span class="font-medium">Tanggal Expired Default</span> di form upload di bawah (jika diisi).</p>
-        <div class="flex flex-col sm:flex-row gap-3">
-            <a href="{{ route('drms.vouchers.template', 'single') }}"
-               class="flex-1 border rounded-lg px-4 py-3 hover:bg-gray-50 transition">
-                <p class="font-medium text-gray-800">📄 Template 1 Voucher / Baris</p>
-                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher, nominal, tipe, expired_at (opsional)</p>
-            </a>
-            <a href="{{ route('drms.vouchers.template', 'double') }}"
-               class="flex-1 border rounded-lg px-4 py-3 hover:bg-gray-50 transition">
-                <p class="font-medium text-gray-800">📄 Template 2 Voucher / Baris</p>
-                <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher_1, nominal_1, tipe_1, expired_at_1, kode_voucher_2, nominal_2, tipe_2, expired_at_2 (expired_at opsional)</p>
-                <p class="text-xs text-purple-600 mt-1">⚠️ Kode 1 &amp; kode 2 akan DIGABUNG jadi 1 voucher (code: "kode1 &amp; kode2", nominal dijumlah). Tipe voucher (grab/gojek/taxi) wajib sama di kedua kolom, kalau beda baris akan ditolak.</p>
-            </a>
-        </div>
+        <p class="text-sm text-gray-500 mb-3">Isi datanya sesuai kolom, lalu upload kembali di bawah.</p>
+
+        <a href="{{ route('drms.vouchers.template', 'default') }}"
+           class="block border rounded-lg px-4 py-3 hover:bg-gray-50 transition mb-3">
+            <p class="font-medium text-gray-800">📄 Download Template Voucher</p>
+            <p class="text-xs text-gray-500 mt-1">Kolom: kode_voucher, nominal, Status, tipe, expired_at, Business Unit, Dibebankan ke BU</p>
+        </a>
+
+        <ul class="text-xs text-gray-500 space-y-1.5 list-disc pl-4">
+            <li><span class="font-mono">kode_voucher</span> — isi 1 kode (contoh: <span class="font-mono">wrtgf</span>), atau 2 kode digabung dengan " &amp; " langsung di sel yang sama (contoh: <span class="font-mono">kdfjd &amp; jhdfu</span>) untuk mencatatnya sebagai 1 voucher gabungan. Kalau digabung, kolom <span class="font-mono">nominal</span> di baris itu dianggap TOTAL gabungan (bukan per kode).</li>
+            <li><span class="font-mono">Status</span> — opsional, <span class="font-mono">available</span> atau <span class="font-mono">used</span>. Kosongkan untuk otomatis <span class="font-mono">available</span>.</li>
+            <li><span class="font-mono">expired_at</span> — opsional (format tanggal: YYYY-MM-DD). Baris yang dikosongkan akan memakai <span class="font-medium">Tanggal Expired Default</span> di form upload di bawah (kalau diisi).</li>
+            @if($isSuperAdmin ?? false)
+                <li><span class="font-mono">Business Unit</span> — opsional, isi nama Business Unit persis (mis. "KPN Corporation") untuk menentukan BU voucher itu per baris. Kosongkan untuk memakai BU default yang dipilih di form upload di bawah.</li>
+            @else
+                <li><span class="font-mono">Business Unit</span> — kolom ini diabaikan untuk akun Anda; semua voucher otomatis tercatat milik Business Unit Anda sendiri.</li>
+            @endif
+            @if($isSpecialBu ?? false)
+                <li><span class="font-mono">Dibebankan ke BU</span> — opsional, isi nama Business Unit tujuan pembebanan biaya per baris (khusus akun KPN Corporation).</li>
+            @else
+                <li><span class="font-mono">Dibebankan ke BU</span> — kolom ini tidak berlaku untuk akun Anda, boleh dikosongkan.</li>
+            @endif
+        </ul>
     </div>
 
     {{-- UPLOAD FORM --}}
@@ -42,20 +50,6 @@
         <h2 class="font-semibold text-gray-700 mb-4">2. Upload File</h2>
         <form action="{{ route('drms.vouchers.upload') }}" method="POST" enctype="multipart/form-data">
             @csrf
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Format Template</label>
-                <div class="flex gap-4">
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="radio" name="format" value="single" {{ old('format', 'single') == 'single' ? 'checked' : '' }} required>
-                        1 Voucher / Baris
-                    </label>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="radio" name="format" value="double" {{ old('format') == 'double' ? 'checked' : '' }}>
-                        2 Voucher / Baris
-                    </label>
-                </div>
-            </div>
 
             <div class="mb-4">
                 <label for="expired_at" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Expired Default (opsional)</label>
@@ -66,16 +60,17 @@
 
             @if(($businessUnits ?? collect())->isNotEmpty())
             <div class="mb-4">
-                <label for="business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+                <label for="business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit Default</label>
                 <select name="business_unit_id" id="business_unit_id" required
                         class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Pilih Business Unit --</option>
                     @foreach($businessUnits as $bu)
-                        <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        <option value="{{ $bu->id_bisnis_unit }}" {{ old('business_unit_id', $ownBusinessUnitId ?? '') == $bu->id_bisnis_unit ? 'selected' : '' }}>
                             {{ $bu->nama_bisnis_unit }}
                         </option>
                     @endforeach
                 </select>
+                <p class="text-xs text-gray-500 mt-1">Dipakai untuk baris yang kolom "Business Unit"-nya dikosongkan di file.</p>
             </div>
             @else
                 <p class="text-xs text-gray-500 mb-4">Voucher akan otomatis tercatat untuk business unit Anda.</p>
