@@ -1,9 +1,9 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
-<style>.jne-orange{background:#f36f21}.jne-text{color:#f36f21}</style>
+<style>.jne-orange{background:#2563eb}.jne-text{color:#2563eb}</style>
 
-<div class="max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-6">
+<div class="max-w-lg md:max-w-full mx-auto px-4 md:px-8 py-6">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-lg font-semibold">Kiriman saya</h1>
     <a href="{{ route('antaran.request') }}" class="jne-orange text-white text-sm rounded-lg px-3 py-1.5">+ Kirim</a>
@@ -14,10 +14,11 @@
       class="w-full border rounded-lg px-3 py-2 text-sm">
   </form>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+  {{-- HP: tampilan card --}}
+  <div class="grid grid-cols-1 gap-3 md:hidden">
     @forelse ($transaksi as $item)
       <a href="{{ route('antaran.detail', $item->no_transaksi) }}"
-         class="block border rounded-xl px-4 py-3 hover:border-orange-300">
+         class="block border rounded-xl px-4 py-3 hover:border-blue-300">
         <div class="flex justify-between items-start">
           <div>
             <p class="text-sm font-semibold">{{ $item->no_transaksi }}</p>
@@ -28,8 +29,42 @@
         </div>
       </a>
     @empty
-      <p class="text-sm text-gray-400 text-center py-10 col-span-full">Belum ada kiriman.</p>
+      <p class="text-sm text-gray-400 text-center py-10">Belum ada kiriman.</p>
     @endforelse
+  </div>
+
+  {{-- Desktop: tampilan tabel --}}
+  <div class="hidden md:block overflow-x-auto">
+    @if ($transaksi->isEmpty())
+      <p class="text-sm text-gray-400 text-center py-10">Belum ada kiriman.</p>
+    @else
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b text-xs text-gray-400">
+            <th class="py-2 pr-3 font-medium">No. Transaksi</th>
+            <th class="py-2 pr-3 font-medium">Deskripsi</th>
+            <th class="py-2 pr-3 font-medium">Tujuan</th>
+            <th class="py-2 pr-3 font-medium">Status</th>
+            <th class="py-2 pr-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach ($transaksi as $item)
+            <tr class="border-b last:border-0 hover:bg-gray-50">
+              <td class="py-2 pr-3 text-sm font-semibold">{{ $item->no_transaksi }}</td>
+              <td class="py-2 pr-3 text-xs text-gray-600">{{ Str::limit($item->deskripsi, 40) }}</td>
+              <td class="py-2 pr-3 text-xs text-gray-600">{{ Str::limit($item->alamat_tujuan, 40) }}</td>
+              <td class="py-2 pr-3">
+                @include('antaran.partials.status-badge', ['status' => $item->status])
+              </td>
+              <td class="py-2 pr-3">
+                <a href="{{ route('antaran.detail', $item->no_transaksi) }}" class="jne-text underline text-xs whitespace-nowrap">Lihat detail</a>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    @endif
   </div>
 
   <div class="mt-4">{{ $transaksi->links() ?? '' }}</div>

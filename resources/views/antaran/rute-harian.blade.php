@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  .jne-orange{background:#f36f21}.jne-text{color:#f36f21}
+  .jne-orange{background:#2563eb}.jne-text{color:#2563eb}
   #peta-harian{height:60vh;min-height:320px;border-radius:12px}
 </style>
 
@@ -39,7 +39,7 @@
         <div class="space-y-2">
           @foreach ($resiHariIni as $r)
             <a href="{{ route('antaran.detail', $r->no_transaksi) }}"
-               class="flex justify-between items-center border rounded-lg px-3 py-2 hover:border-orange-300">
+               class="flex justify-between items-center border rounded-lg px-3 py-2 hover:border-blue-300">
               <div>
                 <p class="text-xs font-medium">{{ $r->no_transaksi }}</p>
                 <p class="text-[11px] text-gray-400">{{ Str::limit($r->alamat_asal, 25) }} &rarr; {{ Str::limit($r->alamat_tujuan, 25) }}</p>
@@ -64,10 +64,10 @@
   const map = L.map('peta-harian');
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
 
-  const jalur = L.polyline(titik, { color: '#f36f21', weight: 4 }).addTo(map);
+  const jalur = L.polyline(titik, { color: '#2563eb', weight: 4 }).addTo(map);
   L.circleMarker(titik[0], { radius: 7, color: '#22c55e', fillColor:'#22c55e', fillOpacity:1 })
     .addTo(map).bindPopup('Jemput pertama hari ini');
-  L.circleMarker(titik[titik.length - 1], { radius: 7, color: '#f36f21', fillColor:'#f36f21', fillOpacity:1 })
+  L.circleMarker(titik[titik.length - 1], { radius: 7, color: '#2563eb', fillColor:'#2563eb', fillOpacity:1 })
     .addTo(map).bindPopup('Titik terakhir tercatat');
   map.fitBounds(jalur.getBounds(), { padding: [24, 24] });
 </script>

@@ -14,9 +14,9 @@
 
     let jalur;
     if (titik.length) {
-      jalur = L.polyline(titik, { color: '#f36f21', weight: 4 }).addTo(map);
+      jalur = L.polyline(titik, { color: '#2563eb', weight: 4 }).addTo(map);
       L.circleMarker(titik[0], { radius: 6, color: '#22c55e', fillColor:'#22c55e', fillOpacity:1 }).addTo(map).bindPopup('Titik awal');
-      L.circleMarker(titik.at(-1), { radius: 7, color: '#f36f21', fillColor:'#f36f21', fillOpacity:1 }).addTo(map).bindPopup('Posisi terakhir kurir');
+      L.circleMarker(titik.at(-1), { radius: 7, color: '#2563eb', fillColor:'#2563eb', fillOpacity:1 }).addTo(map).bindPopup('Posisi terakhir kurir');
       map.fitBounds(jalur.getBounds(), { padding: [24, 24] });
     }
 

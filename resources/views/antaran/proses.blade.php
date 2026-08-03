@@ -1,7 +1,7 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
-<style>.jne-orange{background:#f36f21}.jne-text{color:#f36f21}</style>
+<style>.jne-orange{background:#2563eb}.jne-text{color:#2563eb}</style>
 
 @php
   // "Dokumen Belum Tersedia" tidak dianggap tugas aktif kurir, jadi disembunyikan dari halaman ini.

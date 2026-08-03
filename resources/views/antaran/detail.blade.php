@@ -1,9 +1,9 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
-<style>.jne-orange{background:#f36f21}.jne-text{color:#f36f21}.jne-dot{background:#f36f21}</style>
+<style>.jne-orange{background:#2563eb}.jne-text{color:#2563eb}.jne-dot{background:#2563eb}</style>
 
-<div class="max-w-lg lg:max-w-4xl mx-auto px-4 py-6">
+<div class="max-w-lg lg:max-w-6xl mx-auto px-4 lg:px-8 py-6">
   <div class="jne-orange rounded-t-xl px-5 py-4 text-white">
     <p class="text-xs opacity-90">No. resi</p>
     <h1 class="text-lg font-semibold tracking-wide">{{ $trx->no_transaksi }}</h1>
@@ -13,7 +13,7 @@
   <div class="bg-white border border-t-0 rounded-b-xl px-5 py-5 lg:grid lg:grid-cols-[1fr_340px] lg:gap-8 lg:items-start">
 
     {{-- Kolom kiri: peta + riwayat (jadi lebih dominan di layar lebar) --}}
-    <div class="space-y-6">
+    <div class="space-y-6 lg:max-w-2xl">
       @include('antaran.partials.map', ['trx' => $trx, 'titikLokasi' => $titikLokasi])
 
       <div>

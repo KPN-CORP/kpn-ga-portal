@@ -2,9 +2,9 @@
 
 @section('content')
 <style>
-  .jne-orange { background:#f36f21; }
-  .jne-text { color:#f36f21; }
-  .jne-border:focus { border-color:#f36f21; box-shadow:0 0 0 2px rgba(243,111,33,.15); }
+  .jne-orange { background:#2563eb; }
+  .jne-text { color:#2563eb; }
+  .jne-border:focus { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.15); }
 </style>
 
 <div class="max-w-lg md:max-w-2xl mx-auto px-4 py-6">
@@ -20,12 +20,12 @@
     <div>
       <label class="text-sm font-medium text-gray-700">Jenis kiriman</label>
       <div class="mt-2 grid grid-cols-2 gap-2">
-        <label class="border rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
-          <input type="radio" name="jenis_barang" value="dokumen" checked class="accent-orange-500">
+        <label class="border rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+          <input type="radio" name="jenis_barang" value="dokumen" checked class="accent-blue-500">
           <span class="text-sm">Dokumen</span>
         </label>
-        <label class="border rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
-          <input type="radio" name="jenis_barang" value="paket" class="accent-orange-500">
+        <label class="border rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+          <input type="radio" name="jenis_barang" value="paket" class="accent-blue-500">
           <span class="text-sm">Paket</span>
         </label>
       </div>
