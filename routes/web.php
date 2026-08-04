@@ -78,6 +78,7 @@ use App\Http\Controllers\Drms\DriverExpenseReportController;
 use App\Http\Controllers\Antaran\AntaranController;
 use App\Http\Controllers\Antaran\AntaranKurirController;
 use App\Http\Controllers\Antaran\AntaranTrackingController;
+use App\Http\Controllers\Compress\FotopdfmailingController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -171,12 +172,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/bulk-selesai', [MailingController::class, 'bulkSelesai'])->name('bulk-selesai');
         Route::get('/pelanggans', [MailingController::class, 'getPelanggans'])->name('get-pelanggans');
         Route::get('/foto/{id}', [MailingController::class, 'viewFoto'])->name('view-foto');
-        Route::get('/kompres', [CompressFotomailingController::class, 'index'])->name('kompres');
-        Route::post('/kompres-proses', [CompressFotomailingController::class, 'proses'])->name('kompres.proses');
-        Route::get('/browse', [CompressFotomailingController::class, 'browse'])->name('kompres.browse');
-        Route::get('/kompres/image', [CompressFotomailingController::class, 'showImage'])->name('mailing.kompres.image');
-        Route::get('/kompres/browse', [CompressFotomailingController::class, 'browse'])->name('mailing.kompres.browse');
-        Route::get('/kompres/image', [CompressFotomailingController::class, 'showImage']);
+    });
+
+    Route::prefix('kompres')->name('kompres.')->middleware(['auth', 'kompres.access'])->group(function () {
+        Route::get('/', [FotopdfmailingController::class, 'index'])->name('index');
+        Route::get('/browse', [FotopdfmailingController::class, 'browse'])->name('browse');
+        Route::get('/image', [FotopdfmailingController::class, 'showImage'])->name('image');
+        Route::post('/proses', [FotopdfmailingController::class, 'proses'])->name('proses');
+        Route::post('/hapus', [FotopdfmailingController::class, 'hapus'])->name('hapus');
     });
 
     Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
@@ -189,8 +192,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{tiket}', [HelpTiketController::class, 'show'])->name('show');
             Route::post('/{tiket}/komentar', [HelpTiketController::class, 'addKomentar'])->name('add-komentar');
             Route::prefix('lampiran')->name('lampiran.')->group(function () {
-                Route::get('/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])->name('preview');
-                Route::get('/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])->name('download');
+            Route::get('/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])->name('preview');
+            Route::get('/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])->name('download');
             });
         });
 

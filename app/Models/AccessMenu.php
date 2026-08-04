@@ -69,5 +69,7 @@ class AccessMenu extends Model
         'drms_superadmin'=> 'boolean',
         'work_user' => 'boolean',   // tambah
         'work_admin' => 'boolean',  // tambah
+        'is_superadmin' => 'boolean',
+        'kompres_access' => 'boolean',
     ];
 }
