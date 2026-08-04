@@ -41,18 +41,4 @@ class LaporanHistory extends Model
     {
         return $this->belongsTo(Barang::class, 'id_barang');
     }
-
-    /**
-     * Label ramah-baca untuk jenis laporan (dipakai di laporan/index & laporan/history).
-     */
-    public function getJenisLabelAttribute()
-    {
-        $labels = [
-            'stok'       => 'Stok',
-            'mutasi'     => 'Mutasi Barang',
-            'kartu_stok' => 'Kartu Stok',
-            'permintaan' => 'Permintaan',
-        ];
-        return $labels[$this->jenis] ?? ucfirst($this->jenis);
-    }
 }

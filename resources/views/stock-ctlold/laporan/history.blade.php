@@ -25,7 +25,7 @@
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">{{ $h->dicetak_pada->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
                     <td class="px-4 py-3">{{ $h->user->name ?? '-' }}</td>
-                    <td class="px-4 py-3">{{ $h->jenis_label }}</td>
+                    <td class="px-4 py-3">{{ ucfirst($h->jenis) }}</td>
                     <td class="px-4 py-3">
                         @if($h->area)
                             {{ $h->area->nama_area }} ({{ $h->area->bisnisUnit->nama_bisnis_unit ?? '-' }})

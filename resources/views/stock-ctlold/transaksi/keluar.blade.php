@@ -3,28 +3,28 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans max-w-2xl">
     <div class="flex justify-between items-center">
-        <h2 class="text-xl font-semibold text-gray-800">Barang Masuk</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Barang Keluar (Langsung)</h2>
         <a href="{{ route('stock-ctl.stok.index') }}" class="text-blue-600 hover:underline">← Kembali</a>
     </div>
 
     <div class="bg-white border rounded-xl p-6">
-        <form method="POST" action="{{ route('stock-ctl.transaksi.masuk.store') }}" id="form-barang-masuk">
+        <form method="POST" action="{{ route('stock-ctl.transaksi.keluar.store') }}" id="form-barang-keluar">
             @csrf
 
-            {{-- Area Tujuan --}}
+            {{-- Area Asal --}}
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-600 mb-1">Area Tujuan</label>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Area Asal</label>
                 <input type="text"
                        id="area_name"
                        name="area_name"
                        list="area-list"
-                       value="{{ old('area_name') ?: ($areas->where('id_area_kerja', old('id_area_tujuan'))->first()->nama_area ?? '') }}"
-                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 @error('id_area_tujuan') border-red-500 @enderror"
+                       value="{{ old('area_name') ?: ($areas->where('id_area_kerja', old('id_area_asal'))->first()->nama_area ?? '') }}"
+                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 @error('id_area_asal') border-red-500 @enderror"
                        placeholder="Ketik nama area..."
                        autocomplete="off"
                        required>
 
-                <input type="hidden" name="id_area_tujuan" id="id_area_tujuan" value="{{ old('id_area_tujuan') }}">
+                <input type="hidden" name="id_area_asal" id="id_area_asal" value="{{ old('id_area_asal') }}">
 
                 <datalist id="area-list">
                     @foreach($areas as $area)
@@ -33,7 +33,7 @@
                 </datalist>
 
                 <div id="area-error" class="text-red-500 text-xs mt-1 hidden">Area tidak valid. Pilih dari daftar yang tersedia.</div>
-                @error('id_area_tujuan') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                @error('id_area_asal') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
             {{-- Barang --}}
@@ -61,9 +61,9 @@
                 @error('id_barang') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Tampilkan stok tersedia di area tujuan --}}
+            {{-- Tampilkan stok tersedia di area asal --}}
             <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-                <span class="font-medium">Stok tersedia di area tujuan:</span>
+                <span class="font-medium">Stok tersedia di area asal:</span>
                 <span id="stok_tersedia" class="ml-2 text-blue-600 font-bold">-</span>
             </div>
 
@@ -73,16 +73,6 @@
                 <input type="number" step="0.01" name="jumlah" id="jumlah" value="{{ old('jumlah') }}" 
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" required>
                 @error('jumlah') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-            </div>
-
-            {{-- Nomor Referensi --}}
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-600 mb-1">Nomor Referensi (Faktur/PO) <span class="text-red-500">*</span></label>
-                <input type="text" name="no_ref" value="{{ old('no_ref') }}" required
-                       placeholder="Contoh: PO-2026-0012"
-                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 @error('no_ref') border-red-500 @enderror">
-                <p class="text-xs text-gray-500 mt-1">Wajib diisi agar barang masuk bisa ditelusuri ke dokumen sumbernya.</p>
-                @error('no_ref') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
             {{-- Keterangan --}}
@@ -103,7 +93,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         // ========== VALIDASI AREA ==========
         const areaInput = document.getElementById('area_name');
-        const areaIdHidden = document.getElementById('id_area_tujuan');
+        const areaIdHidden = document.getElementById('id_area_asal');
         const areaDatalist = document.getElementById('area-list');
         const areaError = document.getElementById('area-error');
 
@@ -187,7 +177,7 @@
 
         function fetchStok() {
             const idBarang = document.getElementById('id_barang').value;
-            const idArea = document.getElementById('id_area_tujuan').value;
+            const idArea = document.getElementById('id_area_asal').value;
 
             if (!idBarang || !idArea) {
                 stokSpan.innerText = '-';
@@ -199,8 +189,13 @@
             fetch(`{{ route('stock-ctl.cek-stok') }}?id_barang=${idBarang}&id_area=${idArea}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Hanya untuk informasi, barang masuk tidak dibatasi oleh stok yang ada
                     stokSpan.innerText = data.stok;
+                    // Validasi jumlah tidak melebihi stok
+                    if (jumlahInput.value && parseFloat(jumlahInput.value) > data.stok) {
+                        jumlahInput.setCustomValidity('Jumlah melebihi stok tersedia');
+                    } else {
+                        jumlahInput.setCustomValidity('');
+                    }
                 })
                 .catch(() => {
                     stokSpan.innerText = 'Gagal ambil stok';
@@ -210,8 +205,18 @@
         areaInput.addEventListener('change', fetchStok);
         barangInput.addEventListener('change', fetchStok);
 
+        // Event saat jumlah diubah
+        jumlahInput.addEventListener('input', function() {
+            const stok = parseFloat(stokSpan.innerText);
+            if (!isNaN(stok) && this.value && parseFloat(this.value) > stok) {
+                this.setCustomValidity('Jumlah melebihi stok tersedia');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+
         // ========== VALIDASI SAAT SUBMIT ==========
-        const form = document.getElementById('form-barang-masuk');
+        const form = document.getElementById('form-barang-keluar');
         form.addEventListener('submit', function(e) {
             const areaValid = validateArea();
             const barangValid = validateBarang();

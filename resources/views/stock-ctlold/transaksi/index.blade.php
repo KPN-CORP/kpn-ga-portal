@@ -49,16 +49,13 @@
                     <th class="px-4 py-3 text-left">Jumlah</th>
                     <th class="px-4 py-3 text-left">Area Asal</th>
                     <th class="px-4 py-3 text-left">Area Tujuan</th>
-                    <th class="px-4 py-3 text-left">No. Ref</th>
                     <th class="px-4 py-3 text-left">Keterangan</th>
                     <th class="px-4 py-3 text-left">User</th>
-                    <th class="px-4 py-3 text-left">Status</th>
-                    <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($transaksi as $item)
-                <tr class="hover:bg-gray-50 @if($item->status == 'dibatalkan') opacity-60 @endif">
+                <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">{{ \Carbon\Carbon::parse($item->tanggal)->format('d M Y H:i') }}</td>
                     <td class="px-4 py-3">
                         <span class="px-2 py-1 rounded-full text-xs font-semibold
@@ -85,34 +82,11 @@
                             -
                         @endif
                     </td>
-                    <td class="px-4 py-3">{{ $item->no_ref ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->keterangan ?? '-' }}</td>
                     <td class="px-4 py-3">{{ $item->user->name ?? '-' }}</td>
-                    <td class="px-4 py-3">
-                        @if($item->status == 'dibatalkan')
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600" title="Dibatalkan oleh {{ $item->pembatal->name ?? '-' }} pada {{ optional($item->dibatalkan_pada)->format('d M Y H:i') }}: {{ $item->alasan_pembatalan }}">
-                                Dibatalkan
-                            </span>
-                        @elseif($item->status == 'koreksi')
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700" title="Pembalik dari transaksi #{{ $item->id_transaksi_ref }}">
-                                Koreksi
-                            </span>
-                        @else
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Aktif</span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-3">
-                        @if($item->status == 'aktif')
-                            <button type="button" onclick="bukaModalBatalkan({{ $item->id_transaksi }})" class="text-red-600 hover:underline text-xs font-medium">
-                                Batalkan
-                            </button>
-                        @else
-                            -
-                        @endif
-                    </td>
                 </tr>
                 @empty
-                <tr><td colspan="11" class="py-10 text-center text-gray-500">Belum ada transaksi</td></tr>
+                <tr><td colspan="8" class="py-10 text-center text-gray-500">Belum ada transaksi</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -122,36 +96,4 @@
         <div class="mt-4">{{ $transaksi->links() }}</div>
     @endif
 </div>
-
-{{-- Modal Batalkan Transaksi --}}
-<div id="modal-batalkan" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-2">Batalkan Transaksi</h3>
-        <p class="text-sm text-gray-600 mb-4">Stok akan dikembalikan otomatis dan tercatat sebagai transaksi koreksi. Transaksi asal tidak dihapus, hanya ditandai dibatalkan.</p>
-        <form method="POST" id="form-batalkan">
-            @csrf
-            <label class="block text-sm font-medium text-gray-600 mb-1">Alasan pembatalan</label>
-            <textarea name="alasan" rows="3" required class="w-full border rounded-lg px-3 py-2 text-sm mb-4" placeholder="Contoh: Salah input jumlah, seharusnya 5 bukan 50"></textarea>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="tutupModalBatalkan()" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Ya, Batalkan Transaksi</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    function bukaModalBatalkan(id) {
-        const modal = document.getElementById('modal-batalkan');
-        const form = document.getElementById('form-batalkan');
-        form.action = `/stock-ctl/transaksi/${id}/batalkan`;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    }
-    function tutupModalBatalkan() {
-        const modal = document.getElementById('modal-batalkan');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
-</script>
 @endsection

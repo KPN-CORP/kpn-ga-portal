@@ -17,12 +17,11 @@
                         <option value="stok">Laporan Stok</option>
                         <option value="mutasi">Laporan Mutasi Barang</option>
                         <option value="permintaan">Laporan Permintaan</option>
-                        <option value="kartu_stok">Kartu Stok (Saldo Berjalan per Barang)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-600 mb-1">Area Kerja</label>
-                    <select name="id_area" id="id_area" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <select name="id_area" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua Area</option>
                         @foreach($areas as $area)
                             <option value="{{ $area->id_area_kerja }}">
@@ -30,26 +29,14 @@
                             </option>
                         @endforeach
                     </select>
-                    <p id="area_hint" class="text-xs text-amber-600 mt-1 hidden">Kartu Stok wajib memilih 1 area (tidak boleh "Semua Area").</p>
                 </div>
                 <div id="barang_field" class="hidden">
                     <label class="block text-sm font-medium text-gray-600 mb-1">Barang</label>
-                    <select name="id_barang" id="id_barang" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <select name="id_barang" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua Barang</option>
                         @foreach($barang as $b)
                             <option value="{{ $b->id_barang }}">{{ $b->kode_barang }} - {{ $b->nama_barang }}</option>
                         @endforeach
-                    </select>
-                    <p id="barang_hint" class="text-xs text-amber-600 mt-1 hidden">Kartu Stok wajib memilih 1 barang.</p>
-                </div>
-                <div id="jenis_mutasi_field" class="hidden">
-                    <label class="block text-sm font-medium text-gray-600 mb-1">Jenis Transaksi</label>
-                    <select name="jenis_mutasi" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                        <option value="">Semua Jenis</option>
-                        <option value="masuk">Barang Masuk</option>
-                        <option value="keluar">Barang Keluar</option>
-                        <option value="transfer">Transfer</option>
-                        <option value="opname">Opname</option>
                     </select>
                 </div>
                 <div>
@@ -63,6 +50,10 @@
             </div>
 
             <div class="mt-6 flex justify-end">
+                {{-- Tombol PDF disembunyikan (style="display:none;") --}}
+                <button type="button" id="btn-pdf" class="px-4 py-2 bg-blue-600 text-white rounded-lg" style="display:none;">
+                    <i class="fas fa-print mr-1"></i> Cetak PDF
+                </button>
                 <button type="button" id="btn-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg">
                     <i class="fas fa-file-excel mr-1"></i> Cetak Excel
                 </button>
@@ -96,7 +87,7 @@
                         @foreach($recentHistory as $h)
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-2">{{ $h->dicetak_pada->timezone('Asia/Jakarta')->format('d M Y H:i') }}</td>
-                            <td class="px-4 py-2">{{ $h->jenis_label }}</td>
+                            <td class="px-4 py-2">{{ ucfirst($h->jenis) }}</td>
                             <td class="px-4 py-2">
                                 @if($h->area)
                                     {{ $h->area->nama_area }} ({{ $h->area->bisnisUnit->nama_bisnis_unit ?? '-' }})
@@ -126,32 +117,18 @@
     </div>
 
     <script>
-        const jenisLaporan = document.getElementById('jenis_laporan');
-        const barangField = document.getElementById('barang_field');
-        const jenisMutasiField = document.getElementById('jenis_mutasi_field');
-        const areaHint = document.getElementById('area_hint');
-        const barangHint = document.getElementById('barang_hint');
-
-        jenisLaporan.addEventListener('change', function() {
-            const isMutasi = this.value === 'mutasi';
-            const isKartuStok = this.value === 'kartu_stok';
-
-            barangField.classList.toggle('hidden', !(isMutasi || isKartuStok));
-            jenisMutasiField.classList.toggle('hidden', !isMutasi);
-            areaHint.classList.toggle('hidden', !isKartuStok);
-            barangHint.classList.toggle('hidden', !isKartuStok);
+        document.getElementById('jenis_laporan').addEventListener('change', function() {
+            const barangField = document.getElementById('barang_field');
+            if (this.value === 'mutasi') {
+                barangField.classList.remove('hidden');
+            } else {
+                barangField.classList.add('hidden');
+            }
         });
 
         const form = document.getElementById('laporan-form');
+        // Tombol PDF di-skip (tidak perlu event listener)
         document.getElementById('btn-excel').addEventListener('click', function() {
-            if (jenisLaporan.value === 'kartu_stok') {
-                const idArea = document.getElementById('id_area').value;
-                const idBarang = document.getElementById('id_barang').value;
-                if (!idArea || !idBarang) {
-                    alert('Kartu Stok wajib memilih 1 Area Kerja dan 1 Barang terlebih dahulu.');
-                    return;
-                }
-            }
             form.action = "{{ route('stock-ctl.laporan.excel') }}";
             form.submit();
         });

@@ -16,7 +16,7 @@ class TransaksiController extends Controller
     public function index(Request $request)
     {
         $access = session('stock_ctl_access');
-        $query = Transaksi::with('barang', 'areaAsal', 'areaTujuan', 'user', 'pembatal');
+        $query = Transaksi::with('barang', 'areaAsal', 'areaTujuan', 'user');
 
         if (!$access['is_super']) {
             $query->where(function($q) use ($access) {
@@ -62,10 +62,8 @@ class TransaksiController extends Controller
             'id_area_tujuan' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
             'id_barang'      => 'required|exists:stock_ctl_barang,id_barang',
             'jumlah'         => 'required|numeric|min:1',
-            'no_ref'         => 'required|string|max:100',
+            'no_ref'         => 'nullable|string',
             'keterangan'     => 'nullable|string',
-        ], [
-            'no_ref.required' => 'Nomor referensi (faktur/PO) wajib diisi untuk barang masuk agar bisa ditelusuri.',
         ]);
 
         $access = session('stock_ctl_access');
@@ -222,102 +220,6 @@ class TransaksiController extends Controller
             return redirect()->back()
                              ->with('error', 'Gagal melakukan transfer: ' . $e->getMessage())
                              ->withInput();
-        }
-    }
-
-    /**
-     * Batalkan sebuah transaksi. Tidak menghapus data (agar riwayat tetap utuh),
-     * melainkan:
-     * 1) Membalik efek stok yang ditimbulkan transaksi asal
-     * 2) Menandai transaksi asal sebagai 'dibatalkan'
-     * 3) Membuat transaksi baru berstatus 'koreksi' sebagai jejak pembalik
-     */
-    public function batalkan(Request $request, $id)
-    {
-        $request->validate([
-            'alasan' => 'required|string|max:500',
-        ]);
-
-        $access = session('stock_ctl_access');
-        if (!$access['is_admin'] && !$access['is_super']) {
-            abort(403, 'Hanya admin yang bisa membatalkan transaksi.');
-        }
-
-        $transaksi = Transaksi::with('areaAsal', 'areaTujuan', 'barang')->findOrFail($id);
-
-        if (!$access['is_super']) {
-            $unitAsal   = $transaksi->areaAsal->id_bisnis_unit ?? null;
-            $unitTujuan = $transaksi->areaTujuan->id_bisnis_unit ?? null;
-            if ($unitAsal != $access['id_bisnis_unit'] && $unitTujuan != $access['id_bisnis_unit']) {
-                abort(403, 'Transaksi ini bukan milik unit Anda.');
-            }
-        }
-
-        if ($transaksi->status !== Transaksi::STATUS_AKTIF) {
-            return back()->withErrors('Transaksi ini sudah ' . $transaksi->status . ', tidak bisa dibatalkan lagi.');
-        }
-
-        try {
-            DB::transaction(function () use ($transaksi, $request) {
-                // Balikkan efek stok sesuai jenis transaksi asal
-                if ($transaksi->jenis === 'masuk') {
-                    $stok = Stok::where('id_barang', $transaksi->id_barang)
-                        ->where('id_area_kerja', $transaksi->id_area_tujuan)
-                        ->first();
-                    if (!$stok || $stok->jumlah < $transaksi->jumlah) {
-                        throw new \Exception('Stok saat ini sudah tidak cukup untuk membatalkan transaksi masuk ini (kemungkinan sebagian sudah terpakai).');
-                    }
-                    $stok->decrement('jumlah', $transaksi->jumlah);
-                } elseif ($transaksi->jenis === 'keluar') {
-                    Stok::updateOrCreate(
-                        ['id_barang' => $transaksi->id_barang, 'id_area_kerja' => $transaksi->id_area_asal],
-                        ['jumlah' => DB::raw('jumlah + ' . $transaksi->jumlah)]
-                    );
-                } elseif (in_array($transaksi->jenis, ['transfer', 'opname'])) {
-                    // Balikkan: tambahkan kembali ke asal (jika ada), kurangi dari tujuan (jika ada)
-                    if ($transaksi->id_area_asal) {
-                        Stok::updateOrCreate(
-                            ['id_barang' => $transaksi->id_barang, 'id_area_kerja' => $transaksi->id_area_asal],
-                            ['jumlah' => DB::raw('jumlah + ' . $transaksi->jumlah)]
-                        );
-                    }
-                    if ($transaksi->id_area_tujuan) {
-                        $stokTujuan = Stok::where('id_barang', $transaksi->id_barang)
-                            ->where('id_area_kerja', $transaksi->id_area_tujuan)
-                            ->first();
-                        if (!$stokTujuan || $stokTujuan->jumlah < $transaksi->jumlah) {
-                            throw new \Exception('Stok di area tujuan sudah tidak cukup untuk membatalkan transaksi ini (kemungkinan sebagian sudah terpakai).');
-                        }
-                        $stokTujuan->decrement('jumlah', $transaksi->jumlah);
-                    }
-                }
-
-                // Catat transaksi koreksi (jejak pembalik, arah area asal/tujuan dibalik dari transaksi asli)
-                Transaksi::create([
-                    'jenis'            => $transaksi->jenis,
-                    'id_barang'        => $transaksi->id_barang,
-                    'jumlah'           => $transaksi->jumlah,
-                    'id_area_asal'     => $transaksi->id_area_tujuan,
-                    'id_area_tujuan'   => $transaksi->id_area_asal,
-                    'keterangan'       => 'Pembalik dari pembatalan transaksi #' . $transaksi->id_transaksi . '. Alasan: ' . $request->alasan,
-                    'id_user'          => Auth::id(),
-                    'no_ref'           => $transaksi->no_ref,
-                    'status'           => Transaksi::STATUS_KOREKSI,
-                    'id_transaksi_ref' => $transaksi->id_transaksi,
-                ]);
-
-                // Tandai transaksi asal sebagai dibatalkan
-                $transaksi->update([
-                    'status'            => Transaksi::STATUS_DIBATALKAN,
-                    'dibatalkan_oleh'   => Auth::id(),
-                    'dibatalkan_pada'   => now(),
-                    'alasan_pembatalan' => $request->alasan,
-                ]);
-            });
-
-            return redirect()->route('stock-ctl.transaksi.index')->with('success', "Transaksi #{$id} berhasil dibatalkan dan stok sudah dikembalikan.");
-        } catch (\Exception $e) {
-            return back()->withErrors('Gagal membatalkan transaksi: ' . $e->getMessage());
         }
     }
 

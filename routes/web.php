@@ -248,6 +248,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('transaksi/keluar', [TransaksiController::class, 'storeKeluar'])->name('transaksi.keluar.store');
             Route::get('transaksi/transfer', [TransaksiController::class, 'createTransfer'])->name('transaksi.transfer');
             Route::post('transaksi/transfer', [TransaksiController::class, 'storeTransfer'])->name('transaksi.transfer.store');
+            Route::post('transaksi/{id}/batalkan', [TransaksiController::class, 'batalkan'])->name('transaksi.batalkan');
             Route::get('cek-stok', [App\Http\Controllers\StockCtl\TransaksiController::class, 'cekStok'])->name('cek-stok');
             Route::resource('opname', OpnameController::class);
             Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');

@@ -50,23 +50,12 @@ class LaporanController extends Controller
         set_time_limit(300);
 
         $request->validate([
-            'jenis'         => 'required|in:stok,mutasi,permintaan,kartu_stok',
+            'jenis'         => 'required|in:stok,mutasi,permintaan',
             'id_area'       => 'nullable|exists:stock_ctl_area_kerja,id_area_kerja',
             'id_barang'     => 'nullable|exists:stock_ctl_barang,id_barang',
-            'jenis_mutasi'  => 'nullable|in:masuk,keluar,transfer,opname',
             'tanggal_awal'  => 'nullable|date',
             'tanggal_akhir' => 'nullable|date|after_or_equal:tanggal_awal',
         ]);
-
-        if ($request->jenis === 'kartu_stok') {
-            $request->validate([
-                'id_area'   => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
-                'id_barang' => 'required|exists:stock_ctl_barang,id_barang',
-            ], [
-                'id_area.required'   => 'Kartu Stok wajib memilih 1 area kerja.',
-                'id_barang.required' => 'Kartu Stok wajib memilih 1 barang.',
-            ]);
-        }
 
         $access = session('stock_ctl_access');
 
@@ -87,16 +76,9 @@ class LaporanController extends Controller
                 break;
             case 'mutasi':
                 $data = $this->getDataMutasi($request, $access);
-                $headers = ['Tanggal', 'No. Ref', 'Jenis', 'Kode Barang', 'Barang', 'Jumlah', 'Satuan', 'Harga (Rp)', 'Nilai (Rp)', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User', 'Status'];
+                $headers = ['Tanggal', 'Jenis', 'Barang', 'Jumlah', 'Satuan', 'Harga (Rp)', 'Nilai (Rp)', 'Area Asal', 'Area Tujuan', 'Keterangan', 'User'];
                 $rows = $this->formatMutasiRows($data['transaksi']);
                 $filename = 'laporan_mutasi_' . date('YmdHis') . '.csv';
-                break;
-            case 'kartu_stok':
-                $data = $this->getDataKartuStok($request, $access);
-                $headers = ['Tanggal', 'No. Ref', 'Jenis', 'Masuk', 'Keluar', 'Saldo', 'Keterangan', 'User', 'Status'];
-                $rows = $this->formatKartuStokRows($data);
-                $barangNama = $data['barang']->nama_barang ?? 'barang';
-                $filename = 'kartu_stok_' . \Illuminate\Support\Str::slug($barangNama) . '_' . date('YmdHis') . '.csv';
                 break;
             case 'permintaan':
                 $data = $this->getDataPermintaan($request, $access);
@@ -129,7 +111,7 @@ class LaporanController extends Controller
                 if ($request->jenis == 'stok') {
                     $totalNilai += floatval(str_replace(',', '', $row[6]));
                 } elseif ($request->jenis == 'mutasi') {
-                    $totalNilai += floatval(str_replace(',', '', $row[8])); // Nilai di indeks 8 (geser karena No.Ref & Kode Barang)
+                    $totalNilai += floatval(str_replace(',', '', $row[6]));
                 } elseif ($request->jenis == 'permintaan') {
                     $totalNilai += floatval(str_replace(',', '', $row[10])); // Nilai di indeks 10
                 }
@@ -139,17 +121,13 @@ class LaporanController extends Controller
             if ($request->jenis == 'stok') {
                 fputcsv($output, ['', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
             } elseif ($request->jenis == 'mutasi') {
-                $totalRow = array_fill(0, 14, '');
-                $totalRow[7] = 'TOTAL NILAI:';
-                $totalRow[8] = number_format($totalNilai, 2);
-                fputcsv($output, $totalRow);
+                fputcsv($output, ['', '', '', '', '', '', 'TOTAL NILAI:', number_format($totalNilai, 2), '', '', '']);
             } elseif ($request->jenis == 'permintaan') {
                 $totalRow = array_fill(0, 19, '');
                 $totalRow[9]  = 'TOTAL NILAI:';
                 $totalRow[10] = number_format($totalNilai, 2);
                 fputcsv($output, $totalRow);
             }
-            // Kartu stok tidak butuh baris total nilai (yang penting saldo akhir sudah ada di baris terakhir)
 
             fclose($output);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -234,10 +212,6 @@ class LaporanController extends Controller
             $query->where('id_barang', $request->id_barang);
         }
 
-        if ($request->filled('jenis_mutasi')) {
-            $query->where('jenis', $request->jenis_mutasi);
-        }
-
         if ($request->tanggal_awal) {
             $query->whereDate('tanggal', '>=', $request->tanggal_awal);
         }
@@ -248,48 +222,6 @@ class LaporanController extends Controller
 
         $transaksi = $query->orderBy('tanggal', 'desc')->get();
         return compact('transaksi');
-    }
-
-    /**
-     * Kartu stok: saldo berjalan (running balance) untuk 1 barang di 1 area.
-     * Saldo awal periode dihitung dari akumulasi seluruh transaksi sebelum tanggal_awal,
-     * karena stok awal pun tercatat sebagai transaksi 'masuk' (lihat StokController::storeAwal).
-     */
-    private function getDataKartuStok($request, $access)
-    {
-        $barang = Barang::findOrFail($request->id_barang);
-        $area = AreaKerja::with('bisnisUnit')->findOrFail($request->id_area);
-
-        if (!$access['is_super'] && $area->id_bisnis_unit != $access['id_bisnis_unit']) {
-            abort(403, 'Anda tidak memiliki akses ke area tersebut.');
-        }
-
-        $baseQuery = Transaksi::where('id_barang', $request->id_barang)
-            ->where(function ($q) use ($request) {
-                $q->where('id_area_asal', $request->id_area)
-                  ->orWhere('id_area_tujuan', $request->id_area);
-            });
-
-        $saldoAwal = 0;
-        if ($request->tanggal_awal) {
-            $sebelumnya = (clone $baseQuery)->whereDate('tanggal', '<', $request->tanggal_awal)->orderBy('tanggal')->get();
-            foreach ($sebelumnya as $t) {
-                $saldoAwal += $t->id_area_tujuan == $request->id_area ? $t->jumlah : 0;
-                $saldoAwal -= $t->id_area_asal == $request->id_area ? $t->jumlah : 0;
-            }
-        }
-
-        $periodeQuery = clone $baseQuery;
-        if ($request->tanggal_awal) {
-            $periodeQuery->whereDate('tanggal', '>=', $request->tanggal_awal);
-        }
-        if ($request->tanggal_akhir) {
-            $periodeQuery->whereDate('tanggal', '<=', $request->tanggal_akhir);
-        }
-
-        $transaksi = $periodeQuery->with('user')->orderBy('tanggal')->get();
-
-        return compact('barang', 'area', 'saldoAwal', 'transaksi');
     }
 
     private function getDataPermintaan($request, $access)
@@ -361,9 +293,7 @@ class LaporanController extends Controller
             $nilai = $item->jumlah * $harga;
             return [
                 \Carbon\Carbon::parse($item->tanggal)->format('d M Y H:i'),
-                $item->no_ref ?? '-',
                 ucfirst($item->jenis),
-                $item->barang->kode_barang ?? '-',
                 $item->barang->nama_barang ?? '-',
                 number_format($item->jumlah, 2),
                 $item->barang->satuan ?? '-',
@@ -373,46 +303,8 @@ class LaporanController extends Controller
                 $item->areaTujuan ? ($item->areaTujuan->nama_area . ' (' . ($item->areaTujuan->bisnisUnit->nama_bisnis_unit ?? '-') . ')') : '-',
                 $item->keterangan ?? '-',
                 $item->user->name ?? '-',
-                $this->getStatusTransaksiLabel($item->status),
             ];
         })->toArray();
-    }
-
-    private function formatKartuStokRows($data)
-    {
-        $rows = [];
-        $rows[] = ['', '', 'Saldo Awal', '', '', number_format($data['saldoAwal'], 2), '', '', ''];
-
-        $saldo = $data['saldoAwal'];
-        foreach ($data['transaksi'] as $t) {
-            $masuk = $t->id_area_tujuan == $data['area']->id_area_kerja ? $t->jumlah : 0;
-            $keluar = $t->id_area_asal == $data['area']->id_area_kerja ? $t->jumlah : 0;
-            $saldo += $masuk - $keluar;
-
-            $rows[] = [
-                \Carbon\Carbon::parse($t->tanggal)->format('d M Y H:i'),
-                $t->no_ref ?? '-',
-                ucfirst($t->jenis),
-                $masuk ? number_format($masuk, 2) : '',
-                $keluar ? number_format($keluar, 2) : '',
-                number_format($saldo, 2),
-                $t->keterangan ?? '-',
-                $t->user->name ?? '-',
-                $this->getStatusTransaksiLabel($t->status),
-            ];
-        }
-
-        return $rows;
-    }
-
-    private function getStatusTransaksiLabel($status)
-    {
-        $labels = [
-            'aktif'      => 'Aktif',
-            'dibatalkan' => 'Dibatalkan',
-            'koreksi'    => 'Koreksi',
-        ];
-        return $labels[$status] ?? ucfirst($status ?? 'aktif');
     }
 
     private function formatPermintaanRows($permintaan)

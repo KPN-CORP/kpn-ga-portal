@@ -77,12 +77,9 @@
 
             {{-- Nomor Referensi --}}
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-600 mb-1">Nomor Referensi (Faktur/PO) <span class="text-red-500">*</span></label>
-                <input type="text" name="no_ref" value="{{ old('no_ref') }}" required
-                       placeholder="Contoh: PO-2026-0012"
-                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 @error('no_ref') border-red-500 @enderror">
-                <p class="text-xs text-gray-500 mt-1">Wajib diisi agar barang masuk bisa ditelusuri ke dokumen sumbernya.</p>
-                @error('no_ref') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label class="block text-sm font-medium text-gray-600 mb-1">Nomor Referensi (Faktur)</label>
+                <input type="text" name="no_ref" value="{{ old('no_ref') }}" 
+                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
 
             {{-- Keterangan --}}
