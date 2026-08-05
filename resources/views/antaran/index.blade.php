@@ -6,11 +6,32 @@
 <div class="max-w-lg md:max-w-full mx-auto px-4 md:px-8 py-6">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-lg font-semibold">Kiriman saya</h1>
-    <a href="{{ route('antaran.request') }}" class="jne-orange text-white text-sm rounded-lg px-3 py-1.5">+ Kirim</a>
+    <a href="{{ route('antaran.request') }}" class="jne-orange text-white text-sm rounded-lg px-3 py-1.5">+ New Request</a>
+  </div>
+
+  @php
+    $tabAktif = $tab ?? 'semua';
+    $tabList = [
+      'semua'   => 'Semua',
+      'proses'  => 'Diproses',
+      'selesai' => 'Selesai',
+      'batal'   => 'Dibatalkan',
+    ];
+  @endphp
+  <div class="flex gap-1 mb-4 border-b overflow-x-auto">
+    @foreach ($tabList as $key => $label)
+      <a href="{{ route('antaran.index', array_merge(request()->except(['page', 'tab']), $key === 'semua' ? [] : ['tab' => $key])) }}"
+         class="px-3 py-2 text-sm whitespace-nowrap border-b-2 -mb-px {{ $tabAktif === $key ? 'jne-text border-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+        {{ $label }}
+      </a>
+    @endforeach
   </div>
 
   <form method="GET" class="mb-4 md:max-w-sm">
-    <input type="text" name="resi" value="{{ request('resi') }}" placeholder="Cari no. resi..."
+    @if ($tabAktif !== 'semua')
+      <input type="hidden" name="tab" value="{{ $tabAktif }}">
+    @endif
+    <input type="text" name="cari" value="{{ request('cari') }}" placeholder="Cari no. resi, pengirim, atau penerima..."
       class="w-full border rounded-lg px-3 py-2 text-sm">
   </form>
 
@@ -23,7 +44,8 @@
           <div>
             <p class="text-sm font-semibold">{{ $item->no_transaksi }}</p>
             <p class="text-xs text-gray-500 mt-0.5">{{ Str::limit($item->deskripsi, 40) }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">Ke: {{ Str::limit($item->alamat_tujuan, 35) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">Dari: {{ $item->nama_pengirim ?? '-' }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">Ke: {{ $item->penerima ?? '-' }} &middot; {{ Str::limit($item->alamat_tujuan, 35) }}</p>
           </div>
           @include('antaran.partials.status-badge', ['status' => $item->status])
         </div>
@@ -43,6 +65,8 @@
           <tr class="border-b text-xs text-gray-400">
             <th class="py-2 pr-3 font-medium">No. Transaksi</th>
             <th class="py-2 pr-3 font-medium">Deskripsi</th>
+            <th class="py-2 pr-3 font-medium">Pengirim</th>
+            <th class="py-2 pr-3 font-medium">Penerima</th>
             <th class="py-2 pr-3 font-medium">Tujuan</th>
             <th class="py-2 pr-3 font-medium">Status</th>
             <th class="py-2 pr-3 font-medium"></th>
@@ -53,6 +77,8 @@
             <tr class="border-b last:border-0 hover:bg-gray-50">
               <td class="py-2 pr-3 text-sm font-semibold">{{ $item->no_transaksi }}</td>
               <td class="py-2 pr-3 text-xs text-gray-600">{{ Str::limit($item->deskripsi, 40) }}</td>
+              <td class="py-2 pr-3 text-xs text-gray-600">{{ $item->nama_pengirim ?? '-' }}</td>
+              <td class="py-2 pr-3 text-xs text-gray-600">{{ $item->penerima ?? '-' }}</td>
               <td class="py-2 pr-3 text-xs text-gray-600">{{ Str::limit($item->alamat_tujuan, 40) }}</td>
               <td class="py-2 pr-3">
                 @include('antaran.partials.status-badge', ['status' => $item->status])

@@ -8,3 +8,6 @@
   };
 @endphp
 <span class="text-xs px-2 py-1 rounded-full {{ $badge[0] }} {{ $badge[1] }} whitespace-nowrap">{{ $status }}</span>
+@if (!empty($kurir ?? null))
+  <p class="text-[10px] text-gray-400 mt-0.5 whitespace-nowrap">Kurir: {{ $kurir }}</p>
+@endif

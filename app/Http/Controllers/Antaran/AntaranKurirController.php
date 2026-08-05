@@ -34,7 +34,8 @@ class AntaranKurirController extends Controller
 
         $query = DB::table('tb_transaksi as t')
             ->leftJoin('tb_pelanggan as p', 'p.id_pelanggan', '=', 't.pengirim')
-            ->select('t.*', 'p.nama_pelanggan as nama_pengirim', 'p.no_hp_pelanggan as no_hp_pengirim')
+            ->leftJoin('tb_pelanggan as k', 'k.id_pelanggan', '=', 't.kurir')
+            ->select('t.*', 'p.nama_pelanggan as nama_pengirim', 'p.no_hp_pelanggan as no_hp_pengirim', 'k.nama_pelanggan as nama_kurir')
             ->whereNotIn('t.status', ['Terkirim', 'Ditolak', 'Batal']);
 
         if (!$hasAccessAll) {

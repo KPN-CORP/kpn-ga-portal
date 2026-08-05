@@ -300,16 +300,16 @@ class FotopdfmailingController extends Controller
      */
     protected function compressImage(string $fullPath, string $ext): ?int
     {
-        $info = @getimagesize($fullPath);
+        $info = @\getimagesize($fullPath);
 
         if (! $info) {
             return null;
         }
 
         $image = match ($ext) {
-            'jpg', 'jpeg' => @imagecreatefromjpeg($fullPath),
-            'png' => @imagecreatefrompng($fullPath),
-            'webp' => @imagecreatefromwebp($fullPath),
+            'jpg', 'jpeg' => @\imagecreatefromjpeg($fullPath),
+            'png' => @\imagecreatefrompng($fullPath),
+            'webp' => @\imagecreatefromwebp($fullPath),
             default => null,
         };
 
@@ -318,8 +318,8 @@ class FotopdfmailingController extends Controller
         }
 
         // Kecilkan dimensi dulu kalau sisi terpanjang > 2000px
-        $width = imagesx($image);
-        $height = imagesy($image);
+        $width = \imagesx($image);
+        $height = \imagesy($image);
         $maxDimension = 2000;
 
         if (max($width, $height) > $maxDimension) {
@@ -327,15 +327,15 @@ class FotopdfmailingController extends Controller
             $newWidth = (int) round($width * $ratio);
             $newHeight = (int) round($height * $ratio);
 
-            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            $resized = \imagecreatetruecolor($newWidth, $newHeight);
 
             if ($ext === 'png') {
-                imagealphablending($resized, false);
-                imagesavealpha($resized, true);
+                \imagealphablending($resized, false);
+                \imagesavealpha($resized, true);
             }
 
-            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-            imagedestroy($image);
+            \imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            \imagedestroy($image);
             $image = $resized;
         }
 
@@ -345,26 +345,26 @@ class FotopdfmailingController extends Controller
             switch ($ext) {
                 case 'jpg':
                 case 'jpeg':
-                    imagejpeg($image, $fullPath, $quality);
+                    \imagejpeg($image, $fullPath, $quality);
                     break;
                 case 'png':
                     // skala kualitas 0-100 -> level kompresi PNG 0-9 (9 = paling padat)
-                    imagepng($image, $fullPath, (int) round((100 - $quality) / 11.1));
+                    \imagepng($image, $fullPath, (int) round((100 - $quality) / 11.1));
                     break;
                 case 'webp':
-                    imagewebp($image, $fullPath, $quality);
+                    \imagewebp($image, $fullPath, $quality);
                     break;
             }
 
-            clearstatcache(true, $fullPath);
-            $currentSize = filesize($fullPath);
+            \clearstatcache(true, $fullPath);
+            $currentSize = \filesize($fullPath);
             $quality -= 10;
         } while ($currentSize > $this->maxSizeBytes() && $quality >= 30);
 
-        imagedestroy($image);
-        clearstatcache(true, $fullPath);
+        \imagedestroy($image);
+        \clearstatcache(true, $fullPath);
 
-        return filesize($fullPath);
+        return \filesize($fullPath);
     }
 
     /**
@@ -372,7 +372,7 @@ class FotopdfmailingController extends Controller
      */
     protected function compressPdf(string $fullPath): ?int
     {
-        $gsBinary = trim((string) shell_exec('command -v gs'));
+        $gsBinary = trim((string) \shell_exec('command -v gs'));
 
         if ($gsBinary === '') {
             throw new \RuntimeException('Ghostscript (gs) tidak ditemukan di server, PDF tidak bisa dikompres.');
@@ -380,29 +380,29 @@ class FotopdfmailingController extends Controller
 
         $tempPath = $fullPath.'.compressed.pdf';
 
-        $cmd = sprintf(
+        $cmd = \sprintf(
             '%s -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile=%s %s 2>&1',
-            escapeshellcmd($gsBinary),
-            escapeshellarg($tempPath),
-            escapeshellarg($fullPath)
+            \escapeshellcmd($gsBinary),
+            \escapeshellarg($tempPath),
+            \escapeshellarg($fullPath)
         );
 
-        exec($cmd, $output, $exitCode);
+        \exec($cmd, $output, $exitCode);
 
         if ($exitCode !== 0 || ! file_exists($tempPath) || filesize($tempPath) === 0) {
-            @unlink($tempPath);
+            @\unlink($tempPath);
             throw new \RuntimeException('Ghostscript gagal memproses PDF: '.implode(' ', $output));
         }
 
         // Kadang hasil gs lebih besar dari aslinya (PDF sudah optimal) -> pakai yang lebih kecil saja
-        if (filesize($tempPath) < filesize($fullPath)) {
-            rename($tempPath, $fullPath);
+        if (\filesize($tempPath) < \filesize($fullPath)) {
+            \rename($tempPath, $fullPath);
         } else {
-            @unlink($tempPath);
+            @\unlink($tempPath);
         }
 
-        clearstatcache(true, $fullPath);
+        \clearstatcache(true, $fullPath);
 
-        return filesize($fullPath);
+        return \filesize($fullPath);
     }
 }

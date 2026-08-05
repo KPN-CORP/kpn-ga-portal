@@ -43,7 +43,7 @@
     @if ($item->no_hp_penerima)<br><a href="tel:{{ $item->no_hp_penerima }}" class="jne-text underline">{{ $item->no_hp_penerima }}</a>@endif
   </td>
   <td class="py-2 pr-3">
-    @include('antaran.partials.status-badge', ['status' => $item->status])
+    @include('antaran.partials.status-badge', ['status' => $item->status, 'kurir' => $item->nama_kurir ?? null])
   </td>
   <td class="py-2 pr-3">
     @if (!$sudahDiambil)

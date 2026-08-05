@@ -25,7 +25,7 @@
     <div class="flex-1 min-w-0">
       <div class="flex justify-between items-start">
         <p class="text-sm font-semibold">{{ $item->no_transaksi }}</p>
-        @include('antaran.partials.status-badge', ['status' => $item->status])
+        @include('antaran.partials.status-badge', ['status' => $item->status, 'kurir' => $item->nama_kurir ?? null])
       </div>
       <p class="text-xs text-gray-500">{{ Str::limit($item->deskripsi, 40) }}</p>
       <p class="text-[11px] text-gray-400 mt-0.5">Dibuat {{ \Carbon\Carbon::parse($item->created_at)->translatedFormat('d M Y, H:i') }}</p>

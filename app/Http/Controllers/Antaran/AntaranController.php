@@ -35,27 +35,57 @@ class AntaranController extends Controller
         return route('messenger.file', ['type' => $type, 'filename' => $filename]);
     }
 
+    /**
+     * Pemetaan tab -> daftar status, dipakai untuk pemisahan proses di halaman index.
+     */
+    private function tabStatusMap(): array
+    {
+        return [
+            'proses'  => ['Belum Terkirim', 'Pengiriman Dibuat', 'Proses Pengiriman', 'Dokumen Belum Tersedia'],
+            'selesai' => ['Terkirim'],
+            'batal'   => ['Batal'],
+        ];
+    }
+
     public function index(Request $request)
     {
         $hasAccessAll = $this->hasAccessAll();
         $pelanggan = $this->currentPelanggan();
+
+        $tabStatusMap = $this->tabStatusMap();
+        $tab = $request->get('tab', 'semua');
+        if (!isset($tabStatusMap[$tab])) {
+            $tab = 'semua';
+        }
+
+        if (!$hasAccessAll && !$pelanggan) {
+            return view('antaran.index', ['transaksi' => collect(), 'hasAccessAll' => $hasAccessAll, 'tab' => $tab]);
+        }
 
         $query = DB::table('tb_transaksi as t')
             ->leftJoin('tb_pelanggan as p', 'p.id_pelanggan', '=', 't.pengirim')
             ->select('t.*', 'p.nama_pelanggan as nama_pengirim');
 
         if (!$hasAccessAll) {
-            if (!$pelanggan) return view('antaran.index', ['transaksi' => collect()]);
             $query->where('t.pengirim', $pelanggan->id_pelanggan);
         }
 
-        if ($request->filled('resi')) {
-            $query->where('t.no_transaksi', 'like', '%' . $request->resi . '%');
+        if ($request->filled('cari')) {
+            $keyword = $request->cari;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('t.no_transaksi', 'like', '%' . $keyword . '%')
+                  ->orWhere('p.nama_pelanggan', 'like', '%' . $keyword . '%')
+                  ->orWhere('t.penerima', 'like', '%' . $keyword . '%');
+            });
         }
 
-        $transaksi = $query->orderByDesc('t.created_at')->paginate(8)->withQueryString();
+        if ($tab !== 'semua') {
+            $query->whereIn('t.status', $tabStatusMap[$tab]);
+        }
 
-        return view('antaran.index', compact('transaksi', 'hasAccessAll'));
+        $transaksi = $query->orderByDesc('t.created_at')->paginate(15)->withQueryString();
+
+        return view('antaran.index', compact('transaksi', 'hasAccessAll', 'tab'));
     }
 
     public function request()
