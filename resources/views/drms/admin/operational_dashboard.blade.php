@@ -138,7 +138,6 @@
         @if(count($vehicleStats) > 0)
         <div class="flex border-b mb-3 flex-wrap">
             <button class="tab-btn active px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" data-tab="cost">💰 Biaya</button>
-            <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="fuel">⛽ BBM</button>
             <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="distance">📏 Jarak</button>
         </div>
 
@@ -287,21 +286,21 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [
                 {
                     label: 'BBM/Charge',
-                    data: monthlyData.map(d => d.fuel),
+                    data: monthlyData.map(d => Number(d.fuel)),
                     backgroundColor: 'rgba(59,130,246,0.7)',
                     borderColor: 'rgba(59,130,246,1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Service',
-                    data: monthlyData.map(d => d.service),
+                    data: monthlyData.map(d => Number(d.service)),
                     backgroundColor: 'rgba(249,115,22,0.7)',
                     borderColor: 'rgba(249,115,22,1)',
                     borderWidth: 1
                 },
                 {
                     label: 'Perbaikan',
-                    data: monthlyData.map(d => d.repair),
+                    data: monthlyData.map(d => Number(d.repair)),
                     backgroundColor: 'rgba(239,68,68,0.7)',
                     borderColor: 'rgba(239,68,68,1)',
                     borderWidth: 1
@@ -330,26 +329,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const chartDataMap = {
             cost: {
                 label: 'Total Biaya (Rp)',
-                data: vehicleStats.map(v => v.total_cost),
+                data: vehicleStats.map(v => Number(v.total_cost)),
                 color: 'rgba(59,130,246,0.7)',
                 borderColor: 'rgba(59,130,246,1)',
-                total: vehicleStats.reduce((a,b) => a + b.total_cost, 0),
-                format: (val) => 'Rp ' + val.toLocaleString()
-            },
-            fuel: {
-                label: 'BBM/Charge (Rp)',
-                data: vehicleStats.map(v => v.fuel_cost),
-                color: 'rgba(236,72,153,0.7)',
-                borderColor: 'rgba(236,72,153,1)',
-                total: vehicleStats.reduce((a,b) => a + b.fuel_cost, 0),
+                total: vehicleStats.reduce((a,b) => a + Number(b.total_cost), 0),
                 format: (val) => 'Rp ' + val.toLocaleString()
             },
             distance: {
                 label: 'Jarak (km)',
-                data: vehicleStats.map(v => v.distance),
+                data: vehicleStats.map(v => Number(v.distance)),
                 color: 'rgba(16,185,129,0.7)',
                 borderColor: 'rgba(16,185,129,1)',
-                total: vehicleStats.reduce((a,b) => a + b.distance, 0),
+                total: vehicleStats.reduce((a,b) => a + Number(b.distance), 0),
                 format: (val) => val.toLocaleString() + ' km'
             }
         };
@@ -422,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels: efficiencyData.map(d => d.vehicle),
                 datasets: [{
                     label: 'Rata-rata Efisiensi (L/100km)',
-                    data: efficiencyData.map(d => d.avg_efficiency),
+                    data: efficiencyData.map(d => Number(d.avg_efficiency)),
                     backgroundColor: 'rgba(16,185,129,0.7)',
                     borderColor: 'rgba(16,185,129,1)',
                     borderWidth: 1
@@ -445,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CHART DISTRIBUSI TRANSPORTASI ==========
     const transportContainer = document.getElementById('transportChart').parentElement;
     const labels = transportData.map(d => d.transport_type ? d.transport_type.replace('_', ' ').toUpperCase() : 'Tidak Diketahui');
-    const values = transportData.map(d => d.total);
+    const values = transportData.map(d => Number(d.total));
     const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
 
     if (values.length > 0) {
