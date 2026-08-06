@@ -92,6 +92,7 @@ class MemosController extends Controller
                 'status'        => $request->status,
                 'business_unit' => $businessUnit,
                 'dynamic_columns_definition' => $dynamicColumns,
+                'keterangan_label' => $request->keteranganLabel,
                 'created_by'    => auth()->id(),
                 'expires_at'    => $request->status === 'draft' ? now()->addHours(24) : null
             ]);
@@ -154,6 +155,7 @@ class MemosController extends Controller
                 'total_amount'  => $total,
                 'status'        => $request->status,
                 'dynamic_columns_definition' => $dynamicColumns,
+                'keterangan_label' => $request->keteranganLabel,
                 'expires_at'    => $request->status === 'draft' ? now()->addHours(24) : null
             ]);
 

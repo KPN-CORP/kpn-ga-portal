@@ -13,7 +13,7 @@ class Memos extends Model
         'memo_number', 'perihal', 'kepada', 'dari', 'instruksi', 'bank',
         'atas_nama', 'no_rek', 'penandatangan', 'jabatan', 'total_amount',
         'status', 'business_unit', 'team_id', 'admin_id',
-        'dynamic_columns_definition', 'created_by', 'expires_at'
+        'dynamic_columns_definition', 'keterangan_label', 'created_by', 'expires_at'
     ];
 
     protected $casts = [
