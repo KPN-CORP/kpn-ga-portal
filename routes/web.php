@@ -639,6 +639,7 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
         Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
         Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
+        Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
 
         // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
         Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {

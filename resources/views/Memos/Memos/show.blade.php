@@ -35,6 +35,7 @@
             <p><strong>Kepada</strong> : {{ $memo->kepada }}</p>
             <p><strong>Dari</strong> : {{ $memo->dari }}</p>
             <p><strong>Perihal</strong> : {{ $memo->perihal }}</p>
+            <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
             <p>
                 Mohon disiapkan dana sebesar
                 <strong>Rp {{ number_format($memo->total_amount,0,',','.') }}</strong>
@@ -51,7 +52,7 @@
                 <thead>
                     <tr>
                         <th class="w-10">No</th>
-                        <th>Keterangan</th>
+                        <th>{{ $memo->keterangan_label ?? 'Keterangan' }}</th>
                         @foreach($dynamicColumns as $colName)
                             <th>{{ $colName }}</th>
                         @endforeach
@@ -93,7 +94,7 @@
 
     <!-- Tombol cetak -->
     <div class="mt-4 flex justify-end no-print">
-        <button id="printMemoBtn" class="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm">🖨️ Cetak Memo</button>
+        <a href="{{ route('memos.pdf', $memo) }}" class="bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm inline-block">⬇️ Download PDF</a>
     </div>
 
     <!-- Lampiran dan checklist -->
@@ -132,6 +133,44 @@
             </div>
         </div>
     </div>
+
+    <!-- Tanda Informasi Mengambang -->
+    <div class="fixed bottom-6 right-6 z-50 no-print" x-data="{ infoOpen: false }">
+        <button @click="infoOpen = !infoOpen"
+                class="w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700 transition text-lg font-bold"
+                title="Info & Cara Pakai">
+            <span x-show="!infoOpen">ℹ️</span>
+            <span x-show="infoOpen">✖</span>
+        </button>
+
+        <div x-show="infoOpen"
+             x-transition
+             @click.away="infoOpen = false"
+             class="absolute bottom-16 right-0 w-80 bg-white rounded-xl shadow-2xl border p-4 text-sm text-gray-700"
+             style="display: none;">
+            <h3 class="font-bold text-gray-800 mb-2">ℹ️ Info &amp; Cara Pakai</h3>
+            <p class="mb-2">
+                <strong>{{ $memo->keterangan_label ?? 'Keterangan' }}</strong>: kolom ini berisi
+                nama/deskripsi tiap item rincian pada memo ini.
+            </p>
+            <p class="mb-2">
+                <strong>Download PDF</strong>: klik tombol "⬇️ Download PDF" untuk mengunduh memo
+                ini dalam bentuk file PDF.
+            </p>
+            @if($memo->status === 'draft' && $memo->created_by == auth()->id())
+            <p class="mb-2">
+                Memo ini masih <strong>draft</strong> — gunakan "Edit Draft" untuk mengubah isinya,
+                atau "Hapus Draft" untuk membatalkan.
+            </p>
+            @endif
+            @if($memo->attachments->count())
+            <p>
+                Centang kolom "Ceklis sudah disimpan" pada tiap lampiran setelah dokumen fisiknya
+                benar-benar sudah diarsipkan.
+            </p>
+            @endif
+        </div>
+    </div>
 </div>
 
 <style>
@@ -163,68 +202,4 @@
         .a4-page { box-shadow: none; width: auto; min-height: 0; }
     }
 </style>
-
-<script>
-    document.getElementById('printMemoBtn')?.addEventListener('click', () => {
-        const printContent = document.getElementById('printMemoArea').cloneNode(true);
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Cetak Memo - {{ $memo->memo_number ?? 'Draft' }}</title>
-                <style>
-                    @page {
-                        size: A4;
-                        margin: 20mm 18mm;
-                    }
-                    body {
-                        margin: 0;
-                        font-family: 'Times New Roman', serif;
-                        background: white;
-                    }
-                    .container {
-                        width: 100%;
-                        margin: 0 auto;
-                    }
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                    }
-                    th, td {
-                        border: 1px solid #000;
-                        padding: 6px;
-                        text-align: left;
-                        vertical-align: top;
-                    }
-                    .text-right {
-                        text-align: right;
-                    }
-                    .text-center {
-                        text-align: center;
-                    }
-                    .font-bold {
-                        font-weight: bold;
-                    }
-                    .border-l-4 {
-                        border-left: 4px solid #2563eb;
-                        padding-left: 12px;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    ${printContent.innerHTML}
-                </div>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        setTimeout(() => {
-            printWindow.print();
-        }, 500);
-    });
-</script>
 @endsection

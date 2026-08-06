@@ -47,7 +47,7 @@ class VehicleController extends Controller
             $search = '%' . $request->search . '%';
             $query->where(function ($q) use ($search) {
                 $q->where('plate_number', 'LIKE', $search)
-                  ->orWhere('type', 'LIKE', $search);
+                ->orWhere('type', 'LIKE', $search);
             });
         }
 
@@ -66,10 +66,17 @@ class VehicleController extends Controller
             $query->where('fuel_type', $request->fuel_type);
         }
 
-        // Order by
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
+        // ========== URUTAN ==========
+        if ($request->filled('sort_by')) {
+            // Jika user memilih sorting sendiri
+            $sortBy = $request->get('sort_by');
+            $sortOrder = $request->get('sort_order', 'asc');
+            $query->orderBy($sortBy, $sortOrder);
+        } else {
+            // Default: urutkan berdasarkan Business Unit (ID) lalu Tipe
+            $query->orderBy('business_unit_id')->orderBy('type');
+        }
+        // ============================
 
         $vehicles = $query->paginate(20)->appends($request->query());
 

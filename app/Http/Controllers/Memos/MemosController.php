@@ -11,6 +11,7 @@ use App\Models\ApiEmpHcis;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class MemosController extends Controller
 {
@@ -172,6 +173,22 @@ class MemosController extends Controller
     {
         $memo->load('items', 'attachments', 'creator');
         return view('Memos.Memos.show', compact('memo'));
+    }
+
+    public function downloadPdf(Memos $memo)
+    {
+        $memo->load('items');
+
+        $pdf = Pdf::loadView('Memos.Memos.pdf', compact('memo'))->setPaper('a4');
+
+        $filename = 'Memo-' . ($memo->memo_number ?? 'draft') . '.pdf';
+
+        // Tidak pakai $pdf->download() karena Laravel/Symfony menolak "/" di nama file.
+        // Response dibuat manual supaya "/" tetap bisa dipakai apa adanya.
+        return response($pdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     public function updateChecklist(Request $request, MemosAttachments $attachment)

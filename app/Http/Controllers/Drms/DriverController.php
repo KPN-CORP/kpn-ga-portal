@@ -138,10 +138,20 @@ class DriverController extends Controller
     $user = Auth::user();
     $businessUnitId = null;
 
-    // Ambil filter
-    $date = $request->get('date', now()->format('Y-m-d'));
+    // PERBAIKAN: jadwal sebelumnya per-tanggal (satu hari). Sekarang diubah
+    // jadi per-BULAN — filter "date" diganti "month" (format Y-m), lalu di
+    // view ditampilkan sebagai satu tabel matriks: baris = driver, kolom =
+    // tanggal 1..akhir bulan, dan jadwal per hari disusun ke bawah (stack)
+    // di dalam sel tanggal tersebut.
+    $month = $request->get('month', now()->format('Y-m'));
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+        $month = now()->format('Y-m');
+    }
+    $monthStart = \Carbon\Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
+    $monthEnd = $monthStart->copy()->endOfMonth();
+
     $searchDriver = $request->get('search');
-    $statusFilter = $request->get('status'); // pending, on_trip, completed, all
+    $statusFilter = $request->get('status'); // scheduled, on_trip, completed, all
 
     // Query driver
     $driverQuery = Driver::with('businessUnit');
@@ -163,34 +173,52 @@ class DriverController extends Controller
         $driverQuery->where('name', 'LIKE', '%' . $searchDriver . '%');
     }
 
-    $drivers = $driverQuery->get();
+    $drivers = $driverQuery->orderBy('name')->get();
 
-    // Query requests
+    // Query requests untuk SATU BULAN PENUH (bukan satu tanggal lagi).
+    // PERBAIKAN: sebelumnya cuma dicek usage_date-nya masuk bulan ini. Untuk trip
+    // pulang-pergi (round_trip) yang punya return_date, itu bikin jadwal yang
+    // sebenarnya berlangsung beberapa hari (mis. usage_date 28 Juli - return_date
+    // 2 Agustus) tidak ikut muncul di bulan Agustus padahal masih berjalan.
+    // Sekarang pakai kondisi OVERLAP: request ikut ditampilkan selama rentang
+    // [usage_date .. effective_end_date] beririsan dengan rentang bulan yang dipilih,
+    // dengan effective_end_date = return_date (kalau round_trip & diisi) atau usage_date.
     $requestQuery = DriverRequest::with('driver', 'requester', 'requester.drmsProfile.businessUnit')
-        ->where('usage_date', $date)
+        ->where('usage_date', '<=', $monthEnd->format('Y-m-d'))
+        ->where(function ($q) use ($monthStart) {
+            $q->where(function ($q2) use ($monthStart) {
+                // Trip pulang-pergi: pakai return_date sebagai batas akhir
+                $q2->where('trip_type', 'round_trip')
+                   ->whereNotNull('return_date')
+                   ->where('return_date', '>=', $monthStart->format('Y-m-d'));
+            })->orWhere(function ($q2) use ($monthStart) {
+                // Selain itu (sekali jalan, atau round_trip tanpa return_date): pakai usage_date
+                $q2->where(function ($q3) {
+                    $q3->where('trip_type', '!=', 'round_trip')->orWhereNull('return_date');
+                })->where('usage_date', '>=', $monthStart->format('Y-m-d'));
+            });
+        })
         ->whereIn('status', ['approved_admin', 'completed']);
 
     if ($statusFilter && $statusFilter != 'all') {
+        $now = now();
         if ($statusFilter == 'scheduled') {
-            $requestQuery->where('status', 'approved_admin');
-            if ($date === now()->format('Y-m-d')) {
-                $requestQuery->whereTime('start_time', '>', now()->format('H:i:s'));
-            }
-            // Untuk tanggal selain hari ini, semua request approved_admin pada tanggal itu
-            // dianggap "scheduled" (belum bisa dibandingkan jam berjalan terhadap tanggal lain).
+            $requestQuery->where('status', 'approved_admin')
+                ->where(function ($q) use ($now) {
+                    // Terjadwal = tanggal di masa depan, ATAU hari ini tapi jam mulai belum lewat
+                    $q->whereDate('usage_date', '>', $now->format('Y-m-d'))
+                      ->orWhere(function ($q2) use ($now) {
+                          $q2->whereDate('usage_date', '=', $now->format('Y-m-d'))
+                             ->whereTime('start_time', '>', $now->format('H:i:s'));
+                      });
+                });
         } elseif ($statusFilter == 'on_trip') {
-            $requestQuery->where('status', 'approved_admin');
-            if ($date === now()->format('Y-m-d')) {
-                $requestQuery->whereTime('start_time', '<=', now()->format('H:i:s'))
-                    ->whereTime('end_time', '>', now()->format('H:i:s'));
-            } else {
-                // PERBAIKAN: sebelumnya whereTime() di sini hanya membandingkan jam (tanpa
-                // memastikan $date == hari ini), sehingga request di tanggal LAIN (mis. besok)
-                // bisa ikut muncul sebagai "on_trip" hanya karena jam start/end-nya kebetulan
-                // beririsan dengan jam saat ini. Kalau tanggal yang dilihat bukan hari ini,
-                // tidak mungkin ada trip yang sedang "on_trip" saat ini.
-                $requestQuery->whereRaw('1 = 0');
-            }
+            // Dalam perjalanan hanya mungkin terjadi pada tanggal HARI INI,
+            // dengan jam sekarang berada di antara start_time dan end_time.
+            $requestQuery->where('status', 'approved_admin')
+                ->whereDate('usage_date', '=', $now->format('Y-m-d'))
+                ->whereTime('start_time', '<=', $now->format('H:i:s'))
+                ->whereTime('end_time', '>', $now->format('H:i:s'));
         } elseif ($statusFilter == 'completed') {
             $requestQuery->where('status', 'completed');
         }
@@ -209,7 +237,102 @@ class DriverController extends Controller
         }
     }
 
-    $requests = $requestQuery->orderBy('start_time')->get()->groupBy('driver_id');
+    $allRequests = $requestQuery->orderBy('usage_date')->orderBy('start_time')->get();
+
+    // Daftar tanggal (1..akhir bulan) untuk header kolom tabel
+    $daysInMonth = [];
+    $cursor = $monthStart->copy();
+    while ($cursor->lte($monthEnd)) {
+        $daysInMonth[] = $cursor->copy();
+        $cursor->addDay();
+    }
+    $totalDays = count($daysInMonth);
+
+    // PERBAIKAN: sebelumnya jadwal cuma "nempel" sebagai label di SATU sel tanggal
+    // (usage_date), padahal request bisa berlangsung beberapa hari (trip pulang-pergi).
+    // Sekarang tiap request dihitung rentang harinya (startIdx..endIdx, 0-based dari
+    // awal bulan yang tampil), lalu di-render sebagai satu sel dengan colspan yang
+    // membentang sepanjang rentang tanggalnya (mirip Gantt chart).
+    //
+    // Karena dalam satu baris tabel (<tr>) tidak bisa ada dua sel yang tumpang tindih,
+    // request yang tanggalnya beririsan untuk driver yang sama dipisah ke "lane"
+    // (baris tambahan) yang berbeda memakai algoritma interval partitioning standar:
+    // taruh tiap request di lane pertama yang tidak bentrok, kalau semua bentrok
+    // baru buka lane baru.
+    $driverLanes = [];
+    $requestsByDriver = $allRequests->groupBy('driver_id');
+
+    foreach ($requestsByDriver as $driverId => $driverRequests) {
+        $segments = [];
+        foreach ($driverRequests as $req) {
+            $effectiveEnd = ($req->trip_type === 'round_trip' && $req->return_date)
+                ? $req->return_date->copy()
+                : $req->usage_date->copy();
+            if ($effectiveEnd->lt($req->usage_date)) {
+                // Jaga-jaga kalau return_date ternyata lebih awal dari usage_date (data tidak konsisten)
+                $effectiveEnd = $req->usage_date->copy();
+            }
+
+            $segStart = $req->usage_date->copy()->max($monthStart);
+            $segEnd = $effectiveEnd->copy()->min($monthEnd);
+            if ($segStart->gt($segEnd)) continue; // di luar rentang bulan yang tampil
+
+            $startIdx = $monthStart->diffInDays($segStart);
+            $endIdx = $monthStart->diffInDays($segEnd);
+
+            $segments[] = [
+                'startIdx' => $startIdx,
+                'endIdx' => $endIdx,
+                'request' => $req,
+            ];
+        }
+
+        // Interval partitioning: urutkan berdasarkan startIdx, taruh di lane pertama yang kosong
+        usort($segments, fn($a, $b) => $a['startIdx'] <=> $b['startIdx']);
+        $lanes = []; // tiap lane: ['lastEnd' => int, 'segments' => [...]]
+        foreach ($segments as $seg) {
+            $placed = false;
+            foreach ($lanes as &$lane) {
+                if ($seg['startIdx'] > $lane['lastEnd']) {
+                    $lane['segments'][] = $seg;
+                    $lane['lastEnd'] = $seg['endIdx'];
+                    $placed = true;
+                    break;
+                }
+            }
+            unset($lane);
+            if (!$placed) {
+                $lanes[] = ['lastEnd' => $seg['endIdx'], 'segments' => [$seg]];
+            }
+        }
+
+        // Bangun deretan cell per lane (siap dirender): gap (kosong) + bar (colspan)
+        $renderedLanes = [];
+        foreach ($lanes as $lane) {
+            $cells = [];
+            $pointer = 0;
+            foreach ($lane['segments'] as $seg) {
+                if ($seg['startIdx'] > $pointer) {
+                    $cells[] = ['type' => 'gap', 'colspan' => $seg['startIdx'] - $pointer];
+                }
+                $cells[] = [
+                    'type' => 'req',
+                    'colspan' => $seg['endIdx'] - $seg['startIdx'] + 1,
+                    'request' => $seg['request'],
+                ];
+                $pointer = $seg['endIdx'] + 1;
+            }
+            if ($pointer < $totalDays) {
+                $cells[] = ['type' => 'gap', 'colspan' => $totalDays - $pointer];
+            }
+            $renderedLanes[] = $cells;
+        }
+        if (empty($renderedLanes)) {
+            $renderedLanes[] = [['type' => 'gap', 'colspan' => $totalDays]];
+        }
+
+        $driverLanes[$driverId] = $renderedLanes;
+    }
 
     // Ambil daftar business unit untuk superadmin
     $businessUnits = [];
@@ -218,8 +341,8 @@ class DriverController extends Controller
     }
 
     return view('drms.drivers.schedule', compact(
-        'drivers', 'requests', 'date', 'searchDriver', 'statusFilter',
-        'businessUnits', 'user'
+        'drivers', 'driverLanes', 'allRequests', 'daysInMonth', 'totalDays', 'month', 'monthStart', 'monthEnd',
+        'searchDriver', 'statusFilter', 'businessUnits', 'user'
     ));
 }
 

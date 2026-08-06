@@ -34,17 +34,17 @@
                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
-        <!-- DROPDOWN FUEL TYPE -->
+        {{-- DROPDOWN FUEL TYPE --}}
         <div class="mb-4">
             <label for="fuel_type" class="block text-sm font-medium text-gray-700 mb-1">Bahan Bakar</label>
             <select name="fuel_type" id="fuel_type" 
                     class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Pilih Bahan Bakar</option>
-                <option value="bensin" {{ old('fuel_type') == 'bensin' ? 'selected' : '' }}>Bensin</option>
-                <option value="solar" {{ old('fuel_type') == 'solar' ? 'selected' : '' }}>Solar</option>
-                <option value="listrik" {{ old('fuel_type') == 'listrik' ? 'selected' : '' }}>Listrik</option>
-                <option value="hybrid" {{ old('fuel_type') == 'hybrid' ? 'selected' : '' }}>Hybrid</option>
-                <option value="other" {{ old('fuel_type') == 'other' ? 'selected' : '' }}>Lainnya</option>
+                <option value="Bensin" {{ old('fuel_type') == 'Bensin' ? 'selected' : '' }}>Bensin</option>
+                <option value="Solar" {{ old('fuel_type') == 'Solar' ? 'selected' : '' }}>Solar</option>
+                <option value="Listrik" {{ old('fuel_type') == 'Listrik' ? 'selected' : '' }}>Listrik</option>
+                <option value="Hybrid" {{ old('fuel_type') == 'Hybrid' ? 'selected' : '' }}>Hybrid</option>
+                <option value="Lainnya" {{ old('fuel_type') == 'Lainnya' ? 'selected' : '' }}>Lainnya</option>
             </select>
         </div>
 

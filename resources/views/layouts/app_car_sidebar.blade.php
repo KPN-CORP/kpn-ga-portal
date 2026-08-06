@@ -130,13 +130,6 @@
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="{{ route('drms.drivers.schedule') }}"
-                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.schedule') ? 'active' : '' }}">
-                                        <i class="fas fa-calendar-alt mr-3 text-gray-500 opacity-70"></i>
-                                        <span>Jadwal Driver</span>
-                                    </a>
-                                </li>
-                                <li>
                                     <a href="{{ route('drms.vehicles.index') }}"
                                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.vehicles.*') ? 'active' : '' }}">
                                         <i class="fas fa-truck mr-3 text-gray-500 opacity-70"></i>
@@ -193,6 +186,13 @@
                                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.admin.operational.dashboard') ? 'active' : '' }}">
                                         <i class="fas fa-chart-line mr-3 text-gray-500 opacity-70"></i>
                                         <span>Dashboard Grafik</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('drms.drivers.schedule') }}"
+                                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.drivers.schedule') ? 'active' : '' }}">
+                                        <i class="fas fa-calendar-alt mr-3 text-gray-500 opacity-70"></i>
+                                        <span>Jadwal Driver</span>
                                     </a>
                                 </li>
                                 <li>
@@ -356,18 +356,29 @@
                     openOperasional: false,
                     initSidebar() {
                         const currentPath = window.location.pathname;
+                        // PERBAIKAN: "Jadwal Driver" (/drms/drivers/schedule) sekarang pindah
+                        // ke dropdown "Operasional & Monitoring". Path ini dicek LEBIH DULU dan
+                        // di-exclude dari masterPaths, karena kalau tidak, prefix "/drms/drivers"
+                        // di masterPaths bakal ikut nganggep /drms/drivers/schedule sebagai bagian
+                        // dari "Manajemen Data" juga (startsWith match), jadi dua dropdown
+                        // sama-sama kebuka waktu buka halaman Jadwal Driver.
                         const masterPaths = [
-                            '/drms/drivers', '/drms/vehicles', '/drms/vouchers',
+                            '/drms/vehicles', '/drms/vouchers',
                             '/drms/service-schedules', '/drms/repairs', '/drms/vehicle-documents',
-                            '/drms/drivers/schedule'
                         ];
                         const operasionalPaths = [
                             '/drms/admin/operational-dashboard', '/drms/admin/monitoring-logs',
-                            '/drms/fuel-logs'
+                            '/drms/fuel-logs', '/drms/drivers/schedule'
                         ];
 
-                        if (masterPaths.some(p => currentPath.startsWith(p))) this.openMaster = true;
-                        if (operasionalPaths.some(p => currentPath.startsWith(p))) this.openOperasional = true;
+                        if (currentPath.startsWith('/drms/drivers/schedule')) {
+                            this.openOperasional = true;
+                        } else if (currentPath.startsWith('/drms/drivers')) {
+                            this.openMaster = true;
+                        } else {
+                            if (masterPaths.some(p => currentPath.startsWith(p))) this.openMaster = true;
+                            if (operasionalPaths.some(p => currentPath.startsWith(p))) this.openOperasional = true;
+                        }
                     },
                     toggleMaster() { this.openMaster = !this.openMaster; },
                     toggleOperasional() { this.openOperasional = !this.openOperasional; }

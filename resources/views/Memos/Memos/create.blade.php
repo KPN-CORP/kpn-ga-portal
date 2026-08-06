@@ -23,6 +23,8 @@
                 <input type="text" x-model="form.perihal" class="w-full border rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
 
+            <hr class="my-6 border-t-2 border-gray-200">
+
             <!-- Rincian Dinamis -->
             <div class="mt-4">
                 <div class="flex justify-between items-center mb-2">
@@ -34,7 +36,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="p-2 w-12">No</th>
-                                <th class="p-2">Keterangan</th>
+                                <th class="p-2">
+                                    <input type="text" x-model="keteranganLabel" class="w-24 text-center border-none bg-transparent focus:ring-0 font-medium" placeholder="Keterangan">
+                                </th>
                                 <template x-for="(col, idx) in dynamicCols" :key="idx">
                                     <th class="p-2">
                                         <input type="text" x-model="col.name" class="w-24 text-center border-none bg-transparent focus:ring-0" placeholder="Kolom">
@@ -49,7 +53,7 @@
                             <template x-for="(row, idx) in rows" :key="idx">
                                 <tr>
                                     <td class="text-center text-gray-500" x-text="idx + 1"></td>
-                                    <td><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" placeholder="Keterangan"></td>
+                                    <td><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" :placeholder="keteranganLabel"></td>
                                     <template x-for="(col, cidx) in dynamicCols" :key="cidx">
                                         <td><input type="text" x-model="row.dynamic[cidx]" class="w-full p-1 border rounded" :placeholder="col.name"></td>
                                     </template>
@@ -131,6 +135,39 @@
             <div x-html="previewHtml" class="font-serif text-sm preview-content"></div>
         </div>
     </div>
+
+    <!-- Tanda Informasi Mengambang -->
+    <div class="fixed bottom-6 right-6 z-50 no-print" x-data="{ infoOpen: false }">
+        <button @click="infoOpen = !infoOpen"
+                class="w-12 h-12 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700 transition text-lg font-bold"
+                title="Info & Cara Pakai">
+            <span x-show="!infoOpen">ℹ️</span>
+            <span x-show="infoOpen">✖</span>
+        </button>
+
+        <div x-show="infoOpen"
+             x-transition
+             @click.away="infoOpen = false"
+             class="absolute bottom-16 right-0 w-80 bg-white rounded-xl shadow-2xl border p-4 text-sm text-gray-700"
+             style="display: none;">
+            <h3 class="font-bold text-gray-800 mb-2">ℹ️ Info &amp; Cara Pakai</h3>
+            <p class="mb-2">
+                <strong>Keterangan</strong>: kolom ini diisi dengan nama/deskripsi tiap item rincian
+                (misalnya "Sewa Kendaraan" atau "Konsumsi Rapat"). Label kolom ini bisa diganti
+                sesuai kebutuhan — cukup klik langsung teks <em>"Keterangan"</em> di header tabel
+                lalu ketik nama baru.
+            </p>
+            <p class="mb-2">
+                <strong>Tambah Kolom</strong>: klik tombol "➕ Tambah Kolom" untuk menambah kolom
+                data lain di tabel rincian (contoh: Tanggal, Qty, Satuan). Nama kolom baru juga
+                bisa diubah dengan mengklik langsung teks di headernya.
+            </p>
+            <p>
+                Klik ikon ✖ pada header untuk menghapus kolom tambahan yang tidak diperlukan.
+                Perubahan pada kolom akan langsung terlihat di panel Preview di sebelah kanan.
+            </p>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -153,6 +190,7 @@ function memoCreator() {
                 'tagihan' => (float) $i->tagihan
             ])->values() : []),
         dynamicCols: @json(isset($memo) ? collect($memo->dynamic_columns_definition ?? [])->map(fn($c) => ['name' => $c])->values() : []),
+        keteranganLabel: @json(isset($memo) && !empty($memo->keterangan_label) ? $memo->keterangan_label : 'Keterangan'),
         total: 0,
         attachments: [],
         previewHtml: '',
@@ -202,7 +240,7 @@ function memoCreator() {
                 printBtn.addEventListener('click', () => {
                     const printWindow = window.open('', '_blank');
                     printWindow.document.write(`
-                        <html><head><title>Cetak Memo</title>
+                        <html><head><title>Cetak Memo - ${this.form.perihal || 'Draft'} by GA Portal</title>
                         <style>
                             body { font-family: 'Times New Roman', serif; padding: 20px; margin: 0; background: white; }
                             .memo-container { max-width: 800px; margin: 0 auto; }
@@ -213,8 +251,9 @@ function memoCreator() {
                             .border-l-4 { border-left: 4px solid #2563eb; padding-left: 12px; }
                             .text-center { text-align: center; }
                             h2 { margin-top: 0; }
+                            .print-footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ccc; text-align: center; font-size: 11px; color: #555; }
                         </style>
-                        </head><body><div class="memo-container">${this.previewHtml}</div></body></html>
+                        </head><body><div class="memo-container">${this.previewHtml}<div class="print-footer">Cetak Memo - ${this.form.perihal || 'Draft'} by GA Portal</div></div></body></html>
                     `);
                     printWindow.document.close();
                     printWindow.print();
@@ -230,6 +269,7 @@ function memoCreator() {
             let payload = {
                 ...this.form,
                 status: status,
+                keteranganLabel: this.keteranganLabel,
                 dynamicColumns: this.dynamicCols.map(c => c.name),
                 items: this.rows.map(r => ({
                     keterangan: r.keterangan,
@@ -269,7 +309,7 @@ function memoCreator() {
             let dynamicCols = this.dynamicCols.map(c => c.name);
             let itemsHtml = '';
             itemsHtml += '<table class="w-full border-collapse border"><thead><tr>';
-            itemsHtml += '<th>No</th><th>Keterangan</th>';
+            itemsHtml += `<th>No</th><th>${this.escapeHtml(this.keteranganLabel) || 'Keterangan'}</th>`;
             dynamicCols.forEach(c => itemsHtml += `<th>${this.escapeHtml(c)}</th>`);
             itemsHtml += '<th>Tagihan</th></tr></thead><tbody>';
             if (this.rows.length === 0 || (this.rows.length === 1 && this.rows[0].keterangan === '' && this.rows[0].tagihan === 0)) {
@@ -308,6 +348,7 @@ function memoCreator() {
                 <p><strong>Kepada</strong> : ${this.escapeHtml(this.form.kepada) || '-'}</p>
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
                 <p><strong>Perihal</strong> : ${this.escapeHtml(this.form.perihal) || '-'}</p>
+                <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
                 <p>Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+' rupiah)' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:</p>
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>

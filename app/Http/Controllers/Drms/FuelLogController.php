@@ -91,16 +91,19 @@ class FuelLogController extends Controller
 
     public function create()
     {
-        $buId = $this->getBusinessUnitId();
-        // PERBAIKAN: sebelumnya hanya kendaraan berstatus "available" yang muncul di form.
+        // PERBAIKAN: driver sebelumnya hanya bisa isi BBM untuk kendaraan di
+        // Business Unit-nya sendiri (dibatasi $buId). Sekarang driver boleh
+        // isi BBM untuk kendaraan MANAPUN (semua BU), tanpa cek BU sama sekali —
+        // jadi filter business_unit_id di query kendaraan sengaja DIHILANGKAN di sini.
+        //
+        // PERBAIKAN sebelumnya: hanya kendaraan berstatus "available" yang muncul di form.
         // Ini membuat driver yang SEDANG dalam perjalanan (kendaraan berstatus "in_use")
         // tidak bisa mengisi log BBM untuk kendaraan yang sedang dipakainya sendiri —
         // padahal itu justru skenario paling umum (isi bensin di tengah perjalanan).
         // Sekarang kendaraan dengan status "available" ATAU "in_use" sama-sama ditampilkan.
         // Kendaraan berstatus "maintenance" tetap disembunyikan karena memang tidak
         // seharusnya dipakai/diisi BBM.
-        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
-            ->whereIn('status', ['available', 'in_use'])
+        $vehicles = Vehicle::whereIn('status', ['available', 'in_use'])
             ->orderBy('plate_number')
             ->get();
         $driver = Auth::user()->driver;
