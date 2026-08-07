@@ -368,8 +368,8 @@
         ],
         'receptionist' => [
             'field' => 'receptionist_dash',
-            'title' => 'Receptionist',
-            'url' => '#',
+            'title' => 'Messenger 2',
+            'url' => 'antaran',
             'color' => '#8e44ad',
             'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5'
         ],
