@@ -46,7 +46,7 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             'Status',
             'Disetujui Atasan (Tanggal)',
             'Diproses GA (Tanggal)',
-            'Alasan Penolakan'
+            'Catatan Admin'
         ];
     }
 
