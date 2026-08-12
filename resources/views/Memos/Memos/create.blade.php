@@ -7,6 +7,29 @@
         <div class="bg-white rounded-xl shadow-sm p-5">
             <h2 class="text-xl font-bold mb-4">📝 {{ isset($memo) ? 'Edit Draft Memo' : 'Buat E-Memo' }}</h2>
 
+            <!-- Template Tim -->
+            <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-sm font-medium text-gray-700">📂 Template Tim</label>
+                    <span class="text-xs text-gray-500" x-text="templates.length + '/15 template'"></span>
+                </div>
+                <div class="flex gap-2">
+                    <select x-model="selectedTemplateId" class="flex-1 border rounded-lg p-2 text-sm bg-white">
+                        <option value="">-- Pilih template, atau langsung bikin memo baru --</option>
+                        <template x-for="t in templates" :key="t.id">
+                            <option :value="t.id" x-text="t.team ? (t.name + ' — ' + t.team.team_name) : t.name"></option>
+                        </template>
+                    </select>
+                    <button type="button" @click="loadTemplate" :disabled="!selectedTemplateId" class="text-sm bg-blue-600 disabled:bg-gray-300 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition">Muat</button>
+                    <button type="button" @click="deleteTemplate" :disabled="!selectedTemplateId" class="text-sm bg-red-100 disabled:bg-gray-100 text-red-600 disabled:text-gray-400 px-3 py-2 rounded-lg hover:bg-red-200 transition">🗑️</button>
+                </div>
+                <div class="flex gap-3 mt-2">
+                    <button type="button" @click="saveAsTemplate" class="text-xs text-blue-700 hover:underline">💾 Simpan isian saat ini sebagai template baru</button>
+                    <button type="button" @click="updateTemplate" x-show="selectedTemplateId" class="text-xs text-amber-700 hover:underline">✏️ Timpa template terpilih dengan isian saat ini</button>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Template menyimpan seluruh isian (header, rincian, rekening) dan bisa dipakai &amp; diedit oleh siapa saja di tim Anda.</p>
+            </div>
+
             <!-- Form Fields -->
             <div class="grid grid-cols-2 gap-3 mt-4">
                 <div>
@@ -32,33 +55,33 @@
                     <button type="button" @click="addColumn" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition">➕ Tambah Kolom</button>
                 </div>
                 <div class="overflow-x-auto border rounded-lg">
-                    <table class="min-w-full text-sm">
+                    <table class="min-w-full text-sm table-fixed">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="p-2 w-12">No</th>
+                                <th class="p-2 w-10">No</th>
                                 <th class="p-2">
-                                    <input type="text" x-model="keteranganLabel" class="w-24 text-center border-none bg-transparent focus:ring-0 font-medium" placeholder="Keterangan">
+                                    <input type="text" x-model="keteranganLabel" class="w-full text-center border-none bg-transparent focus:ring-0 font-medium" placeholder="Keterangan">
                                 </th>
                                 <template x-for="(col, idx) in dynamicCols" :key="idx">
                                     <th class="p-2">
-                                        <input type="text" x-model="col.name" class="w-24 text-center border-none bg-transparent focus:ring-0" placeholder="Kolom">
+                                        <input type="text" x-model="col.name" class="w-full text-center border-none bg-transparent focus:ring-0" placeholder="Kolom">
                                         <button @click="removeColumn(idx)" class="text-red-500 ml-1 hover:text-red-700">✖</button>
                                     </th>
                                 </template>
-                                <th class="p-2">Tagihan (Rp)</th>
-                                <th class="p-2"></th>
+                                <th class="p-2 w-36 text-right">Tagihan (Rp)</th>
+                                <th class="p-2 w-8"></th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-for="(row, idx) in rows" :key="idx">
                                 <tr>
-                                    <td class="text-center text-gray-500" x-text="idx + 1"></td>
-                                    <td><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" :placeholder="keteranganLabel"></td>
+                                    <td class="p-2 text-center text-gray-500" x-text="idx + 1"></td>
+                                    <td class="p-2"><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" :placeholder="keteranganLabel"></td>
                                     <template x-for="(col, cidx) in dynamicCols" :key="cidx">
-                                        <td><input type="text" x-model="row.dynamic[cidx]" class="w-full p-1 border rounded" :placeholder="col.name"></td>
+                                        <td class="p-2"><input type="text" x-model="row.dynamic[cidx]" class="w-full p-1 border rounded" :placeholder="col.name"></td>
                                     </template>
-                                    <td><input type="number" x-model="row.tagihan" @input="calculateTotal" class="w-28 p-1 border rounded" placeholder="0"></td>
-                                    <td><button @click="removeRow(idx)" class="text-red-500 hover:text-red-700">✖</button></td>
+                                    <td class="p-2"><input type="text" inputmode="decimal" x-model="row.tagihanDisplay" @input="onTagihanInput(row, $event)" @blur="row.tagihanDisplay = formatRupiah(row.tagihan)" class="w-full p-1 border rounded text-right" placeholder="0"></td>
+                                    <td class="p-2 text-center"><button @click="removeRow(idx)" class="text-red-500 hover:text-red-700">✖</button></td>
                                 </tr>
                             </template>
                         </tbody>
@@ -68,15 +91,32 @@
                 <div class="text-right font-bold mt-2" x-text="'Total: Rp ' + formatRupiah(total)"></div>
             </div>
 
+            <!-- Paragraf Pembuka -->
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-700">Paragraf Pembuka <span class="text-xs text-gray-400 font-normal">(opsional — kosongkan untuk pakai kalimat baku)</span></label>
+                <textarea x-model="form.paragraf_pembuka" rows="2" class="w-full border rounded-lg p-2 text-sm" :placeholder="defaultParagrafPembuka()"></textarea>
+                <p class="text-xs text-gray-400 mt-1">Kalau dikosongkan, memo pakai kalimat baku: "<span x-text="defaultParagrafPembuka()"></span>". Isi field ini kalau memo Anda butuh kalimat pembuka yang berbeda (mis. memo pemberitahuan, bukan permintaan dana).</p>
+            </div>
+
             <!-- Instruksi & Rekening -->
             <div class="mt-4">
                 <label class="block text-sm font-medium text-gray-700">Instruksi</label>
                 <textarea x-model="form.instruksi" rows="2" class="w-full border rounded-lg p-2"></textarea>
             </div>
             <div class="grid grid-cols-3 gap-2 mt-2">
-                <div><label class="text-xs text-gray-600">Bank</label><input x-model="form.bank" class="w-full border rounded p-1"></div>
-                <div><label class="text-xs text-gray-600">Atas Nama</label><input x-model="form.atas_nama" class="w-full border rounded p-1"></div>
-                <div><label class="text-xs text-gray-600">No Rek</label><input x-model="form.no_rek" class="w-full border rounded p-1"></div>
+                <label class="col-span-3 flex items-center gap-2 text-sm text-gray-700 mb-1">
+                    <input type="checkbox" x-model="form.sertakan_rekening" class="rounded">
+                    Sertakan blok Rekening Tujuan di memo ini
+                </label>
+                <template x-if="form.sertakan_rekening">
+                    <div><label class="text-xs text-gray-600">Bank</label><input x-model="form.bank" class="w-full border rounded p-1"></div>
+                </template>
+                <template x-if="form.sertakan_rekening">
+                    <div><label class="text-xs text-gray-600">Atas Nama</label><input x-model="form.atas_nama" class="w-full border rounded p-1"></div>
+                </template>
+                <template x-if="form.sertakan_rekening">
+                    <div><label class="text-xs text-gray-600">No Rek</label><input x-model="form.no_rek" class="w-full border rounded p-1"></div>
+                </template>
             </div>
 
             <!-- Penandatangan (otomatis dari data admin tim) -->
@@ -166,11 +206,35 @@
                 Klik ikon ✖ pada header untuk menghapus kolom tambahan yang tidak diperlukan.
                 Perubahan pada kolom akan langsung terlihat di panel Preview di sebelah kanan.
             </p>
+            <p>
+                <strong>Tagihan</strong>: ketik langsung dengan format Indonesia (titik ribuan, koma
+                desimal). Kalau ada sen/desimal, selalu ketik 2 digit di belakang koma supaya gak
+                ambigu — contoh <em>34,30</em> (tiga puluh sen), BUKAN <em>34,3</em> yang menurut
+                aturan desimal berarti sama juga dengan 34,30 (bukan 3 sen).
+            </p>
         </div>
     </div>
 </div>
 
 <script>
+@php
+    // @json(...) Blade directive memotong argumennya pakai explode(',', ...) untuk parameter
+    // opsional (json options/depth). Kalau argumennya array literal dgn >1 key (banyak koma
+    // di dalamnya), argumen ke-potong di tengah & hasil compile jadi rusak. Makanya di sini
+    // array-nya dihitung dulu ke variabel PHP biasa, baru di-@json()-kan (tanpa koma di dalam).
+    $rowsForJs = isset($memo)
+        ? $memo->items->map(fn($i) => [
+            'keterangan' => $i->nama,
+            'dynamic' => array_values($i->dynamic_columns ?? []),
+            'tagihan' => (float) $i->tagihan,
+            'tagihanDisplay' => number_format((float) $i->tagihan, (float) $i->tagihan == floor((float) $i->tagihan) ? 0 : 2, ',', '.'),
+        ])->values()
+        : [];
+
+    $dynamicColsForJs = isset($memo)
+        ? collect($memo->dynamic_columns_definition ?? [])->map(fn($c) => ['name' => $c])->values()
+        : [];
+@endphp
 function memoCreator() {
     return {
         memoId: {{ isset($memo) ? $memo->id : 'null' }},
@@ -182,37 +246,170 @@ function memoCreator() {
             instruksi: @json(isset($memo) ? $memo->instruksi : ''),
             bank: @json(isset($memo) ? $memo->bank : ''),
             atas_nama: @json(isset($memo) ? $memo->atas_nama : ''),
-            no_rek: @json(isset($memo) ? $memo->no_rek : '')
+            no_rek: @json(isset($memo) ? $memo->no_rek : ''),
+            sertakan_rekening: @json(isset($memo) ? (bool) $memo->sertakan_rekening : true),
+            paragraf_pembuka: @json(isset($memo) ? $memo->paragraf_pembuka : '')
         },
-        rows: @json(isset($memo) ? $memo->items->map(fn($i) => [
-                'keterangan' => $i->nama,
-                'dynamic' => array_values($i->dynamic_columns ?? []),
-                'tagihan' => (float) $i->tagihan
-            ])->values() : []),
-        dynamicCols: @json(isset($memo) ? collect($memo->dynamic_columns_definition ?? [])->map(fn($c) => ['name' => $c])->values() : []),
+        rows: @json($rowsForJs),
+        dynamicCols: @json($dynamicColsForJs),
         keteranganLabel: @json(isset($memo) && !empty($memo->keterangan_label) ? $memo->keterangan_label : 'Keterangan'),
         total: 0,
         attachments: [],
         previewHtml: '',
+        templates: [],
+        selectedTemplateId: '',
         init() {
             if (this.rows.length === 0) this.addRow();
             this.calculateTotal();
             this.generatePreview();
             this.setupPrint();
+            this.fetchTemplates();
+        },
+        async fetchTemplates() {
+            try {
+                const res = await fetch('{{ route("memo-templates.index") }}');
+                const data = await res.json();
+                if (data.success) this.templates = data.templates;
+            } catch (e) { /* diam saja, dropdown cukup kosong */ }
+        },
+        loadTemplate() {
+            const t = this.templates.find(t => t.id == this.selectedTemplateId);
+            if (!t) return;
+            this.form.kepada = t.kepada || '';
+            this.form.dari = t.dari || '';
+            this.form.perihal = t.perihal || '';
+            this.form.instruksi = t.instruksi || '';
+            this.form.bank = t.bank || '';
+            this.form.atas_nama = t.atas_nama || '';
+            this.form.no_rek = t.no_rek || '';
+            this.form.sertakan_rekening = t.sertakan_rekening !== undefined ? !!t.sertakan_rekening : true;
+            this.keteranganLabel = t.keterangan_label || 'Keterangan';
+            const cols = t.dynamic_columns_definition || [];
+            this.dynamicCols = cols.map(name => ({ name }));
+            // Muat rincian & nominal apa adanya dari template. User tinggal edit
+            // bagian mana saja yang perlu diganti (item, rekening, atau keduanya).
+            const items = t.items || [];
+            this.rows = items.length
+                ? items.map(i => ({
+                    keterangan: i.keterangan || '',
+                    dynamic: Array.isArray(i.dynamic_columns) ? i.dynamic_columns : Array(cols.length).fill(''),
+                    tagihan: parseFloat(i.tagihan) || 0,
+                    tagihanDisplay: this.formatRupiah(parseFloat(i.tagihan) || 0)
+                }))
+                : [{ keterangan: '', dynamic: Array(cols.length).fill(''), tagihan: 0, tagihanDisplay: '' }];
+            this.form.paragraf_pembuka = t.paragraf_pembuka || '';
+            this.calculateTotal();
+        },
+        buildSnapshotFormData(name) {
+            let fd = new FormData();
+            fd.append('name', name);
+            fd.append('kepada', this.form.kepada || '');
+            fd.append('dari', this.form.dari || '');
+            fd.append('perihal', this.form.perihal || '');
+            fd.append('instruksi', this.form.instruksi || '');
+            fd.append('bank', this.form.bank || '');
+            fd.append('atas_nama', this.form.atas_nama || '');
+            fd.append('no_rek', this.form.no_rek || '');
+            fd.append('sertakan_rekening', this.form.sertakan_rekening ? '1' : '0');
+            fd.append('paragraf_pembuka', this.form.paragraf_pembuka || '');
+            fd.append('keterangan_label', this.keteranganLabel || '');
+            fd.append('dynamic_columns', JSON.stringify(this.dynamicCols.map(c => c.name)));
+            fd.append('items', JSON.stringify(this.rows.map(r => ({
+                keterangan: r.keterangan,
+                dynamic_columns: r.dynamic,
+                tagihan: r.tagihan
+            }))));
+            return fd;
+        },
+        async saveAsTemplate() {
+            if (this.templates.length >= 15) {
+                alert('Maksimal 15 template per tim. Hapus salah satu dulu untuk menyimpan yang baru.');
+                return;
+            }
+            const name = prompt('Nama template ini (mis. "Claim Pengobatan Karyawan"):');
+            if (!name) return;
+
+            let res = await fetch('{{ route("memo-templates.store") }}', {
+                method: 'POST',
+                body: this.buildSnapshotFormData(name),
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            });
+            let data = await res.json();
+            if (data.success) {
+                await this.fetchTemplates();
+                this.selectedTemplateId = data.template.id;
+            } else {
+                alert('Error: ' + (data.message || 'Gagal menyimpan template'));
+            }
+        },
+        async updateTemplate() {
+            if (!this.selectedTemplateId) return;
+            const current = this.templates.find(t => t.id == this.selectedTemplateId);
+            const name = prompt('Nama template:', current ? current.name : '');
+            if (!name) return;
+            if (!confirm('Timpa template "' + name + '" dengan isian form saat ini? Ini akan mengubah template untuk semua anggota tim.')) return;
+
+            let fd = this.buildSnapshotFormData(name);
+            fd.append('_method', 'PUT');
+            let res = await fetch(`/memo-templates/${this.selectedTemplateId}`, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            });
+            let data = await res.json();
+            if (data.success) {
+                await this.fetchTemplates();
+            } else {
+                alert('Error: ' + (data.message || 'Gagal memperbarui template'));
+            }
+        },
+        async deleteTemplate() {
+            if (!this.selectedTemplateId) return;
+            if (!confirm('Hapus template ini?')) return;
+            let res = await fetch(`/memo-templates/${this.selectedTemplateId}`, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: (() => { const fd = new FormData(); fd.append('_method', 'DELETE'); return fd; })()
+            });
+            let data = await res.json();
+            if (data.success) {
+                this.selectedTemplateId = '';
+                await this.fetchTemplates();
+            } else {
+                alert('Error: ' + (data.message || 'Gagal menghapus template'));
+            }
         },
         calculateTotal() {
             this.total = this.rows.reduce((s, r) => s + (parseFloat(r.tagihan) || 0), 0);
             this.generatePreview();
         },
         formatRupiah(num) {
-            if (isNaN(num)) num = 0;
-            return new Intl.NumberFormat('id-ID').format(num);
+            if (isNaN(num) || num === null || num === undefined || num === '') num = 0;
+            return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(num);
+        },
+        // User mengetik langsung di kolom Tagihan (format Indonesia: titik ribuan, koma desimal).
+        // Selama fokus di field, biarkan apa adanya (cuma dibatasi angka & 1 koma) supaya enak diketik;
+        // begitu blur, dirapikan otomatis lewat formatRupiah().
+        onTagihanInput(row, event) {
+            let raw = event.target.value.replace(/[^0-9,]/g, '');
+            const firstComma = raw.indexOf(',');
+            if (firstComma !== -1) {
+                raw = raw.slice(0, firstComma + 1) + raw.slice(firstComma + 1).replace(/,/g, '');
+            }
+            row.tagihanDisplay = raw;
+            row.tagihan = parseFloat(raw.replace(',', '.')) || 0;
+            this.calculateTotal();
+        },
+        defaultParagrafPembuka() {
+            const perihal = this.form.perihal || '(perihal)';
+            return `Mohon disiapkan dana sebesar Rp ${this.formatRupiah(this.total)} untuk ${perihal} dengan rincian:`;
         },
         addRow() {
             this.rows.push({
                 keterangan: '',
                 dynamic: Array(this.dynamicCols.length).fill(''),
-                tagihan: 0
+                tagihan: 0,
+                tagihanDisplay: ''
             });
             this.calculateTotal();
         },
@@ -333,7 +530,7 @@ function memoCreator() {
             let terbilangText = '';
             if (this.total > 0) {
                 try {
-                    const resp = await fetch(`/api/terbilang/${Math.round(this.total)}`);
+                    const resp = await fetch(`/api/terbilang/${this.total.toFixed(2)}`);
                     const data = await resp.json();
                     terbilangText = data.terbilang;
                 } catch (e) {
@@ -349,10 +546,10 @@ function memoCreator() {
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
                 <p><strong>Perihal</strong> : ${this.escapeHtml(this.form.perihal) || '-'}</p>
                 <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
-                <p>Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+' rupiah)' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:</p>
+                <p>${(this.form.paragraf_pembuka && this.form.paragraf_pembuka.trim() !== '') ? this.escapeHtml(this.form.paragraf_pembuka).replace(/\n/g, '<br>') : `Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+' rupiah)' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:`}</p>
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>
-                <div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>
+                ${this.form.sertakan_rekening ? `<div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>` : ''}
                 <p class="mt-6">Hormat kami,<br><br>${this.escapeHtml(this.signer.penandatangan) || '-'}<br>${this.escapeHtml(this.signer.jabatan) || '-'}</p>
             `;
         },

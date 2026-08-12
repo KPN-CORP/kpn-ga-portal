@@ -11,7 +11,8 @@ class Memos extends Model
 
     protected $fillable = [
         'memo_number', 'perihal', 'kepada', 'dari', 'instruksi', 'bank',
-        'atas_nama', 'no_rek', 'penandatangan', 'jabatan', 'total_amount',
+        'atas_nama', 'no_rek', 'sertakan_rekening', 'paragraf_pembuka',
+        'penandatangan', 'jabatan', 'total_amount',
         'status', 'business_unit', 'team_id', 'admin_id',
         'dynamic_columns_definition', 'keterangan_label', 'created_by', 'expires_at'
     ];
@@ -20,6 +21,7 @@ class Memos extends Model
         'expires_at' => 'datetime',
         'total_amount' => 'decimal:2',
         'dynamic_columns_definition' => 'array',
+        'sertakan_rekening' => 'boolean',
     ];
 
     protected static function booted()

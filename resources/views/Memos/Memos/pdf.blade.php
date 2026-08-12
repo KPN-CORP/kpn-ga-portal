@@ -74,10 +74,9 @@
     <p><strong>Perihal</strong> : {{ $memo->perihal }}</p>
     <hr>
     <p>
-        Mohon disiapkan dana sebesar
-        <strong>Rp {{ number_format($memo->total_amount, 0, ',', '.') }}</strong>
-        ({{ terbilang($memo->total_amount) }} rupiah)
-        untuk {{ $memo->perihal }} dengan rincian:
+        {!! $memo->paragraf_pembuka
+            ? nl2br(e($memo->paragraf_pembuka))
+            : 'Mohon disiapkan dana sebesar <strong>Rp ' . number_format($memo->total_amount, 0, ',', '.') . '</strong> (' . terbilang($memo->total_amount) . ' rupiah) untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
     </p>
 
     @php
@@ -119,12 +118,14 @@
         <p>{!! nl2br(e($memo->instruksi)) !!}</p>
     @endif
 
+    @if($memo->sertakan_rekening)
     <div class="rekening">
         <strong>Rekening Tujuan</strong><br>
         Bank: {{ $memo->bank }}<br>
         Atas Nama: {{ $memo->atas_nama }}<br>
         No Rek: {{ $memo->no_rek }}
     </div>
+    @endif
 
     <p style="margin-top:40px;">
         Hormat kami,<br><br><br><br>

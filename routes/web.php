@@ -56,6 +56,7 @@ use App\Http\Controllers\Drms\FuelLogController;
 use App\Http\Controllers\Work\WorkReportController;
 use App\Http\Controllers\Work\WorkReportCategoryController;
 use App\Http\Controllers\Memos\MemosController;
+use App\Http\Controllers\Memos\MemoTemplateController;
 use App\Http\Controllers\Apartemen\EmployeeSearchController;
 use App\Http\Controllers\StockCtl\AntarUnitRequestController;
 use App\Http\Controllers\StockCtl\AntarUnitApprovalController;
@@ -640,7 +641,11 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
         Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
         Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
-
+        Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
+        Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
+        Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');
+        Route::put('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'update'])->name('memo-templates.update');
+        Route::delete('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
         // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
         Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {
             Route::get('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'index'])->name('memo-teams.index');

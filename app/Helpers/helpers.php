@@ -2,10 +2,39 @@
 
 if (!function_exists('terbilang')) {
     /**
-     * Mengubah angka menjadi kalimat terbilang dalam bahasa Indonesia
-     * Mendukung hingga triliun (12 digit)
+     * Mengubah angka menjadi kalimat terbilang dalam bahasa Indonesia.
+     * Mendukung hingga triliun (12 digit) DAN bagian desimal/sen (2 digit di belakang koma).
+     * Kata "rupiah" TIDAK disertakan di sini — tetap ditambahkan sendiri di pemanggilnya,
+     * sama seperti sebelumnya, supaya semua pemakaian terbilang() yang sudah ada tetap jalan.
      */
     function terbilang($number)
+    {
+        $number = (float) $number;
+        $isNegative = $number < 0;
+        $number = abs($number);
+
+        $rupiah = (int) floor($number);
+        $sen = (int) round(($number - $rupiah) * 100);
+        if ($sen >= 100) {
+            $rupiah += 1;
+            $sen -= 100;
+        }
+
+        $text = terbilangBulat($rupiah);
+
+        if ($sen > 0) {
+            $text .= ' koma ' . terbilangDuaDigit($sen);
+        }
+
+        return ($isNegative ? 'minus ' : '') . $text;
+    }
+}
+
+if (!function_exists('terbilangBulat')) {
+    /**
+     * Bagian rupiah bulat — logic aslinya, tidak diubah sama sekali.
+     */
+    function terbilangBulat($number)
     {
         $number = (int) $number;
         if ($number == 0) return 'nol';
@@ -59,5 +88,26 @@ if (!function_exists('terbilang')) {
         }
 
         return implode(' ', $words);
+    }
+}
+
+if (!function_exists('terbilangDuaDigit')) {
+    /**
+     * Ubah angka 0-99 (bagian sen, 2 digit di belakang koma) jadi kata-kata.
+     * Contoh: 45 => "empat puluh lima", 5 => "lima".
+     */
+    function terbilangDuaDigit(int $n): string
+    {
+        $satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan'];
+
+        if ($n <= 0) return 'nol';
+        if ($n < 10) return $satuan[$n];
+        if ($n == 10) return 'sepuluh';
+        if ($n == 11) return 'sebelas';
+        if ($n < 20) return $satuan[$n - 10] . ' belas';
+
+        $puluh = intdiv($n, 10);
+        $sisa = $n % 10;
+        return $satuan[$puluh] . ' puluh' . ($sisa ? ' ' . $satuan[$sisa] : '');
     }
 }
