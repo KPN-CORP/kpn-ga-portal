@@ -29,50 +29,114 @@
 
     <!-- Kanvas A4 -->
     <div class="a4-canvas">
-        <div id="printMemoArea" class="a4-page font-serif">
-            <div class="text-right text-sm">{{ $memo->created_at->translatedFormat('d F Y') }}<br>No. {{ $memo->memo_number ?? '(belum ada — masih draft)' }}</div>
-            <h2 class="text-center text-2xl font-bold my-4">MEMORANDUM</h2>
-            <p><strong>Kepada</strong> : {{ $memo->kepada }}</p>
-            <p><strong>Dari</strong> : {{ $memo->dari }}</p>
-            <p><strong>Perihal</strong> : {{ $memo->perihal }}</p>
-            <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
+        <div id="printMemoArea" class="a4-page" style="font-family: Verdana, Geneva, sans-serif; font-size: 10pt;">
+            <h2 class="text-center text-2xl font-bold mb-4">MEMORANDUM</h2>
+
+            <table style="border-collapse:collapse; margin-bottom:4px;">
+                <tr>
+                    <td style="width:95px; font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Kepada</td>
+                    <td style="width:12px; vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->kepada }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Dari</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->dari }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Tanggal</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->created_at->translatedFormat('d F Y') }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Nomor Memo</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->memo_number ?? '(belum ada — masih draft)' }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Perihal</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->perihal }}</td>
+                </tr>
+            </table>
+            <hr style="margin: 12px 0; border: none; border-top: 2px solid #333;">
             <p>
                 {!! $memo->paragraf_pembuka
                     ? nl2br(e($memo->paragraf_pembuka))
-                    : 'Mohon disiapkan dana sebesar <strong>Rp ' . number_format($memo->total_amount, 0, ',', '.') . '</strong> (' . terbilang($memo->total_amount) . ' rupiah) untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
+                    : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
             </p>
 
             @php
                 $dynamicColumns = $memo->dynamic_columns_definition ?? [];
-                $colspan = 2 + count($dynamicColumns);
+                $columnGroups = \App\Support\Memos\MemoItemsTableColumns::build($dynamicColumns);
+                $hasGroups = \App\Support\Memos\MemoItemsTableColumns::hasGroups($columnGroups);
+                $hasInlineTagihan = \App\Support\Memos\MemoItemsTableColumns::hasInlineTagihan($dynamicColumns);
+                $labelColspan = \App\Support\Memos\MemoItemsTableColumns::labelColspan($dynamicColumns);
             @endphp
 
-            <table class="w-full border mt-2">
+            <table class="w-full border mt-2" style="font-size: 10pt; border-collapse:collapse;">
                 <thead>
                     <tr>
-                        <th class="w-10">No</th>
-                        <th>{{ $memo->keterangan_label ?? 'Keterangan' }}</th>
-                        @foreach($dynamicColumns as $colName)
-                            <th>{{ $colName }}</th>
+                        <th class="w-10 whitespace-nowrap text-center" rowspan="{{ $hasGroups ? 2 : 1 }}">No</th>
+                        <th class="text-center" rowspan="{{ $hasGroups ? 2 : 1 }}">{{ $memo->keterangan_label ?? 'Keterangan' }}</th>
+                        @foreach($columnGroups as $col)
+                            @if($col['type'] === 'group')
+                                <th class="text-center" colspan="2">{{ $col['label'] }}</th>
+                            @else
+                                @php $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($col['label']); @endphp
+                                <th class="{{ $isMoney ? 'whitespace-nowrap text-center' : 'text-center' }}" rowspan="{{ $hasGroups ? 2 : 1 }}">{{ $col['label'] }}</th>
+                            @endif
                         @endforeach
-                        <th>Tagihan</th>
+                        @unless($hasInlineTagihan)
+                            <th class="whitespace-nowrap text-center" rowspan="{{ $hasGroups ? 2 : 1 }}">Tagihan</th>
+                        @endunless
                     </tr>
+                    @if($hasGroups)
+                    <tr>
+                        @foreach($columnGroups as $col)
+                            @if($col['type'] === 'group')
+                                @foreach($col['sub'] as $subLabel)
+                                    <th class="whitespace-nowrap text-center">{{ $subLabel }}</th>
+                                @endforeach
+                            @endif
+                        @endforeach
+                    </tr>
+                    @endif
                 </thead>
                 <tbody>
                     @foreach($memo->items as $index => $item)
                     <tr>
-                        <td class="text-center">{{ $index + 1 }}</td>
+                        <td class="text-center whitespace-nowrap">{{ $index + 1 }}</td>
                         <td>{{ $item->keterangan }}</td>
                         @php $dyn = is_array($item->dynamic_columns) ? $item->dynamic_columns : []; @endphp
-                        @foreach($dyn as $val)
-                            <td>{{ $val ?? '-' }}</td>
+                        @foreach($dynamicColumns as $i => $colName)
+                            @php
+                                $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName);
+                                $rawVal = $dyn[$i] ?? null;
+                                $displayVal = ($isMoney && $rawVal !== null && $rawVal !== '' && $rawVal !== '-')
+                                    ? rupiah(\App\Support\Memos\MemoItemsTableColumns::parseFormattedNumber($rawVal))
+                                    : ($rawVal ?? '-');
+                            @endphp
+                            <td class="{{ $isMoney ? 'whitespace-nowrap text-right' : '' }}">{{ $displayVal }}</td>
                         @endforeach
-                        <td class="text-right">Rp {{ number_format($item->tagihan,0,',','.') }}</td>
+                        @unless($hasInlineTagihan)
+                            <td class="text-right whitespace-nowrap">Rp {{ rupiah($item->tagihan) }}</td>
+                        @endunless
                     </tr>
                     @endforeach
                     <tr class="font-bold">
-                        <td colspan="{{ $colspan }}" class="text-right">TOTAL</td>
-                        <td class="text-right">Rp {{ number_format($memo->total_amount,0,',','.') }}</td>
+                        <td colspan="{{ $labelColspan }}" class="text-right">TOTAL</td>
+                        @foreach($dynamicColumns as $i => $colName)
+                            @continue(!\App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName))
+                            @php
+                                $isTagihanCol = strcasecmp(trim($colName), 'Tagihan') === 0;
+                                $total = $isTagihanCol ? $memo->total_amount : \App\Support\Memos\MemoItemsTableColumns::sumColumn($memo->items, $i);
+                            @endphp
+                            <td class="text-right whitespace-nowrap">Rp {{ rupiah($total) }}</td>
+                        @endforeach
+                        @unless($hasInlineTagihan)
+                            <td class="text-right whitespace-nowrap">Rp {{ rupiah($memo->total_amount) }}</td>
+                        @endunless
                     </tr>
                 </tbody>
             </table>
@@ -82,14 +146,25 @@
             @endif
 
             @if($memo->sertakan_rekening)
-            <div class="border-l-4 border-blue-600 pl-3 my-3">
-                <strong>Rekening Tujuan</strong><br>
-                Bank: {{ $memo->bank }}<br>
-                Atas Nama: {{ $memo->atas_nama }}<br>
-                No Rek: {{ $memo->no_rek }}
-            </div>
+            <table style="border-collapse:collapse; margin:10px 0;">
+                <tr>
+                    <td style="width:95px; font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Nama Bank</td>
+                    <td style="width:12px; vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->bank }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Nama Rekening</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->atas_nama }}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">No. Rekening</td>
+                    <td style="vertical-align:top; padding:1px 0;">:</td>
+                    <td style="vertical-align:top; padding:1px 0;">{{ $memo->no_rek }}</td>
+                </tr>
+            </table>
             @endif
-            <p class="mt-6">Hormat kami,<br><br><br><br>{{ $memo->penandatangan }}<br>{{ $memo->jabatan }}</p>
+            <p class="mt-6">Hormat kami,<br><br><br><br><strong>{{ $memo->penandatangan }}</strong><br>{{ $memo->jabatan }}</p>
         </div>
     </div>
 

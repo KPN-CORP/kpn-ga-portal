@@ -15,28 +15,27 @@ class StokController extends Controller
     public function index(Request $request)
     {
         $access = session('stock_ctl_access');
+
+        // Query utama tanpa join manual (memanfaatkan relasi Eloquent)
         $query = Stok::with('barang', 'areaKerja.bisnisUnit');
 
-        // Filter area (gunakan id_area_kerja atau id_area dari request)
+        // Filter area
         $areaId = $request->input('id_area_kerja') ?? $request->input('id_area');
-        
+
         if (!$access['is_super']) {
-            // Non-super hanya bisa melihat area dalam unitnya
             $query->whereHas('areaKerja', function($q) use ($access) {
                 $q->where('id_bisnis_unit', $access['id_bisnis_unit']);
             });
-            // Jika user memilih area tertentu, pastikan area tersebut masih dalam unitnya
             if ($areaId) {
                 $query->where('id_area_kerja', $areaId);
             }
         } else {
-            // Superadmin: filter area jika ada pilihan
             if ($areaId) {
                 $query->where('id_area_kerja', $areaId);
             }
         }
 
-        // Filter pencarian
+        // Filter pencarian (menggunakan whereHas agar tetap memanfaatkan relasi)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('barang', function($q) use ($search) {
@@ -45,9 +44,20 @@ class StokController extends Controller
             });
         }
 
+        // 🔽 URUTKAN BERDASARKAN NAMA BARANG (menggunakan subquery)
+        // Ambil nama tabel dari model secara dinamis untuk menghindari hardcode
+        $stokTable = (new Stok)->getTable();        // 'stock_ctl_stok'
+        $barangTable = (new Barang)->getTable();    // 'stock_ctl_barang'
+
+        $query->orderBy(
+            Barang::select('nama_barang')
+                ->whereColumn("{$stokTable}.id_barang", '=', "{$barangTable}.id_barang")
+                ->limit(1)
+        );
+
         $stok = $query->paginate(15)->withQueryString();
 
-        // Dropdown area: hanya area dari unit user (kecuali superadmin)
+        // Dropdown area
         $areas = $access['is_super'] 
             ? AreaKerja::with('bisnisUnit')->orderBy('nama_area')->get() 
             : AreaKerja::where('id_bisnis_unit', $access['id_bisnis_unit'])->orderBy('nama_area')->get();

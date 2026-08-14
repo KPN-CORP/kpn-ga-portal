@@ -504,26 +504,82 @@ function memoCreator() {
         },
         async generatePreview() {
             let dynamicCols = this.dynamicCols.map(c => c.name);
+            let columnGroups = this.buildColumnGroups(dynamicCols);
+            let hasGroups = columnGroups.some(g => g.type === 'group');
+            let hasInlineTagihan = dynamicCols.some(c => c.trim().toLowerCase() === 'tagihan');
+
             let itemsHtml = '';
-            itemsHtml += '<table class="w-full border-collapse border"><thead><tr>';
-            itemsHtml += `<th>No</th><th>${this.escapeHtml(this.keteranganLabel) || 'Keterangan'}</th>`;
-            dynamicCols.forEach(c => itemsHtml += `<th>${this.escapeHtml(c)}</th>`);
-            itemsHtml += '<th>Tagihan</th></tr></thead><tbody>';
+            itemsHtml += '<table class="w-full border-collapse border"><thead>';
+
+            // Baris 1: header utama (grup Pembebanan digabung 2 kolom, lainnya rowspan 2)
+            itemsHtml += '<tr>';
+            itemsHtml += `<th class="text-center" rowspan="${hasGroups ? 2 : 1}">No</th>`;
+            itemsHtml += `<th class="text-center" rowspan="${hasGroups ? 2 : 1}">${this.escapeHtml(this.keteranganLabel) || 'Keterangan'}</th>`;
+            columnGroups.forEach(col => {
+                if (col.type === 'group') {
+                    itemsHtml += `<th class="text-center" colspan="2">${this.escapeHtml(col.label)}</th>`;
+                } else {
+                    let isMoney = this.isMoneyColumn(col.label);
+                    itemsHtml += `<th class="${isMoney ? 'text-center whitespace-nowrap' : 'text-center'}" rowspan="${hasGroups ? 2 : 1}">${this.escapeHtml(col.label)}</th>`;
+                }
+            });
+            if (!hasInlineTagihan) {
+                itemsHtml += `<th class="text-center whitespace-nowrap" rowspan="${hasGroups ? 2 : 1}">Tagihan</th>`;
+            }
+            itemsHtml += '</tr>';
+
+            // Baris 2: sub-header (Perusahaan / Karyawan), hanya kalau ada grup
+            if (hasGroups) {
+                itemsHtml += '<tr>';
+                columnGroups.forEach(col => {
+                    if (col.type === 'group') {
+                        col.sub.forEach(subLabel => {
+                            itemsHtml += `<th class="text-center whitespace-nowrap">${this.escapeHtml(subLabel)}</th>`;
+                        });
+                    }
+                });
+                itemsHtml += '</tr>';
+            }
+
+            itemsHtml += '</thead><tbody>';
+
             if (this.rows.length === 0 || (this.rows.length === 1 && this.rows[0].keterangan === '' && this.rows[0].tagihan === 0)) {
-                let colspan = 2 + dynamicCols.length + 1;
+                let colspan = 2 + dynamicCols.length + (hasInlineTagihan ? 0 : 1);
                 itemsHtml += `<tr><td colspan="${colspan}" class="text-center text-gray-400">Belum ada data</td></tr>`;
             } else {
                 this.rows.forEach((row, idx) => {
                     itemsHtml += `<tr><td class="text-center">${idx + 1}</td><td>${this.escapeHtml(row.keterangan)}</td>`;
                     for (let i = 0; i < dynamicCols.length; i++) {
                         let val = row.dynamic[i] || '';
-                        itemsHtml += `<td>${this.escapeHtml(val)}</td>`;
+                        let isMoney = this.isMoneyColumn(dynamicCols[i]);
+                        let displayVal = val;
+                        if (isMoney && val !== '' && val !== '-') {
+                            const num = this.parseFormattedNumber(val);
+                            displayVal = this.formatRupiah(num);
+                        }
+                        itemsHtml += `<td class="${isMoney ? 'text-right whitespace-nowrap' : ''}">${this.escapeHtml(displayVal || '-')}</td>`;
                     }
-                    itemsHtml += `<td class="text-right">Rp ${this.formatRupiah(row.tagihan)}</td></tr>`;
+                    if (!hasInlineTagihan) {
+                        itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(row.tagihan)}</td>`;
+                    }
+                    itemsHtml += '</tr>';
                 });
             }
-            let colspanTotal = 2 + dynamicCols.length;
-            itemsHtml += `<tr class="font-bold"><td colspan="${colspanTotal}" class="text-right">TOTAL</td><td class="text-right">Rp ${this.formatRupiah(this.total)}</td></tr>`;
+
+            // Baris TOTAL: label colspan = No + Keterangan + semua kolom non-nominal
+            let nonMoneyCount = dynamicCols.filter(c => !this.isMoneyColumn(c)).length;
+            let labelColspan = 2 + nonMoneyCount;
+            itemsHtml += `<tr class="font-bold"><td colspan="${labelColspan}" class="text-right">TOTAL</td>`;
+            dynamicCols.forEach((c, i) => {
+                if (!this.isMoneyColumn(c)) return;
+                let isTagihanCol = c.trim().toLowerCase() === 'tagihan';
+                let colTotal = isTagihanCol ? this.total : this.sumDynamicColumn(i);
+                itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(colTotal)}</td>`;
+            });
+            if (!hasInlineTagihan) {
+                itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(this.total)}</td>`;
+            }
+            itemsHtml += '</tr>';
             itemsHtml += '</tbody></table>';
 
             // Ambil terbilang dari server jika total > 0
@@ -546,7 +602,7 @@ function memoCreator() {
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
                 <p><strong>Perihal</strong> : ${this.escapeHtml(this.form.perihal) || '-'}</p>
                 <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
-                <p>${(this.form.paragraf_pembuka && this.form.paragraf_pembuka.trim() !== '') ? this.escapeHtml(this.form.paragraf_pembuka).replace(/\n/g, '<br>') : `Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+' rupiah)' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:`}</p>
+                <p>${(this.form.paragraf_pembuka && this.form.paragraf_pembuka.trim() !== '') ? this.escapeHtml(this.form.paragraf_pembuka).replace(/\n/g, '<br>') : `Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+')' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:`}</p>
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>
                 ${this.form.sertakan_rekening ? `<div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>` : ''}
@@ -556,6 +612,82 @@ function memoCreator() {
         escapeHtml(str) {
             if (!str) return '';
             return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]);
+        },
+        // Samain dengan MemoItemsTableColumns::parseFormattedNumber() di backend:
+        // bedain titik sebagai pemisah ribuan ("378.720" -> 378720) vs titik sebagai
+        // desimal biasa ("1249339.47" -> 1249339.47), berdasar jumlah digit di
+        // belakang titik TERAKHIR (3 digit = ribuan, 1-2 digit = desimal).
+        parseFormattedNumber(value) {
+            if (value === null || value === undefined || value === '' || value === '-') return 0;
+            const str = String(value).trim();
+            if (str === '') return 0;
+            const hasComma = str.includes(',');
+            const hasDot = str.includes('.');
+            if (hasComma && hasDot) {
+                const clean = str.replace(/\./g, '').replace(',', '.');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+            }
+            if (hasComma && !hasDot) {
+                const clean = str.replace(',', '.');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+            }
+            if (hasDot && !hasComma) {
+                if (/^-?\d{1,3}(\.\d{3})+$/.test(str)) {
+                    const clean = str.replace(/\./g, '');
+                    const num = parseFloat(clean);
+                    return isNaN(num) ? 0 : num;
+                }
+                if (/^-?\d+\.\d{1,2}$/.test(str)) {
+                    const num = parseFloat(str);
+                    return isNaN(num) ? 0 : num;
+                }
+                const clean = str.replace(/\./g, '');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+            }
+            const num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+        },
+        // Samain dengan App\Support\Memos\MemoItemsTableColumns::build() di backend:
+        // gabung pasangan kolom "<Nama> Perusahaan" + "<Nama> Karyawan" yang berurutan
+        // jadi 1 header besar "<Nama>" dengan sub-kolom "Perusahaan" / "Karyawan".
+        buildColumnGroups(dynamicCols) {
+            const groups = [];
+            let i = 0;
+            while (i < dynamicCols.length) {
+                if (i + 1 < dynamicCols.length) {
+                    const a = (dynamicCols[i] || '').trim();
+                    const b = (dynamicCols[i + 1] || '').trim();
+                    const ma = a.match(/^(.+?)\s+Perusahaan$/i);
+                    const mb = b.match(/^(.+?)\s+Karyawan$/i);
+                    if (ma && mb && ma[1].toLowerCase() === mb[1].toLowerCase()) {
+                        groups.push({ type: 'group', label: ma[1].trim(), sub: ['Perusahaan', 'Karyawan'], indexes: [i, i + 1] });
+                        i += 2;
+                        continue;
+                    }
+                }
+                groups.push({ type: 'single', label: dynamicCols[i], indexes: [i] });
+                i++;
+            }
+            return groups;
+        },
+        // Samain dengan MemoItemsTableColumns::isMoneyColumn(): kolom "Tagihan"
+        // atau yang namanya mengandung "Pembebanan" dianggap kolom nominal.
+        isMoneyColumn(label) {
+            label = String(label || '').toLowerCase().trim();
+            return label === 'tagihan' || label.includes('pembebanan');
+        },
+        // Jumlahkan nilai kolom dinamis ke-`colIndex` di semua baris (dipakai untuk baris TOTAL).
+        sumDynamicColumn(colIndex) {
+            let sum = 0;
+            this.rows.forEach(row => {
+                const raw = (row.dynamic && row.dynamic[colIndex]) || '';
+                if (raw === '' || raw === '-') return;
+                sum += this.parseFormattedNumber(raw);
+            });
+            return sum;
         }
     }
 }

@@ -636,6 +636,12 @@ Route::middleware(['auth'])->group(function () {
         });
 
     Route::middleware(['auth'])->group(function () {
+        // Import Excel & export HARUS didaftarkan sebelum Route::resource('memos', ...)
+        // supaya path "memos/import" & "memos/export" tidak ketangkep sebagai {memo}.
+        Route::get('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'importForm'])->name('memos.import.form');
+        Route::post('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'import'])->name('memos.import.store');
+        Route::get('memos/export', [\App\Http\Controllers\Memos\MemosController::class, 'export'])->name('memos.export');
+
         Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
         Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
         Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
@@ -669,7 +675,6 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('/{memoNumberSetting}/counter', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'updateCounter'])->name('memo-number-settings.counter');
         });
     });
-
 
     Route::middleware(['auth'])->prefix('feedbacks')->name('feedbacks.')->group(function () {
         Route::get('/', [FeedbackController::class, 'index'])->name('index');

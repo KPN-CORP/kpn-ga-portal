@@ -4,8 +4,9 @@ if (!function_exists('terbilang')) {
     /**
      * Mengubah angka menjadi kalimat terbilang dalam bahasa Indonesia.
      * Mendukung hingga triliun (12 digit) DAN bagian desimal/sen (2 digit di belakang koma).
-     * Kata "rupiah" TIDAK disertakan di sini — tetap ditambahkan sendiri di pemanggilnya,
-     * sama seperti sebelumnya, supaya semua pemakaian terbilang() yang sudah ada tetap jalan.
+     * Kata "rupiah" dan "sen" SUDAH disertakan langsung di sini (mis. "... enam ratus
+     * empat belas rupiah delapan puluh lima sen"), jadi pemanggil TIDAK perlu lagi
+     * menambahkan ' rupiah)' sendiri — cukup bungkus dengan tanda kurung saja.
      */
     function terbilang($number)
     {
@@ -20,10 +21,10 @@ if (!function_exists('terbilang')) {
             $sen -= 100;
         }
 
-        $text = terbilangBulat($rupiah);
+        $text = terbilangBulat($rupiah) . ' rupiah';
 
         if ($sen > 0) {
-            $text .= ' koma ' . terbilangDuaDigit($sen);
+            $text .= ' ' . terbilangDuaDigit($sen) . ' sen';
         }
 
         return ($isNegative ? 'minus ' : '') . $text;
@@ -109,5 +110,22 @@ if (!function_exists('terbilangDuaDigit')) {
         $puluh = intdiv($n, 10);
         $sisa = $n % 10;
         return $satuan[$puluh] . ' puluh' . ($sisa ? ' ' . $satuan[$sisa] : '');
+    }
+}
+
+if (!function_exists('rupiah')) {
+    /**
+     * Format nominal untuk ditampilkan: "." sebagai pemisah ribuan, "," sebagai
+     * pemisah desimal, dan bagian sen (2 digit di belakang koma) HANYA muncul
+     * kalau nominalnya memang punya pecahan (mis. 668000 -> "668.000",
+     * 1249339.47 -> "1.249.339,47"). Logic-nya sama persis dengan
+     * `tagihanDisplay` di create.blade.php, supaya tampilannya konsisten
+     * di semua halaman (index, show, pdf).
+     */
+    function rupiah($amount): string
+    {
+        $amount = (float) $amount;
+        $decimals = ((float) $amount == floor((float) $amount)) ? 0 : 2;
+        return number_format($amount, $decimals, ',', '.');
     }
 }

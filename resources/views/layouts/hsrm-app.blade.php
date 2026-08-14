@@ -7,67 +7,130 @@
     <title>HSR Management - @yield('title')</title>
     <link rel="shortcut icon" href="{{ asset('KPN123.png') }}" type="image/x-icon">
 
-    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
 
     <!-- Bootstrap CSS (for modal) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <style>
+        :root{
+            --accent: 59 130 246;      /* blue-500 */
+            --accent-dark: 37 99 235;  /* blue-600 */
+            --ink: 30 41 59;           /* slate-800 */
+            --navy: 30 41 59;          /* slate-800 - panel dropdown */
+            --navy-deep: 15 23 42;     /* slate-900 */
+        }
         html { zoom: 0.8; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
+        body { font-family: 'Inter', sans-serif; background-color: #f7f8fa; color: rgb(var(--ink)); }
+
+        .soft-border { border-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-bottom { border-bottom-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-top { border-top-color: rgba(226,232,240,0.7) !important; }
+        .soft-shadow { box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04); }
+        .soft-shadow-sidebar { box-shadow: 1px 0 0 rgba(15,23,42,0.04), 6px 0 24px rgba(15,23,42,0.03); }
+
+        /* Sidebar */
+        .sidebar { transition: transform .3s cubic-bezier(.4,0,.2,1); border-right: 1px solid rgba(226,232,240,0.7); }
+        @media (max-width: 768px) { .sidebar { transform: translateX(-100%); z-index: 60; width: 16rem !important; } .sidebar.active { transform: translateX(0); } }
+
+        .brand-badge{
+            background: linear-gradient(135deg, rgba(var(--accent)/0.12), rgba(var(--accent)/0.04));
+            border: 1px solid rgba(var(--accent)/0.15);
         }
-        .soft-border { border-color: rgba(229,231,235,0.5) !important; }
-        .soft-border-bottom { border-bottom-color: rgba(229,231,235,0.5) !important; }
-        .soft-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); }
-        .soft-shadow-sidebar { box-shadow: 1px 0 8px rgba(0,0,0,0.03), 2px 0 4px rgba(0,0,0,0.01); }
-        .sidebar-link {
-            transition: all 0.3s ease;
+
+        .nav-label{ letter-spacing:.08em; white-space:nowrap; }
+
+        .sidebar-link{
+            position: relative;
+            min-height: 2.75rem;
+            transition: background-color .2s ease, color .2s ease, transform .2s ease;
         }
-        .sidebar-link:hover {
-            background-color: rgba(248,250,252,0.8);
-            transform: translateX(3px);
+        .dropdown-toggle{ min-height: 2.75rem; }
+        .sidebar-link:hover{ background-color: rgba(248,250,252,0.9); transform: translateX(2px); }
+        .sidebar-link i{ transition: color .2s ease, transform .2s ease; }
+        .sidebar-link.active{
+            background: linear-gradient(90deg, rgba(var(--accent)/0.10), rgba(var(--accent)/0.02));
+            color: rgb(var(--accent-dark));
+            font-weight: 600;
         }
-        .sidebar-link.active {
-            background-color: rgba(59,130,246,0.1);
-            border-left: 3px solid rgba(59,130,246,0.5);
-            font-weight: 500;
+        .sidebar-link.active::before{
+            content:"";
+            position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:4px;
+            background: rgb(var(--accent-dark));
         }
-        .header-soft {
-            border-bottom: 1px solid rgba(229,231,235,0.4);
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        .sidebar-link.active i{ color: rgb(var(--accent-dark)); }
+
+        .badge-count{
+            background: linear-gradient(135deg,#ef4444,#dc2626);
+            box-shadow: 0 2px 6px rgba(239,68,68,.35);
         }
-        .overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0,0,0,0.15);
-            z-index: 50;
+
+        /* Dropdown group - gaya panel navy seperti referensi */
+        .nav-group{ position: relative; border-radius: .75rem; overflow: hidden; transition: background-color .3s ease, box-shadow .3s ease; }
+        .nav-group.open{
+            background: linear-gradient(180deg, rgb(var(--navy)), rgb(var(--navy-deep)));
+            box-shadow: 0 8px 20px rgba(15,23,42,.25);
         }
-        .overlay.active { display: block; }
-        .sidebar {
-            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+
+        .dropdown-toggle{ cursor:pointer; user-select:none; transition: background-color .2s ease, color .2s ease; }
+        .dropdown-toggle:hover{ background-color: rgba(248,250,252,0.9); }
+        .dropdown-toggle i, .dropdown-toggle span{ transition: color .2s ease; }
+        .nav-group.open .dropdown-toggle{ background-color: transparent; }
+        .nav-group.open .dropdown-toggle:hover{ background-color: rgba(255,255,255,.06); }
+        .nav-group.open .dropdown-toggle i,
+        .nav-group.open .dropdown-toggle span{ color: #fff; }
+        .dropdown-toggle .fa-chevron-down{ transition: transform .25s ease; color: rgb(148 163 184); }
+        .nav-group.open .fa-chevron-down{ transform: rotate(180deg); color: #fff; }
+
+        .dropdown-content{ overflow:hidden; transition: max-height .3s ease, opacity .25s ease; opacity: 0; }
+        .dropdown-content.open{ max-height: 600px; opacity: 1; }
+        .dropdown-content.closed{ max-height: 0 !important; opacity: 0; }
+
+        .dropdown-child .sidebar-link{
+            font-size:.875rem; padding:.55rem 1rem .55rem 2.6rem;
+            color: rgba(255,255,255,.65);
         }
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); z-index: 60; }
-            .sidebar.active { transform: translateX(0); }
+        .dropdown-child .sidebar-link:hover{ background-color: rgba(255,255,255,.06); color:#fff; transform:none; }
+        .dropdown-child .sidebar-link i{ color: rgba(255,255,255,.45); }
+        .dropdown-child .sidebar-link.active{
+            background: rgba(255,255,255,.1);
+            color: #fff; font-weight: 600;
         }
-        .smooth-transition { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-        [x-cloak] { display: none !important; }
+        .dropdown-child .sidebar-link.active::before{ background: rgb(96 165 250); }
+        .dropdown-child .sidebar-link.active i{ color: rgb(96 165 250); }
+
+        .overlay{ display:none; position:fixed; inset:0; background: rgba(15,23,42,.25); backdrop-filter: blur(1px); z-index:50; }
+        .overlay.active{ display:block; }
+
+        .avatar-ring{
+            background: linear-gradient(135deg, rgba(var(--accent)/0.14), rgba(var(--accent)/0.05));
+            border: 1px solid rgba(var(--accent)/0.18);
+        }
+
+        /* Tombol mobile mengambang (pengganti header) */
+        .mobile-toggle{
+            position: fixed; top: 1rem; left: 1rem; z-index: 55;
+            width: 2.75rem; height: 2.75rem; border-radius: .75rem;
+            background: #fff; display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 2px 8px rgba(15,23,42,.12);
+        }
+        @media (min-width: 769px){ .mobile-toggle{ display:none; } }
+
+        /* Profile & logout popup */
+        .profile-menu{
+            position:absolute; left: .75rem; right: .75rem; bottom: calc(100% + .5rem);
+            transition: opacity .18s ease, transform .18s ease;
+        }
+
+        ::-webkit-scrollbar{ width:6px; }
+        ::-webkit-scrollbar-thumb{ background: rgba(148,163,184,.4); border-radius: 999px; }
 
         /* Status badge */
         .status-badge {
@@ -85,50 +148,72 @@
 <body>
     <div id="overlay" class="overlay"></div>
 
+    <button id="sidebar-toggle" class="mobile-toggle text-gray-600">
+        <i class="fas fa-bars text-lg"></i>
+    </button>
+
+    @php
+        // Status dropdown "Management" dihitung di server supaya tidak ada
+        // flicker (menu sempat kelihatan terbuka/tertutup) saat halaman refresh.
+        $managementActive = request()->routeIs([
+            'hsrm.admin.quotas.*',
+            'hsrm.certificate-types.*',
+            'hsrm.equipment-types.*',
+            'hsrm.logs.*',
+        ]);
+    @endphp
+
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto"
-               x-data="sidebarComponent()" x-init="initSidebar()">
+        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto overflow-x-visible"
+               x-data="sidebarComponent({{ $managementActive ? 'true' : 'false' }})">
+
             <!-- Logo -->
-            <div class="p-6 soft-border-bottom flex items-center space-x-3">
-                <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center soft-border">
-                    <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6 opacity-90">
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold text-gray-800">GA Portal</h1>
-                    <p class="text-sm text-gray-500 opacity-80">HSR Management</p>
+            <div class="p-5 soft-border-bottom border-b flex items-center gap-2">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6">
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
+                        <p class="text-xs text-gray-500 tracking-wide">HSR Management</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Navigation -->
-            <nav class="p-4">
+            <nav class="p-3 pb-24">
+                <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
                 <ul class="space-y-1">
                     <li>
-                        <a href="{{ route('dashboard') }}" 
+                        <a href="{{ route('dashboard') }}" title="Dashboard GA"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                            <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
+                            <i class="fas fa-home w-5 mr-3 text-gray-400"></i>
                             <span>Dashboard GA</span>
                         </a>
                     </li>
-                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Main Menu</li>
+                </ul>
+
+                <p class="mt-5 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Main Menu</p>
+                <ul class="space-y-1">
                     <li>
-                        <a href="{{ route('hsrm.dashboard') }}"
+                        <a href="{{ route('hsrm.dashboard') }}" title="Dashboard"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.dashboard') ? 'active' : '' }}">
-                            <i class="fas fa-home mr-3 text-gray-500 opacity-70"></i>
+                            <i class="fas fa-home w-5 mr-3 text-gray-400"></i>
                             <span>Dashboard</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('hsrm.certificates.index') }}"
+                        <a href="{{ route('hsrm.certificates.index') }}" title="Certificates & Licence"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.certificates.*') ? 'active' : '' }}">
-                            <i class="fas fa-file-alt mr-3 text-gray-500 opacity-70"></i>
+                            <i class="fas fa-file-alt w-5 mr-3 text-gray-400"></i>
                             <span>Certificates & Licence</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('hsrm.equipments.index') }}"
+                        <a href="{{ route('hsrm.equipments.index') }}" title="Equipments"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.equipments.*') ? 'active' : '' }}">
-                            <i class="fas fa-fire-extinguisher mr-3 text-gray-500 opacity-70"></i>
+                            <i class="fas fa-fire-extinguisher w-5 mr-3 text-gray-400"></i>
                             <span>Equipments</span>
                         </a>
                     </li>
@@ -155,71 +240,97 @@
 
                     @if($canApprove)
                     <li>
-                        <a href="{{ route('hsrm.approvals.index') }}"
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.approvals.*') ? 'active' : '' }}">
-                            <i class="fas fa-check-double mr-3 text-gray-500 opacity-70"></i>
+                        <a href="{{ route('hsrm.approvals.index') }}" title="Approvals"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 relative {{ request()->routeIs('hsrm.approvals.*') ? 'active' : '' }}">
+                            <i class="fas fa-check-double w-5 mr-3 text-gray-400"></i>
                             <span>Approvals</span>
                             @if($pendingCount > 0)
-                                <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{{ $pendingCount }}</span>
+                                <span class="badge-count ml-auto text-white text-xs rounded-full px-2 py-0.5">{{ $pendingCount }}</span>
                             @endif
                         </a>
                     </li>
                     @endif
-
-                    {{-- ============================================================ --}}
-                    {{-- MENU MANAGEMENT – hanya untuk admin (system settings) --}}
-                    {{-- ============================================================ --}}
-                    @if($isAdmin)
-                    <li class="mt-4 mb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin</li>
-                    <li x-data="{ open: false }">
-                        <a href="#" @click.prevent="open = !open" 
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
-                            <i class="fas fa-cogs mr-3 text-gray-500 opacity-70"></i>
-                            <span>Management</span>
-                            <i class="fas fa-chevron-down ml-auto text-xs" :class="open ? 'rotate-180' : ''"></i>
-                        </a>
-                        <ul x-show="open" x-cloak class="ml-4 space-y-1">
-                            <li>
-                                <a href="{{ route('hsrm.admin.quotas.index') }}"
-                                class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
-                                    <i class="fas fa-chart-pie mr-2 text-gray-400"></i> Budget & Quota
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('hsrm.certificate-types.index') }}"
-                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
-                                    <i class="fas fa-tags mr-2 text-gray-400"></i> Certificate Types
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('hsrm.equipment-types.index') }}"
-                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.equipment-types.*') ? 'active' : '' }}">
-                                    <i class="fas fa-fire-extinguisher mr-2 text-gray-400"></i> Equipment Types
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('hsrm.logs.index') }}"
-                                   class="sidebar-link flex items-center p-2 rounded-lg text-gray-700 text-sm {{ request()->routeIs('hsrm.logs.*') ? 'active' : '' }}">
-                                    <i class="fas fa-history mr-2 text-gray-400"></i> Logs
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    @endif
                 </ul>
+
+                {{-- ============================================================ --}}
+                {{-- MENU MANAGEMENT – hanya untuk admin (system settings) --}}
+                {{-- ============================================================ --}}
+                @if($isAdmin)
+                <p class="mt-5 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Admin</p>
+                <ul class="space-y-1">
+                    <li class="nav-group" :class="{ open: openGroup === 'management' }">
+                        <div @click="toggleGroup('management')" title="Management"
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-cogs w-5 mr-3 text-gray-400"></i>
+                                <span class="font-medium">Management</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                        <div class="dropdown-content" :class="openGroup === 'management' ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 pb-2">
+                                <li>
+                                    <a href="{{ route('hsrm.admin.quotas.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
+                                        <i class="fas fa-chart-pie w-4 mr-3"></i>
+                                        <span>Budget & Quota</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('hsrm.certificate-types.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
+                                        <i class="fas fa-tags w-4 mr-3"></i>
+                                        <span>Certificate Types</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('hsrm.equipment-types.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.equipment-types.*') ? 'active' : '' }}">
+                                        <i class="fas fa-fire-extinguisher w-4 mr-3"></i>
+                                        <span>Equipment Types</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('hsrm.logs.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.logs.*') ? 'active' : '' }}">
+                                        <i class="fas fa-history w-4 mr-3"></i>
+                                        <span>Logs</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+                @endif
             </nav>
 
-            <!-- User Profile -->
-            <div class="absolute bottom-0 left-0 right-0 p-4 soft-border-top bg-white">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center soft-border">
-                        <span class="font-semibold text-blue-600 opacity-90">
+            <!-- User Profile + Logout -->
+            <div class="absolute bottom-0 left-0 right-0 p-3 soft-border-top border-t bg-white"
+                 x-data="{ openProfile: false }" @click.outside="openProfile = false">
+
+                <div x-show="openProfile" x-transition x-cloak
+                     class="profile-menu bg-white soft-shadow rounded-lg soft-border border py-2 z-50">
+                    <div class="px-4 py-2 text-sm text-gray-500 soft-border-bottom border-b">
+                        <p class="font-medium text-gray-700">{{ auth()->user()->name ?? '-' }}</p>
+                        <p class="text-xs">{{ auth()->user()->email ?? '-' }}</p>
+                    </div>
+                    <a href="{{ route('logout') }}"
+                       onclick="event.preventDefault(); document.getElementById('logout-form-profile').submit();"
+                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition">
+                        <i class="fas fa-sign-out-alt mr-3 text-gray-500"></i>Logout
+                    </a>
+                    <form id="logout-form-profile" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
+                </div>
+
+                <button @click="openProfile = !openProfile" class="w-full flex items-center space-x-3 p-1 rounded-lg hover:bg-gray-50 transition">
+                    <div class="avatar-ring w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                        <span class="font-semibold text-blue-600 text-sm">
                             {{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}
                         </span>
                     </div>
-                    <div>
-                        <h3 class="font-medium text-gray-800">{{ auth()->user()->name ?? 'User' }}</h3>
-                        <p class="text-xs text-gray-500 opacity-70">
+                    <div class="min-w-0 text-left flex-1">
+                        <h3 class="font-medium text-gray-800 truncate">{{ auth()->user()->name ?? 'User' }}</h3>
+                        <p class="text-xs text-gray-500 truncate">
                             @if(session('hsrm_role') === 'admin')
                                 Admin HSRM
                             @elseif(session('hsrm_role') === 'pic')
@@ -229,61 +340,18 @@
                             @endif
                         </p>
                     </div>
-                </div>
+                    <i class="fas fa-ellipsis-vertical text-gray-400 text-sm"></i>
+                </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <div class="flex-1 ml-0 md:ml-64">
-            <header class="header-soft sticky top-0 z-40 soft-shadow px-6 py-4 flex justify-between items-center">
-                <div class="flex items-center">
-                    <button id="sidebar-toggle" class="md:hidden text-gray-600 focus:outline-none smooth-transition hover:text-gray-800">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <div class="ml-4">
-                        @hasSection('breadcrumb')
-                            <div class="text-sm text-gray-500 opacity-80 mt-1">
-                                @yield('breadcrumb')
-                            </div>
-                        @endif
-                    </div>
-                </div>
+        <!-- Main Content (header dihapus) -->
+        <div class="flex-1 ml-0 md:ml-64 transition-all duration-300">
+            <main class="p-6 pt-20 md:pt-6">
+                @hasSection('breadcrumb')
+                    <div class="text-sm text-gray-500 mb-4">@yield('breadcrumb')</div>
+                @endif
 
-                <div class="flex items-center space-x-4">
-                    <!-- Notifications (optional) -->
-                    <div class="relative">
-                        <button id="notif-button" class="relative text-gray-600 hover:text-gray-800 focus:outline-none">
-                            <i class="fas fa-bell text-xl opacity-80"></i>
-                        </button>
-                    </div>
-
-                    <!-- User Dropdown -->
-                    <div class="relative">
-                        <button id="user-menu-button" class="flex items-center space-x-2 focus:outline-none smooth-transition hover:text-gray-800">
-                            <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center soft-border">
-                                <span class="font-semibold text-blue-600 text-sm opacity-90">
-                                    {{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}
-                                </span>
-                            </div>
-                            <span class="hidden md:inline text-gray-700 opacity-90">{{ auth()->user()->name ?? 'Admin' }}</span>
-                            <i class="fas fa-chevron-down text-gray-500 text-sm opacity-70"></i>
-                        </button>
-                        <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white soft-shadow rounded-lg soft-border py-2 z-50">
-                            <div class="px-4 py-2 text-sm text-gray-500 soft-border-bottom">
-                                <p>{{ auth()->user()->name ?? '-' }}</p>
-                                <p class="text-xs">{{ auth()->user()->email ?? '-' }}</p>
-                            </div>
-                            <div class="soft-border-top my-1"></div>
-                            <a href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form-header').submit();" class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 smooth-transition">
-                                <i class="fas fa-sign-out-alt mr-3 text-gray-500 opacity-70"></i>Logout
-                            </a>
-                            <form id="logout-form-header" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <main class="p-6">
                 @if(session('success'))
                     <div class="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-lg">
                         {{ session('success') }}
@@ -320,14 +388,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('alpine:init', () => {
-            window.sidebarComponent = function() {
+            window.sidebarComponent = function(managementActive) {
                 return {
-                    initSidebar() {}
+                    // Accordion: hanya satu group yang bisa terbuka ('management' | null)
+                    openGroup: managementActive ? 'management' : null,
+                    toggleGroup(name) {
+                        this.openGroup = this.openGroup === name ? null : name;
+                    },
                 }
             }
         });
 
-        // Sidebar toggle
         const sidebarEl = document.querySelector('.sidebar');
         const overlayEl = document.getElementById('overlay');
 
@@ -343,20 +414,8 @@
             document.body.style.overflow = '';
         });
 
-        document.getElementById('user-menu-button')?.addEventListener('click', () => {
-            document.getElementById('user-dropdown').classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', (e) => {
-            const userBtn = document.getElementById('user-menu-button');
-            const userDropdown = document.getElementById('user-dropdown');
-            if (userBtn && !userBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-                userDropdown.classList.add('hidden');
-            }
-        });
-
         window.addEventListener('resize', () => {
-            if(window.innerWidth >= 768){
+            if (window.innerWidth >= 768) {
                 sidebarEl.classList.remove('active');
                 overlayEl.classList.remove('active');
                 document.body.style.overflow = '';
@@ -365,7 +424,7 @@
 
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', () => {
-                if(window.innerWidth < 768){
+                if (window.innerWidth < 768) {
                     sidebarEl.classList.remove('active');
                     overlayEl.classList.remove('active');
                     document.body.style.overflow = '';

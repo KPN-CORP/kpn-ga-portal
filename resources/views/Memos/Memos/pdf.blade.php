@@ -8,44 +8,70 @@
         margin: 20mm 18mm;
     }
     body {
-        font-family: 'Times New Roman', serif;
-        font-size: 13px;
+        font-family: 'Verdana', Geneva, sans-serif;
+        font-size: 10pt;
         color: #000;
         margin: 0;
     }
-    .header-date {
-        text-align: right;
-        font-size: 12px;
-    }
     h2.title {
         text-align: center;
-        font-size: 20px;
-        margin: 20px 0;
+        font-size: 18pt;
+        margin: 0 0 18px 0;
     }
     p { margin: 4px 0; }
     hr {
-        margin: 16px 0;
+        margin: 12px 0;
         border: none;
         border-top: 2px solid #333;
     }
-    table {
-        width: 100%;
+    .meta-table {
         border-collapse: collapse;
-        margin-top: 8px;
+        margin-bottom: 4px;
     }
-    th, td {
-        border: 1px solid #000;
-        padding: 6px;
-        text-align: left;
+    .meta-table td {
+        border: none;
+        padding: 1px 0;
         vertical-align: top;
     }
+    .meta-table td.meta-label {
+        width: 95px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .meta-table td.meta-sep {
+        width: 12px;
+    }
+    table.items-table, table.rekening-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table {
+        font-size: 10pt;
+        margin-top: 8px;
+        table-layout: auto;
+    }
+    .items-table th, .items-table td {
+        border: 1px solid #000;
+        padding: 4px 6px;
+        text-align: center;
+        vertical-align: top;
+    }
+    .nowrap { white-space: nowrap; }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
     .font-bold { font-weight: bold; }
-    .rekening {
-        border-left: 4px solid #2563eb;
-        padding-left: 12px;
-        margin: 14px 0;
+    .rekening-table {
+        margin: 10px 0;
+    }
+    .rekening-table td {
+        border: none;
+        padding: 1px 0;
+        vertical-align: top;
+    }
+    .rekening-table td.meta-label {
+        width: 95px;
+        font-weight: bold;
+        white-space: nowrap;
     }
     .print-footer {
         position: fixed;
@@ -55,61 +81,110 @@
         padding-top: 8px;
         border-top: 1px solid #ccc;
         text-align: center;
-        font-size: 10px;
+        font-size: 8pt;
         color: #555;
     }
 </style>
 </head>
 <body>
 
-    <div class="header-date">
-        {{ $memo->created_at->translatedFormat('d F Y') }}<br>
-        No. {{ $memo->memo_number ?? '(belum ada — masih draft)' }}
-    </div>
-
     <h2 class="title">MEMORANDUM</h2>
 
-    <p><strong>Kepada</strong> : {{ $memo->kepada }}</p>
-    <p><strong>Dari</strong> : {{ $memo->dari }}</p>
-    <p><strong>Perihal</strong> : {{ $memo->perihal }}</p>
+    <table class="meta-table">
+        <tr>
+            <td class="meta-label">Kepada</td><td class="meta-sep">:</td><td>{{ $memo->kepada }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">Dari</td><td class="meta-sep">:</td><td>{{ $memo->dari }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">Tanggal</td><td class="meta-sep">:</td><td>{{ $memo->created_at->translatedFormat('d F Y') }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">Nomor Memo</td><td class="meta-sep">:</td><td>{{ $memo->memo_number ?? '(belum ada — masih draft)' }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">Perihal</td><td class="meta-sep">:</td><td>{{ $memo->perihal }}</td>
+        </tr>
+    </table>
     <hr>
     <p>
         {!! $memo->paragraf_pembuka
             ? nl2br(e($memo->paragraf_pembuka))
-            : 'Mohon disiapkan dana sebesar <strong>Rp ' . number_format($memo->total_amount, 0, ',', '.') . '</strong> (' . terbilang($memo->total_amount) . ' rupiah) untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
+            : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
     </p>
 
     @php
         $dynamicColumns = $memo->dynamic_columns_definition ?? [];
-        $colspan = 2 + count($dynamicColumns);
+        $columnGroups = \App\Support\Memos\MemoItemsTableColumns::build($dynamicColumns);
+        $hasGroups = \App\Support\Memos\MemoItemsTableColumns::hasGroups($columnGroups);
+        $hasInlineTagihan = \App\Support\Memos\MemoItemsTableColumns::hasInlineTagihan($dynamicColumns);
+        $labelColspan = \App\Support\Memos\MemoItemsTableColumns::labelColspan($dynamicColumns);
     @endphp
 
-    <table>
+    <table class="items-table">
         <thead>
             <tr>
-                <th style="width:30px;">No</th>
-                <th>{{ $memo->keterangan_label ?? 'Keterangan' }}</th>
-                @foreach($dynamicColumns as $colName)
-                    <th>{{ $colName }}</th>
+                <th class="nowrap text-center" style="width:24px;" rowspan="{{ $hasGroups ? 2 : 1 }}">No</th>
+                <th class="text-center" rowspan="{{ $hasGroups ? 2 : 1 }}">{{ $memo->keterangan_label ?? 'Keterangan' }}</th>
+                @foreach($columnGroups as $col)
+                    @if($col['type'] === 'group')
+                        <th class="text-center" colspan="2">{{ $col['label'] }}</th>
+                    @else
+                        @php $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($col['label']); @endphp
+                        <th class="{{ $isMoney ? 'nowrap text-center' : 'text-center' }}" rowspan="{{ $hasGroups ? 2 : 1 }}">{{ $col['label'] }}</th>
+                    @endif
                 @endforeach
-                <th>Tagihan</th>
+                @unless($hasInlineTagihan)
+                    <th class="nowrap text-center" rowspan="{{ $hasGroups ? 2 : 1 }}">Tagihan</th>
+                @endunless
             </tr>
+            @if($hasGroups)
+            <tr>
+                @foreach($columnGroups as $col)
+                    @if($col['type'] === 'group')
+                        @foreach($col['sub'] as $subLabel)
+                            <th class="nowrap text-center">{{ $subLabel }}</th>
+                        @endforeach
+                    @endif
+                @endforeach
+            </tr>
+            @endif
         </thead>
         <tbody>
             @foreach($memo->items as $index => $item)
             <tr>
-                <td class="text-center">{{ $index + 1 }}</td>
+                <td class="text-center nowrap">{{ $index + 1 }}</td>
                 <td>{{ $item->keterangan }}</td>
                 @php $dyn = is_array($item->dynamic_columns) ? $item->dynamic_columns : []; @endphp
-                @foreach($dyn as $val)
-                    <td>{{ $val ?? '-' }}</td>
+                @foreach($dynamicColumns as $i => $colName)
+                    @php
+                        $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName);
+                        $rawVal = $dyn[$i] ?? null;
+                        $displayVal = ($isMoney && $rawVal !== null && $rawVal !== '' && $rawVal !== '-')
+                            ? rupiah(\App\Support\Memos\MemoItemsTableColumns::parseFormattedNumber($rawVal))
+                            : ($rawVal ?? '-');
+                    @endphp
+                    <td class="{{ $isMoney ? 'nowrap text-right' : '' }}">{{ $displayVal }}</td>
                 @endforeach
-                <td class="text-right">Rp {{ number_format($item->tagihan, 0, ',', '.') }}</td>
+                @unless($hasInlineTagihan)
+                    <td class="text-right nowrap">Rp {{ rupiah($item->tagihan) }}</td>
+                @endunless
             </tr>
             @endforeach
             <tr class="font-bold">
-                <td colspan="{{ $colspan }}" class="text-right">TOTAL</td>
-                <td class="text-right">Rp {{ number_format($memo->total_amount, 0, ',', '.') }}</td>
+                <td colspan="{{ $labelColspan }}" class="text-right">TOTAL</td>
+                @foreach($dynamicColumns as $i => $colName)
+                    @continue(!\App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName))
+                    @php
+                        $isTagihanCol = strcasecmp(trim($colName), 'Tagihan') === 0;
+                        $total = $isTagihanCol ? $memo->total_amount : \App\Support\Memos\MemoItemsTableColumns::sumColumn($memo->items, $i);
+                    @endphp
+                    <td class="text-right nowrap">Rp {{ rupiah($total) }}</td>
+                @endforeach
+                @unless($hasInlineTagihan)
+                    <td class="text-right nowrap">Rp {{ rupiah($memo->total_amount) }}</td>
+                @endunless
             </tr>
         </tbody>
     </table>
@@ -119,17 +194,22 @@
     @endif
 
     @if($memo->sertakan_rekening)
-    <div class="rekening">
-        <strong>Rekening Tujuan</strong><br>
-        Bank: {{ $memo->bank }}<br>
-        Atas Nama: {{ $memo->atas_nama }}<br>
-        No Rek: {{ $memo->no_rek }}
-    </div>
+    <table class="rekening-table">
+        <tr>
+            <td class="meta-label">Nama Bank</td><td style="width:12px;">:</td><td>{{ $memo->bank }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">Nama Rekening</td><td>:</td><td>{{ $memo->atas_nama }}</td>
+        </tr>
+        <tr>
+            <td class="meta-label">No. Rekening</td><td>:</td><td>{{ $memo->no_rek }}</td>
+        </tr>
+    </table>
     @endif
 
     <p style="margin-top:40px;">
         Hormat kami,<br><br><br><br>
-        {{ $memo->penandatangan }}<br>
+        <strong>{{ $memo->penandatangan }}</strong><br>
         {{ $memo->jabatan }}
     </p>
 
