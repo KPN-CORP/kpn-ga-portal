@@ -32,7 +32,7 @@
         <div id="printMemoArea" class="a4-page" style="font-family: Verdana, Geneva, sans-serif; font-size: 10pt;">
             <h2 class="text-center text-2xl font-bold mb-4">MEMORANDUM</h2>
 
-            <table style="border-collapse:collapse; margin-bottom:4px;">
+            <table class="meta-table" style="border-collapse:collapse; margin-bottom:4px;">
                 <tr>
                     <td style="width:95px; font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Kepada</td>
                     <td style="width:12px; vertical-align:top; padding:1px 0;">:</td>
@@ -146,7 +146,7 @@
             @endif
 
             @if($memo->sertakan_rekening)
-            <table style="border-collapse:collapse; margin:10px 0;">
+            <table class="rekening-table" style="border-collapse:collapse; margin:10px 0;">
                 <tr>
                     <td style="width:95px; font-weight:bold; white-space:nowrap; vertical-align:top; padding:1px 0;">Nama Bank</td>
                     <td style="width:12px; vertical-align:top; padding:1px 0;">:</td>
@@ -269,6 +269,18 @@
     }
     .a4-page table { width: 100%; border-collapse: collapse; }
     .a4-page th, .a4-page td { border: 1px solid #000; padding: 6px; text-align: left; vertical-align: top; }
+    /* Tabel meta (Kepada/Dari/Tanggal/dst) & tabel rekening bank: border
+       dibuat transparan/tidak kelihatan, beda dari tabel rincian di atas
+       yang tetap pakai border hitam. */
+    .a4-page table.meta-table,
+    .a4-page table.rekening-table { width: auto; }
+    .a4-page table.meta-table th,
+    .a4-page table.meta-table td,
+    .a4-page table.rekening-table th,
+    .a4-page table.rekening-table td {
+        border: 1px solid transparent;
+        padding: 1px 0;
+    }
     .a4-page .text-right { text-align: right; }
     .a4-page .text-center { text-align: center; }
     .a4-page .font-bold { font-weight: bold; }

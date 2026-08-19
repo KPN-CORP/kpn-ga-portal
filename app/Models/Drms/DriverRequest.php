@@ -16,7 +16,7 @@ class DriverRequest extends Model
         'usage_date', 'start_time', 'end_time', 'pickup_location', 'destination', 'purpose',
         'transport_type', 'status', 'rejection_reason',
         'approved_l1_at', 'approved_admin_at',
-        'trip_type', 'return_date', 'return_time',
+        'trip_type', 'distance_type', 'return_date', 'return_time',
         'pickup_maps_link', 'destination_maps_link',
         // Kolom baru untuk forward ke BU lain
         'current_business_unit_id', 'original_business_unit_id',
@@ -95,6 +95,14 @@ class DriverRequest extends Model
     public function tripLog()
     {
         return $this->hasOne(TripLog::class, 'request_id');
+    }
+
+    /**
+     * Riwayat pergantian (swap) driver untuk request ini, terbaru duluan.
+     */
+    public function swapLogs()
+    {
+        return $this->hasMany(DriverSwapLog::class, 'request_id')->latest();
     }
 
     /**

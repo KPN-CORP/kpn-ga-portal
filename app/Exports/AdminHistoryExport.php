@@ -34,6 +34,7 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             'Jam Mulai',
             'Jam Selesai',
             'Tipe Perjalanan',
+            'Jenis Dinas',
             'Tanggal Kembali',
             'Lokasi Jemput',
             'Tujuan',
@@ -54,6 +55,12 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
     {
         $voucher = $req->voucher;
 
+        $distanceTypeLabel = match ($req->distance_type) {
+            'jarak_dekat' => 'Dinas Jarak Dekat',
+            'jarak_jauh'  => 'Dinas Jarak Jauh',
+            default       => '-',
+        };
+
         return [
             $req->request_no,
             $req->requester->name ?? '-',
@@ -61,6 +68,7 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             $req->start_time,
             $req->end_time,
             $req->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan',
+            $distanceTypeLabel,
             $req->return_date ? $req->return_date->format('d-m-Y') : '-',
             $req->pickup_location,
             $req->destination,

@@ -216,6 +216,19 @@
     </div>
 </div>
 
+<style>
+    /* Border tabel rincian di panel Preview — sebelumnya tabel cuma punya
+       border luar (class Tailwind "border"), sel th/td nya polos tanpa
+       garis sehingga tampilan berantakan. Disamakan dengan versi cetak. */
+    .preview-content table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    .preview-content th, .preview-content td { border: 1px solid #000; padding: 6px; text-align: left; vertical-align: top; }
+    .preview-content th { background: #f9fafb; }
+    .preview-content .text-right { text-align: right; }
+    .preview-content .text-center { text-align: center; }
+    .preview-content .font-bold { font-weight: bold; }
+    .preview-content .border-l-4 { border-left: 4px solid #2563eb; padding-left: 12px; }
+</style>
+
 <script>
 @php
     // @json(...) Blade directive memotong argumennya pakai explode(',', ...) untuk parameter

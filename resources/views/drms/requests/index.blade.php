@@ -276,6 +276,20 @@
                         </label>
                     </div>
                 </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Jenis Dinas</label>
+                    <div class="flex space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="distance_type" value="jarak_dekat" {{ old('distance_type') == 'jarak_dekat' ? 'checked' : '' }} required> Dinas Jarak Dekat
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="distance_type" value="jarak_jauh" {{ old('distance_type') == 'jarak_jauh' ? 'checked' : '' }}> Dinas Jarak Jauh
+                        </label>
+                    </div>
+                    @error('distance_type')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-600 mb-1">Tanggal Penggunaan</label>

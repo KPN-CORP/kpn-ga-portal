@@ -9,6 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * ANTARAN — sisi PENGIRIM (buat kiriman, daftar, lacak, batal, kirim ulang).
@@ -86,6 +90,131 @@ class AntaranController extends Controller
         $transaksi = $query->orderByDesc('t.created_at')->paginate(15)->withQueryString();
 
         return view('antaran.index', compact('transaksi', 'hasAccessAll', 'tab'));
+    }
+
+    /**
+     * Export laporan Antaran ke Excel (.xlsx), detail lengkap.
+     * range=bulan -> hanya bulan berjalan, range=semua -> seluruh data.
+     * Tetap menghormati filter tab (status) & pencarian yang sedang aktif di halaman index.
+     */
+    public function exportExcel(Request $request)
+    {
+        $hasAccessAll = $this->hasAccessAll();
+        $pelanggan = $this->currentPelanggan();
+
+        if (!$hasAccessAll && !$pelanggan) {
+            abort(403, 'Anda tidak memiliki akses untuk export laporan.');
+        }
+
+        $tabStatusMap = $this->tabStatusMap();
+        $tab = $request->get('tab', 'semua');
+        if (!isset($tabStatusMap[$tab])) {
+            $tab = 'semua';
+        }
+
+        $range = $request->get('range', 'bulan'); // 'bulan' | 'semua'
+
+        $query = DB::table('tb_transaksi as t')
+            ->leftJoin('tb_pelanggan as p', 'p.id_pelanggan', '=', 't.pengirim')
+            ->leftJoin('tb_pelanggan as k', 'k.id_pelanggan', '=', 't.kurir')
+            ->select(
+                't.*',
+                'p.nama_pelanggan as nama_pengirim',
+                'p.no_hp_pelanggan as no_hp_pengirim',
+                'k.nama_pelanggan as nama_kurir',
+                'k.no_hp_pelanggan as no_hp_kurir'
+            );
+
+        if (!$hasAccessAll) {
+            $query->where('t.pengirim', $pelanggan->id_pelanggan);
+        }
+
+        if ($tab !== 'semua') {
+            $query->whereIn('t.status', $tabStatusMap[$tab]);
+        }
+
+        if ($request->filled('cari')) {
+            $keyword = $request->cari;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('t.no_transaksi', 'like', '%' . $keyword . '%')
+                  ->orWhere('p.nama_pelanggan', 'like', '%' . $keyword . '%')
+                  ->orWhere('t.penerima', 'like', '%' . $keyword . '%');
+            });
+        }
+
+        $labelPeriode = 'Semua';
+        if ($range === 'bulan') {
+            $awalBulan = now()->startOfMonth();
+            $akhirBulan = now()->endOfMonth();
+            $query->whereBetween('t.created_at', [$awalBulan, $akhirBulan]);
+            $labelPeriode = $awalBulan->translatedFormat('F Y');
+        }
+
+        $transaksi = $query->orderBy('t.created_at')->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Laporan Antaran');
+
+        $header = [
+            'No. Transaksi', 'Tanggal Dibuat', 'Status', 'Jenis Barang', 'Deskripsi',
+            'Nama Pengirim', 'No. HP Pengirim', 'Alamat Asal', 'Link Maps Asal',
+            'Nama Penerima', 'No. HP Penerima', 'Alamat Tujuan', 'Link Maps Tujuan',
+            'Nama Kurir', 'No. HP Kurir', 'Riwayat Status', 'Catatan Penerima',
+            'Penilaian', 'Komentar', 'Terakhir Diperbarui',
+        ];
+        $sheet->fromArray($header, null, 'A1');
+        $sheet->getStyle('A1:T1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:T1')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('2563EB');
+        $sheet->freezePane('A2');
+
+        $baris = 2;
+        foreach ($transaksi as $item) {
+            $riwayat = str_replace('<br>', "\n", $item->waktu ?? '');
+            $sheet->fromArray([
+                $item->no_transaksi,
+                $item->created_at,
+                $item->status,
+                $item->nama_barang,
+                $item->deskripsi,
+                $item->nama_pengirim,
+                $item->no_hp_pengirim,
+                $item->alamat_asal,
+                $item->maps_asal,
+                $item->penerima,
+                $item->no_hp_penerima,
+                $item->alamat_tujuan,
+                $item->maps_tujuan,
+                $item->nama_kurir,
+                $item->no_hp_kurir,
+                $riwayat,
+                $item->note_penerima,
+                $item->penilaian,
+                $item->komentar,
+                $item->updated_at,
+            ], null, 'A' . $baris);
+            $sheet->getStyle('P' . $baris)->getAlignment()->setWrapText(true);
+            $baris++;
+        }
+
+        foreach (range('A', 'T') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $sheet->getColumnDimension('P')->setAutoSize(false);
+        $sheet->getColumnDimension('P')->setWidth(45);
+
+        $tabLabel = ['semua' => 'Semua', 'proses' => 'Diproses', 'selesai' => 'Selesai', 'batal' => 'Dibatalkan'][$tab];
+        $namaFile = 'Laporan-Antaran-' . Str::slug($labelPeriode) . '-' . Str::slug($tabLabel) . '-' . now()->format('Ymd-His') . '.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $namaFile, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function request()

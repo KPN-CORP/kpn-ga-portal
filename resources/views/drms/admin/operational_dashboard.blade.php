@@ -133,7 +133,7 @@
 
     {{-- GRAFIK PER KENDARAAN DENGAN TAB --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h4 class="font-semibold text-gray-700 mb-2">📊 Grafik Per Kendaraan</h4>
+        <h4 class="font-semibold text-gray-700 mb-2">📊 Grafik Biaya BBM/EV Charging Per Kendaraan</h4>
         
         @if(count($vehicleStats) > 0)
         <div class="flex border-b mb-3 flex-wrap">

@@ -53,6 +53,7 @@ class RequestController extends Controller
     {
         $rules = [
             'trip_type'             => 'required|in:one_way,round_trip',
+            'distance_type'         => 'required|in:jarak_dekat,jarak_jauh',
             'usage_date'            => 'required|date|after_or_equal:today',
             'start_hour'            => 'required|integer|between:0,23',
             'start_minute'          => 'required|integer|between:0,59',

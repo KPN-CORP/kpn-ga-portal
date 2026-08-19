@@ -140,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/',                    [AntaranController::class, 'index'])->name('index');
         Route::get('/buat',                [AntaranController::class, 'request'])->name('request');
         Route::post('/buat',               [AntaranController::class, 'store'])->name('store');
+        Route::get('/export',              [AntaranController::class, 'exportExcel'])->name('export');
         Route::get('/lacak/{no_transaksi}', [AntaranController::class, 'detail'])->name('detail');
         Route::post('/{no_transaksi}/kirim-ulang', [AntaranController::class, 'kirimUlang'])->name('kirimUlang');
         Route::post('/{no_transaksi}/batal',       [AntaranController::class, 'cancel'])->name('cancel');
@@ -301,6 +302,7 @@ Route::middleware(['auth'])->group(function () {
             Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
             Route::post('{driverRequest}/complete', [AppAdminController::class, 'complete'])->name('complete');
             Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
+            Route::post('{id}/swap-driver', [AppAdminController::class, 'swapDriver'])->name('swap_driver');
             Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
             Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
         });
@@ -647,6 +649,12 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
         Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
         Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
+
+        // Preview HTML (isinya sama persis dengan PDF): dipakai iframe di show.blade.php (memo tersimpan)
+        // dan create.blade.php (data form yang belum disimpan, live).
+        Route::get('/memos/{memo}/preview', [\App\Http\Controllers\Memos\MemosController::class, 'preview'])->name('memos.preview');
+        Route::post('/memos/preview', [\App\Http\Controllers\Memos\MemosController::class, 'previewLive'])->name('memos.preview.live');
+
         Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
         Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
         Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');

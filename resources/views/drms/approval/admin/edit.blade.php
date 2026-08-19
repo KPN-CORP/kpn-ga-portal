@@ -68,6 +68,17 @@
                 @endif
             </dd>
 
+            <dt>Jenis Dinas:</dt>
+            <dd>
+                @if($driverRequest->distance_type === 'jarak_jauh')
+                    <span class="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">Dinas Jarak Jauh</span>
+                @elseif($driverRequest->distance_type === 'jarak_dekat')
+                    <span class="px-2 py-1 rounded-full text-xs bg-teal-100 text-teal-800">Dinas Jarak Dekat</span>
+                @else
+                    <span class="text-gray-400">-</span>
+                @endif
+            </dd>
+
             {{-- ===== TANGGAL & WAKTU (dinamis) ===== --}}
             @if($driverRequest->trip_type === 'round_trip')
                 <dt>Tanggal:</dt>

@@ -338,6 +338,11 @@
                                 @else
                                     <span class="ml-2 text-xs text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒 {{ $req->completeBlockReason }}</span>
                                 @endif
+                                @if($req->driver_id && !$req->merged_into_id)
+                                    <button type="button" @click="openSwapModal({{ $req->id }})" class="ml-2 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-semibold">
+                                        🔄 Ganti Driver
+                                    </button>
+                                @endif
                             @endif
                         </td>
                     </tr>
@@ -416,6 +421,9 @@
                                     </form>
                                 @else
                                     <span class="text-[11px] text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒</span>
+                                @endif
+                                @if($req->driver_id && !$req->merged_into_id)
+                                    <button type="button" @click="openSwapModal({{ $req->id }})" class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
                                 @endif
                             @endif
                         </td>
@@ -502,6 +510,36 @@
         </div>
     </div>
 
+    {{-- MODAL GANTI DRIVER (BARU) --}}
+    <div x-show="swapModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-lg font-semibold mb-4">Ganti Driver</h2>
+            <form :action="`{{ url('drms/approval/admin') }}/${swapRequestId}/swap-driver`" method="POST">
+                @csrf
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Driver Baru</label>
+                    <select name="new_driver_id" class="w-full border rounded-lg px-3 py-2 text-sm" required>
+                        <option value="">-- Pilih Driver --</option>
+                        @foreach($availableDrivers as $driver)
+                            <option value="{{ $driver->id }}">{{ $driver->name }} ({{ $driver->phone ?? '-' }}) - {{ ucfirst($driver->status) }}</option>
+                        @endforeach
+                    </select>
+                    @if($availableDrivers->isEmpty())
+                        <p class="text-xs text-yellow-600 mt-1">Tidak ada driver tersedia.</p>
+                    @endif
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Alasan (opsional)</label>
+                    <textarea name="reason" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: driver lama sakit mendadak"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" @click="swapModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm">Ganti Driver</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- MODAL DETAIL --}}
     <div x-show="detailModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -569,6 +607,8 @@ function approvalAdminModal() {
         rejectRequestId: null,
         forwardModalOpen: false,
         forwardRequestId: null,
+        swapModalOpen: false,
+        swapRequestId: null,
         detailModalOpen: false,
         detailItem: {},
         setTab(tab) {
@@ -589,6 +629,10 @@ function approvalAdminModal() {
         openForwardModal(id) {
             this.forwardRequestId = id;
             this.forwardModalOpen = true;
+        },
+        openSwapModal(id) {
+            this.swapRequestId = id;
+            this.swapModalOpen = true;
         },
         openDetailModal(item) {
             this.detailItem = item;

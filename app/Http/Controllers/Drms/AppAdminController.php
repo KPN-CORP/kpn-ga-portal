@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Drms;
 use App\Http\Controllers\Controller;
 use App\Models\Drms\Driver;
 use App\Models\Drms\DriverRequest;
+use App\Models\Drms\DriverSwapLog;
 use App\Models\Drms\Vehicle;
 use App\Models\Drms\Voucher;
 use App\Models\BisnisUnit;
@@ -111,7 +112,15 @@ class AppAdminController extends Controller
         // Ambil semua business unit untuk dropdown forward modal
         $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
-        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits'));
+        // Daftar driver untuk dropdown "Ganti Driver" (status tersedia/lagi tugas).
+        // Konflik jadwal tetap dicek ulang di server saat form swap disubmit.
+        $availableDriversQuery = Driver::whereIn('status', ['available', 'on_trip']);
+        if (!$user->isDrmsSuperAdmin() && !$user->hasDrmsAllBuAccess()) {
+            $availableDriversQuery->where('business_unit_id', $businessUnitId);
+        }
+        $availableDrivers = $availableDriversQuery->orderBy('name')->get();
+
+        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers'));
     }
 
     /**
@@ -577,6 +586,108 @@ class AppAdminController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal menyelesaikan permintaan.');
+        }
+    }
+
+    /**
+     * Mengganti (swap/tukar) driver — dan opsional kendaraan — pada request yang sudah
+     * disetujui admin (approved_admin) tapi belum selesai. Setiap pergantian dicatat
+     * ke tabel drms_driver_swap_logs sebagai riwayat.
+     */
+    public function swapDriver(Request $request, $id)
+    {
+        $driverRequest = DriverRequest::findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user->isDrmsSuperAdmin()) {
+            $this->authorizeAdminAccess($driverRequest);
+        }
+
+        if ($driverRequest->status !== 'approved_admin') {
+            return back()->withErrors('Driver hanya bisa diganti untuk permintaan berstatus Disetujui (approved_admin) dan belum selesai.');
+        }
+
+        if ($driverRequest->merged_into_id) {
+            return back()->withErrors('Perjalanan ini menumpang ke trip lain. Ganti driver lewat trip induknya (ID #' . $driverRequest->merged_into_id . ').');
+        }
+
+        $data = $request->validate([
+            'new_driver_id'  => 'required|exists:drms_drivers,id',
+            'new_vehicle_id' => 'nullable|exists:drms_vehicles,id',
+            'reason'         => 'nullable|string|max:500',
+        ]);
+
+        if ($data['new_driver_id'] == $driverRequest->driver_id) {
+            return back()->withErrors('Driver baru sama dengan driver yang sedang bertugas.');
+        }
+
+        if (!$driverRequest->end_time) {
+            return back()->withErrors('Request ini tidak memiliki perkiraan jam selesai.');
+        }
+
+        $startDate = $driverRequest->usage_date->format('Y-m-d');
+        $startTime = $driverRequest->start_time;
+        if ($driverRequest->trip_type === 'round_trip' && $driverRequest->return_date) {
+            $endDate = $driverRequest->return_date->format('Y-m-d');
+            $endTime = $driverRequest->return_time ?? $driverRequest->end_time;
+        } else {
+            $endDate = $startDate;
+            $endTime = $driverRequest->end_time;
+        }
+
+        // Cek konflik jadwal driver pengganti.
+        $driverConflict = DriverRequest::overlappingPeriod(
+            'driver_id', $data['new_driver_id'], $startDate, $startTime, $endDate, $endTime, $driverRequest->id
+        )->exists();
+        if ($driverConflict) {
+            return back()->withErrors('Driver pengganti sudah ditugaskan pada rentang waktu tersebut.');
+        }
+
+        $oldDriverId  = $driverRequest->driver_id;
+        $oldVehicleId = $driverRequest->vehicle_id;
+        $newVehicleId = $data['new_vehicle_id'] ?? $oldVehicleId;
+
+        if (!empty($data['new_vehicle_id']) && $data['new_vehicle_id'] != $oldVehicleId) {
+            $vehicleConflict = DriverRequest::overlappingPeriod(
+                'vehicle_id', $data['new_vehicle_id'], $startDate, $startTime, $endDate, $endTime, $driverRequest->id
+            )->exists();
+            if ($vehicleConflict) {
+                return back()->withErrors('Kendaraan pengganti sudah digunakan pada rentang waktu tersebut.');
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            DriverSwapLog::create([
+                'request_id'         => $driverRequest->id,
+                'old_driver_id'      => $oldDriverId,
+                'new_driver_id'      => $data['new_driver_id'],
+                'old_vehicle_id'     => $oldVehicleId,
+                'new_vehicle_id'     => $newVehicleId != $oldVehicleId ? $newVehicleId : null,
+                'reason'             => $data['reason'] ?? null,
+                'changed_by_user_id' => $user->id,
+            ]);
+
+            $driverRequest->update([
+                'driver_id'  => $data['new_driver_id'],
+                'vehicle_id' => $newVehicleId,
+            ]);
+
+            if ($oldDriverId) {
+                Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+            }
+            Driver::where('id', $data['new_driver_id'])->update(['status' => 'on_trip']);
+
+            if ($newVehicleId != $oldVehicleId) {
+                if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
+                if ($newVehicleId) Vehicle::where('id', $newVehicleId)->update(['status' => 'in_use']);
+            }
+
+            DB::commit();
+            return back()->with('success', 'Driver berhasil diganti.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors('Gagal mengganti driver: ' . $e->getMessage());
         }
     }
 

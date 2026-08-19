@@ -18,13 +18,28 @@
       'batal'   => 'Dibatalkan',
     ];
   @endphp
-  <div class="flex gap-1 mb-4 border-b overflow-x-auto">
-    @foreach ($tabList as $key => $label)
-      <a href="{{ route('antaran.index', array_merge(request()->except(['page', 'tab']), $key === 'semua' ? [] : ['tab' => $key])) }}"
-         class="px-3 py-2 text-sm whitespace-nowrap border-b-2 -mb-px {{ $tabAktif === $key ? 'jne-text border-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-        {{ $label }}
+  <div class="flex items-center justify-between gap-2 mb-4 border-b overflow-x-auto">
+    <div class="flex gap-1">
+      @foreach ($tabList as $key => $label)
+        <a href="{{ route('antaran.index', array_merge(request()->except(['page', 'tab']), $key === 'semua' ? [] : ['tab' => $key])) }}"
+           class="px-3 py-2 text-sm whitespace-nowrap border-b-2 -mb-px {{ $tabAktif === $key ? 'jne-text border-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+          {{ $label }}
+        </a>
+      @endforeach
+    </div>
+
+    <div class="flex gap-1.5 pb-2 shrink-0">
+      <a href="{{ route('antaran.export', array_merge(request()->except('page'), ['range' => 'bulan'])) }}"
+         class="flex items-center gap-1 text-xs border rounded-lg px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+        Bulan Ini
       </a>
-    @endforeach
+      <a href="{{ route('antaran.export', array_merge(request()->except('page'), ['range' => 'semua'])) }}"
+         class="flex items-center gap-1 text-xs border rounded-lg px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+        Semua
+      </a>
+    </div>
   </div>
 
   <form method="GET" class="mb-4 md:max-w-sm">
