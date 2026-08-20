@@ -42,8 +42,7 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             'Jenis Transportasi',
             'Driver',
             'Kendaraan',
-            'Kode Voucher',
-            'Jenis Voucher',
+            'Voucher',
             'Status',
             'Disetujui Atasan (Tanggal)',
             'Diproses GA (Tanggal)',
@@ -53,13 +52,19 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
 
     public function map($req): array
     {
-        $voucher = $req->voucher;
-
         $distanceTypeLabel = match ($req->distance_type) {
             'jarak_dekat' => 'Dinas Jarak Dekat',
             'jarak_jauh'  => 'Dinas Jarak Jauh',
             default       => '-',
         };
+
+        // Bisa lebih dari 1 voucher per request, digabung dengan koma
+        // dalam 1 kolom: "KODE1 (tipe, Rp x); KODE2 (tipe, Rp y)"
+        $voucherLabel = $req->vouchers->isNotEmpty()
+            ? $req->vouchers->map(function ($v) {
+                return $v->code . ' (' . ucfirst($v->type) . ', Rp ' . number_format($v->nominal, 0, ',', '.') . ')';
+            })->implode('; ')
+            : '-';
 
         return [
             $req->request_no,
@@ -76,8 +81,7 @@ class AdminHistoryExport implements FromQuery, WithHeadings, WithMapping, Should
             $req->transport_type ? ucfirst(str_replace('_', ' ', $req->transport_type)) : '-',
             $req->driver->name ?? '-',
             $req->vehicle->plate_number ?? '-',
-            $voucher ? $voucher->code : '-',
-            $voucher ? ucfirst($voucher->type) : '-',
+            $voucherLabel,
             $req->status === 'approved_admin' ? 'Disetujui' : ($req->status === 'rejected_admin' ? 'Ditolak' : 'Selesai'),
             $req->approved_l1_at ? $req->approved_l1_at->format('d-m-Y H:i') : '-',
             $req->approved_admin_at ? $req->approved_admin_at->format('d-m-Y H:i') : '-',

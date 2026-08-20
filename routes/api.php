@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ApiEmpHcisController;
 use App\Http\Controllers\Api\ServiceScheduleController;
 use App\Http\Controllers\Api\RepairController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\FuelLogController;
 
 Route::prefix('integration')->group(function () {
 
@@ -21,4 +22,7 @@ Route::middleware(['auth:sanctum', 'abilities:read', 'throttle:60,1'])->prefix('
 
     Route::get('repairs', [RepairController::class, 'index'])->name('repairs.index');
     Route::get('repairs/{id}', [RepairController::class, 'show'])->name('repairs.show');
+
+    Route::get('fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
+    Route::get('fuel-logs/{id}', [FuelLogController::class, 'show'])->name('fuel-logs.show');
 });

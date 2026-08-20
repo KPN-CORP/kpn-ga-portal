@@ -253,40 +253,43 @@
 
         {{-- VOUCHER FIELDS --}}
         <div id="voucher_fields" class="{{ old('transport_type', $driverRequest->transport_type) == 'voucher' ? '' : 'hidden' }} mb-4">
-            <label class="block text-sm font-medium mb-1">Pilih Voucher</label>
-            <select name="voucher_id" class="w-full border rounded p-2" id="voucher_select">
-                <option value="">-- Pilih Voucher --</option>
-                @php
-                    // Voucher yang sudah expired tidak boleh ditawarkan lagi, kecuali voucher
-                    // yang memang sudah terpasang sebelumnya di request ini (agar nilai lama tetap tampil).
-                    $selectableVouchers = $vouchers->filter(function ($voucher) use ($driverRequest) {
-                        $isExpired = $voucher->is_expired;
-                        return !$isExpired || $voucher->id == $driverRequest->voucher_id;
-                    });
-                @endphp
+            <label class="block text-sm font-medium mb-1">Pilih Voucher (bisa lebih dari 1)</label>
+            @php
+                // Voucher yang sudah expired tidak boleh ditawarkan lagi, kecuali voucher
+                // yang memang sudah terpasang sebelumnya di request ini (agar nilai lama tetap tampil).
+                $selectableVouchers = $vouchers->filter(function ($voucher) use ($attachedVoucherIds) {
+                    $isExpired = $voucher->is_expired;
+                    return !$isExpired || in_array($voucher->id, $attachedVoucherIds);
+                });
+                $selectedVoucherIds = old('voucher_ids', $attachedVoucherIds);
+            @endphp
+            <div class="border rounded-lg divide-y max-h-64 overflow-y-auto">
                 @foreach($selectableVouchers as $voucher)
                     @php
                         $isExpired = $voucher->is_expired;
                     @endphp
-                    <option value="{{ $voucher->id }}" 
-                            {{ old('voucher_id', $driverRequest->voucher_id) == $voucher->id ? 'selected' : '' }}
-                            {{ $isExpired ? 'disabled' : '' }}>
-                        {{ $voucher->code }} 
-                        - {{ ucfirst($voucher->type) }} 
-                        (Rp {{ number_format($voucher->nominal,0,',','.') }})
-                        @if($voucher->businessUnit)
-                            - {{ $voucher->businessUnit->nama_bisnis_unit }}
-                            @if($voucher->inputBusinessUnit)
-                                ({{ $voucher->inputBusinessUnit->nama_bisnis_unit }})
+                    <label class="flex items-start gap-2 px-3 py-2 text-sm {{ $isExpired ? 'opacity-50' : 'hover:bg-gray-50 cursor-pointer' }}">
+                        <input type="checkbox" name="voucher_ids[]" value="{{ $voucher->id }}" class="mt-1"
+                               {{ in_array($voucher->id, $selectedVoucherIds) ? 'checked' : '' }}
+                               {{ $isExpired ? 'disabled' : '' }}>
+                        <span>
+                            {{ $voucher->code }}
+                            - {{ ucfirst($voucher->type) }}
+                            (Rp {{ number_format($voucher->nominal,0,',','.') }})
+                            @if($voucher->businessUnit)
+                                - {{ $voucher->businessUnit->nama_bisnis_unit }}
+                                @if($voucher->inputBusinessUnit)
+                                    ({{ $voucher->inputBusinessUnit->nama_bisnis_unit }})
+                                @endif
                             @endif
-                        @endif
-                        @if($voucher->expired_at)
-                            - Exp: {{ Carbon::parse($voucher->expired_at)->format('d M Y') }}
-                            @if($isExpired) (Kadaluarsa) @endif
-                        @endif
-                    </option>
+                            @if($voucher->expired_at)
+                                - Exp: {{ Carbon::parse($voucher->expired_at)->format('d M Y') }}
+                                @if($isExpired) (Kadaluarsa) @endif
+                            @endif
+                        </span>
+                    </label>
                 @endforeach
-            </select>
+            </div>
             @if($selectableVouchers->isEmpty())
                 <p class="text-xs text-yellow-600 mt-1">Tidak ada voucher tersedia.</p>
             @endif
@@ -378,20 +381,17 @@
     const mergeFields = document.getElementById('merge_fields');
     const driverSelect = document.getElementById('driver_select');
     const vehicleSelect = document.getElementById('vehicle_select');
-    const voucherSelect = document.getElementById('voucher_select');
+    const voucherCheckboxes = document.querySelectorAll('input[name="voucher_ids[]"]');
     const mergeSelect = document.getElementById('merge_select');
 
     function setRequiredFields(selected) {
         driverSelect.required = false;
         vehicleSelect.required = false;
-        voucherSelect.required = false;
         mergeSelect.required = false;
 
         if (selected === 'company_driver') {
             driverSelect.required = true;
             vehicleSelect.required = true;
-        } else if (selected === 'voucher') {
-            voucherSelect.required = true;
         } else if (selected === 'merge') {
             mergeSelect.required = true;
         }
@@ -424,6 +424,18 @@
 
     // Jalankan saat load
     toggleFields();
+
+    // Validasi: kalau transport_type = voucher, minimal 1 voucher harus dicentang
+    document.getElementById('processForm').addEventListener('submit', function (e) {
+        const selected = document.querySelector('input[name="transport_type"]:checked')?.value;
+        if (selected === 'voucher') {
+            const anyChecked = Array.from(voucherCheckboxes).some(cb => cb.checked);
+            if (!anyChecked) {
+                e.preventDefault();
+                alert('Pilih minimal 1 voucher.');
+            }
+        }
+    });
 
     // ========== MODAL FORWARD ==========
     function openForwardModal() {

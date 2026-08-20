@@ -106,6 +106,7 @@
                             'requester' => ['name' => $req->requester->name],
                             'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
                             'trip_type' => $req->trip_type,
+                            'distance_type' => $req->distance_type,
                             'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
                             'start_time' => $req->start_time,
                             'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
@@ -122,7 +123,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -181,6 +182,7 @@
                             'requester' => ['name' => $req->requester->name],
                             'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
                             'trip_type' => $req->trip_type,
+                            'distance_type' => $req->distance_type,
                             'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
                             'start_time' => $req->start_time,
                             'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
@@ -197,7 +199,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -279,6 +281,7 @@
                             'requester' => ['name' => $req->requester->name],
                             'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
                             'trip_type' => $req->trip_type,
+                            'distance_type' => $req->distance_type,
                             'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
                             'start_time' => $req->start_time,
                             'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
@@ -295,7 +298,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -387,6 +390,7 @@
                             'requester' => ['name' => $req->requester->name],
                             'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
                             'trip_type' => $req->trip_type,
+                            'distance_type' => $req->distance_type,
                             'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
                             'start_time' => $req->start_time,
                             'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
@@ -403,7 +407,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'voucher' => $req->voucher ? ['code' => $req->voucher->code, 'type' => $req->voucher->type, 'nominal' => $req->voucher->nominal] : null,
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -549,6 +553,7 @@
                     <tr class="border-b border-gray-100"><td class="py-2 w-1/3 text-gray-500 font-medium">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"><tr></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Pemohon</td><td class="py-2"><span x-text="detailItem.requester?.name ?? '-'"></span><span x-show="detailItem.created_at" class="text-gray-400 text-xs ml-1" x-text="'(' + detailItem.created_at + ')'"></span></td></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tipe Perjalanan</td><td class="py-2" x-text="detailItem.trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan'"></td></tr>
+                    <template x-if="detailItem.distance_type"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Jenis Dinas</td><td class="py-2" x-text="detailItem.distance_type === 'jarak_jauh' ? 'Dinas Jarak Jauh' : 'Dinas Jarak Dekat'"></td></tr></template>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tanggal &amp; Jam</td>
                         <td class="py-2">
                             <template x-if="detailItem.trip_type === 'round_trip' && detailItem.return_date">
@@ -588,7 +593,11 @@
                     <template x-if="detailItem.transport_type"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Jenis Transportasi</td><td class="py-2" x-text="detailItem.transport_type == 'company_driver' ? 'Driver Perusahaan' : (detailItem.transport_type == 'voucher' ? 'Voucher' : 'Rental')"></td></tr></template>
                     <template x-if="detailItem.driver"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Driver</td><td class="py-2" x-text="detailItem.driver.name + ' (' + (detailItem.driver.phone || '-') + ')'"></td></tr></template>
                     <template x-if="detailItem.vehicle"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Kendaraan</td><td class="py-2" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td></tr></template>
-                    <template x-if="detailItem.voucher"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Voucher</td><td class="py-2" x-text="detailItem.voucher.code + ' (' + detailItem.voucher.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(detailItem.voucher.nominal)"></td></tr></template>
+                    <template x-if="detailItem.vouchers && detailItem.vouchers.length > 0"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium align-top">Voucher</td><td class="py-2">
+                        <template x-for="v in detailItem.vouchers" :key="v.code">
+                            <div x-text="v.code + ' (' + v.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(v.nominal)"></div>
+                        </template>
+                    </td></tr></template>
                     <template x-if="detailItem.merged_into"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Gabung Trip</td><td class="py-2 text-purple-600 font-semibold" x-text="'🔗 ' + (detailItem.merged_into.request_no ?? '-')"></td></tr></template>
                 </tbody>
             </table>

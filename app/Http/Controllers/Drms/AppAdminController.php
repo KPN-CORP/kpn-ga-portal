@@ -52,7 +52,7 @@ class AppAdminController extends Controller
         }
 
         // ------------------- HISTORY REQUESTS (dengan filter) -------------------
-        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'mergedInto']);
+        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers', 'mergedInto']);
 
         if ($user->isDrmsSuperAdmin()) {
             $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
@@ -142,7 +142,7 @@ class AppAdminController extends Controller
         }
 
         // Bangun query export sama seperti di index
-        $exportQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher']);
+        $exportQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers']);
 
         if ($user->isDrmsSuperAdmin()) {
             $exportQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
@@ -260,15 +260,16 @@ class AppAdminController extends Controller
         // Voucher yang sudah expired tidak boleh ditawarkan lagi untuk request baru.
         // Pengecualian: voucher yang MEMANG sudah terpasang di request ini tetap ditampilkan,
         // supaya nilai yang sudah tersimpan tidak hilang begitu saja dari pilihan saat form dibuka.
+        $attachedVoucherIds = $driverRequest->vouchers()->pluck('drms_vouchers.id')->toArray();
         $vouchersQuery = Voucher::with(['businessUnit', 'inputBusinessUnit'])
-            ->where(function ($q) use ($driverRequest) {
+            ->where(function ($q) use ($attachedVoucherIds) {
                 $q->where('status', 'available')
                   ->where(function ($sub) {
                       $sub->whereNull('expired_at')
                           ->orWhereDate('expired_at', '>=', now()->toDateString());
                   });
-                if ($driverRequest->voucher_id) {
-                    $q->orWhere('id', $driverRequest->voucher_id);
+                if (!empty($attachedVoucherIds)) {
+                    $q->orWhereIn('id', $attachedVoucherIds);
                 }
             });
         if (!$showAllBu) {
@@ -293,7 +294,7 @@ class AppAdminController extends Controller
         $mergeableRequests = $mergeableQuery->orderBy('start_time')->get();
 
         return view('drms.approval.admin.edit', compact(
-            'driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits', 'mergeableRequests'
+            'driverRequest', 'drivers', 'vehicles', 'vouchers', 'allBusinessUnits', 'mergeableRequests', 'attachedVoucherIds'
         ));
     }
 
@@ -313,19 +314,26 @@ class AppAdminController extends Controller
             'transport_type'    => 'required|in:company_driver,voucher,rental,merge',
             'driver_id'         => 'nullable|required_if:transport_type,company_driver|exists:drms_drivers,id',
             'vehicle_id'        => 'nullable|required_if:transport_type,company_driver|exists:drms_vehicles,id',
-            'voucher_id'        => 'nullable|required_if:transport_type,voucher|exists:drms_vouchers,id',
+            'voucher_ids'       => 'nullable|array',
+            'voucher_ids.*'     => 'exists:drms_vouchers,id',
             'merged_into_id'    => 'nullable|required_if:transport_type,merge|exists:drms_requests,id',
             'keterangan'        => 'nullable|string',
         ]);
+
+        // Voucher sekarang bisa lebih dari 1 — minimal 1 voucher wajib dipilih
+        // kalau transport_type = voucher.
+        if ($data['transport_type'] === 'voucher' && empty($data['voucher_ids'])) {
+            return back()->withErrors('Pilih minimal 1 voucher.')->withInput();
+        }
 
         // Validasi ulang di server: voucher yang sudah expired tidak boleh diberikan,
         // meskipun opsinya lolos dari dropdown (mis. dikirim manual lewat request langsung).
         // Pakai accessor is_expired dari model Voucher supaya logic "tidak expired di
         // hari-H, baru besoknya" konsisten di semua tempat (tidak dihitung ulang di sini).
-        if ($data['transport_type'] === 'voucher' && !empty($data['voucher_id'])) {
-            $chosenVoucher = Voucher::find($data['voucher_id']);
-            if ($chosenVoucher && $chosenVoucher->is_expired) {
-                return back()->withErrors('Voucher yang dipilih sudah kadaluarsa dan tidak dapat diberikan. Silakan pilih voucher lain.')->withInput();
+        if ($data['transport_type'] === 'voucher' && !empty($data['voucher_ids'])) {
+            $expiredVouchers = Voucher::whereIn('id', $data['voucher_ids'])->get()->filter(fn($v) => $v->is_expired);
+            if ($expiredVouchers->isNotEmpty()) {
+                return back()->withErrors('Voucher berikut sudah kadaluarsa: ' . $expiredVouchers->pluck('code')->implode(', ') . '. Silakan pilih voucher lain.')->withInput();
             }
         }
 
@@ -345,7 +353,7 @@ class AppAdminController extends Controller
 
         $oldDriverId  = $driverRequest->driver_id;
         $oldVehicleId = $driverRequest->vehicle_id;
-        $oldVoucherId = $driverRequest->voucher_id;
+        $oldVoucherIds = $driverRequest->vouchers()->pluck('drms_vouchers.id')->toArray();
 
         if ($data['transport_type'] === 'company_driver') {
             if (!$driverRequest->end_time) {
@@ -419,9 +427,10 @@ class AppAdminController extends Controller
                 if ($oldVehicleId && $oldVehicleId != $mergeTarget->vehicle_id) {
                     Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
                 }
-                if ($oldVoucherId) {
-                    Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+                if ($oldVoucherIds) {
+                    Voucher::whereIn('id', $oldVoucherIds)->update(['status' => 'available']);
                 }
+                $driverRequest->vouchers()->sync([]);
 
                 $driverRequest->requester->notify(new RequestApprovedAdminNotification($driverRequest));
 
@@ -430,17 +439,21 @@ class AppAdminController extends Controller
                     ->with('success', 'Request berhasil digabung ke trip ' . ($mergeTarget->request_no ?? ('#' . $mergeTarget->id)) . '.');
             }
 
+            $newVoucherIds = $data['transport_type'] === 'voucher' ? ($data['voucher_ids'] ?? []) : [];
+
             $driverRequest->update([
                 'transport_type'    => $data['transport_type'],
                 'driver_id'         => $data['driver_id'] ?? null,
                 'vehicle_id'        => $data['vehicle_id'] ?? null,
-                'voucher_id'        => $data['voucher_id'] ?? null,
+                'voucher_id'        => $newVoucherIds[0] ?? null, // voucher utama, untuk kompatibilitas tampilan lama
                 'merged_into_id'    => null,
                 'admin_id'          => Auth::id(),
                 'status'            => 'approved_admin',
                 'approved_admin_at' => now(),
                 'rejection_reason'  => $data['keterangan'] ?? null,
             ]);
+
+            $driverRequest->vouchers()->sync($newVoucherIds);
 
             // Update status lama
             if ($oldDriverId && $oldDriverId != ($data['driver_id'] ?? null)) {
@@ -449,8 +462,10 @@ class AppAdminController extends Controller
             if ($oldVehicleId && $oldVehicleId != ($data['vehicle_id'] ?? null)) {
                 Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
             }
-            if ($oldVoucherId && $oldVoucherId != ($data['voucher_id'] ?? null)) {
-                Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+            // Voucher lama yang tidak lagi dipilih -> kembalikan status jadi available
+            $releasedVoucherIds = array_diff($oldVoucherIds, $newVoucherIds);
+            if (!empty($releasedVoucherIds)) {
+                Voucher::whereIn('id', $releasedVoucherIds)->update(['status' => 'available']);
             }
 
             // Update status baru
@@ -460,8 +475,8 @@ class AppAdminController extends Controller
             if (!empty($data['vehicle_id'])) {
                 Vehicle::where('id', $data['vehicle_id'])->update(['status' => 'in_use']);
             }
-            if (!empty($data['voucher_id'])) {
-                Voucher::where('id', $data['voucher_id'])->update(['status' => 'used']);
+            if (!empty($newVoucherIds)) {
+                Voucher::whereIn('id', $newVoucherIds)->update(['status' => 'used']);
             }
 
             // Kirim notifikasi ke pemohon
@@ -496,7 +511,7 @@ class AppAdminController extends Controller
 
         $oldDriverId  = $driverRequest->driver_id;
         $oldVehicleId = $driverRequest->vehicle_id;
-        $oldVoucherId = $driverRequest->voucher_id;
+        $oldVoucherIds = $driverRequest->vouchers()->pluck('drms_vouchers.id')->toArray();
 
         DB::beginTransaction();
         try {
@@ -513,7 +528,8 @@ class AppAdminController extends Controller
 
             if ($oldDriverId) Driver::where('id', $oldDriverId)->update(['status' => 'available']);
             if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
-            if ($oldVoucherId) Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+            if (!empty($oldVoucherIds)) Voucher::whereIn('id', $oldVoucherIds)->update(['status' => 'available']);
+            $driverRequest->vouchers()->sync([]);
 
             DB::commit();
             return redirect()->route('drms.approval.admin.index')
@@ -729,7 +745,7 @@ class AppAdminController extends Controller
             // Simpan data lama untuk dikembalikan jika perlu
             $oldDriverId = $driverRequest->driver_id;
             $oldVehicleId = $driverRequest->vehicle_id;
-            $oldVoucherId = $driverRequest->voucher_id;
+            $oldVoucherIds = $driverRequest->vouchers()->pluck('drms_vouchers.id')->toArray();
 
             // Set current business unit
             if (!$driverRequest->original_business_unit_id) {
@@ -754,7 +770,8 @@ class AppAdminController extends Controller
             // Update status driver/kendaraan/voucher lama menjadi available
             if ($oldDriverId) Driver::where('id', $oldDriverId)->update(['status' => 'available']);
             if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
-            if ($oldVoucherId) Voucher::where('id', $oldVoucherId)->update(['status' => 'available']);
+            if (!empty($oldVoucherIds)) Voucher::whereIn('id', $oldVoucherIds)->update(['status' => 'available']);
+            $driverRequest->vouchers()->sync([]);
 
             // Kirim notifikasi ke semua admin BU tujuan
             Notification::send($targetAdmins, new RequestForwardedNotification($driverRequest, $user, $request->note));

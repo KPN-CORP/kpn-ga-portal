@@ -68,6 +68,17 @@ class DriverRequest extends Model
     }
 
     /**
+     * Semua voucher yang diberikan untuk request ini (mendukung lebih dari 1 voucher).
+     * voucher_id tetap disimpan sebagai voucher "utama"/pertama untuk kompatibilitas
+     * tampilan lama, tapi daftar lengkapnya ada di sini.
+     */
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'drms_request_vouchers', 'request_id', 'voucher_id')
+            ->withTimestamps();
+    }
+
+    /**
      * Relasi ke business unit yang sedang menangani request (jika di-forward)
      */
     public function currentBusinessUnit()
