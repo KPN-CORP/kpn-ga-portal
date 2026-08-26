@@ -11,6 +11,11 @@ class FuelLogResource extends JsonResource
         return [
             'id'                   => $this->id,
             'plate_number'         => $this->vehicle->plate_number ?? null,
+            'business_unit'        => $this->vehicle && $this->vehicle->businessUnit ? [
+                'id'   => $this->vehicle->businessUnit->id_bisnis_unit,
+                'name' => $this->vehicle->businessUnit->nama_bisnis_unit,
+            ] : null,
+            'vehicle_fuel_type'    => $this->vehicle->fuel_type ?? null,
             'filling_date'         => optional($this->filling_date)->format('Y-m-d'),
             'odometer_start'       => $this->odometer_start,
             'fuel_liters'          => (float) $this->fuel_liters,

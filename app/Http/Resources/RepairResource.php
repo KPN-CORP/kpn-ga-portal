@@ -11,6 +11,10 @@ class RepairResource extends JsonResource
         return [
             'id'             => $this->id,
             'plate_number'   => $this->vehicle->plate_number ?? null,
+            'business_unit'  => $this->vehicle && $this->vehicle->businessUnit ? [
+                'id'   => $this->vehicle->businessUnit->id_bisnis_unit,
+                'name' => $this->vehicle->businessUnit->nama_bisnis_unit,
+            ] : null,
             'report_date'    => optional($this->report_date)->format('Y-m-d'),
             'complaint'      => $this->complaint,
             'diagnosis'      => $this->diagnosis,

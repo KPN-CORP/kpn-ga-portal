@@ -11,6 +11,10 @@ class ServiceScheduleResource extends JsonResource
         return [
             'id'                    => $this->id,
             'plate_number'          => $this->vehicle->plate_number ?? null,
+            'business_unit'         => $this->vehicle && $this->vehicle->businessUnit ? [
+                'id'   => $this->vehicle->businessUnit->id_bisnis_unit,
+                'name' => $this->vehicle->businessUnit->nama_bisnis_unit,
+            ] : null,
             'service_date'          => optional($this->service_date)->format('Y-m-d'),
             'odometer_at_service'   => $this->odometer_at_service,
             'service_type'          => $this->service_type,
