@@ -102,7 +102,7 @@
     </div>
 
     {{-- STATISTIK TAMBAHAN --}}
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border">
             <p class="text-xs text-gray-500 uppercase">Total Perjalanan (Terverifikasi)</p>
             <p class="text-xl font-bold text-purple-600">{{ $stats['total_trips'] ?? 0 }}</p>
@@ -110,16 +110,6 @@
         <div class="bg-white p-4 rounded-lg shadow-sm border">
             <p class="text-xs text-gray-500 uppercase">Total Jarak Tempuh</p>
             <p class="text-xl font-bold text-indigo-600">{{ number_format($stats['total_distance'] ?? 0, 0, ',', '.') }} km</p>
-        </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border">
-            <p class="text-xs text-gray-500 uppercase">Rata-rata Efisiensi</p>
-            <p class="text-xl font-bold text-teal-600">
-                @if(isset($stats['avg_efficiency']))
-                    {{ number_format($stats['avg_efficiency'], 2) }} L/100km
-                @else
-                    -
-                @endif
-            </p>
         </div>
     </div>
 
@@ -194,26 +184,15 @@
     </div>
     @endif
 
-    {{-- GRAFIK EFISIENSI & DISTRIBUSI --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border">
-            <h3 class="font-semibold text-gray-700 mb-3">⛽ Efisiensi Kendaraan (Top 5)</h3>
-            <div class="relative" style="height: 200px;">
-                <canvas id="efficiencyChart"></canvas>
-            </div>
-            @if($efficiencyData->isEmpty())
-                <p class="text-center text-gray-400 text-sm mt-2">Belum ada data efisiensi</p>
-            @endif
+    {{-- GRAFIK DISTRIBUSI TRANSPORTASI --}}
+    <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
+        <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ date('F Y', mktime(0, 0, 0, $month, 1, $year)) }})</h3>
+        <div class="relative" style="height: 250px; max-width: 400px; margin: 0 auto;">
+            <canvas id="transportChart"></canvas>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border">
-            <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ date('F Y', mktime(0, 0, 0, $month, 1, $year)) }})</h3>
-            <div class="relative" style="height: 200px;">
-                <canvas id="transportChart"></canvas>
-            </div>
-            @if($transportDistribution->isEmpty())
-                <p class="text-center text-gray-400 text-sm mt-2">Belum ada data distribusi untuk periode ini</p>
-            @endif
-        </div>
+        @if($transportDistribution->isEmpty())
+            <p class="text-center text-gray-400 text-sm mt-2">Belum ada data distribusi untuk periode ini</p>
+        @endif
     </div>
 
     {{-- TABEL LOG TERBARU --}}
@@ -273,7 +252,6 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.register(ChartDataLabels);
 
     const monthlyData = @json($chartData);
-    const efficiencyData = @json($efficiencyData);
     const transportData = @json($transportDistribution);
     const vehicleStats = @json($vehicleStats);
 
@@ -401,36 +379,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         renderPerVehicleChart('cost');
-    }
-
-    // ========== CHART EFISIENSI ==========
-    const efficiencyContainer = document.getElementById('efficiencyChart').parentElement;
-    if (efficiencyData.length > 0) {
-        const ctxEff = document.getElementById('efficiencyChart').getContext('2d');
-        new Chart(ctxEff, {
-            type: 'bar',
-            data: {
-                labels: efficiencyData.map(d => d.vehicle),
-                datasets: [{
-                    label: 'Rata-rata Efisiensi (L/100km)',
-                    data: efficiencyData.map(d => Number(d.avg_efficiency)),
-                    backgroundColor: 'rgba(16,185,129,0.7)',
-                    borderColor: 'rgba(16,185,129,1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    datalabels: { display: false }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    } else {
-        efficiencyContainer.innerHTML = '<p class="text-center text-gray-400 text-sm mt-6">Belum ada data efisiensi</p>';
     }
 
     // ========== CHART DISTRIBUSI TRANSPORTASI ==========
