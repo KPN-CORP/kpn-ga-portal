@@ -169,13 +169,13 @@
                x-data="sidebarComponent({{ $managementActive ? 'true' : 'false' }})">
 
             <!-- Logo -->
-            <div class="p-5 soft-border-bottom border-b flex items-center gap-2">
+            <div class="p-4 soft-border-bottom border-b flex items-center gap-2">
                 <div class="flex items-center space-x-3 min-w-0">
-                    <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
-                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6">
+                    <div class="brand-badge w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-5 h-5">
                     </div>
                     <div class="min-w-0">
-                        <h1 class="text-lg font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
+                        <h1 class="text-base font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
                         <p class="text-xs text-gray-500 tracking-wide">HSR Management</p>
                     </div>
                 </div>
@@ -183,7 +183,7 @@
 
             <!-- Navigation -->
             <nav class="p-3 pb-24">
-                <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
+                <p class="mt-1 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
                 <ul class="space-y-1">
                     <li>
                         <a href="{{ route('dashboard') }}" title="Dashboard GA"
@@ -192,10 +192,6 @@
                             <span>Dashboard GA</span>
                         </a>
                     </li>
-                </ul>
-
-                <p class="mt-5 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Main Menu</p>
-                <ul class="space-y-1">
                     <li>
                         <a href="{{ route('hsrm.dashboard') }}" title="Dashboard"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.dashboard') ? 'active' : '' }}">
