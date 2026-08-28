@@ -396,9 +396,24 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('repairs', RepairController::class);
 
         // ===== BBM =====
+        // 'create'/'store'/'edit'/'update' butuh kamera HP (foto struk/odometer BBM),
+        // jadi dikunci khusus HP lewat middleware MobileOnly (alias: mobile.only).
+        // 'index'/'show'/'destroy'/'analytics'/'verify' tetap bisa diakses dari desktop
+        // karena itu halaman review/verifikasi yang biasa dipakai admin dari laptop.
         Route::get('fuel-logs/analytics', [FuelLogController::class, 'analytics'])->name('fuel-logs.analytics');
         Route::patch('fuel-logs/{id}/verify', [FuelLogController::class, 'verify'])->name('fuel-logs.verify');
-        Route::resource('fuel-logs', FuelLogController::class);
+
+        Route::middleware(['mobile.only'])->group(function () {
+            Route::get('fuel-logs/create', [FuelLogController::class, 'create'])->name('fuel-logs.create');
+            Route::post('fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
+            Route::get('fuel-logs/{fuel_log}/edit', [FuelLogController::class, 'edit'])->name('fuel-logs.edit');
+            Route::put('fuel-logs/{fuel_log}', [FuelLogController::class, 'update'])->name('fuel-logs.update');
+            Route::patch('fuel-logs/{fuel_log}', [FuelLogController::class, 'update']);
+        });
+
+        Route::get('fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
+        Route::get('fuel-logs/{fuel_log}', [FuelLogController::class, 'show'])->name('fuel-logs.show');
+        Route::delete('fuel-logs/{fuel_log}', [FuelLogController::class, 'destroy'])->name('fuel-logs.destroy');
 
         // ===== DOKUMEN KENDARAAN =====
         Route::resource('vehicle-documents', VehicleDocumentController::class);

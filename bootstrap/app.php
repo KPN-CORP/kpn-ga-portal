@@ -67,6 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'kompres.access' => \App\Http\Middleware\EnsureKompresAccess::class,
+            'mobile.only' => \App\Http\Middleware\MobileOnly::class,
         ]);
 
         // Middleware groups
