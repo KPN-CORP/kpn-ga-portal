@@ -578,7 +578,11 @@ class AppAdminController extends Controller
 
         DB::beginTransaction();
         try {
-            $driverRequest->update(['status' => 'completed']);
+            $completedAt = now();
+            $driverRequest->update([
+                'status' => 'completed',
+                'completed_at' => $completedAt,
+            ]);
 
             // Kalau request ini adalah INDUK dari trip gabungan, ikut selesaikan
             // semua request "penumpang" yang menumpang ke trip ini.
@@ -586,7 +590,10 @@ class AppAdminController extends Controller
                 ->where('status', '!=', 'completed')
                 ->get();
             foreach ($passengers as $passenger) {
-                $passenger->update(['status' => 'completed']);
+                $passenger->update([
+                    'status' => 'completed',
+                    'completed_at' => $completedAt,
+                ]);
             }
 
             if ($driverRequest->driver_id) {

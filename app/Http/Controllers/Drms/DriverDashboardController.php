@@ -112,8 +112,12 @@ class DriverDashboardController extends Controller
 
         DB::beginTransaction();
         try {
-            // 1. Update status request menjadi completed
-            $driverRequest->update(['status' => 'completed']);
+            // 1. Update status request menjadi completed + catat waktu aktual selesai
+            $completedAt = now();
+            $driverRequest->update([
+                'status' => 'completed',
+                'completed_at' => $completedAt,
+            ]);
 
             // Kalau request ini adalah INDUK dari trip gabungan, ikut selesaikan
             // semua request "penumpang" yang menumpang ke trip ini (mereka tidak
@@ -122,7 +126,10 @@ class DriverDashboardController extends Controller
                 ->where('status', '!=', 'completed')
                 ->get();
             foreach ($passengers as $passenger) {
-                $passenger->update(['status' => 'completed']);
+                $passenger->update([
+                    'status' => 'completed',
+                    'completed_at' => $completedAt,
+                ]);
             }
 
             // 2. Update driver menjadi available

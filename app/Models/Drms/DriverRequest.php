@@ -23,6 +23,8 @@ class DriverRequest extends Model
         'forwarded_by_user_id', 'forwarded_at',
         // Kolom baru untuk trip gabungan (menumpang ke request lain)
         'merged_into_id',
+        // Waktu aktual perjalanan ditandai selesai (bukan end_time terjadwal)
+        'completed_at',
     ];
 
     protected $casts = [
@@ -34,6 +36,7 @@ class DriverRequest extends Model
         'approved_l1_at' => 'datetime',
         'approved_admin_at' => 'datetime',
         'forwarded_at'   => 'datetime',
+        'completed_at'   => 'datetime',
     ];
 
     // Relasi

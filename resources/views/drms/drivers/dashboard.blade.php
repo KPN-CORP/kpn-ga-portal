@@ -186,6 +186,11 @@
                                 {{ $req->status == 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $req->status == 'completed' ? 'Selesai' : 'Ditolak Admin' }}
                             </span>
+                            @if($req->status == 'completed' && $req->completed_at)
+                                <span class="ml-2 text-xs text-gray-500">
+                                    ({{ \Carbon\Carbon::parse($req->completed_at)->format('d M Y, H:i') }})
+                                </span>
+                            @endif
                         @endif
                     </div>
                 </div>

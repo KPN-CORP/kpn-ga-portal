@@ -30,6 +30,9 @@
     {{-- Filter Section --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{-- Filter ini hanya berlaku untuk History Approval, jadi saat di-apply
+                 halaman harus tetap di tab history (bukan balik ke tab Pending). --}}
+            <input type="hidden" name="tab" value="history">
             <div>
                 <label class="text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari no. request / pemohon / tujuan" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
@@ -53,7 +56,7 @@
             </div>
             <div class="lg:col-span-4 flex flex-col sm:flex-row gap-2 justify-end">
                 <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Apply</button>
-                <a href="{{ route('drms.approval.admin.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 text-center">Reset</a>
+                <a href="{{ route('drms.approval.admin.index', ['tab' => 'history']) }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 text-center">Reset</a>
             </div>
         </form>
     </div>
@@ -300,6 +303,7 @@
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
+                            'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
                         ];
                     @endphp
                     <tr class="hover:bg-gray-50">
@@ -327,6 +331,9 @@
                             <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusColors[$req->status] ?? 'bg-gray-100 text-gray-800' }}">
                                 {{ $statusLabels[$req->status] ?? $req->status }}
                             </span>
+                            @if($req->status === 'completed' && $req->completed_at)
+                                <div class="text-[11px] text-gray-500 mt-1">{{ \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') }}</div>
+                            @endif
                         </td>
                         <td class="px-4 py-3">
                             <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold hover:underline">Detail</button>
@@ -409,6 +416,7 @@
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
                             'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
+                            'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
                         ];
                     @endphp
                     <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
@@ -446,6 +454,9 @@
                             <span class="text-[11px] font-semibold {{ $statusColors[$req->status] ?? 'bg-gray-100 text-gray-800' }} px-2 py-1 rounded-full">
                                 {{ $statusLabels[$req->status] ?? $req->status }}
                             </span>
+                            @if($req->status === 'completed' && $req->completed_at)
+                                <div class="text-[10px] text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') }}</div>
+                            @endif
                         </td>
                     </tr>
                     <!-- Additional row for BU Pemohon on mobile -->
@@ -589,6 +600,7 @@
                     </tr>
                     <template x-if="detailItem.approver_l1"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Proses L1</td><td class="py-2" x-text="detailItem.approver_l1.name + (detailItem.approver_l1.approved_l1_at ? ' (' + detailItem.approver_l1.approved_l1_at + ')' : '')"></td></tr></template>
                     <template x-if="detailItem.admin"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Proses GA</td><td class="py-2" x-text="detailItem.admin.name + (detailItem.admin.approved_admin_at ? ' (' + detailItem.admin.approved_admin_at + ')' : '')"></td></tr></template>
+                    <template x-if="detailItem.status === 'completed' && detailItem.completed_at"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Waktu Selesai</td><td class="py-2 font-semibold text-blue-700" x-text="detailItem.completed_at"></td></tr></template>
                     <template x-if="detailItem.rejection_reason"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Catatan</td><td class="py-2 text-red-600" x-text="detailItem.rejection_reason"></td></tr></template>
                     <template x-if="detailItem.transport_type"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Jenis Transportasi</td><td class="py-2" x-text="detailItem.transport_type == 'company_driver' ? 'Driver Perusahaan' : (detailItem.transport_type == 'voucher' ? 'Voucher' : 'Rental')"></td></tr></template>
                     <template x-if="detailItem.driver"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Driver</td><td class="py-2" x-text="detailItem.driver.name + ' (' + (detailItem.driver.phone || '-') + ')'"></td></tr></template>
