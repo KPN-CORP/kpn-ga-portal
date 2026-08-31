@@ -41,12 +41,17 @@ class OperationalReportController extends Controller
      * - month / year          : alternatif kalau cuma mau 1 bulan (dipakai
      *                           kalau date_from/date_to tidak dikirim).
      * - vehicle_id/driver_id  : opsional
+     * - fuel_type             : opsional — "listrik" (kendaraan EV/Charger) atau
+     *                           "bbm" (semua selain listrik: Bensin/Solar/Hybrid/
+     *                           Lainnya/kosong, digabung — sama seperti pengelompokan
+     *                           yang sudah dipakai di halaman analytics BBM).
      */
     public function summary(Request $request)
     {
         $buId = $request->get('business_unit_id');
         $vehicleId = $request->get('vehicle_id');
         $driverId = $request->get('driver_id');
+        $fuelGroup = $request->get('fuel_type');
 
         if ($request->filled('date_from') && $request->filled('date_to')) {
             $dateFrom = \Carbon\Carbon::parse($request->date_from)->toDateString();
@@ -61,9 +66,9 @@ class OperationalReportController extends Controller
 
         abort_if(\Carbon\Carbon::parse($dateFrom)->gt(\Carbon\Carbon::parse($dateTo)), 422, 'date_from harus sebelum date_to.');
 
-        $cacheKey = "api.operational-summary.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}";
+        $cacheKey = "api.operational-summary.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}";
 
-        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId) {
+        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup) {
             // Batasi waktu eksekusi query di sesi ini — kalau ada yang nyangkut,
             // MySQL yang hentikan sendiri, gak jalan tanpa batas dan gak ganggu
             // resource DB untuk user GA Portal lain yang lagi pakai bersamaan.
@@ -74,8 +79,8 @@ class OperationalReportController extends Controller
                 'business_unit_id'       => $buId ? (int) $buId : null,
                 'summary'                => $this->getOperationalStats($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
                 'transport_distribution' => $this->getTransportDistribution($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
-                'efficiency_top10'       => $this->getEfficiencyData($buId, $vehicleId, $driverId),
-                'vehicle_breakdown'      => $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
+                'efficiency_top10'       => $this->getEfficiencyData($buId, $vehicleId, $driverId, $fuelGroup),
+                'vehicle_breakdown'      => $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup),
                 'generated_at'           => now()->toIso8601String(),
             ];
         });

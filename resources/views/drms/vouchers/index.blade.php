@@ -88,9 +88,17 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
-                    @foreach(collect(range(-3, 11))->map(fn($i) => now()->startOfMonth()->subMonths($i)->format('Y-m'))->unique() as $opt)
-                        <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
-                            {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
+                    @php
+                        $monthOptions = [];
+                        $base = now()->startOfMonth();
+                        foreach (range(-3, 11) as $i) {
+                            $d = $base->copy()->subMonths($i); // objek Carbon, day selalu 1, tidak mungkin overflow
+                            $monthOptions[$d->format('Y-m')] = $d->translatedFormat('F Y');
+                        }
+                    @endphp
+                    @foreach($monthOptions as $value => $label)
+                        <option value="{{ $value }}" {{ $month === $value ? 'selected' : '' }}>
+                            {{ $label }}
                         </option>
                     @endforeach
                 </select>

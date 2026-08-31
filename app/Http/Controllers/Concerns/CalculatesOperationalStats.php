@@ -23,6 +23,33 @@ use Illuminate\Support\Facades\DB;
  */
 trait CalculatesOperationalStats
 {
+    /**
+     * Kelompokkan kendaraan jadi 2: "listrik" (fuel_type = Listrik persis) vs
+     * "bbm" (semua SELAIN Listrik — Bensin/Solar/Hybrid/Lainnya/kosong, digabung
+     * jadi satu). Ini SENGAJA disamain persis dengan logic yang udah ada di
+     * FuelLogController::index() (pemisah kelompok BBM vs Listrik di analytics),
+     * termasuk aturan fuel_type NULL dianggap BBM (bukan dikecualikan).
+     *
+     * $onVehicleTable = true  → query-nya langsung ke tabel Vehicle (kolom fuel_type ada di situ)
+     * $onVehicleTable = false → query-nya ke tabel lain yang punya relasi 'vehicle' (pakai whereHas)
+     */
+    private function applyFuelGroupFilter($query, $fuelGroup, $onVehicleTable = false)
+    {
+        if (!$fuelGroup) return $query;
+
+        $apply = function ($q) use ($fuelGroup) {
+            if (strtolower($fuelGroup) === 'listrik') {
+                $q->where('fuel_type', 'Listrik');
+            } else { // 'bbm' (atau nilai lain di luar 'listrik') = semua selain Listrik, termasuk NULL
+                $q->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
+            }
+        };
+
+        return $onVehicleTable
+            ? $query->where($apply)
+            : $query->whereHas('vehicle', $apply);
+    }
+
     private function applyBusinessUnitFilter($query, $buId)
     {
         $query->where(function ($q) use ($buId) {
@@ -131,15 +158,15 @@ trait CalculatesOperationalStats
             ->get();
     }
 
-    private function getEfficiencyData($buId, $vehicleId = null, $driverId = null)
+    private function getEfficiencyData($buId, $vehicleId = null, $driverId = null, $fuelGroup = null)
     {
         $fuelLogs = FuelLog::with('vehicle')
             ->where('is_verified', 1)
             ->when($buId, fn ($q) => $q->whereHas('vehicle', fn ($sq) => $sq->where('business_unit_id', $buId)))
             ->when($vehicleId, fn ($q) => $q->where('vehicle_id', $vehicleId))
             ->when($driverId, fn ($q) => $q->where('driver_id', $driverId))
-            ->orderBy('vehicle_id')->orderBy('filling_date')
-            ->get();
+            ->orderBy('vehicle_id')->orderBy('filling_date');
+        $fuelLogs = $this->applyFuelGroupFilter($fuelLogs, $fuelGroup, false)->get();
 
         $grouped = $fuelLogs->groupBy('vehicle_id');
         $result = [];
@@ -161,6 +188,11 @@ trait CalculatesOperationalStats
                 $result[] = [
                     'vehicle'        => $vehicle->plate_number,
                     'type'           => $vehicle->type,
+                    // fuel_type: Bensin/Solar/Listrik/Hybrid/Lainnya (sesuai master kendaraan).
+                    // unit: satuan konsumsi — "kWh" untuk kendaraan listrik, "Liter" untuk lainnya,
+                    // konsisten dengan cara FuelLogController/analytics bedain BBM vs listrik.
+                    'fuel_type'      => $vehicle->fuel_type,
+                    'unit'           => $vehicle->fuel_type === 'Listrik' ? 'kWh' : 'Liter',
                     'avg_efficiency' => $avgConsumption,
                     'total_trips'    => $items->count(),
                 ];
@@ -169,11 +201,11 @@ trait CalculatesOperationalStats
         return collect($result)->sortBy('avg_efficiency')->take(10)->values();
     }
 
-    private function getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId = null, $driverId = null)
+    private function getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId = null, $driverId = null, $fuelGroup = null)
     {
         $vehicles = Vehicle::when($buId, fn ($q) => $q->where('business_unit_id', $buId))
-            ->when($vehicleId, fn ($q) => $q->where('id', $vehicleId))
-            ->get();
+            ->when($vehicleId, fn ($q) => $q->where('id', $vehicleId));
+        $vehicles = $this->applyFuelGroupFilter($vehicles, $fuelGroup, true)->get();
 
         $stats = [];
         foreach ($vehicles as $vehicle) {
@@ -216,6 +248,8 @@ trait CalculatesOperationalStats
             if ($fuelCost > 0 || $serviceCost > 0 || $repairCost > 0 || $totalDistance > 0) {
                 $stats[] = [
                     'plate_number' => $vehicle->plate_number,
+                    'fuel_type'    => $vehicle->fuel_type,
+                    'unit'         => $vehicle->fuel_type === 'Listrik' ? 'kWh' : 'Liter',
                     'fuel_cost'    => $fuelCost,
                     'service_cost' => $serviceCost,
                     'repair_cost'  => $repairCost,

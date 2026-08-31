@@ -116,7 +116,11 @@
     {{-- GRAFIK BIAYA PER BULAN --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <h3 class="font-semibold text-gray-700 mb-3">📈 Biaya Operasional per Bulan (12 bulan terakhir)</h3>
-        <div class="relative" style="height: 250px;">
+        {{-- zoom:1.25 membatalkan efek "html { zoom:0.8 }" di layout khusus untuk kotak chart ini
+             (0.8 * 1.25 = 1.0), supaya Chart.js membaca posisi mouse dengan benar.
+             height dikecilkan jadi 200px (250*0.8) supaya ukuran tampilannya di layar tetap
+             sama persis seperti sebelumnya, cuma perhitungan mouse-nya yang dibetulkan. --}}
+        <div class="relative" style="height: 200px; zoom: 1.25;">
             <canvas id="monthlyChart"></canvas>
         </div>
     </div>
@@ -131,7 +135,7 @@
             <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="distance">📏 Jarak</button>
         </div>
 
-        <div class="relative" style="height: 250px;">
+        <div class="relative" style="height: 200px; zoom: 1.25;">
             <canvas id="perVehicleChart"></canvas>
         </div>
         <p class="text-sm text-gray-500 mt-2 text-center" id="chartTotalLabel">Total: Rp {{ number_format($totals['total_operational_cost'] ?? 0, 0, ',', '.') }}</p>
@@ -329,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const labels = vehicleStats.map(v => v.plate_number);
             const data = chartDataMap[tab];
+            const hoverColor = tab === 'distance' ? 'rgba(16,185,129,1)' : 'rgba(59,130,246,1)';
 
             perVehicleChart = new Chart(ctx, {
                 type: 'bar',
@@ -339,17 +344,49 @@ document.addEventListener('DOMContentLoaded', function() {
                         data: data.data,
                         backgroundColor: data.color,
                         borderColor: data.borderColor,
-                        borderWidth: 1
+                        borderWidth: 1,
+                        hoverBackgroundColor: hoverColor,
+                        hoverBorderColor: data.borderColor,
+                        hoverBorderWidth: 2,
+                        maxBarThickness: 48
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    // hover/tooltip aktif begitu kursor masuk area kolom (x-axis),
+                    // tidak perlu presisi kena bar-nya
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     plugins: { 
                         legend: { display: false },
-                        datalabels: { display: false }
+                        datalabels: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            displayColors: false,
+                            callbacks: {
+                                // judul tooltip = nomor plat kendaraan yang sedang di-hover
+                                title: function(items) {
+                                    return items.length ? items[0].label : '';
+                                },
+                                // isi tooltip = nilai yang sudah diformat sesuai tab aktif
+                                label: function(item) {
+                                    return data.format(item.raw);
+                                }
+                            }
+                        }
                     },
                     scales: {
+                        x: {
+                            ticks: {
+                                autoSkip: false,
+                                maxRotation: 45,
+                                minRotation: 0
+                            }
+                        },
                         y: {
                             beginAtZero: true,
                             ticks: {
@@ -379,6 +416,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         renderPerVehicleChart('cost');
+
+        // Fix: kalau canvas ini di-render sebelum lebar containernya "settle"
+        // (misal sidebar/layout belum selesai reflow), Chart.js akan salah
+        // memetakan posisi mouse ke bar (tooltip/hover nunjuk bar yang salah).
+        // ResizeObserver ini memaksa chart resize ulang tiap kali ukuran
+        // container-nya berubah, jadi pemetaan mouse-nya selalu sinkron
+        // dengan yang benar-benar tampil di layar.
+        const chartContainer = document.getElementById('perVehicleChart').parentElement;
+        if (window.ResizeObserver) {
+            const chartResizeObserver = new ResizeObserver(() => {
+                if (perVehicleChart) perVehicleChart.resize();
+            });
+            chartResizeObserver.observe(chartContainer);
+        }
+
+        // Jaga-jaga tambahan: paksa resize sesaat setelah semua asset
+        // (font, gambar, sidebar) selesai load, karena itu momen paling
+        // sering bikin lebar container berubah setelah chart pertama digambar.
+        window.addEventListener('load', function() {
+            if (perVehicleChart) perVehicleChart.resize();
+        });
     }
 
     // ========== CHART DISTRIBUSI TRANSPORTASI ==========
