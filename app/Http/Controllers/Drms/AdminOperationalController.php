@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Drms;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\CalculatesOperationalStats;
 use App\Models\Drms\TripLog;
 use App\Models\Drms\DriverRequest;
 use App\Models\Drms\Vehicle;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 class AdminOperationalController extends Controller
 {
+    use CalculatesOperationalStats;
+
     /**
      * Menampilkan dashboard operasional dengan grafik dan statistik.
      */
@@ -28,6 +31,13 @@ class AdminOperationalController extends Controller
         $filterVehicleId = $request->get('vehicle_id');
         $filterDriverId = $request->get('driver_id');
 
+        // Trait CalculatesOperationalStats sekarang kerja pakai rentang tanggal
+        // (date_from/date_to), bukan month/year — supaya bisa dipakai juga untuk
+        // rentang bebas (API operational-summary). Dashboard web tetap filter
+        // per bulan seperti biasa, cuma dikonversi ke rentang 1 bulan penuh.
+        $periodStart = \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+        $periodEnd = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
+
         // Dropdown filter
         $vehicles = Vehicle::when($businessUnitId, function ($q) use ($businessUnitId) {
             return $q->where('business_unit_id', $businessUnitId);
@@ -38,10 +48,10 @@ class AdminOperationalController extends Controller
         })->orderBy('name')->get();
 
         // Statistik
-        $stats = $this->getOperationalStats($businessUnitId, $month, $year, $filterVehicleId, $filterDriverId);
+        $stats = $this->getOperationalStats($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
         $chartData = $this->getMonthlyChartData($businessUnitId, $filterVehicleId, $filterDriverId);
         $efficiencyData = $this->getEfficiencyData($businessUnitId, $filterVehicleId, $filterDriverId);
-        $transportDistribution = $this->getTransportDistribution($businessUnitId, $month, $year, $filterVehicleId, $filterDriverId);
+        $transportDistribution = $this->getTransportDistribution($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
         $recentLogs = $this->getRecentLogs($businessUnitId, 5, $filterVehicleId, $filterDriverId);
 
         // Data per kendaraan
@@ -165,10 +175,13 @@ class AdminOperationalController extends Controller
         $filterVehicleId = $request->get('vehicle_id');
         $filterDriverId = $request->get('driver_id');
 
+        $periodStart = \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+        $periodEnd = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
+
         // Data statistik
-        $stats = $this->getOperationalStats($businessUnitId, $month, $year, $filterVehicleId, $filterDriverId);
+        $stats = $this->getOperationalStats($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
         $efficiencyData = $this->getEfficiencyData($businessUnitId, $filterVehicleId, $filterDriverId);
-        $transportDistribution = $this->getTransportDistribution($businessUnitId, $month, $year, $filterVehicleId, $filterDriverId);
+        $transportDistribution = $this->getTransportDistribution($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
 
         // Detail logs
         $tripLogs = TripLog::with(['request.vehicle', 'request.driver', 'request'])
@@ -266,7 +279,7 @@ class AdminOperationalController extends Controller
         fputcsv($handle, []);
 
         // Rincian per Kendaraan
-        $vehicleStats = $this->getVehicleStatsForPeriod($businessUnitId, $month, $year, $filterVehicleId, $filterDriverId);
+        $vehicleStats = $this->getVehicleStatsForPeriod($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
         fputcsv($handle, ['RINCIAN PER KENDARAAN']);
         fputcsv($handle, ['Kendaraan', 'BBM/Charge (Rp)', 'Service (Rp)', 'Perbaikan (Rp)', 'Total Biaya (Rp)', 'Jarak (km)', 'Liter/kWh']);
         foreach ($vehicleStats as $v) {
@@ -476,19 +489,6 @@ class AdminOperationalController extends Controller
         return $profile->business_unit_id ?? abort(403, 'Anda tidak memiliki unit bisnis.');
     }
 
-    private function applyBusinessUnitFilter($query, $buId)
-    {
-        $query->where(function ($q) use ($buId) {
-            $q->where('current_business_unit_id', $buId)
-              ->orWhere(function ($sub) use ($buId) {
-                  $sub->whereNull('current_business_unit_id')
-                      ->whereHas('requester.drmsProfile', function ($q2) use ($buId) {
-                          $q2->where('business_unit_id', $buId);
-                      });
-              });
-        });
-    }
-
     private function authorizeLogAccess($log)
     {
         $user = Auth::user();
@@ -501,106 +501,17 @@ class AdminOperationalController extends Controller
         }
     }
 
-    private function getOperationalStats($buId, $month, $year, $vehicleId = null, $driverId = null)
-    {
-        // Fuel
-        $fuelQuery = FuelLog::where('is_verified', 1)
-            ->whereMonth('filling_date', $month)
-            ->whereYear('filling_date', $year);
-        if ($buId) $fuelQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-        if ($vehicleId) $fuelQuery->where('vehicle_id', $vehicleId);
-        if ($driverId) $fuelQuery->where('driver_id', $driverId);
-        $totalFuel = $fuelQuery->sum(DB::raw('fuel_liters * fuel_price_per_liter'));
-
-        // Service
-        $serviceQuery = ServiceSchedule::whereMonth('service_date', $month)->whereYear('service_date', $year);
-        if ($buId) $serviceQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-        if ($vehicleId) $serviceQuery->where('vehicle_id', $vehicleId);
-        $totalService = $serviceQuery->sum('cost');
-
-        // Repair
-        $repairQuery = Repair::whereMonth('report_date', $month)->whereYear('report_date', $year);
-        if ($buId) $repairQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-        if ($vehicleId) $repairQuery->where('vehicle_id', $vehicleId);
-        $totalRepair = $repairQuery->sum('total_cost');
-
-        // Pending
-        $pendingLogs = TripLog::where('is_submitted', 1)->where('is_verified', 0)
-            ->when($buId, fn($q) => $q->whereHas('request', fn($q2) => $this->applyBusinessUnitFilter($q2, $buId)))
-            ->when($vehicleId, fn($q) => $q->whereHas('request', fn($q2) => $q2->where('vehicle_id', $vehicleId)))
-            ->when($driverId, fn($q) => $q->whereHas('request', fn($q2) => $q2->where('driver_id', $driverId)))
-            ->count();
-
-        // Distance — diambil dari Log Perjalanan (TripLog) yang sudah diverifikasi,
-        // bukan dari selisih odometer Log BBM. distance = odometer_finish - odometer_start per trip.
-        $totalDistance = TripLog::where('is_verified', 1)
-            ->whereNotNull('odometer_start')
-            ->whereNotNull('odometer_finish')
-            ->whereHas('request', function ($q) use ($buId, $vehicleId, $driverId, $month, $year) {
-                $q->whereMonth('usage_date', $month)->whereYear('usage_date', $year);
-                if ($buId) $this->applyBusinessUnitFilter($q, $buId);
-                if ($vehicleId) $q->where('vehicle_id', $vehicleId);
-                if ($driverId) $q->where('driver_id', $driverId);
-            })
-            ->get()
-            ->sum(fn ($log) => max(0, $log->odometer_finish - $log->odometer_start));
-
-        // Total Perjalanan (Terverifikasi) — jumlah TripLog yang sudah diverifikasi
-        // pada periode (bulan/tahun) & filter yang sama dengan statistik lainnya.
-        $totalTripsQuery = TripLog::where('is_verified', 1)
-            ->whereHas('request', function ($q) use ($buId, $vehicleId, $driverId, $month, $year) {
-                $q->whereMonth('usage_date', $month)->whereYear('usage_date', $year);
-                if ($buId) $this->applyBusinessUnitFilter($q, $buId);
-                if ($vehicleId) $q->where('vehicle_id', $vehicleId);
-                if ($driverId) $q->where('driver_id', $driverId);
-            });
-        $totalTrips = $totalTripsQuery->count();
-
-        // Rata-rata Efisiensi (L/100km) — gabungan seluruh kendaraan yang cocok filter,
-        // pada periode (bulan/tahun) yang sama (bukan per kendaraan seperti di getEfficiencyData()).
-        $effFuelLogs = FuelLog::where('is_verified', 1)
-            ->whereMonth('filling_date', $month)
-            ->whereYear('filling_date', $year)
-            ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))
-            ->when($vehicleId, fn($q) => $q->where('vehicle_id', $vehicleId))
-            ->when($driverId, fn($q) => $q->where('driver_id', $driverId))
-            ->orderBy('vehicle_id')->orderBy('filling_date')
-            ->get(['vehicle_id', 'odometer_start', 'fuel_liters']);
-
-        $avgEfficiency = null;
-        if ($effFuelLogs->isNotEmpty()) {
-            $totalEffDistance = 0;
-            $totalEffLiters = 0;
-            foreach ($effFuelLogs->groupBy('vehicle_id') as $items) {
-                $prevOdometer = null;
-                foreach ($items as $item) {
-                    if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
-                        $totalEffDistance += ($item->odometer_start - $prevOdometer);
-                    }
-                    $prevOdometer = $item->odometer_start;
-                    $totalEffLiters += $item->fuel_liters;
-                }
-            }
-            $avgEfficiency = $totalEffDistance > 0 ? round(($totalEffLiters / $totalEffDistance) * 100, 2) : null;
-        }
-
-        return [
-            'total_fuel_cost'      => $totalFuel,
-            'total_service_cost'   => $totalService,
-            'total_repair_cost'    => $totalRepair,
-            'total_operational_cost' => $totalFuel + $totalService + $totalRepair,
-            'total_distance'       => $totalDistance,
-            'pending_verification' => $pendingLogs,
-            'total_trips'          => $totalTrips,
-            'avg_efficiency'       => $avgEfficiency,
-        ];
-    }
-
     private function getMonthlyChartData($buId, $vehicleId = null, $driverId = null)
     {
         $months = collect();
+        // PENTING: anchor ke tanggal 1 (startOfMonth) SEBELUM subMonths().
+        // Kalau langsung now()->subMonths($i) pas tanggal hari ini 29/30/31,
+        // Carbon bisa "meluber" ke bulan berikutnya untuk bulan yang harinya
+        // lebih pendek (Feb/Apr/Jun/Sep/Nov) — bikin bulan itu hilang & bulan
+        // lain ke-duplikat di chart.
+        $anchor = now()->startOfMonth();
         for ($i = 11; $i >= 0; $i--) {
-            $months->push(now()->subMonths($i)->format('Y-m'));
+            $months->push($anchor->copy()->subMonths($i)->format('Y-m'));
         }
 
         $data = [];
@@ -636,57 +547,6 @@ class AdminOperationalController extends Controller
         return $data;
     }
 
-    private function getEfficiencyData($buId, $vehicleId = null, $driverId = null)
-    {
-        $fuelLogs = FuelLog::with('vehicle')
-            ->where('is_verified', 1)
-            ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))
-            ->when($vehicleId, fn($q) => $q->where('vehicle_id', $vehicleId))
-            ->when($driverId, fn($q) => $q->where('driver_id', $driverId))
-            ->orderBy('vehicle_id')->orderBy('filling_date')
-            ->get();
-
-        $grouped = $fuelLogs->groupBy('vehicle_id');
-        $result = [];
-        foreach ($grouped as $items) {
-            $vehicle = $items->first()->vehicle;
-            if (!$vehicle) continue;
-            $totalDistance = 0;
-            $prevOdometer = null;
-            $totalLiters = 0;
-            foreach ($items as $item) {
-                if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
-                    $totalDistance += ($item->odometer_start - $prevOdometer);
-                }
-                $prevOdometer = $item->odometer_start;
-                $totalLiters += $item->fuel_liters;
-            }
-            $avgConsumption = ($totalDistance > 0) ? round(($totalLiters / $totalDistance) * 100, 2) : null;
-            if ($avgConsumption !== null) {
-                $result[] = [
-                    'vehicle'      => $vehicle->plate_number,
-                    'type'         => $vehicle->type,
-                    'avg_efficiency' => $avgConsumption,
-                    'total_trips'  => $items->count(),
-                ];
-            }
-        }
-        return collect($result)->sortBy('avg_efficiency')->take(10)->values();
-    }
-
-    private function getTransportDistribution($buId, $month, $year, $vehicleId = null, $driverId = null)
-    {
-        $query = DriverRequest::whereIn('status', ['approved_admin', 'completed'])
-            ->whereYear('usage_date', $year)
-            ->whereMonth('usage_date', $month);
-        if ($buId) $this->applyBusinessUnitFilter($query, $buId);
-        if ($vehicleId) $query->where('vehicle_id', $vehicleId);
-        if ($driverId) $query->where('driver_id', $driverId);
-        return $query->select('transport_type', DB::raw('count(*) as total'))
-            ->groupBy('transport_type')
-            ->get();
-    }
-
     private function getRecentLogs($buId, $limit = 5, $vehicleId = null, $driverId = null)
     {
         $query = TripLog::with(['request.requester', 'request.driver', 'request.vehicle'])
@@ -700,69 +560,5 @@ class AdminOperationalController extends Controller
         if ($vehicleId) $query->whereHas('request', fn($q) => $q->where('vehicle_id', $vehicleId));
         if ($driverId) $query->whereHas('request', fn($q) => $q->where('driver_id', $driverId));
         return $query->limit($limit)->get();
-    }
-
-    private function getVehicleStatsForPeriod($buId, $month, $year, $vehicleId = null, $driverId = null)
-    {
-        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))
-            ->when($vehicleId, fn($q) => $q->where('id', $vehicleId))
-            ->get();
-
-        $stats = [];
-        foreach ($vehicles as $vehicle) {
-            $fuelQuery = FuelLog::where('vehicle_id', $vehicle->id)
-                ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
-                ->whereYear('filling_date', $year);
-            if ($driverId) $fuelQuery->where('driver_id', $driverId);
-            $fuelCost = $fuelQuery->sum(DB::raw('fuel_liters * fuel_price_per_liter'));
-
-            $serviceCost = ServiceSchedule::where('vehicle_id', $vehicle->id)
-                ->whereMonth('service_date', $month)
-                ->whereYear('service_date', $year)
-                ->sum('cost');
-
-            $repairCost = Repair::where('vehicle_id', $vehicle->id)
-                ->whereMonth('report_date', $month)
-                ->whereYear('report_date', $year)
-                ->sum('total_cost');
-
-            $fuelLogs = FuelLog::where('vehicle_id', $vehicle->id)
-                ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
-                ->whereYear('filling_date', $year);
-            if ($driverId) $fuelLogs->where('driver_id', $driverId);
-            $fuelLogs = $fuelLogs->orderBy('filling_date')->get(['odometer_start']);
-            $totalDistance = 0;
-            if ($fuelLogs->count() > 1) {
-                $prev = null;
-                foreach ($fuelLogs as $log) {
-                    if ($prev !== null && $log->odometer_start > $prev) {
-                        $totalDistance += ($log->odometer_start - $prev);
-                    }
-                    $prev = $log->odometer_start;
-                }
-            }
-
-            $fuelLiters = FuelLog::where('vehicle_id', $vehicle->id)
-                ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
-                ->whereYear('filling_date', $year);
-            if ($driverId) $fuelLiters->where('driver_id', $driverId);
-            $fuelLiters = $fuelLiters->sum('fuel_liters');
-
-            if ($fuelCost > 0 || $serviceCost > 0 || $repairCost > 0 || $totalDistance > 0) {
-                $stats[] = [
-                    'plate_number' => $vehicle->plate_number,
-                    'fuel_cost'    => $fuelCost,
-                    'service_cost' => $serviceCost,
-                    'repair_cost'  => $repairCost,
-                    'total_cost'   => $fuelCost + $serviceCost + $repairCost,
-                    'distance'     => $totalDistance,
-                    'fuel_liters'  => $fuelLiters,
-                ];
-            }
-        }
-        return $stats;
     }
 }
