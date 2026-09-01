@@ -240,6 +240,70 @@
             <h3 class="section-title">💰 Budget & Quota Analytics</h3>
         </div>
 
+        {{-- Overview Stats: Active/Warning/Expired/Recommendation (Certificates + Equipments) --}}
+        @if(isset($certData) || isset($eqData))
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div>
+                <div class="text-sm font-semibold text-gray-600 mb-2">📄 Certificates</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Active</div>
+                        <div class="text-xl font-bold text-green-600 mt-1">{{ $certData['active'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Warning</div>
+                        <div class="text-xl font-bold text-yellow-600 mt-1">{{ $certData['warning'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Expired</div>
+                        <div class="text-xl font-bold text-red-600 mt-1">{{ $certData['expired'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Recommendation</div>
+                        <div class="text-xl font-bold text-sky-600 mt-1">{{ $certData['recommended'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Not Recommendation</div>
+                        <div class="text-xl font-bold text-rose-600 mt-1">{{ $certData['not_recommended'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Valid</div>
+                        <div class="text-xl font-bold text-violet-600 mt-1">{{ $certData['valid'] ?? 0 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="text-sm font-semibold text-gray-600 mb-2">🔧 Equipments</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Active</div>
+                        <div class="text-xl font-bold text-green-600 mt-1">{{ $eqData['total_items_active'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Warning</div>
+                        <div class="text-xl font-bold text-yellow-600 mt-1">{{ $eqData['total_items_warning'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Expired</div>
+                        <div class="text-xl font-bold text-red-600 mt-1">{{ $eqData['total_items_expired'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Recommendation</div>
+                        <div class="text-xl font-bold text-sky-600 mt-1">{{ $eqData['total_items_recommended'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Not Recommendation</div>
+                        <div class="text-xl font-bold text-rose-600 mt-1">{{ $eqData['total_items_not_recommended'] ?? 0 }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="text-sm text-gray-500">Valid</div>
+                        <div class="text-xl font-bold text-violet-600 mt-1">{{ $eqData['total_items_valid'] ?? 0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Grafik Budget per Area --}}
         @if(isset($budgetData) && $budgetData->count() > 0)
         <div class="chart-card mb-5">
@@ -283,7 +347,7 @@
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-5">
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-gray-500">Total Certificates</div>
@@ -291,7 +355,7 @@
                     <i class="fas fa-file-alt"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.certificates.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+            <a href="{{ route('hsrm.certificates.filter', array_filter(['filter' => 'total', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold mt-1.5">
                 {{ $certData['total'] ?? 0 }}
             </a>
         </div>
@@ -302,7 +366,7 @@
                     <i class="fas fa-check-circle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.certificates.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+            <a href="{{ route('hsrm.certificates.filter', array_filter(['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
                 {{ $certData['active'] ?? 0 }}
             </a>
         </div>
@@ -313,7 +377,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.certificates.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+            <a href="{{ route('hsrm.certificates.filter', array_filter(['filter' => 'warning', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
                 {{ $certData['warning'] ?? 0 }}
             </a>
         </div>
@@ -324,11 +388,45 @@
                     <i class="fas fa-times-circle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.certificates.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+            <a href="{{ route('hsrm.certificates.filter', array_filter(['filter' => 'expired', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
                 {{ $certData['expired'] ?? 0 }}
             </a>
         </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Recommendation</div>
+                <div class="stat-icon bg-sky-50 text-sky-500">
+                    <i class="fas fa-thumbs-up"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-sky-600 mt-1.5">
+                {{ $certData['recommended'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Not Recommendation</div>
+                <div class="stat-icon bg-rose-50 text-rose-500">
+                    <i class="fas fa-thumbs-down"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.index', array_filter(['rekomendasi' => 'not_recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-rose-600 mt-1.5">
+                {{ $certData['not_recommended'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Valid</div>
+                <div class="stat-icon bg-violet-50 text-violet-500">
+                    <i class="fas fa-certificate"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.certificates.index', array_filter(['rekomendasi' => 'valid', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-violet-600 mt-1.5">
+                {{ $certData['valid'] ?? 0 }}
+            </a>
+        </div>
     </div>
+
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div class="chart-card">
@@ -365,7 +463,7 @@
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-5">
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-gray-500">Total Equipments</div>
@@ -373,7 +471,7 @@
                     <i class="fas fa-fire-extinguisher"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.equipments.filter', 'total') }}" class="stat-link text-2xl font-bold mt-1.5">
+            <a href="{{ route('hsrm.equipments.filter', array_filter(['filter' => 'total', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold mt-1.5">
                 {{ $eqData['total_items_all'] ?? 0 }}
             </a>
         </div>
@@ -384,7 +482,7 @@
                     <i class="fas fa-check-circle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.equipments.filter', 'active') }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
+            <a href="{{ route('hsrm.equipments.filter', array_filter(['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-green-600 mt-1.5">
                 {{ $eqData['total_items_active'] ?? 0 }}
             </a>
         </div>
@@ -395,7 +493,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.equipments.filter', 'warning') }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
+            <a href="{{ route('hsrm.equipments.filter', array_filter(['filter' => 'warning', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-yellow-600 mt-1.5">
                 {{ $eqData['total_items_warning'] ?? 0 }}
             </a>
         </div>
@@ -406,11 +504,45 @@
                     <i class="fas fa-times-circle"></i>
                 </div>
             </div>
-            <a href="{{ route('hsrm.equipments.filter', 'expired') }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
+            <a href="{{ route('hsrm.equipments.filter', array_filter(['filter' => 'expired', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-red-600 mt-1.5">
                 {{ $eqData['total_items_expired'] ?? 0 }}
             </a>
         </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Recommendation</div>
+                <div class="stat-icon bg-sky-50 text-sky-500">
+                    <i class="fas fa-thumbs-up"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-sky-600 mt-1.5">
+                {{ $eqData['total_items_recommended'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Not Recommendation</div>
+                <div class="stat-icon bg-rose-50 text-rose-500">
+                    <i class="fas fa-thumbs-down"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.index', array_filter(['rekomendasi' => 'not_recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-rose-600 mt-1.5">
+                {{ $eqData['total_items_not_recommended'] ?? 0 }}
+            </a>
+        </div>
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">Valid</div>
+                <div class="stat-icon bg-violet-50 text-violet-500">
+                    <i class="fas fa-certificate"></i>
+                </div>
+            </div>
+            <a href="{{ route('hsrm.equipments.index', array_filter(['rekomendasi' => 'valid', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-violet-600 mt-1.5">
+                {{ $eqData['total_items_valid'] ?? 0 }}
+            </a>
+        </div>
     </div>
+
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div class="chart-card">
@@ -696,7 +828,7 @@
                                 {{ $certData['warning'] ?? 0 }},
                                 {{ $certData['expired'] ?? 0 }}
                             ],
-                            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+                            backgroundColor: ['#16a34a', '#f59e0b', '#dc2626'],
                             borderWidth: 0,
                             hoverOffset: 6
                         }]
@@ -716,7 +848,7 @@
                                 {{ $certData['not_recommended'] ?? 0 }},
                                 {{ $certData['valid'] ?? 0 }}
                             ],
-                            backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
+                            backgroundColor: ['#0ea5e9', '#f43f5e', '#8b5cf6'],
                             borderWidth: 0,
                             hoverOffset: 6
                         }]
@@ -734,28 +866,28 @@
                             label: 'Certificates',
                             data: @json($certData['area_data'] ?? []),
                             backgroundColor: [
-                                'rgba(59, 130, 246, 0.7)',
-                                'rgba(99, 102, 241, 0.7)',
-                                'rgba(139, 92, 246, 0.7)',
-                                'rgba(168, 85, 247, 0.7)',
-                                'rgba(192, 132, 252, 0.7)',
-                                'rgba(236, 72, 153, 0.7)',
-                                'rgba(244, 63, 94, 0.7)',
-                                'rgba(239, 68, 68, 0.7)',
-                                'rgba(251, 146, 60, 0.7)',
-                                'rgba(251, 191, 36, 0.7)',
+                                'rgba(37, 99, 235, 0.75)',
+                                'rgba(29, 78, 216, 0.75)',
+                                'rgba(30, 64, 175, 0.75)',
+                                'rgba(14, 116, 144, 0.75)',
+                                'rgba(8, 145, 178, 0.75)',
+                                'rgba(6, 182, 212, 0.75)',
+                                'rgba(2, 132, 199, 0.75)',
+                                'rgba(3, 105, 161, 0.75)',
+                                'rgba(12, 74, 110, 0.75)',
+                                'rgba(56, 189, 248, 0.75)',
                             ],
                             borderColor: [
-                                'rgba(59, 130, 246, 1)',
-                                'rgba(99, 102, 241, 1)',
-                                'rgba(139, 92, 246, 1)',
-                                'rgba(168, 85, 247, 1)',
-                                'rgba(192, 132, 252, 1)',
-                                'rgba(236, 72, 153, 1)',
-                                'rgba(244, 63, 94, 1)',
-                                'rgba(239, 68, 68, 1)',
-                                'rgba(251, 146, 60, 1)',
-                                'rgba(251, 191, 36, 1)',
+                                'rgba(37, 99, 235, 1)',
+                                'rgba(29, 78, 216, 1)',
+                                'rgba(30, 64, 175, 1)',
+                                'rgba(14, 116, 144, 1)',
+                                'rgba(8, 145, 178, 1)',
+                                'rgba(6, 182, 212, 1)',
+                                'rgba(2, 132, 199, 1)',
+                                'rgba(3, 105, 161, 1)',
+                                'rgba(12, 74, 110, 1)',
+                                'rgba(56, 189, 248, 1)',
                             ],
                             borderWidth: 1,
                             borderRadius: 6,
@@ -782,7 +914,7 @@
                                 {{ $eqData['total_items_warning'] ?? 0 }},
                                 {{ $eqData['total_items_expired'] ?? 0 }}
                             ],
-                            backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+                            backgroundColor: ['#4ade80', '#fbbf24', '#fb7185'],
                             borderWidth: 0,
                             hoverOffset: 6
                         }]
@@ -802,7 +934,7 @@
                                 {{ $eqData['total_items_not_recommended'] ?? 0 }},
                                 {{ $eqData['total_items_valid'] ?? 0 }}
                             ],
-                            backgroundColor: ['#22c55e', '#ef4444', '#3b82f6'],
+                            backgroundColor: ['#06b6d4', '#e11d48', '#a855f7'],
                             borderWidth: 0,
                             hoverOffset: 6
                         }]
@@ -820,28 +952,28 @@
                             label: 'Equipments',
                             data: @json($eqData['area_data'] ?? []),
                             backgroundColor: [
-                                'rgba(168, 85, 247, 0.7)',
-                                'rgba(192, 132, 252, 0.7)',
-                                'rgba(216, 180, 254, 0.7)',
-                                'rgba(236, 72, 153, 0.7)',
-                                'rgba(244, 63, 94, 0.7)',
-                                'rgba(239, 68, 68, 0.7)',
-                                'rgba(251, 146, 60, 0.7)',
-                                'rgba(251, 191, 36, 0.7)',
-                                'rgba(59, 130, 246, 0.7)',
-                                'rgba(99, 102, 241, 0.7)',
+                                'rgba(234, 88, 12, 0.75)',
+                                'rgba(217, 119, 6, 0.75)',
+                                'rgba(202, 138, 4, 0.75)',
+                                'rgba(180, 83, 9, 0.75)',
+                                'rgba(154, 52, 18, 0.75)',
+                                'rgba(245, 158, 11, 0.75)',
+                                'rgba(194, 65, 12, 0.75)',
+                                'rgba(120, 53, 15, 0.75)',
+                                'rgba(249, 115, 22, 0.75)',
+                                'rgba(161, 98, 7, 0.75)',
                             ],
                             borderColor: [
-                                'rgba(168, 85, 247, 1)',
-                                'rgba(192, 132, 252, 1)',
-                                'rgba(216, 180, 254, 1)',
-                                'rgba(236, 72, 153, 1)',
-                                'rgba(244, 63, 94, 1)',
-                                'rgba(239, 68, 68, 1)',
-                                'rgba(251, 146, 60, 1)',
-                                'rgba(251, 191, 36, 1)',
-                                'rgba(59, 130, 246, 1)',
-                                'rgba(99, 102, 241, 1)',
+                                'rgba(234, 88, 12, 1)',
+                                'rgba(217, 119, 6, 1)',
+                                'rgba(202, 138, 4, 1)',
+                                'rgba(180, 83, 9, 1)',
+                                'rgba(154, 52, 18, 1)',
+                                'rgba(245, 158, 11, 1)',
+                                'rgba(194, 65, 12, 1)',
+                                'rgba(120, 53, 15, 1)',
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(161, 98, 7, 1)',
                             ],
                             borderWidth: 1,
                             borderRadius: 6,
@@ -871,8 +1003,8 @@
                             datasets: [{
                                 label: 'Budget (Rp)',
                                 data: budgetValues,
-                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                borderColor: 'rgba(34, 197, 94, 1)',
+                                backgroundColor: 'rgba(20, 184, 166, 0.75)',
+                                borderColor: 'rgba(20, 184, 166, 1)',
                                 borderWidth: 1,
                                 borderRadius: 4
                             }]
@@ -942,8 +1074,8 @@
                                 {
                                     label: 'Active',
                                     data: certActive,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    backgroundColor: 'rgba(22, 163, 74, 0.75)',
+                                    borderColor: 'rgba(22, 163, 74, 1)',
                                     borderWidth: 1
                                 }
                             ]
@@ -1009,8 +1141,8 @@
                                 {
                                     label: 'Active (items)',
                                     data: eqActive,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    backgroundColor: 'rgba(132, 204, 22, 0.75)',
+                                    borderColor: 'rgba(132, 204, 22, 1)',
                                     borderWidth: 1
                                 }
                             ]

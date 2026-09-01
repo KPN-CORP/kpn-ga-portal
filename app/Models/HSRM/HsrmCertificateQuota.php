@@ -35,18 +35,19 @@ class HsrmCertificateQuota extends Model
                     ->where('certificate_type_id', $this->certificate_type_id);
     }
 
-    // Untuk mendapatkan jumlah aktif (verified & belum expired)
+    // Untuk mendapatkan jumlah aktif (verified & belum expired, atau tanpa tanggal expired)
     public function getActiveCountAttribute()
     {
         return $this->certificates()
                     ->where('status_verif', 'verified')
-                    ->where('expired_date', '>', now())
+                    ->notExpired()
                     ->count();
     }
 
     public function getExpiredCountAttribute()
     {
         return $this->certificates()
+                    ->whereNotNull('expired_date')
                     ->where('expired_date', '<=', now())
                     ->count();
     }

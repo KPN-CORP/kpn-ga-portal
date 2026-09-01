@@ -122,8 +122,8 @@
 
             {{-- Expiry Date --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date <span class="text-red-500">*</span></label>
-                <input type="date" name="expired_date" value="{{ old('expired_date') }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date <span class="text-gray-400 font-normal">(opsional)</span></label>
+                <input type="date" name="expired_date" value="{{ old('expired_date') }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
                 @error('expired_date') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 

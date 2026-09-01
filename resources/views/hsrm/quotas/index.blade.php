@@ -1,7 +1,7 @@
 @extends('layouts.hsrm-app')
 
-@section('title', 'Budget & Quota Control')
-@section('page-title', 'Budget & Quota Management')
+@section('title', $isAdmin ? 'Budget & Quota Control' : 'My Quota')
+@section('page-title', $isAdmin ? 'Budget & Quota Management' : 'My Quota')
 
 @push('styles')
     <style>
@@ -223,7 +223,8 @@
 @section('content')
 {{-- TOOLBAR: Filter + Area + Download --}}
 <div class="toolbar">
-    {{-- Filter Dropdown --}}
+    @if($isAdmin)
+    {{-- Filter Dropdown (admin only) --}}
     <span class="toolbar-label">Filter:</span>
     <form method="GET" action="{{ route('hsrm.admin.quotas.index') }}" id="filter-form" class="flex items-center gap-3 flex-wrap">
         <input type="hidden" name="area_id" value="{{ $selectedArea ? $selectedArea->id_area_kerja : '' }}">
@@ -234,8 +235,12 @@
             <option value="equipment" {{ request('filter') == 'equipment' ? 'selected' : '' }}>All Equipment</option>
         </select>
     </form>
+    @endif
 
     {{-- Area Selector dengan Datalist --}}
+    {{-- Untuk PIC dengan lebih dari 1 area, tampilkan selector (dibatasi hanya area miliknya).
+         Jika PIC hanya punya 1 area, area itu sudah otomatis dipilih oleh controller. --}}
+    @if($isAdmin || $areas->count() > 1)
     <div class="area-input-group">
         <form method="GET" action="{{ route('hsrm.admin.quotas.index') }}" id="area-select-form" class="flex items-center gap-2 flex-wrap">
             <input type="text"
@@ -257,8 +262,12 @@
         <div id="area-error" class="area-error-text">Area tidak valid. Pilih dari daftar.</div>
         @error('area_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
     </div>
+    @elseif($selectedArea)
+        <span class="toolbar-label">Area: <strong>{{ $selectedArea->nama_area }}</strong></span>
+    @endif
 
-    {{-- Tombol Download --}}
+    {{-- Tombol Download (admin only) --}}
+    @if($isAdmin)
     <div class="download-group">
         @if($selectedArea)
             <a href="{{ route('hsrm.admin.quotas.export', ['mode' => 'single', 'area_id' => $selectedArea->id_area_kerja]) }}" 
@@ -271,13 +280,16 @@
             <i class="fas fa-file-excel"></i> Download Semua Area
         </a>
     </div>
+    @endif
 </div>
 
 {{-- Konten Tabel --}}
 @php
     $activeFilter = request('filter', 'all_data_unit');
-    $showCertificate = in_array($activeFilter, ['all_data_unit', 'all', 'certificate']);
-    $showEquipment = in_array($activeFilter, ['all_data_unit', 'all', 'equipment']);
+    // PIC hanya melihat data Certificate dengan kolom terbatas (Certificate Type,
+    // Regulatory, Quota, Active, Expired) — tidak ada modul Equipment untuk PIC.
+    $showCertificate = $isAdmin ? in_array($activeFilter, ['all_data_unit', 'all', 'certificate']) : true;
+    $showEquipment = $isAdmin ? in_array($activeFilter, ['all_data_unit', 'all', 'equipment']) : true;
 @endphp
 @if($selectedArea)
 <div class="space-y-8">
@@ -294,10 +306,12 @@
                         <th class="p-3 text-center">Quota</th>
                         <th class="p-3 text-center">Active</th>
                         <th class="p-3 text-center">Expired</th>
+                        @if($isAdmin)
                         <th class="p-3 text-center">Status</th>
                         <th class="p-3 text-center">Budget (Rp)</th>
                         <th class="p-3 text-center">Action</th>
                         <th class="p-3 text-center">Edit</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -309,11 +323,15 @@
                         <td class="p-3">{{ $row->type->name }}</td>
                         <td class="p-3 text-center regulatory-cell">
                             <span class="regulatory-readonly">{{ $row->regulatory ?? '-' }}</span>
+                            @if($isAdmin)
                             <input type="text" name="regulatory" value="{{ $row->regulatory ?? '' }}" class="regulatory-input hidden" maxlength="50">
+                            @endif
                         </td>
                         <td class="p-3 text-center quota-cell">
                             <span class="quota-readonly">{{ $row->quota }}</span>
+                            @if($isAdmin)
                             <input type="number" name="quota" value="{{ $row->quota }}" min="0" class="quota-input hidden">
+                            @endif
                         </td>
                         <td class="p-3 text-center font-medium">
                             <a href="{{ route('hsrm.certificates.index', ['area_id' => $selectedArea->id_area_kerja, 'certificate_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
@@ -327,6 +345,7 @@
                                 {{ $row->expired }}
                             </a>
                         </td>
+                        @if($isAdmin)
                         <td class="p-3 text-center">
                             @php
                                 $diff = $row->active - $row->quota;
@@ -378,6 +397,7 @@
                                 <input type="hidden" name="application_type" value="{{ $row->application_type ?? '' }}">
                             </form>
                         </td>
+                        @endif
                     </tr>
                     @endforeach
                 </tbody>
@@ -398,10 +418,12 @@
                         <th class="p-3 text-center">Quota (items)</th>
                         <th class="p-3 text-center">Active (items)</th>
                         <th class="p-3 text-center">Expired (items)</th>
+                        @if($isAdmin)
                         <th class="p-3 text-center">Status</th>
                         <th class="p-3 text-center">Budget (Rp)</th>
                         <th class="p-3 text-center">Action</th>
                         <th class="p-3 text-center">Edit</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -412,7 +434,9 @@
                         <td class="p-3">{{ $row->type->name }}</td>
                         <td class="p-3 text-center quota-cell">
                             <span class="quota-readonly">{{ $row->quota }}</span>
+                            @if($isAdmin)
                             <input type="number" name="quota" value="{{ $row->quota }}" min="0" class="quota-input hidden">
+                            @endif
                         </td>
                         <td class="p-3 text-center font-medium">
                             <a href="{{ route('hsrm.equipments.index', ['area_id' => $selectedArea->id_area_kerja, 'equipment_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
@@ -426,6 +450,7 @@
                                 {{ $row->expired }}
                             </a>
                         </td>
+                        @if($isAdmin)
                         <td class="p-3 text-center">
                             @php
                                 $diff = $row->active - $row->quota;
@@ -476,6 +501,7 @@
                                 <input type="hidden" name="application_type" value="{{ $row->application_type ?? '' }}">
                             </form>
                         </td>
+                        @endif
                     </tr>
                     @endforeach
                 </tbody>
@@ -503,6 +529,7 @@
         const errorDiv = document.getElementById('area-error');
         const form = document.getElementById('area-select-form');
 
+        if (areaInput && datalist && errorDiv && form) {
         function validateArea() {
             const typedValue = areaInput.value.trim();
             const options = datalist.options;
@@ -546,6 +573,7 @@
                 alert('Silakan pilih area dari daftar yang tersedia.');
             }
         });
+        }
 
         // ============================================================
         // EDIT / SAVE / CANCEL per row
@@ -638,9 +666,11 @@
             });
         }
 
+        @if($isAdmin)
         document.querySelectorAll('#certificate-table tbody tr, #equipment-table tbody tr').forEach(function(row) {
             setupRow(row);
         });
+        @endif
 
         function formatNumber(num) {
             if (isNaN(num)) return '0';

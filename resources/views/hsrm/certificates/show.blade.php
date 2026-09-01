@@ -38,7 +38,7 @@
         </div>
         <div>
             <label class="text-sm text-gray-500">Expired Date</label>
-            <p class="font-medium">{{ $cert->expired_date->format('d M Y') }}</p>
+            <p class="font-medium">{{ $cert->expired_date ? $cert->expired_date->format('d M Y') : '-' }}</p>
         </div>
         <div>
             <label class="text-sm text-gray-500">Verification Status</label>

@@ -45,6 +45,23 @@
 
         <input type="date" name="expired_from" value="{{ request('expired_from') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired From">
         <input type="date" name="expired_to" value="{{ request('expired_to') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired To">
+
+        {{-- FILTER STATUS (Active/Warning/Expired) --}}
+        <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="">All Status (Expiry)</option>
+            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
+            <option value="warning" {{ request('status') == 'warning' ? 'selected' : '' }}>Warning</option>
+            <option value="expired" {{ request('status') == 'expired' ? 'selected' : '' }}>Expired</option>
+        </select>
+
+        {{-- FILTER RECOMMENDATION --}}
+        <select name="rekomendasi" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="">All Recommendation</option>
+            <option value="recommended" {{ request('rekomendasi') == 'recommended' ? 'selected' : '' }}>Recommended</option>
+            <option value="not_recommended" {{ request('rekomendasi') == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
+            <option value="valid" {{ request('rekomendasi') == 'valid' ? 'selected' : '' }}>Valid</option>
+        </select>
+
         <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Filter</button>
         <a href="{{ route('hsrm.certificates.index') }}" class="text-gray-500 hover:text-gray-700 text-sm">Clear</a>
     </form>
@@ -75,7 +92,7 @@
                 <td class="p-3">{{ $cert->instansi_pengurusan ?? '-' }}</td>
                 <td class="p-3">{{ $cert->certificateType->name ?? '-' }}</td>
                 <td class="p-3">{{ $cert->area->nama_area ?? '-' }}</td>
-                <td class="p-3">{{ $cert->expired_date->format('d M Y') }}</td>
+                <td class="p-3">{{ $cert->expired_date ? $cert->expired_date->format('d M Y') : '-' }}</td>
                 <td class="p-3">
                     <span class="status-badge 
                         @if($cert->status_verif == 'pending') status-pending
@@ -146,7 +163,7 @@
             </div>
             <div>
                 <span class="text-gray-500">Expired:</span>
-                <span class="font-medium">{{ $cert->expired_date->format('d M Y') }}</span>
+                <span class="font-medium">{{ $cert->expired_date ? $cert->expired_date->format('d M Y') : '-' }}</span>
             </div>
             <div>
                 <span class="text-gray-500">Ownership:</span>

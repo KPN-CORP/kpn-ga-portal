@@ -32,15 +32,13 @@ class HsrmEquipmentController extends Controller
         if ($filter) {
             switch ($filter) {
                 case 'active':
-                    $query->where('expired_date', '>', now()->addDays(30))
-                          ->where('status_verif', 'verified');
+                    $query->statusActive()->where('status_verif', 'verified');
                     break;
                 case 'warning':
-                    $query->where('expired_date', '<=', now()->addDays(30))
-                          ->where('expired_date', '>', now());
+                    $query->statusWarning();
                     break;
                 case 'expired':
-                    $query->where('expired_date', '<=', now());
+                    $query->statusExpired();
                     break;
                 case 'pending':
                     $query->where('status_verif', 'pending');
@@ -75,6 +73,26 @@ class HsrmEquipmentController extends Controller
         // 🔽 FILTER TYPE
         if (request('equipment_type_id')) {
             $query->where('equipment_type_id', request('equipment_type_id'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Recommendation
+        if (request('rekomendasi')) {
+            $query->rekomendasi(request('rekomendasi'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Status (Active/Warning/Expired) dari dropdown di halaman index
+        if (request('status')) {
+            switch (request('status')) {
+                case 'active':
+                    $query->statusActive();
+                    break;
+                case 'warning':
+                    $query->statusWarning();
+                    break;
+                case 'expired':
+                    $query->statusExpired();
+                    break;
+            }
         }
 
         // 🔽 PAGINATION (15 item per halaman)
@@ -129,7 +147,7 @@ class HsrmEquipmentController extends Controller
             'capacity' => 'required|string|max:50',
             'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
-            'expired_date' => 'required|date',
+            'expired_date' => 'nullable|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
@@ -168,7 +186,7 @@ class HsrmEquipmentController extends Controller
                 $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
                                 ->where('equipment_type_id', $data['equipment_type_id'])
                                 ->where('status_verif', 'verified')
-                                ->where('expired_date', '>', now())
+                                ->notExpired()
                                 ->sum('total_items');
 
                 $newTotal = $activeItems + ($data['total_items'] ?? 1);
@@ -248,7 +266,7 @@ class HsrmEquipmentController extends Controller
             'capacity' => 'required|string|max:50',
             'total_items' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
-            'expired_date' => 'required|date',
+            'expired_date' => 'nullable|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
@@ -288,7 +306,7 @@ class HsrmEquipmentController extends Controller
                 $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
                                 ->where('equipment_type_id', $data['equipment_type_id'])
                                 ->where('status_verif', 'verified')
-                                ->where('expired_date', '>', now())
+                                ->notExpired()
                                 ->where('id', '!=', $equipment->id)
                                 ->sum('total_items');
 
@@ -391,7 +409,7 @@ class HsrmEquipmentController extends Controller
                 $activeItems = HsrmEquipment::where('area_id', $equipment->area_id)
                                 ->where('equipment_type_id', $equipment->equipment_type_id)
                                 ->where('status_verif', 'verified')
-                                ->where('expired_date', '>', now())
+                                ->notExpired()
                                 ->where('id', '!=', $equipment->id)
                                 ->sum('total_items');
 

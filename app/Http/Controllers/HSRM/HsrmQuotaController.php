@@ -18,18 +18,47 @@ class HsrmQuotaController extends Controller
 {
     public function __construct()
     {
+        // Admin & PIC boleh membuka halaman kuota. PIC hanya melihat
+        // kuota area miliknya sendiri dalam mode read-only (lihat index()).
+        $this->middleware(function ($request, $next) {
+            if (!in_array(session('hsrm_role'), ['admin', 'pic'])) {
+                abort(403, 'Unauthorized.');
+            }
+            return $next($request);
+        });
+
+        // Update & export tetap khusus admin.
         $this->middleware(function ($request, $next) {
             if (session('hsrm_role') !== 'admin') {
                 abort(403, 'Only admin can manage quotas.');
             }
             return $next($request);
-        });
+        })->only(['update', 'export']);
     }
 
     public function index(Request $request)
     {
-        $areas = AreaKerja::orderBy('nama_area')->get();
-        $selectedArea = $request->get('area_id') ? AreaKerja::find($request->area_id) : null;
+        $user = auth()->user();
+        $isAdmin = session('hsrm_role') === 'admin';
+
+        if ($isAdmin) {
+            $areas = AreaKerja::orderBy('nama_area')->get();
+            $selectedArea = $request->get('area_id') ? AreaKerja::find($request->area_id) : null;
+        } else {
+            // PIC hanya boleh melihat area yang menjadi tanggung jawabnya.
+            $areas = $user->hsrmAreas()->orderBy('nama_area')->get();
+            $allowedAreaIds = $areas->pluck('id_area_kerja')->toArray();
+
+            $requestedAreaId = $request->get('area_id');
+            if ($requestedAreaId && in_array($requestedAreaId, $allowedAreaIds)) {
+                $selectedArea = AreaKerja::find($requestedAreaId);
+            } elseif ($areas->count() === 1) {
+                // Jika PIC hanya punya satu area, langsung tampilkan otomatis.
+                $selectedArea = $areas->first();
+            } else {
+                $selectedArea = null;
+            }
+        }
 
         $certificateData = [];
         $equipmentData = [];
@@ -45,11 +74,12 @@ class HsrmQuotaController extends Controller
                 $active = HsrmCertificate::where('area_id', $selectedArea->id_area_kerja)
                             ->where('certificate_type_id', $type->id)
                             ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
+                            ->notExpired()
                             ->count();
 
                 $expired = HsrmCertificate::where('area_id', $selectedArea->id_area_kerja)
                             ->where('certificate_type_id', $type->id)
+                            ->whereNotNull('expired_date')
                             ->where('expired_date', '<=', now())
                             ->count();
 
@@ -75,11 +105,12 @@ class HsrmQuotaController extends Controller
                 $activeItems = HsrmEquipment::where('area_id', $selectedArea->id_area_kerja)
                             ->where('equipment_type_id', $type->id)
                             ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
+                            ->notExpired()
                             ->sum('total_items');
 
                 $expiredItems = HsrmEquipment::where('area_id', $selectedArea->id_area_kerja)
                             ->where('equipment_type_id', $type->id)
+                            ->whereNotNull('expired_date')
                             ->where('expired_date', '<=', now())
                             ->sum('total_items');
 
@@ -95,7 +126,7 @@ class HsrmQuotaController extends Controller
             }
         }
 
-        return view('hsrm.quotas.index', compact('areas', 'selectedArea', 'certificateData', 'equipmentData'));
+        return view('hsrm.quotas.index', compact('areas', 'selectedArea', 'certificateData', 'equipmentData', 'isAdmin'));
     }
 
     public function update(Request $request)

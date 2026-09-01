@@ -246,6 +246,19 @@
                         </a>
                     </li>
                     @endif
+
+                    {{-- ============================================================ --}}
+                    {{-- MENU MY QUOTA – khusus PIC, lihat kuota area miliknya sendiri --}}
+                    {{-- ============================================================ --}}
+                    @if(!$isAdmin && session('hsrm_role') === 'pic')
+                    <li>
+                        <a href="{{ route('hsrm.admin.quotas.index') }}" title="My Quota"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
+                            <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
+                            <span>Quota Area</span>
+                        </a>
+                    </li>
+                    @endif
                 </ul>
 
                 {{-- ============================================================ --}}

@@ -31,11 +31,18 @@ class HsrmDashboardController extends Controller
         // --- Dapatkan area_ids yang diizinkan untuk PIC ---
         $areaIds = $isAdmin ? null : $user->hsrmAreas->pluck('id_area_kerja')->toArray();
 
+        // Ringkasan Active/Warning/Expired/Recommendation ditampilkan di
+        // semua dashboard (Certificates, Equipments, dan Budget & Quota),
+        // jadi datanya dihitung untuk view 'certificates', 'equipments',
+        // 'budget', maupun 'all'.
+        $showCertData = in_array($view, ['all', 'certificates', 'budget']);
+        $showEqData = in_array($view, ['all', 'equipments', 'budget']);
+
         // =============================================
         // CERTIFICATES DATA
         // =============================================
         $certData = null;
-        if ($view === 'all' || $view === 'certificates') {
+        if ($showCertData) {
             $certQuery = HsrmCertificate::query();
             if (!$isAdmin) {
                 $certQuery->whereIn('area_id', $areaIds);
@@ -44,11 +51,13 @@ class HsrmDashboardController extends Controller
             }
             $certs = $certQuery->get();
 
+            // expired_date opsional: status_bucket accessor menganggap
+            // sertifikat tanpa tanggal expired sebagai "active".
             $certData = [
                 'total' => $certs->count(),
-                'active' => $certs->filter(fn($c) => $c->expired_date > now()->addDays(30))->count(),
-                'warning' => $certs->filter(fn($c) => $c->expired_date <= now()->addDays(30) && $c->expired_date > now())->count(),
-                'expired' => $certs->filter(fn($c) => $c->expired_date <= now())->count(),
+                'active' => $certs->filter(fn($c) => $c->status_bucket === 'active')->count(),
+                'warning' => $certs->filter(fn($c) => $c->status_bucket === 'warning')->count(),
+                'expired' => $certs->filter(fn($c) => $c->status_bucket === 'expired')->count(),
                 'recommended' => $certs->filter(fn($c) => $c->rekomendasi === 'recommended')->count(),
                 'not_recommended' => $certs->filter(fn($c) => $c->rekomendasi === 'not_recommended')->count(),
                 'valid' => $certs->filter(fn($c) => $c->rekomendasi === 'valid')->count(),
@@ -71,7 +80,7 @@ class HsrmDashboardController extends Controller
         // EQUIPMENTS DATA
         // =============================================
         $eqData = null;
-        if ($view === 'all' || $view === 'equipments') {
+        if ($showEqData) {
             $eqQuery = HsrmEquipment::query();
             if (!$isAdmin) {
                 $eqQuery->whereIn('area_id', $areaIds);
@@ -92,13 +101,13 @@ class HsrmDashboardController extends Controller
                 $items = $eq->total_items ?? 1;
                 $totalItemsAll += $items;
 
-                if ($eq->expired_date > now()->addDays(30)) {
-                    $totalItemsActive += $items;
-                } elseif ($eq->expired_date <= now()->addDays(30) && $eq->expired_date > now()) {
-                    $totalItemsWarning += $items;
-                } else {
-                    $totalItemsExpired += $items;
-                }
+                // expired_date opsional: status_bucket accessor menganggap
+                // peralatan tanpa tanggal expired sebagai "active".
+                match ($eq->status_bucket) {
+                    'active' => $totalItemsActive += $items,
+                    'warning' => $totalItemsWarning += $items,
+                    default => $totalItemsExpired += $items,
+                };
 
                 if ($eq->rekomendasi === 'recommended') {
                     $totalItemsRecommended += $items;
@@ -113,9 +122,9 @@ class HsrmDashboardController extends Controller
 
             $eqData = [
                 'total' => $eqs->count(),
-                'active' => $eqs->filter(fn($e) => $e->expired_date > now()->addDays(30))->count(),
-                'warning' => $eqs->filter(fn($e) => $e->expired_date <= now()->addDays(30) && $e->expired_date > now())->count(),
-                'expired' => $eqs->filter(fn($e) => $e->expired_date <= now())->count(),
+                'active' => $eqs->filter(fn($e) => $e->status_bucket === 'active')->count(),
+                'warning' => $eqs->filter(fn($e) => $e->status_bucket === 'warning')->count(),
+                'expired' => $eqs->filter(fn($e) => $e->status_bucket === 'expired')->count(),
                 'recommended' => $eqs->filter(fn($e) => $e->rekomendasi === 'recommended')->count(),
                 'not_recommended' => $eqs->filter(fn($e) => $e->rekomendasi === 'not_recommended')->count(),
                 'valid' => $eqs->filter(fn($e) => $e->rekomendasi === 'valid')->count(),
@@ -170,7 +179,7 @@ class HsrmDashboardController extends Controller
                 $quota = HsrmCertificateQuota::where('area_id', $area->id_area_kerja)->sum('quota');
                 $active = HsrmCertificate::where('area_id', $area->id_area_kerja)
                             ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
+                            ->notExpired()
                             ->count();
                 if ($quota > 0 || $active > 0) {
                     $certQuotaItems[] = (object) [
@@ -188,7 +197,7 @@ class HsrmDashboardController extends Controller
                 $quota = HsrmEquipmentQuota::where('area_id', $area->id_area_kerja)->sum('quota');
                 $active = HsrmEquipment::where('area_id', $area->id_area_kerja)
                             ->where('status_verif', 'verified')
-                            ->where('expired_date', '>', now())
+                            ->notExpired()
                             ->sum('total_items');
                 if ($quota > 0 || $active > 0) {
                     $eqQuotaItems[] = (object) [

@@ -32,15 +32,13 @@ class HsrmCertificateController extends Controller
         if ($filter) {
             switch ($filter) {
                 case 'active':
-                    $query->where('expired_date', '>', now()->addDays(30))
-                          ->where('status_verif', 'verified');
+                    $query->statusActive()->where('status_verif', 'verified');
                     break;
                 case 'warning':
-                    $query->where('expired_date', '<=', now()->addDays(30))
-                          ->where('expired_date', '>', now());
+                    $query->statusWarning();
                     break;
                 case 'expired':
-                    $query->where('expired_date', '<=', now());
+                    $query->statusExpired();
                     break;
                 case 'pending':
                     $query->where('status_verif', 'pending');
@@ -82,6 +80,26 @@ class HsrmCertificateController extends Controller
         // 🔽 TAMBAHAN: Filter tipe sertifikat
         if (request('certificate_type_id')) {
             $query->where('certificate_type_id', request('certificate_type_id'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Recommendation
+        if (request('rekomendasi')) {
+            $query->rekomendasi(request('rekomendasi'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Status (Active/Warning/Expired) dari dropdown di halaman index
+        if (request('status')) {
+            switch (request('status')) {
+                case 'active':
+                    $query->statusActive();
+                    break;
+                case 'warning':
+                    $query->statusWarning();
+                    break;
+                case 'expired':
+                    $query->statusExpired();
+                    break;
+            }
         }
 
         // 🔽 PAGINATION (15 item per halaman)
@@ -135,7 +153,7 @@ class HsrmCertificateController extends Controller
             'employee_name' => 'required|string|max:255',
             'nik' => 'required|string|max:50',
             'instansi_pengurusan' => 'nullable|string|max:255',
-            'expired_date' => 'required|date',
+            'expired_date' => 'nullable|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
@@ -174,7 +192,7 @@ class HsrmCertificateController extends Controller
                 $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
                                 ->where('certificate_type_id', $data['certificate_type_id'])
                                 ->where('status_verif', 'verified')
-                                ->where('expired_date', '>', now())
+                                ->notExpired()
                                 ->count();
 
                 if ($activeCount >= $quota->quota) {
@@ -257,7 +275,7 @@ class HsrmCertificateController extends Controller
             'employee_name' => 'required|string|max:255',
             'nik' => 'required|string|max:50',
             'instansi_pengurusan' => 'nullable|string|max:255',
-            'expired_date' => 'required|date',
+            'expired_date' => 'nullable|date',
             'status_kepemilikan' => 'required|boolean',
             'rekomendasi' => 'nullable|in:recommended,not_recommended,valid',
             'notes' => 'nullable|string',
@@ -297,7 +315,7 @@ class HsrmCertificateController extends Controller
                 $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
                                 ->where('certificate_type_id', $data['certificate_type_id'])
                                 ->where('status_verif', 'verified')
-                                ->where('expired_date', '>', now())
+                                ->notExpired()
                                 ->where('id', '!=', $cert->id)
                                 ->count();
 

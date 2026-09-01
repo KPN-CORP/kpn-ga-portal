@@ -115,6 +115,24 @@ class HsrmEquipment extends Model
         };
     }
 
+    /**
+     * Status bucket (Active/Warning/Expired) yang null-safe.
+     * expired_date kosong (tanpa masa berlaku) dianggap Active selamanya.
+     */
+    public function getStatusBucketAttribute()
+    {
+        if (is_null($this->expired_date)) {
+            return 'active';
+        }
+        if ($this->expired_date > now()->addDays(30)) {
+            return 'active';
+        }
+        if ($this->expired_date > now()) {
+            return 'warning';
+        }
+        return 'expired';
+    }
+
     // ========== SCOPES ==========
     /**
      * Scope untuk filter rekomendasi
@@ -129,5 +147,35 @@ class HsrmEquipment extends Model
             return $query->where('rekomendasi', $value);
         }
         return $query;
+    }
+
+    /** expired_date > now() + 30 hari, ATAU tidak punya tanggal expired (dianggap aktif). */
+    public function scopeStatusActive($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('expired_date')->orWhere('expired_date', '>', now()->addDays(30));
+        });
+    }
+
+    /** expired_date dalam 30 hari ke depan (harus ada tanggal). */
+    public function scopeStatusWarning($query)
+    {
+        return $query->whereNotNull('expired_date')
+            ->where('expired_date', '<=', now()->addDays(30))
+            ->where('expired_date', '>', now());
+    }
+
+    /** expired_date sudah lewat (harus ada tanggal; kosong = tidak pernah expired). */
+    public function scopeStatusExpired($query)
+    {
+        return $query->whereNotNull('expired_date')->where('expired_date', '<=', now());
+    }
+
+    /** Belum expired: expired_date > now(), ATAU expired_date kosong. Dipakai untuk cek kuota "Active". */
+    public function scopeNotExpired($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('expired_date')->orWhere('expired_date', '>', now());
+        });
     }
 }

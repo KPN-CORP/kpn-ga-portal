@@ -37,13 +37,14 @@ class HsrmEquipmentQuota extends Model
     {
         return $this->equipments()
                     ->where('status_verif', 'verified')
-                    ->where('expired_date', '>', now())
+                    ->notExpired()
                     ->sum('total_items');
     }
 
     public function getExpiredCountAttribute()
     {
         return $this->equipments()
+                    ->whereNotNull('expired_date')
                     ->where('expired_date', '<=', now())
                     ->sum('total_items');
     }
