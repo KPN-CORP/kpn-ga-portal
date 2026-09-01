@@ -74,13 +74,33 @@ class OperationalReportController extends Controller
             // resource DB untuk user GA Portal lain yang lagi pakai bersamaan.
             DB::statement('SET SESSION MAX_EXECUTION_TIME=15000');
 
+            $summary = $this->getOperationalStats($buId, $dateFrom, $dateTo, $vehicleId, $driverId);
+
+            // Ambil breakdown TANPA filter fuel_type dulu (semua kendaraan),
+            // supaya split bbm/listrik selalu lengkap walau request-nya
+            // pakai fuel_type=bbm atau fuel_type=listrik. Kalau $fuelGroup
+            // kosong, breakdown ini juga langsung dipakai buat response
+            // (gak perlu query 2x).
+            $fullBreakdown = $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId, null);
+
+            $summary['total_fuel_cost_listrik'] = collect($fullBreakdown)
+                ->where('fuel_type', 'Listrik')
+                ->sum('fuel_cost');
+            $summary['total_fuel_cost_bbm'] = collect($fullBreakdown)
+                ->where('fuel_type', '!=', 'Listrik')
+                ->sum('fuel_cost');
+
+            $vehicleBreakdown = $fuelGroup
+                ? $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup)
+                : $fullBreakdown;
+
             return [
                 'period'                 => ['date_from' => $dateFrom, 'date_to' => $dateTo],
                 'business_unit_id'       => $buId ? (int) $buId : null,
-                'summary'                => $this->getOperationalStats($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
+                'summary'                => $summary,
                 'transport_distribution' => $this->getTransportDistribution($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
                 'efficiency_top10'       => $this->getEfficiencyData($buId, $vehicleId, $driverId, $fuelGroup),
-                'vehicle_breakdown'      => $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup),
+                'vehicle_breakdown'      => $vehicleBreakdown,
                 'generated_at'           => now()->toIso8601String(),
             ];
         });
