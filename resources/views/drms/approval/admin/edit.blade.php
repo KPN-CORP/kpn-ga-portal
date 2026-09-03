@@ -254,6 +254,9 @@
         {{-- VOUCHER FIELDS --}}
         <div id="voucher_fields" class="{{ old('transport_type', $driverRequest->transport_type) == 'voucher' ? '' : 'hidden' }} mb-4">
             <label class="block text-sm font-medium mb-1">Pilih Voucher (bisa lebih dari 1)</label>
+            <p class="text-xs text-gray-600 mb-2">
+                Voucher terpilih: <span id="voucherSelectedCount" class="font-semibold text-blue-600">0</span>
+            </p>
             @php
                 // Voucher yang sudah expired tidak boleh ditawarkan lagi, kecuali voucher
                 // yang memang sudah terpasang sebelumnya di request ini (agar nilai lama tetap tampil).
@@ -382,6 +385,7 @@
     const driverSelect = document.getElementById('driver_select');
     const vehicleSelect = document.getElementById('vehicle_select');
     const voucherCheckboxes = document.querySelectorAll('input[name="voucher_ids[]"]');
+    const voucherCountLabel = document.getElementById('voucherSelectedCount');
     const mergeSelect = document.getElementById('merge_select');
 
     function setRequiredFields(selected) {
@@ -424,6 +428,20 @@
 
     // Jalankan saat load
     toggleFields();
+
+    // ========== HITUNG VOUCHER TERPILIH ==========
+    function updateVoucherCount() {
+        if (!voucherCountLabel) return;
+        const count = Array.from(voucherCheckboxes).filter(cb => cb.checked).length;
+        voucherCountLabel.textContent = count;
+    }
+
+    voucherCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateVoucherCount);
+    });
+
+    // Hitung saat halaman pertama kali dibuka (kalau ada voucher yang sudah tercentang dari data lama)
+    updateVoucherCount();
 
     // Validasi: kalau transport_type = voucher, minimal 1 voucher harus dicentang
     document.getElementById('processForm').addEventListener('submit', function (e) {

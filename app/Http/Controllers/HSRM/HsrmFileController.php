@@ -53,20 +53,19 @@ class HsrmFileController extends Controller
         ];
         $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
 
-        if ($extension === 'pdf') {
-            $content = file_get_contents($fullPath);
-            return view('hsrm.file_viewer', [
-                'content' => base64_encode($content),
-                'mime' => $mimeType,
-                'filename' => basename($path),
-            ]);
-        }
-
+        // Semua tipe file (termasuk PDF) di-stream langsung dari disk,
+        // bukan dibungkus base64 ke dalam halaman HTML. Base64+<embed>
+        // (cara lama) sering gagal render blank di Chrome untuk file
+        // yang lumayan besar karena keterbatasan data: URI di <embed>.
+        // Streaming biasa dengan header inline lebih stabil dan lebih
+        // ringan (tidak perlu load seluruh file ke memory PHP sebagai
+        // base64 string).
         return response()->stream(function () use ($fullPath) {
             readfile($fullPath);
         }, 200, [
             'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+            'Content-Length' => filesize($fullPath),
             'Cache-Control' => 'public, max-age=86400',
         ]);
     }

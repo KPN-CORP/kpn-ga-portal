@@ -60,6 +60,7 @@
             <option value="recommended" {{ request('rekomendasi') == 'recommended' ? 'selected' : '' }}>Recommended</option>
             <option value="not_recommended" {{ request('rekomendasi') == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
             <option value="valid" {{ request('rekomendasi') == 'valid' ? 'selected' : '' }}>Valid</option>
+            <option value="dash" {{ request('rekomendasi') == 'dash' ? 'selected' : '' }}>-</option>
         </select>
 
         <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Filter</button>

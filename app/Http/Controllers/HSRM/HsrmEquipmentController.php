@@ -77,7 +77,15 @@ class HsrmEquipmentController extends Controller
 
         // 🔽 TAMBAHAN: Filter Recommendation
         if (request('rekomendasi')) {
-            $query->rekomendasi(request('rekomendasi'));
+            if (request('rekomendasi') === 'dash') {
+                // "-" = belum ada rekomendasi (kosong/NULL), bukan salah satu
+                // dari recommended/not_recommended/valid.
+                $query->where(function ($q) {
+                    $q->whereNull('rekomendasi')->orWhere('rekomendasi', '');
+                });
+            } else {
+                $query->rekomendasi(request('rekomendasi'));
+            }
         }
 
         // 🔽 TAMBAHAN: Filter Status (Active/Warning/Expired) dari dropdown di halaman index
