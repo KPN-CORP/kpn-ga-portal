@@ -280,12 +280,19 @@ class WorkReportController extends Controller
 
     public function chart(Request $request)
     {
+        $view = $request->get('view', 'month'); // 'month' atau 'year'
         $month = $request->get('month', now()->format('Y-m'));
+        $year = $request->get('year', now()->format('Y'));
         $categoryId = $request->get('category_id');
         $location = $request->get('location');
 
-        $startDate = \Carbon\Carbon::parse($month)->startOfMonth();
-        $endDate = \Carbon\Carbon::parse($month)->endOfMonth();
+        if ($view === 'year') {
+            $startDate = \Carbon\Carbon::createFromDate($year, 1, 1)->startOfYear();
+            $endDate = \Carbon\Carbon::createFromDate($year, 1, 1)->endOfYear();
+        } else {
+            $startDate = \Carbon\Carbon::parse($month)->startOfMonth();
+            $endDate = \Carbon\Carbon::parse($month)->endOfMonth();
+        }
 
         $query = WorkReport::with(['category', 'creator'])
             ->whereBetween('report_date', [$startDate, $endDate]);
@@ -331,8 +338,17 @@ class WorkReportController extends Controller
             $months->put($date->format('Y-m'), $date->isoFormat('MMMM Y'));
         }
 
+        // Data untuk filter tahun (ambil dari tahun laporan yang ada + tahun berjalan)
+        $years = WorkReport::selectRaw('YEAR(report_date) as y')
+            ->distinct()
+            ->pluck('y')
+            ->push((int) now()->format('Y'))
+            ->unique()
+            ->sortDesc()
+            ->values();
+
         return view('work-reports.chart', compact(
-            'month', 'months', 'categories', 'categoryId', 'location',
+            'view', 'month', 'year', 'years', 'months', 'categories', 'categoryId', 'location',
             'chartLabels', 'chartData', 'dailyLabels', 'dailyData'
         ));
     }
