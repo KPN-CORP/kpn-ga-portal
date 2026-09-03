@@ -45,7 +45,13 @@
                                 @endif
                             </td>
                             <td class="p-3">
-                                <span class="status-badge status-pending">Pending</span>
+                                @if($cert->pending_action === 'update')
+                                    <span class="status-badge" style="background:#fef3c7;color:#92400e;">Update</span>
+                                @elseif($cert->pending_action === 'create')
+                                    <span class="status-badge" style="background:#dbeafe;color:#1e40af;">New</span>
+                                @else
+                                    <span class="status-badge status-pending">Pending</span>
+                                @endif
                             </td>
                             <td class="p-3 text-center">
                                 <div class="flex items-center justify-center gap-2 flex-wrap">
@@ -97,7 +103,13 @@
                                 @endif
                             </div>
                         </div>
-                        <span class="status-badge status-pending">Pending</span>
+                        @if($cert->pending_action === 'update')
+                            <span class="status-badge" style="background:#fef3c7;color:#92400e;">Update</span>
+                        @elseif($cert->pending_action === 'create')
+                            <span class="status-badge" style="background:#dbeafe;color:#1e40af;">New</span>
+                        @else
+                            <span class="status-badge status-pending">Pending</span>
+                        @endif
                     </div>
                     <div class="flex justify-end gap-2 mt-3 pt-2 border-t">
                         <a href="{{ route('hsrm.certificates.show', $cert) }}" 
@@ -159,7 +171,13 @@
                                 @endif
                             </td>
                             <td class="p-3">
-                                <span class="status-badge status-pending">Pending</span>
+                                @if($eq->pending_action === 'update')
+                                    <span class="status-badge" style="background:#fef3c7;color:#92400e;">Update</span>
+                                @elseif($eq->pending_action === 'create')
+                                    <span class="status-badge" style="background:#dbeafe;color:#1e40af;">New</span>
+                                @else
+                                    <span class="status-badge status-pending">Pending</span>
+                                @endif
                             </td>
                             <td class="p-3 text-center">
                                 <div class="flex items-center justify-center gap-2 flex-wrap">
@@ -210,7 +228,13 @@
                                 @endif
                             </div>
                         </div>
-                        <span class="status-badge status-pending">Pending</span>
+                        @if($eq->pending_action === 'update')
+                            <span class="status-badge" style="background:#fef3c7;color:#92400e;">Update</span>
+                        @elseif($eq->pending_action === 'create')
+                            <span class="status-badge" style="background:#dbeafe;color:#1e40af;">New</span>
+                        @else
+                            <span class="status-badge status-pending">Pending</span>
+                        @endif
                     </div>
                     <div class="flex justify-end gap-2 mt-3 pt-2 border-t">
                         <a href="{{ route('hsrm.equipments.show', $eq) }}" 

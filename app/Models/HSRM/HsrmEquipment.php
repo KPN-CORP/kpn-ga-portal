@@ -33,6 +33,7 @@ class HsrmEquipment extends Model
         'location',
         'expired_date',
         'status_verif',
+        'pending_action',
         'status_kepemilikan',
         'rekomendasi',
         'photo_path',

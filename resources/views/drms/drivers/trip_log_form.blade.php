@@ -54,14 +54,14 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs text-gray-500">
-                        Start (km)
+                        Start (km) <span class="text-red-500">*</span>
                         @if($startIsAuto)
                             <span class="text-emerald-600">(otomatis dari trip sebelumnya)</span>
                         @endif
                     </label>
                     <input type="number" name="odometer_start" value="{{ $startValue }}"
                            class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg {{ $startIsAuto ? 'text-gray-500 bg-gray-100' : '' }}"
-                           min="0" step="any" placeholder="0"
+                           min="0" step="any" placeholder="0" required
                            {{ $isLocked ? 'disabled' : '' }}
                            {{ ($startIsAuto && !$isLocked) ? 'readonly' : '' }}>
                     @if(!$startIsAuto && !$previousOdometerFinish && !($log->odometer_start ?? null))
@@ -69,10 +69,10 @@
                     @endif
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500">Finish (km)</label>
+                    <label class="block text-xs text-gray-500">Finish (km) <span class="text-red-500">*</span></label>
                     <input type="number" name="odometer_finish" value="{{ old('odometer_finish', $log->odometer_finish ?? '') }}"
                            class="w-full border-0 border-b-2 border-gray-300 focus:border-blue-500 bg-transparent px-0 py-1 text-lg" 
-                           min="0" step="any" placeholder="0" {{ $isLocked ? 'disabled' : '' }}>
+                           min="0" step="any" placeholder="0" required {{ $isLocked ? 'disabled' : '' }}>
                 </div>
             </div>
         </div>
@@ -119,7 +119,7 @@
             <a href="{{ route('drms.driver.dashboard') }}" class="text-gray-600 hover:text-gray-800">← Kembali</a>
             @if(!$isLocked)
                 <div class="flex flex-wrap gap-3">
-                    <button type="submit" name="submit" value="0" class="px-6 py-3 bg-yellow-400 text-white rounded-full font-semibold shadow-md hover:bg-yellow-500 transition">
+                    <button type="submit" name="submit" value="0" formnovalidate class="px-6 py-3 bg-yellow-400 text-white rounded-full font-semibold shadow-md hover:bg-yellow-500 transition">
                         💾 Simpan Draft
                     </button>
                     <button type="submit" name="submit" value="1" class="px-6 py-3 bg-green-500 text-white rounded-full font-semibold shadow-md hover:bg-green-600 transition">

@@ -79,12 +79,20 @@ class DriverTripLogController extends Controller
             }
         }
 
+        // Odometer wajib diisi kalau driver mengirim ke admin (submit=1), karena
+        // Selesaikan perjalanan (DriverDashboardController::complete) mensyaratkan
+        // odometer_start & odometer_finish terisi. Kalau cuma simpan draft (submit=0),
+        // boleh kosong dulu.
+        $isSubmitting = $request->has('submit') && $request->submit == '1';
         $this->validate($request, [
-            'odometer_start' => 'nullable|integer|min:0',
-            'odometer_finish' => 'nullable|integer|min:0|gte:odometer_start',
+            'odometer_start' => ($isSubmitting ? 'required' : 'nullable') . '|integer|min:0',
+            'odometer_finish' => ($isSubmitting ? 'required' : 'nullable') . '|integer|min:0|gte:odometer_start',
             'photo_before' => 'nullable|image|max:5120',
             'photo_after' => 'nullable|image|max:5120',
             'notes' => 'nullable|string|max:500',
+        ], [
+            'odometer_start.required' => 'Odometer Start (km) wajib diisi sebelum mengirim log ke admin.',
+            'odometer_finish.required' => 'Odometer Finish (km) wajib diisi sebelum mengirim log ke admin.',
         ]);
 
         DB::beginTransaction();

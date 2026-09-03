@@ -84,15 +84,7 @@ class HsrmCertificateController extends Controller
 
         // 🔽 TAMBAHAN: Filter Recommendation
         if (request('rekomendasi')) {
-            if (request('rekomendasi') === 'dash') {
-                // "-" = belum ada rekomendasi (kosong/NULL), bukan salah satu
-                // dari recommended/not_recommended/valid.
-                $query->where(function ($q) {
-                    $q->whereNull('rekomendasi')->orWhere('rekomendasi', '');
-                });
-            } else {
-                $query->rekomendasi(request('rekomendasi'));
-            }
+            $query->rekomendasi(request('rekomendasi'));
         }
 
         // 🔽 TAMBAHAN: Filter Status (Active/Warning/Expired) dari dropdown di halaman index
@@ -213,6 +205,7 @@ class HsrmCertificateController extends Controller
 
         $data['created_by'] = $user->id;
         $data['status_verif'] = HsrmCertificate::STATUS_PENDING;
+        $data['pending_action'] = 'create';
         $data['old_attachments'] = [];
 
         if ($request->hasFile('attachment')) {
@@ -355,6 +348,7 @@ class HsrmCertificateController extends Controller
 
         // Reset approval status
         $data['status_verif'] = HsrmCertificate::STATUS_PENDING;
+        $data['pending_action'] = 'update';
         $data['approved_by'] = null;
         $data['approved_at'] = null;
         $data['updated_by'] = auth()->id();
@@ -419,6 +413,7 @@ class HsrmCertificateController extends Controller
         }
 
         $cert->status_verif = HsrmCertificate::STATUS_VERIFIED;
+        $cert->pending_action = null;
         $cert->approved_by = auth()->id();
         $cert->approved_at = now();
         $cert->save();

@@ -604,7 +604,7 @@ class AppAdminController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('drms.approval.admin.index')
+            return redirect()->route('drms.approval.admin.index', ['tab' => 'history'])
                 ->with('success', 'Permintaan berhasil diselesaikan.' . ($passengers->count() ? " ({$passengers->count()} request yang menumpang ikut diselesaikan.)" : ''));
         } catch (\Exception $e) {
             DB::rollBack();

@@ -32,6 +32,7 @@ class HsrmCertificate extends Model
         'instansi_pengurusan',
         'expired_date',
         'status_verif',
+        'pending_action',
         'status_kepemilikan',
         'rekomendasi',
         'notes',

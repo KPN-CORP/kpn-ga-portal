@@ -60,7 +60,6 @@
             <option value="recommended" {{ request('rekomendasi') == 'recommended' ? 'selected' : '' }}>Recommended</option>
             <option value="not_recommended" {{ request('rekomendasi') == 'not_recommended' ? 'selected' : '' }}>Not Recommended</option>
             <option value="valid" {{ request('rekomendasi') == 'valid' ? 'selected' : '' }}>Valid</option>
-            <option value="dash" {{ request('rekomendasi') == 'dash' ? 'selected' : '' }}>-</option>
         </select>
 
         <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">Filter</button>
@@ -76,6 +75,7 @@
                 <th class="p-3 font-semibold text-gray-600">Area</th>
                 <th class="p-3 font-semibold text-gray-600">Name</th>
                 <th class="p-3 font-semibold text-gray-600">Type</th>
+                <th class="p-3 font-semibold text-gray-600">Location</th>
                 <th class="p-3 font-semibold text-gray-600">Capacity</th>
                 <th class="p-3 font-semibold text-gray-600">Total Items</th>
                 <th class="p-3 font-semibold text-gray-600">Expired</th>
@@ -91,6 +91,7 @@
                 <td class="p-3">{{ $eq->area->nama_area ?? '-' }}</td>
                 <td class="p-3 font-medium">{{ $eq->name }}</td>
                 <td class="p-3">{{ $eq->equipmentType->name ?? '-' }}</td>
+                <td class="p-3">{{ $eq->location ?? '-' }}</td>
                 <td class="p-3">{{ $eq->capacity }}</td>
                 <td class="p-3">{{ $eq->total_items ?? 1 }}</td>
                 <td class="p-3">{{ $eq->expired_date ? $eq->expired_date->format('d M Y') : '-' }}</td>
@@ -129,7 +130,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="10" class="p-6 text-center text-gray-500">No equipments found.</td>
+                <td colspan="11" class="p-6 text-center text-gray-500">No equipments found.</td>
             </tr>
             @endforelse
         </tbody>
@@ -157,6 +158,10 @@
             <div class="col-span-2">
                 <span class="text-gray-500">Area:</span>
                 <span class="font-medium">{{ $eq->area->nama_area ?? '-' }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Location:</span>
+                <span class="font-medium">{{ $eq->location ?? '-' }}</span>
             </div>
             <div>
                 <span class="text-gray-500">Capacity:</span>

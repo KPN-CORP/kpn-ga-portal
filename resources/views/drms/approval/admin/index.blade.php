@@ -7,7 +7,28 @@
 @endsection
 
 @section('content')
+{{-- Cadangan: taruh style x-cloak inline di sini juga (bukan cuma di @section('styles')).
+     Kalau layout menaruh @yield('styles') telat atau Alpine sempat render duluan,
+     rule ini tetap kebaca browser SEBELUM elemen x-cloak di bawahnya sempat kerender
+     tanpa disembunyikan -- jadi gak ada kedip "kedua tab kelihatan sebentar". --}}
+<style>[x-cloak] { display: none !important; }</style>
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="approvalAdminModal()">
+    {{-- Notifikasi hasil aksi (Tolak / Forward / Ganti Driver / Selesaikan) --}}
+    @if(session('success'))
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+            <ul class="list-disc pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -21,14 +42,14 @@
                class="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition text-center">
                 📥 Export CSV
             </a>
-            <button id="toggleFilterBtn" class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
-                Filters
+            <button type="button" @click="filterOpen = !filterOpen" x-show="activeTab === 'history'" class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                Filters <span class="font-normal text-xs">(History)</span>
             </button>
         </div>
     </div>
 
     {{-- Filter Section --}}
-    <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
+    <div id="filterSection" x-show="activeTab === 'history' && filterOpen" x-cloak class="bg-white border rounded-xl p-4">
         <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {{-- Filter ini hanya berlaku untuk History Approval, jadi saat di-apply
                  halaman harus tetap di tab history (bukan balik ke tab Pending). --}}
@@ -432,7 +453,7 @@
                                         <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
                                     </form>
                                 @else
-                                    <span class="text-[11px] text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒</span>
+                                    <span class="text-[11px] text-gray-400 italic">🔒 {{ $req->completeBlockReason }}</span>
                                 @endif
                                 @if($req->driver_id && !$req->merged_into_id)
                                     <button type="button" @click="openSwapModal({{ $req->id }})" class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
@@ -561,7 +582,7 @@
             <h3 class="text-lg font-semibold mb-4 border-b pb-2">Detail Permintaan</h3>
             <table class="w-full text-sm border-collapse">
                 <tbody>
-                    <tr class="border-b border-gray-100"><td class="py-2 w-1/3 text-gray-500 font-medium">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"><tr></tr>
+                    <tr class="border-b border-gray-100"><td class="py-2 w-1/3 text-gray-500 font-medium">No. Request</td><td class="py-2 font-medium" x-text="detailItem.request_no"></td></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Pemohon</td><td class="py-2"><span x-text="detailItem.requester?.name ?? '-'"></span><span x-show="detailItem.created_at" class="text-gray-400 text-xs ml-1" x-text="'(' + detailItem.created_at + ')'"></span></td></tr>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tipe Perjalanan</td><td class="py-2" x-text="detailItem.trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan'"></td></tr>
                     <template x-if="detailItem.distance_type"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Jenis Dinas</td><td class="py-2" x-text="detailItem.distance_type === 'jarak_jauh' ? 'Dinas Jarak Jauh' : 'Dinas Jarak Dekat'"></td></tr></template>
@@ -624,6 +645,10 @@
 function approvalAdminModal() {
     return {
         activeTab: new URLSearchParams(window.location.search).get('tab') === 'history' ? 'history' : 'pending',
+        filterOpen: (function() {
+            const p = new URLSearchParams(window.location.search);
+            return p.has('search') || p.has('status') || p.has('date_from') || p.has('date_to');
+        })(),
         rejectModalOpen: false,
         rejectRequestId: null,
         forwardModalOpen: false,
@@ -663,8 +688,18 @@ function approvalAdminModal() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('toggleFilterBtn')?.addEventListener('click', () => {
-        document.getElementById('filterSection').classList.toggle('hidden');
+    // Cegah klik ganda pada form aksi (Tolak/Forward/Ganti Driver/Selesaikan):
+    // begitu disubmit, tombolnya langsung dikunci & teksnya ganti jadi "Memproses...".
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn && !btn.disabled) {
+                btn.dataset.originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+                btn.innerHTML = 'Memproses...';
+            }
+        });
     });
 });
 </script>

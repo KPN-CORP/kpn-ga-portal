@@ -2,6 +2,22 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-6">
+    {{-- Notifikasi hasil aksi (Selesaikan / Isi Log) --}}
+    @if(session('success'))
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <ul class="list-disc pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div>
             <h1 class="text-2xl font-bold">Dashboard Driver: {{ auth()->user()->driver->name ?? 'Driver' }}</h1>
@@ -250,4 +266,21 @@
         {{ $historyRequests->links() }}
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cegah klik ganda pada form Selesaikan.
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn && !btn.disabled) {
+                btn.dataset.originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+                btn.innerHTML = 'Memproses...';
+            }
+        });
+    });
+});
+</script>
 @endsection
