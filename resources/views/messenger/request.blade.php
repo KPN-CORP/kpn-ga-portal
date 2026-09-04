@@ -89,11 +89,10 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">No. HP Penerima <span class="text-red-500">*</span></label>
-                            <input type="tel" name="no_hp_penerima" id="no_hp_penerima" 
+                            <input type="text" name="no_hp_penerima" id="no_hp_penerima" 
                                    class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                                   value="{{ old('no_hp_penerima') }}" placeholder="081234567890" pattern="[0-9]{10,13}" required>
+                                   value="{{ old('no_hp_penerima') }}" placeholder="081234567890" maxlength="20" required>
                             @error('no_hp_penerima')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                            <p class="text-xs text-gray-500 mt-1">Format: 10-13 digit angka</p>
                         </div>
                     </div>
 
@@ -149,7 +148,7 @@
                                 <p>&nbsp;&nbsp;&nbsp;- Permintaan akan dikembalikan di sistem oleh Messenger.</p>
                                 <p>&nbsp;&nbsp;&nbsp;- Catatan: <strong>Dokumen tidak tersedia.</strong></p>
                                 <p>&nbsp;&nbsp;&nbsp;- Setelah dokumen tersedia, klik <strong>"Kirim Ulang"</strong>.</p>
-                                <p>&nbsp;&nbsp;&nbsp;- Jika dokumen belum tersedia lebih dari <strong>4 hari kerja</strong>, sistem akan secara otomatis mengembalikan permintaan dengan catatan <strong>"Dokumen tidak tersedia."</strong></p>
+                                <p>&nbsp;&nbsp;&nbsp;- Jika dokumen belum tersedia lebih dari <strong>3 hari kerja</strong>, sistem akan secara otomatis mengembalikan permintaan dengan catatan <strong>"Dokumen tidak tersedia."</strong></p>
                             </div>
                         </div>
                     </div>
@@ -245,9 +244,8 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         let isValid = true;
         let errorMessages = [];
-        const phonePattern = /^[0-9]{10,13}$/;
-        if (!phonePattern.test(phoneInput.value.trim())) {
-            errorMessages.push('Nomor HP Penerima harus 10-13 digit angka');
+        if (!phoneInput.value.trim()) {
+            errorMessages.push('Nomor HP Penerima wajib diisi');
             phoneInput.classList.add('border-red-500');
             isValid = false;
         } else phoneInput.classList.remove('border-red-500');

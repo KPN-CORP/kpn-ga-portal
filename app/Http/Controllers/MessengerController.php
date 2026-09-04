@@ -834,7 +834,7 @@ class MessengerController extends Controller
             'alamat_asal' => 'required|string|max:255',
             'alamat_tujuan' => 'required|string|max:255',
             'penerima' => 'required|string|max:100',
-            'no_hp_penerima' => 'required|string|max:13|regex:/^[0-9]{10,13}$/',
+            'no_hp_penerima' => 'required|string|max:20',
             'foto_barang' => 'required|file|max:20480|mimes:jpg,jpeg,png,pdf,doc,docx', // 20MB untuk file pendukung
         ]);
 
