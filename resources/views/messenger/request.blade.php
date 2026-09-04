@@ -148,7 +148,7 @@
                                 <p>&nbsp;&nbsp;&nbsp;- Permintaan akan dikembalikan di sistem oleh Messenger.</p>
                                 <p>&nbsp;&nbsp;&nbsp;- Catatan: <strong>Dokumen tidak tersedia.</strong></p>
                                 <p>&nbsp;&nbsp;&nbsp;- Setelah dokumen tersedia, klik <strong>"Kirim Ulang"</strong>.</p>
-                                <p>&nbsp;&nbsp;&nbsp;- Jika dokumen belum tersedia lebih dari <strong>3 hari kerja</strong>, sistem akan secara otomatis mengembalikan permintaan dengan catatan <strong>"Dokumen tidak tersedia."</strong></p>
+                                <p>&nbsp;&nbsp;&nbsp;- Jika dokumen belum tersedia lebih dari <strong>4 hari kerja</strong>, sistem akan secara otomatis mengembalikan permintaan dengan catatan <strong>"Dokumen tidak tersedia."</strong></p>
                             </div>
                         </div>
                     </div>
