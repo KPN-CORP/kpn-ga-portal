@@ -52,7 +52,7 @@
         <div class="md:w-2/3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div><p class="text-sm text-gray-500">NIK</p><p class="font-medium">{{ $data->nik ?? '-' }}</p></div>
-                <div><p class="text-sm text-gray-500">Nama</p><p class="font-medium">{{ $data->nama }}</p></div>
+                <div><p class="text-sm text-gray-500">Nama</p><p class="font-medium uppercase">{{ $data->nama }}</p></div>
                 <div><p class="text-sm text-gray-500">Bisnis Unit</p><p class="font-medium">{{ $data->bisnis_unit_nama }}</p></div>
                 <div><p class="text-sm text-gray-500">Kategori</p><p class="font-medium">{{ $data->kategori_label ?? $data->kategori }}</p></div>
                 <div><p class="text-sm text-gray-500">Status</p>
