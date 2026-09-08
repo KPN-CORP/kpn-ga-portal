@@ -120,7 +120,15 @@ class AppAdminController extends Controller
         }
         $availableDrivers = $availableDriversQuery->orderBy('name')->get();
 
-        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers'));
+        // Daftar kendaraan untuk dropdown "Ganti Driver" (opsional ganti kendaraan juga).
+        // Konflik jadwal tetap dicek ulang di server saat form swap disubmit.
+        $availableVehiclesQuery = Vehicle::whereIn('status', ['available', 'in_use']);
+        if (!$user->isDrmsSuperAdmin() && !$user->hasDrmsAllBuAccess()) {
+            $availableVehiclesQuery->where('business_unit_id', $businessUnitId);
+        }
+        $availableVehicles = $availableVehiclesQuery->orderBy('plate_number')->get();
+
+        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers', 'availableVehicles'));
     }
 
     /**
@@ -635,13 +643,21 @@ class AppAdminController extends Controller
         }
 
         $data = $request->validate([
-            'new_driver_id'  => 'required|exists:drms_drivers,id',
+            'new_driver_id'  => 'nullable|exists:drms_drivers,id',
             'new_vehicle_id' => 'nullable|exists:drms_vehicles,id',
             'reason'         => 'nullable|string|max:500',
         ]);
 
-        if ($data['new_driver_id'] == $driverRequest->driver_id) {
-            return back()->withErrors('Driver baru sama dengan driver yang sedang bertugas.');
+        $oldDriverId  = $driverRequest->driver_id;
+        $oldVehicleId = $driverRequest->vehicle_id;
+        $newDriverId  = $data['new_driver_id'] ?? $oldDriverId;
+        $newVehicleId = $data['new_vehicle_id'] ?? $oldVehicleId;
+
+        $driverChanged  = $newDriverId != $oldDriverId;
+        $vehicleChanged = $newVehicleId != $oldVehicleId;
+
+        if (!$driverChanged && !$vehicleChanged) {
+            return back()->withErrors('Tidak ada perubahan. Pilih driver dan/atau kendaraan pengganti, atau biarkan salah satunya kosong untuk tetap memakai yang sekarang.');
         }
 
         if (!$driverRequest->end_time) {
@@ -658,21 +674,20 @@ class AppAdminController extends Controller
             $endTime = $driverRequest->end_time;
         }
 
-        // Cek konflik jadwal driver pengganti.
-        $driverConflict = DriverRequest::overlappingPeriod(
-            'driver_id', $data['new_driver_id'], $startDate, $startTime, $endDate, $endTime, $driverRequest->id
-        )->exists();
-        if ($driverConflict) {
-            return back()->withErrors('Driver pengganti sudah ditugaskan pada rentang waktu tersebut.');
+        // Cek konflik jadwal driver pengganti (hanya kalau drivernya memang diganti).
+        if ($driverChanged) {
+            $driverConflict = DriverRequest::overlappingPeriod(
+                'driver_id', $newDriverId, $startDate, $startTime, $endDate, $endTime, $driverRequest->id
+            )->exists();
+            if ($driverConflict) {
+                return back()->withErrors('Driver pengganti sudah ditugaskan pada rentang waktu tersebut.');
+            }
         }
 
-        $oldDriverId  = $driverRequest->driver_id;
-        $oldVehicleId = $driverRequest->vehicle_id;
-        $newVehicleId = $data['new_vehicle_id'] ?? $oldVehicleId;
-
-        if (!empty($data['new_vehicle_id']) && $data['new_vehicle_id'] != $oldVehicleId) {
+        // Cek konflik jadwal kendaraan pengganti (hanya kalau kendaraannya memang diganti).
+        if ($vehicleChanged) {
             $vehicleConflict = DriverRequest::overlappingPeriod(
-                'vehicle_id', $data['new_vehicle_id'], $startDate, $startTime, $endDate, $endTime, $driverRequest->id
+                'vehicle_id', $newVehicleId, $startDate, $startTime, $endDate, $endTime, $driverRequest->id
             )->exists();
             if ($vehicleConflict) {
                 return back()->withErrors('Kendaraan pengganti sudah digunakan pada rentang waktu tersebut.');
@@ -684,30 +699,36 @@ class AppAdminController extends Controller
             DriverSwapLog::create([
                 'request_id'         => $driverRequest->id,
                 'old_driver_id'      => $oldDriverId,
-                'new_driver_id'      => $data['new_driver_id'],
+                'new_driver_id'      => $driverChanged ? $newDriverId : null,
                 'old_vehicle_id'     => $oldVehicleId,
-                'new_vehicle_id'     => $newVehicleId != $oldVehicleId ? $newVehicleId : null,
+                'new_vehicle_id'     => $vehicleChanged ? $newVehicleId : null,
                 'reason'             => $data['reason'] ?? null,
                 'changed_by_user_id' => $user->id,
             ]);
 
             $driverRequest->update([
-                'driver_id'  => $data['new_driver_id'],
+                'driver_id'  => $newDriverId,
                 'vehicle_id' => $newVehicleId,
             ]);
 
-            if ($oldDriverId) {
-                Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+            if ($driverChanged) {
+                if ($oldDriverId) {
+                    Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+                }
+                Driver::where('id', $newDriverId)->update(['status' => 'on_trip']);
             }
-            Driver::where('id', $data['new_driver_id'])->update(['status' => 'on_trip']);
 
-            if ($newVehicleId != $oldVehicleId) {
+            if ($vehicleChanged) {
                 if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
                 if ($newVehicleId) Vehicle::where('id', $newVehicleId)->update(['status' => 'in_use']);
             }
 
+            $successMessage = $driverChanged && $vehicleChanged
+                ? 'Driver dan kendaraan berhasil diganti.'
+                : ($driverChanged ? 'Driver berhasil diganti.' : 'Kendaraan berhasil diganti.');
+
             DB::commit();
-            return back()->with('success', 'Driver berhasil diganti.');
+            return back()->with('success', $successMessage);
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal mengganti driver: ' . $e->getMessage());

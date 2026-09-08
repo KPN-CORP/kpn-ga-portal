@@ -24,14 +24,19 @@
             <option value="verified" {{ request('status_verif') == 'verified' ? 'selected' : '' }}>Verified</option>
             <option value="revision" {{ request('status_verif') == 'revision' ? 'selected' : '' }}>Revision</option>
         </select>
-        <select name="area_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-            <option value="">All Areas</option>
-            @foreach($areas as $area)
-                <option value="{{ $area->id_area_kerja }}" {{ request('area_id') == $area->id_area_kerja ? 'selected' : '' }}>
-                    {{ $area->nama_area }}
-                </option>
-            @endforeach
-        </select>
+        <div class="relative inline-block">
+            <input type="text" id="area_name_filter" list="area-datalist-eq" autocomplete="off"
+                   placeholder="Cari area..."
+                   value="{{ optional($areas->firstWhere('id_area_kerja', request('area_id')))->nama_area }}"
+                   class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-40">
+            <input type="hidden" name="area_id" id="area_id_filter" value="{{ request('area_id') }}">
+            <datalist id="area-datalist-eq">
+                <option value="">All Areas</option>
+                @foreach($areas as $area)
+                    <option value="{{ $area->nama_area }}" data-id="{{ $area->id_area_kerja }}"></option>
+                @endforeach
+            </datalist>
+        </div>
 
         {{-- 🔽 FILTER TYPE --}}
         <select name="equipment_type_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -125,6 +130,15 @@
                             <i class="fas fa-edit"></i>
                         </a>
                         @endif
+                        @if(session('hsrm_role') === 'admin')
+                        <form action="{{ route('hsrm.equipments.destroy', $eq) }}" method="POST" onsubmit="return confirm('Delete this equipment? This action cannot be undone.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        @endif
                     </div>
                 </td>
             </tr>
@@ -204,6 +218,15 @@
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>
             @endif
+            @if(session('hsrm_role') === 'admin')
+            <form action="{{ route('hsrm.equipments.destroy', $eq) }}" method="POST" onsubmit="return confirm('Delete this equipment? This action cannot be undone.');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="text-red-600 hover:text-red-800 text-sm" title="Delete">
+                    <i class="fas fa-trash mr-1"></i> Delete
+                </button>
+            </form>
+            @endif
         </div>
     </div>
     @empty
@@ -217,4 +240,35 @@
 <div class="mt-6">
     {{ $equipments->appends(request()->query())->links() }}
 </div>
+
+@push('scripts')
+<script>
+    (function() {
+        const nameInput = document.getElementById('area_name_filter');
+        const idInput = document.getElementById('area_id_filter');
+        const datalist = document.getElementById('area-datalist-eq');
+        if (!nameInput || !idInput || !datalist) return;
+
+        function syncAreaId() {
+            const typed = nameInput.value.trim();
+            if (typed === '') {
+                idInput.value = '';
+                return;
+            }
+            const match = Array.from(datalist.options).find(opt => opt.value === typed);
+            idInput.value = match ? (match.dataset.id || '') : idInput.value;
+        }
+
+        nameInput.addEventListener('input', syncAreaId);
+        nameInput.addEventListener('change', syncAreaId);
+        nameInput.closest('form').addEventListener('submit', function() {
+            const typed = nameInput.value.trim();
+            const match = Array.from(datalist.options).find(opt => opt.value === typed);
+            if (typed !== '' && !match) {
+                idInput.value = '';
+            }
+        });
+    })();
+</script>
+@endpush
 @endsection

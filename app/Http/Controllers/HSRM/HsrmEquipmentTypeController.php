@@ -59,9 +59,16 @@ class HsrmEquipmentTypeController extends Controller
     public function destroy($id)
     {
         $type = HsrmEquipmentType::findOrFail($id);
+
         if ($type->equipments()->count() > 0) {
             return back()->with('error', 'Type is in use and cannot be deleted.');
         }
+
+        $quotaCount = $type->quotas()->count();
+        if ($quotaCount > 0) {
+            return back()->with('error', "This type still has quota/budget settings configured in {$quotaCount} area(s). Please remove those quota settings first from the Budget & Quota page before deleting this type.");
+        }
+
         $type->delete();
         return redirect()->route('hsrm.equipment-types.index')->with('success', 'Equipment type deleted.');
     }

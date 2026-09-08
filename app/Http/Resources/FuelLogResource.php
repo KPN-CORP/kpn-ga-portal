@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FuelLogResource extends JsonResource
@@ -26,6 +27,9 @@ class FuelLogResource extends JsonResource
             'notes'                => $this->notes,
             'created_at'           => $this->created_at?->toIso8601String(),
             'updated_at'           => $this->updated_at?->toIso8601String(),
+
+            // BARU (v3.0) — sinkron sesuai plat nomor ke db_asset_vehicles (AMS)
+            'owner'                => OwnerLookupCache::get($this->vehicle->plate_number ?? null),
         ];
 
         // Sengaja TIDAK di-expose (internal): vehicle_id, driver_id, user_id,

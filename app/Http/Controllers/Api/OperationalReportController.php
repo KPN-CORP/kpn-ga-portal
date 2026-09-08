@@ -4,7 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\CalculatesOperationalStats;
+use App\Models\Drms\FuelLog;
+use App\Models\Drms\Repair;
+use App\Models\Drms\ServiceSchedule;
 use App\Models\Drms\TripLog;
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +28,15 @@ use Illuminate\Support\Facades\DB;
  * Logic perhitungannya dari trait CalculatesOperationalStats — sama persis
  * dengan yang dipakai Export CSV di AdminOperationalController, supaya
  * angkanya konsisten dan gak perlu maintain 2 versi logic yang berbeda.
+ *
+ * v3.0 — TAMBAHAN (tidak ada yang dihapus/diubah dari v2.0):
+ * - 4 field baru di "summary": total_fuel_asset_bbm, total_fuel_asset_listrik,
+ *   total_maintenance_asset_service_schedules, total_maintenance_asset_repairment
+ *   — dihitung sebagai jumlah KENDARAAN UNIK (distinct vehicle_id), bukan
+ *   jumlah baris/record, dengan filter BU/vehicle/driver/tanggal yang sama.
+ * - Blok "owner" (data pemilik aset dari AMS, tabel db_asset_vehicles) di
+ *   setiap item vehicle_breakdown, efficiency_top10, dan trip-logs,
+ *   disinkronkan berdasarkan plat nomor.
  */
 class OperationalReportController extends Controller
 {
@@ -66,7 +79,9 @@ class OperationalReportController extends Controller
 
         abort_if(\Carbon\Carbon::parse($dateFrom)->gt(\Carbon\Carbon::parse($dateTo)), 422, 'date_from harus sebelum date_to.');
 
-        $cacheKey = "api.operational-summary.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}";
+        // "v3" ditambahkan di cache key supaya request pertama setelah deploy
+        // TIDAK kebaca dari cache lama (v2.0) yang belum punya field/owner baru.
+        $cacheKey = "api.operational-summary.v3.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}";
 
         $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup) {
             // Batasi waktu eksekusi query di sesi ini — kalau ada yang nyangkut,
@@ -90,22 +105,117 @@ class OperationalReportController extends Controller
                 ->where('fuel_type', '!=', 'Listrik')
                 ->sum('fuel_cost');
 
+            // BARU (v3.0) — jumlah KENDARAAN UNIK (distinct), bukan jumlah baris/record
+            //
+            // FIX: fuel_type adalah kolom di tabel vehicle (drms_vehicles), BUKAN
+            // di drms_fuel_logs — makanya harus difilter lewat whereHas('vehicle', ...),
+            // bukan langsung di $q (query FuelLog). Sebelumnya ini menyebabkan
+            // SQLSTATE[42S22]: Unknown column 'fuel_type' in 'where clause'.
+            //
+            // fuel_type di kendaraan bisa NULL (belum diisi) — "fuel_type != 'Listrik'"
+            // akan SKIP baris NULL (NULL != 'Listrik' = NULL, bukan true), jadi sisi BBM
+            // harus eksplisit ikutkan orWhereNull juga, sama seperti pola yang sudah
+            // dipakai di Drms c/FuelLogController.php.
+            $summary['total_fuel_asset_bbm'] = $this->countDistinctVehicles(
+                FuelLog::query(), 'filling_date', $buId, $vehicleId, $driverId, $dateFrom, $dateTo,
+                fn ($q) => $q->whereHas('vehicle', function ($vq) {
+                    $vq->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
+                })
+            );
+            $summary['total_fuel_asset_listrik'] = $this->countDistinctVehicles(
+                FuelLog::query(), 'filling_date', $buId, $vehicleId, $driverId, $dateFrom, $dateTo,
+                fn ($q) => $q->whereHas('vehicle', fn ($vq) => $vq->where('fuel_type', 'Listrik'))
+            );
+            $summary['total_maintenance_asset_service_schedules'] = $this->countDistinctVehicles(
+                ServiceSchedule::query(), 'service_date', $buId, $vehicleId, null, $dateFrom, $dateTo
+            );
+            $summary['total_maintenance_asset_repairment'] = $this->countDistinctVehicles(
+                Repair::query(), 'report_date', $buId, $vehicleId, null, $dateFrom, $dateTo
+            );
+
             $vehicleBreakdown = $fuelGroup
                 ? $this->getVehicleStatsForPeriod($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup)
                 : $fullBreakdown;
+
+            $efficiencyTop10 = $this->getEfficiencyData($buId, $vehicleId, $driverId, $fuelGroup);
+            $transportDistribution = $this->getTransportDistribution($buId, $dateFrom, $dateTo, $vehicleId, $driverId);
+
+            // BARU (v3.0) — preload owner untuk semua plat yang tampil di
+            // vehicle_breakdown & efficiency_top10 (1 query batch, bukan N+1)
+            OwnerLookupCache::preload(
+                collect($vehicleBreakdown)->pluck('plate_number')
+                    ->merge(collect($efficiencyTop10)->pluck('vehicle'))
+                    ->filter()->unique()->values()->all()
+            );
+
+            $vehicleBreakdown = collect($vehicleBreakdown)->map(function ($row) {
+                $row = (array) $row;
+                $row['owner'] = OwnerLookupCache::get($row['plate_number'] ?? null);
+                return $row;
+            })->values()->all();
+
+            $efficiencyTop10 = collect($efficiencyTop10)->map(function ($row) {
+                $row = (array) $row;
+                $row['owner'] = OwnerLookupCache::get($row['vehicle'] ?? null);
+                return $row;
+            })->values()->all();
 
             return [
                 'period'                 => ['date_from' => $dateFrom, 'date_to' => $dateTo],
                 'business_unit_id'       => $buId ? (int) $buId : null,
                 'summary'                => $summary,
-                'transport_distribution' => $this->getTransportDistribution($buId, $dateFrom, $dateTo, $vehicleId, $driverId),
-                'efficiency_top10'       => $this->getEfficiencyData($buId, $vehicleId, $driverId, $fuelGroup),
+                'transport_distribution' => $transportDistribution,
+                'efficiency_top10'       => $efficiencyTop10,
                 'vehicle_breakdown'      => $vehicleBreakdown,
                 'generated_at'           => now()->toIso8601String(),
             ];
         });
 
         return response()->json($payload);
+    }
+
+    /**
+     * BARU (v3.0) — helper generik: hitung jumlah KENDARAAN UNIK
+     * (distinct vehicle_id) yang punya record di $query, dengan filter
+     * BU/vehicle/driver/tanggal yang sama dipakai endpoint lain.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query   query dasar model (FuelLog/ServiceSchedule/Repair)
+     * @param string $dateColumn   kolom tanggal yang difilter (filling_date/service_date/report_date)
+     * @param callable|null $extra callback tambahan (mis. filter fuel_type)
+     */
+    private function countDistinctVehicles(
+        $query,
+        string $dateColumn,
+        $buId,
+        $vehicleId,
+        $driverId,
+        string $dateFrom,
+        string $dateTo,
+        ?callable $extra = null
+    ): int {
+        $query->whereHas('vehicle', function ($q) use ($buId, $vehicleId) {
+            if ($buId) {
+                $q->where('business_unit_id', $buId);
+            }
+            if ($vehicleId) {
+                $q->where('id', $vehicleId);
+            }
+        });
+
+        // ServiceSchedule & Repair tidak punya kolom driver_id — guard ini
+        // supaya tidak error "Unknown column" kalau $driverId dikirim.
+        if ($driverId && $query->getModel()->isFillable('driver_id')) {
+            $query->where('driver_id', $driverId);
+        }
+
+        if ($extra) {
+            $extra($query);
+        }
+
+        $query->whereDate($dateColumn, '>=', $dateFrom)
+              ->whereDate($dateColumn, '<=', $dateTo);
+
+        return (int) $query->distinct('vehicle_id')->count('vehicle_id');
     }
 
     /**
@@ -152,17 +262,29 @@ class OperationalReportController extends Controller
         // sampai halaman ke-sekian, gak makin lambat kayak OFFSET biasa.
         $tripLogs = $query->orderBy('updated_at')->cursorPaginate($perPage)->withQueryString();
 
+        // BARU (v3.0): preload owner untuk semua plat di halaman ini (1 query batch)
+        OwnerLookupCache::preload(
+            $tripLogs->getCollection()
+                ->map(fn ($log) => $log->request->vehicle->plate_number ?? null)
+                ->all()
+        );
+
         $tripLogs->getCollection()->transform(function ($log) {
+            $plateNumber = $log->request->vehicle->plate_number ?? null;
+
             return [
                 'id'           => $log->id,
                 'request_no'   => $log->request->request_no ?? null,
                 'driver'       => $log->request->driver->name ?? null,
-                'plate_number' => $log->request->vehicle->plate_number ?? null,
+                'plate_number' => $plateNumber,
                 'usage_date'   => $log->request->usage_date,
                 'distance_km'  => max(0, ($log->odometer_finish ?? 0) - ($log->odometer_start ?? 0)),
                 'fuel_volume'  => $log->fuel_volume,
                 'fuel_cost'    => $log->fuel_cost,
                 'updated_at'   => $log->updated_at,
+
+                // BARU (v3.0)
+                'owner'        => OwnerLookupCache::get($plateNumber),
             ];
         });
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RepairResource;
 use App\Models\Drms\Repair;
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,6 +55,12 @@ class RepairController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
         $repairs = $query->orderByDesc('updated_at')->paginate($perPage)->appends($request->query());
 
+        // BARU (v3.0): preload owner untuk semua plat di halaman ini sekaligus
+        // (1 query batch), supaya RepairResource tinggal baca dari cache.
+        OwnerLookupCache::preload(
+            $repairs->getCollection()->pluck('vehicle.plate_number')->all()
+        );
+
         return RepairResource::collection($repairs)->response();
     }
 
@@ -63,6 +70,10 @@ class RepairController extends Controller
     public function show($id)
     {
         $repair = Repair::with('vehicle')->findOrFail($id);
+
+        // BARU (v3.0)
+        OwnerLookupCache::preload([$repair->vehicle->plate_number ?? null]);
+
         return (new RepairResource($repair))->response();
     }
 

@@ -65,9 +65,16 @@ class HsrmCertificateTypeController extends Controller
     public function destroy($id)
     {
         $type = HsrmCertificateType::findOrFail($id);
+
         if ($type->certificates()->count() > 0) {
             return back()->with('error', 'This type is in use and cannot be deleted.');
         }
+
+        $quotaCount = $type->quotas()->count();
+        if ($quotaCount > 0) {
+            return back()->with('error', "This type still has quota/budget settings configured in {$quotaCount} area(s). Please remove those quota settings first from the Budget & Quota page before deleting this type.");
+        }
+
         $type->delete();
         return redirect()->route('hsrm.certificate-types.index')
             ->with('success', 'Certificate type deleted successfully.');

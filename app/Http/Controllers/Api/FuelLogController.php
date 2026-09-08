@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FuelLogResource;
 use App\Models\Drms\FuelLog;
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,6 +55,12 @@ class FuelLogController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
         $fuelLogs = $query->orderByDesc('updated_at')->paginate($perPage)->appends($request->query());
 
+        // BARU (v3.0): preload owner untuk semua plat di halaman ini sekaligus
+        // (1 query batch), supaya FuelLogResource tinggal baca dari cache.
+        OwnerLookupCache::preload(
+            $fuelLogs->getCollection()->pluck('vehicle.plate_number')->all()
+        );
+
         return FuelLogResource::collection($fuelLogs)->response();
     }
 
@@ -63,6 +70,10 @@ class FuelLogController extends Controller
     public function show($id)
     {
         $fuelLog = FuelLog::with('vehicle')->findOrFail($id);
+
+        // BARU (v3.0)
+        OwnerLookupCache::preload([$fuelLog->vehicle->plate_number ?? null]);
+
         return (new FuelLogResource($fuelLog))->response();
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ServiceScheduleResource extends JsonResource
@@ -25,6 +26,9 @@ class ServiceScheduleResource extends JsonResource
             'notes'                 => $this->notes,
             'created_at'            => $this->created_at?->toIso8601String(),
             'updated_at'            => $this->updated_at?->toIso8601String(),
+
+            // BARU (v3.0) — sinkron sesuai plat nomor ke db_asset_vehicles (AMS)
+            'owner'                 => OwnerLookupCache::get($this->vehicle->plate_number ?? null),
         ];
     }
 }

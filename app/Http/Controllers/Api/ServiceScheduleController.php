@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ServiceScheduleResource;
 use App\Models\Drms\ServiceSchedule;
+use App\Support\OwnerLookupCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -51,6 +52,12 @@ class ServiceScheduleController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
         $services = $query->orderByDesc('updated_at')->paginate($perPage)->appends($request->query());
 
+        // BARU (v3.0): preload owner untuk semua plat di halaman ini sekaligus
+        // (1 query batch), supaya ServiceScheduleResource tinggal baca dari cache.
+        OwnerLookupCache::preload(
+            $services->getCollection()->pluck('vehicle.plate_number')->all()
+        );
+
         return ServiceScheduleResource::collection($services)->response();
     }
 
@@ -60,6 +67,10 @@ class ServiceScheduleController extends Controller
     public function show($id)
     {
         $service = ServiceSchedule::with('vehicle')->findOrFail($id);
+
+        // BARU (v3.0)
+        OwnerLookupCache::preload([$service->vehicle->plate_number ?? null]);
+
         return (new ServiceScheduleResource($service))->response();
     }
 

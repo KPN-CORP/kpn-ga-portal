@@ -13,4 +13,9 @@ class HsrmEquipmentType extends Model
     {
         return $this->hasMany(HsrmEquipment::class, 'equipment_type_id');
     }
+
+    public function quotas()
+    {
+        return $this->hasMany(HsrmEquipmentQuota::class, 'equipment_type_id');
+    }
 }

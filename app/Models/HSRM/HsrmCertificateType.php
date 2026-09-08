@@ -14,4 +14,9 @@ class HsrmCertificateType extends Model
     {
         return $this->hasMany(HsrmCertificate::class, 'certificate_type_id');
     }
+
+    public function quotas()
+    {
+        return $this->hasMany(HsrmCertificateQuota::class, 'certificate_type_id');
+    }
 }

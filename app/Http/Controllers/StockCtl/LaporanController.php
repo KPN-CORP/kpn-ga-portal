@@ -41,14 +41,11 @@ class LaporanController extends Controller
     }
 
     /**
-     * Ekspor laporan ke CSV (Excel)
+     * Validasi input laporan + otorisasi area. Dipakai bersama oleh preview() dan excel()
+     * supaya aturannya konsisten di kedua endpoint.
      */
-    public function excel(Request $request)
+    private function validateLaporanRequest(Request $request)
     {
-        // Tingkatkan memory limit
-        ini_set('memory_limit', '512M');
-        set_time_limit(300);
-
         $request->validate([
             'jenis'         => 'required|in:stok,mutasi,permintaan,kartu_stok',
             'id_area'       => 'nullable|exists:stock_ctl_area_kerja,id_area_kerja',
@@ -70,7 +67,6 @@ class LaporanController extends Controller
 
         $access = session('stock_ctl_access');
 
-        // Validasi area
         if (!$access['is_super'] && $request->id_area) {
             $area = AreaKerja::find($request->id_area);
             if (!$area || $area->id_bisnis_unit != $access['id_bisnis_unit']) {
@@ -78,6 +74,16 @@ class LaporanController extends Controller
             }
         }
 
+        return $access;
+    }
+
+    /**
+     * Ambil headers + rows laporan sesuai jenis. Dipakai bersama oleh preview() (tampil di
+     * layar sebagai tabel) dan excel() (didownload sebagai CSV), sehingga hasil yang dilihat
+     * user di preview dijamin identik dengan isi file yang didownload.
+     */
+    private function resolveLaporanData(Request $request, $access)
+    {
         switch ($request->jenis) {
             case 'stok':
                 $data = $this->getDataStok($request, $access);
@@ -114,6 +120,48 @@ class LaporanController extends Controller
             default:
                 abort(400);
         }
+
+        return [$headers, $rows, $filename];
+    }
+
+    /**
+     * Preview laporan (AJAX): mengembalikan headers + rows sebagai JSON untuk ditampilkan
+     * sebagai tabel di halaman, TANPA menyimpan ke riwayat cetak dan TANPA download file.
+     */
+    public function preview(Request $request)
+    {
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
+        $access = $this->validateLaporanRequest($request);
+        [$headers, $rows] = $this->resolveLaporanData($request, $access);
+
+        // Batasi jumlah baris yang dikirim ke layar agar browser tidak berat.
+        // File Excel hasil download tetap berisi SEMUA baris (tidak dipotong).
+        $previewLimit = 200;
+        $totalRows = count($rows);
+        $truncated = $totalRows > $previewLimit;
+        $rows = array_slice($rows, 0, $previewLimit);
+
+        return response()->json([
+            'headers'    => $headers,
+            'rows'       => $rows,
+            'total_rows' => $totalRows,
+            'truncated'  => $truncated,
+        ]);
+    }
+
+    /**
+     * Ekspor laporan ke CSV (Excel)
+     */
+    public function excel(Request $request)
+    {
+        // Tingkatkan memory limit
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
+        $access = $this->validateLaporanRequest($request);
+        [$headers, $rows, $filename] = $this->resolveLaporanData($request, $access);
 
         // Simpan history
         $this->saveHistory($request);

@@ -1,7 +1,7 @@
 @extends('layouts.app_stock_sidebar')
 
 @section('content')
-<div class="space-y-6 text-sm text-gray-800 font-sans">
+<div class="space-y-6 text-sm text-gray-800 font-sans" x-data="laporanPreview()">
     <div>
         <h2 class="text-xl font-semibold text-gray-800">Laporan</h2>
     </div>
@@ -62,12 +62,65 @@
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end">
+            <div class="mt-6 flex justify-end gap-2">
+                <button type="button" id="btn-preview" @click="lihatLaporan()" :disabled="loading"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">
+                    <i class="fas fa-eye mr-1"></i>
+                    <span x-text="loading ? 'Memuat...' : 'Lihat Laporan'"></span>
+                </button>
                 <button type="button" id="btn-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg">
                     <i class="fas fa-file-excel mr-1"></i> Cetak Excel
                 </button>
             </div>
         </form>
+
+        {{-- Pesan error preview --}}
+        <div x-show="errorMsg" x-cloak class="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2" x-text="errorMsg"></div>
+
+        {{-- Hasil Preview --}}
+        <div x-show="preview" x-cloak class="mt-6 border-t pt-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                <h3 class="font-semibold text-gray-800">
+                    Preview Laporan
+                    <span class="text-xs font-normal text-gray-500" x-show="preview">
+                        (menampilkan <span x-text="preview ? preview.rows.length : 0"></span> dari <span x-text="preview ? preview.total_rows : 0"></span> baris)
+                    </span>
+                </h3>
+                <button type="button" @click="downloadExcel()" class="self-start sm:self-auto px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs">
+                    <i class="fas fa-download mr-1"></i> Download Excel (semua baris)
+                </button>
+            </div>
+
+            <p x-show="preview && preview.truncated" x-cloak class="text-xs text-amber-600 mb-2">
+                Preview dibatasi 200 baris pertama agar ringan. File Excel yang didownload tetap berisi seluruh <span x-text="preview ? preview.total_rows : 0"></span> baris.
+            </p>
+
+            <div class="overflow-x-auto border rounded-lg">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <template x-for="h in (preview ? preview.headers : [])" :key="h">
+                                <th class="px-3 py-2 text-left whitespace-nowrap" x-text="h"></th>
+                            </template>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        <template x-for="(row, i) in (preview ? preview.rows : [])" :key="i">
+                            <tr class="hover:bg-gray-50">
+                                <template x-for="(cell, j) in row" :key="j">
+                                    <td class="px-3 py-2 whitespace-nowrap" x-text="cell"></td>
+                                </template>
+                            </tr>
+                        </template>
+                        <tr x-show="preview && preview.rows.length === 0" x-cloak>
+                            <td class="px-3 py-6 text-center text-gray-500" :colspan="preview ? preview.headers.length : 1">
+                                Tidak ada data untuk kombinasi filter ini.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     {{-- Riwayat Cetak Terbaru --}}
@@ -126,6 +179,64 @@
     </div>
 
     <script>
+        function laporanPreview() {
+            return {
+                loading: false,
+                preview: null,
+                errorMsg: '',
+
+                // Validasi khusus Kartu Stok (sama seperti aturan di server)
+                validasiKartuStok() {
+                    if (jenisLaporan.value !== 'kartu_stok') return true;
+                    const idArea = document.getElementById('id_area').value;
+                    const idBarang = document.getElementById('id_barang').value;
+                    if (!idArea || !idBarang) {
+                        this.errorMsg = 'Kartu Stok wajib memilih 1 Area Kerja dan 1 Barang terlebih dahulu.';
+                        return false;
+                    }
+                    return true;
+                },
+
+                async lihatLaporan() {
+                    this.errorMsg = '';
+                    if (!jenisLaporan.value) {
+                        this.errorMsg = 'Pilih jenis laporan terlebih dahulu.';
+                        return;
+                    }
+                    if (!this.validasiKartuStok()) return;
+
+                    this.loading = true;
+                    this.preview = null;
+                    try {
+                        const formData = new FormData(form);
+                        const res = await fetch("{{ route('stock-ctl.laporan.preview') }}", {
+                            method: 'POST',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            body: formData,
+                        });
+
+                        if (!res.ok) {
+                            const err = await res.json().catch(() => null);
+                            this.errorMsg = err?.message || 'Gagal memuat preview laporan.';
+                            return;
+                        }
+
+                        this.preview = await res.json();
+                    } catch (e) {
+                        this.errorMsg = 'Terjadi kesalahan jaringan saat memuat preview.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                downloadExcel() {
+                    if (!this.validasiKartuStok()) return;
+                    form.action = "{{ route('stock-ctl.laporan.excel') }}";
+                    form.submit();
+                }
+            }
+        }
+
         const jenisLaporan = document.getElementById('jenis_laporan');
         const barangField = document.getElementById('barang_field');
         const jenisMutasiField = document.getElementById('jenis_mutasi_field');
@@ -151,6 +262,10 @@
                     alert('Kartu Stok wajib memilih 1 Area Kerja dan 1 Barang terlebih dahulu.');
                     return;
                 }
+            }
+            if (!jenisLaporan.value) {
+                alert('Pilih jenis laporan terlebih dahulu.');
+                return;
             }
             form.action = "{{ route('stock-ctl.laporan.excel') }}";
             form.submit();

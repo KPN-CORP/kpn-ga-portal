@@ -370,7 +370,7 @@ class HsrmCertificateController extends Controller
     public function destroy($id)
     {
         $cert = HsrmCertificate::findOrFail($id);
-        $this->authorizeEdit($cert);
+        $this->authorizeDelete($cert);
 
         $oldData = $cert->toArray();
         if ($cert->attachment_path) {
@@ -508,6 +508,13 @@ class HsrmCertificateController extends Controller
         }
         if (!$user->canEditInArea($cert->area_id)) {
             abort(403, 'You are not authorized to edit this certificate.');
+        }
+    }
+
+    private function authorizeDelete($cert)
+    {
+        if (session('hsrm_role') !== 'admin') {
+            abort(403, 'Only admin can delete a certificate.');
         }
     }
 

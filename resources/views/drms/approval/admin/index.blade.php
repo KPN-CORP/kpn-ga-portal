@@ -370,7 +370,9 @@
                                     <span class="ml-2 text-xs text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒 {{ $req->completeBlockReason }}</span>
                                 @endif
                                 @if($req->driver_id && !$req->merged_into_id)
-                                    <button type="button" @click="openSwapModal({{ $req->id }})" class="ml-2 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-semibold">
+                                    <button type="button"
+                                            @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
+                                            class="ml-2 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-semibold">
                                         🔄 Ganti Driver
                                     </button>
                                 @endif
@@ -456,7 +458,9 @@
                                     <span class="text-[11px] text-gray-400 italic">🔒 {{ $req->completeBlockReason }}</span>
                                 @endif
                                 @if($req->driver_id && !$req->merged_into_id)
-                                    <button type="button" @click="openSwapModal({{ $req->id }})" class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
+                                    <button type="button"
+                                            @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
+                                            class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
                                 @endif
                             @endif
                         </td>
@@ -549,19 +553,38 @@
     {{-- MODAL GANTI DRIVER (BARU) --}}
     <div x-show="swapModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 class="text-lg font-semibold mb-4">Ganti Driver</h2>
-            <form :action="`{{ url('drms/approval/admin') }}/${swapRequestId}/swap-driver`" method="POST">
+            <h2 class="text-lg font-semibold mb-1">Ganti Driver &amp; Kendaraan</h2>
+            <p class="text-xs text-gray-500 mb-4">
+                Saat ini: <span class="font-semibold" x-text="swapCurrentDriver"></span>
+                &middot; <span class="font-semibold" x-text="swapCurrentVehicle"></span>
+            </p>
+            <form :action="`{{ url('drms/approval/admin') }}/${swapRequestId}/swap-driver`" method="POST"
+                  onsubmit="return validateSwapForm(this)">
                 @csrf
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Driver Baru</label>
-                    <select name="new_driver_id" class="w-full border rounded-lg px-3 py-2 text-sm" required>
-                        <option value="">-- Pilih Driver --</option>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                    <select name="new_driver_id" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="">-- Tetap pakai driver sekarang (default) --</option>
                         @foreach($availableDrivers as $driver)
                             <option value="{{ $driver->id }}">{{ $driver->name }} ({{ $driver->phone ?? '-' }}) - {{ ucfirst($driver->status) }}</option>
                         @endforeach
                     </select>
+                    <p class="text-xs text-gray-500 mt-1">Biarkan kosong (default) kalau driver-nya tidak perlu diganti, hanya kendaraannya saja.</p>
                     @if($availableDrivers->isEmpty())
-                        <p class="text-xs text-yellow-600 mt-1">Tidak ada driver tersedia.</p>
+                        <p class="text-xs text-yellow-600 mt-1">Tidak ada driver pengganti tersedia.</p>
+                    @endif
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kendaraan</label>
+                    <select name="new_vehicle_id" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="">-- Tetap pakai kendaraan sekarang (default) --</option>
+                        @foreach($availableVehicles as $vehicle)
+                            <option value="{{ $vehicle->id }}">{{ $vehicle->type }} - {{ $vehicle->plate_number }} ({{ $vehicle->capacity }} kursi) - {{ ucfirst($vehicle->status) }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Biarkan kosong (default) kalau kendaraan tidak perlu diganti, hanya driver-nya saja.</p>
+                    @if($availableVehicles->isEmpty())
+                        <p class="text-xs text-yellow-600 mt-1">Tidak ada kendaraan pengganti tersedia.</p>
                     @endif
                 </div>
                 <div class="mb-4">
@@ -570,7 +593,7 @@
                 </div>
                 <div class="flex justify-end gap-2 mt-4">
                     <button type="button" @click="swapModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm">Ganti Driver</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm">Simpan Perubahan</button>
                 </div>
             </form>
         </div>
@@ -642,6 +665,16 @@
 </div>
 
 <script>
+function validateSwapForm(form) {
+    const driverVal = form.querySelector('select[name="new_driver_id"]').value;
+    const vehicleVal = form.querySelector('select[name="new_vehicle_id"]').value;
+    if (!driverVal && !vehicleVal) {
+        alert('Pilih driver dan/atau kendaraan pengganti. Biarkan salah satunya kosong kalau memang mau tetap pakai yang sekarang, tapi tidak boleh keduanya kosong.');
+        return false;
+    }
+    return true;
+}
+
 function approvalAdminModal() {
     return {
         activeTab: new URLSearchParams(window.location.search).get('tab') === 'history' ? 'history' : 'pending',
@@ -655,6 +688,8 @@ function approvalAdminModal() {
         forwardRequestId: null,
         swapModalOpen: false,
         swapRequestId: null,
+        swapCurrentDriver: '-',
+        swapCurrentVehicle: '-',
         detailModalOpen: false,
         detailItem: {},
         setTab(tab) {
@@ -676,8 +711,10 @@ function approvalAdminModal() {
             this.forwardRequestId = id;
             this.forwardModalOpen = true;
         },
-        openSwapModal(id) {
+        openSwapModal(id, currentDriver, currentVehicle) {
             this.swapRequestId = id;
+            this.swapCurrentDriver = currentDriver || '-';
+            this.swapCurrentVehicle = currentVehicle || '-';
             this.swapModalOpen = true;
         },
         openDetailModal(item) {

@@ -361,7 +361,7 @@ class HsrmEquipmentController extends Controller
     public function destroy($id)
     {
         $equipment = HsrmEquipment::findOrFail($id);
-        $this->authorizeEdit($equipment);
+        $this->authorizeDelete($equipment);
 
         $oldData = $equipment->toArray();
         if ($equipment->photo_path) {
@@ -514,6 +514,13 @@ class HsrmEquipmentController extends Controller
         }
         if (!$user->canEditInArea($equipment->area_id)) {
             abort(403, 'You are not authorized to edit this equipment.');
+        }
+    }
+
+    private function authorizeDelete($equipment)
+    {
+        if (session('hsrm_role') !== 'admin') {
+            abort(403, 'Only admin can delete an equipment.');
         }
     }
 
