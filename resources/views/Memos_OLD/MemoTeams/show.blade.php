@@ -17,19 +17,6 @@
         <div class="mb-4 bg-red-50 text-red-700 text-sm px-4 py-2 rounded-lg">{{ $errors->first() }}</div>
     @endif
 
-    {{-- ===== LETTERHEAD ===== --}}
-    <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <h3 class="font-bold mb-1">🏷️ Letterhead Memo</h3>
-        <p class="text-xs text-gray-400 mb-3">Teks ini otomatis muncul di kop memo (PDF & cetak) yang dibuat tim ini, selama pembuat memo tidak mematikan toggle "Tampilkan Letterhead" saat bikin memo. Spasi dipertahankan apa adanya, dan tekan Enter untuk bikin baris baru (mis. baris 1 "PT ABC CORPORATE", baris 2 "Human Capital Division").</p>
-        <form method="POST" action="{{ route('memo-teams.letterhead', $team) }}" class="flex gap-2 items-start">
-            @csrf @method('PATCH')
-            <textarea name="letterhead_text" rows="2"
-                placeholder="mis. HC Corporate — kosongkan untuk pakai nama tim ({{ $team->team_name }})"
-                class="flex-1 border rounded-lg p-2 text-sm">{{ $team->letterhead_text }}</textarea>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm whitespace-nowrap">Simpan</button>
-        </form>
-    </div>
-
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {{-- ===== ADMIN ===== --}}

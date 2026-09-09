@@ -9,16 +9,7 @@ class MemoTeam extends Model
 {
     protected $table = 'memo_teams';
 
-    protected $fillable = ['team_name', 'letterhead_text', 'created_by'];
-
-    /**
-     * Teks yang ditampilkan sebagai letterhead/kop di memo tim ini. Kalau
-     * letterhead_text belum diisi admin, fallback pakai nama tim.
-     */
-    public function resolvedLetterhead(): string
-    {
-        return $this->letterhead_text ?: $this->team_name;
-    }
+    protected $fillable = ['team_name', 'created_by'];
 
     public function creator()
     {

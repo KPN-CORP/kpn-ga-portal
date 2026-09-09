@@ -8,7 +8,6 @@ use App\Models\Memos\MemosItems;
 use App\Models\Memos\MemosAttachments;
 use App\Models\Memos\MemoNumberSetting;
 use App\Models\Memos\MemoRevision;
-use App\Models\Memos\MemoTeam;
 use App\Models\ApiEmpHcis;
 use App\Support\Memos\MemoImportProfiles;
 use Illuminate\Http\Request;
@@ -43,9 +42,7 @@ class MemosController extends Controller
     {
         $employees = ApiEmpHcis::limit(100)->get(['employee_id', 'fullname', 'group_company']);
         $signer = MemoNumberSetting::resolveSigner(auth()->user());
-        $teamId = MemoNumberSetting::resolveTeamId(auth()->user());
-        $teamLetterhead = $teamId ? optional(MemoTeam::find($teamId))->resolvedLetterhead() : null;
-        return view('Memos.Memos.create', compact('employees', 'signer', 'teamLetterhead'));
+        return view('Memos.Memos.create', compact('employees', 'signer'));
     }
 
     /**
@@ -63,8 +60,7 @@ class MemosController extends Controller
         $memo->load('items', 'attachments');
         $employees = ApiEmpHcis::limit(100)->get(['employee_id', 'fullname', 'group_company']);
         $signer = MemoNumberSetting::resolveSigner(auth()->user());
-        $teamLetterhead = optional($memo->team)->resolvedLetterhead();
-        return view('Memos.Memos.create', compact('memo', 'employees', 'signer', 'teamLetterhead'));
+        return view('Memos.Memos.create', compact('memo', 'employees', 'signer'));
     }
 
     public function store(Request $request)
@@ -87,7 +83,6 @@ class MemosController extends Controller
         }
 
         $dynamicColumns = $this->decodeDynamicColumns($request);
-        $tagihanSourceColumns = $this->decodeTagihanSourceColumns($request);
 
         DB::beginTransaction();
         try {
@@ -110,9 +105,6 @@ class MemosController extends Controller
                 'penandatangan' => $signer['penandatangan'],
                 'jabatan'       => $signer['jabatan'],
                 'total_amount'  => $total,
-                'show_total'    => $request->boolean('show_total', true),
-                'tagihan_source_column' => $tagihanSourceColumns ?: null,
-                'show_letterhead' => $request->boolean('show_letterhead', true),
                 'status'        => $request->status,
                 'business_unit' => $businessUnit,
                 'dynamic_columns_definition' => $dynamicColumns,
@@ -166,7 +158,6 @@ class MemosController extends Controller
         }
 
         $dynamicColumns = $this->decodeDynamicColumns($request);
-        $tagihanSourceColumns = $this->decodeTagihanSourceColumns($request);
 
         // Memo yang sudah submitted tidak boleh ditumpangi jadi draft lagi lewat
         // form edit yang sama — statusnya dikunci tetap 'submitted'.
@@ -191,9 +182,6 @@ class MemosController extends Controller
                 'penandatangan' => $signer['penandatangan'],
                 'jabatan'       => $signer['jabatan'],
                 'total_amount'  => $total,
-                'show_total'    => $request->boolean('show_total', true),
-                'tagihan_source_column' => $tagihanSourceColumns ?: null,
-                'show_letterhead' => $request->boolean('show_letterhead', true),
                 'status'        => $targetStatus,
                 'dynamic_columns_definition' => $dynamicColumns,
                 'keterangan_label' => $request->keteranganLabel,
@@ -552,24 +540,6 @@ class MemosController extends Controller
         return is_array($dynamicColumns) ? $dynamicColumns : [];
     }
 
-    /**
-     * Daftar nama kolom dinamis yang ditandai user sebagai sumber Tagihan
-     * (bisa lebih dari satu — nilainya dijumlah jadi Tagihan (Rp) tiap baris
-     * di frontend, lihat create.blade.php: syncTagihanFromSource()). Balikin
-     * array kosong kalau tidak ada yang ditandai (mode manual seperti biasa).
-     */
-    private function decodeTagihanSourceColumns(Request $request): array
-    {
-        $cols = $request->input('tagihan_source_column');
-        if (is_string($cols)) {
-            $cols = json_decode($cols, true);
-        }
-        if (!is_array($cols)) {
-            return [];
-        }
-        return array_values(array_filter($cols, fn ($c) => is_string($c) && $c !== ''));
-    }
-
     private function validateItems(array $items): ?string
     {
         foreach ($items as $index => $item) {
@@ -639,9 +609,8 @@ class MemosController extends Controller
         $snapshot = collect($memo->toArray())->only([
             'memo_number', 'perihal', 'kepada', 'dari', 'instruksi', 'bank',
             'atas_nama', 'no_rek', 'sertakan_rekening', 'paragraf_pembuka',
-            'penandatangan', 'jabatan', 'total_amount', 'show_total', 'status', 'business_unit',
-            'dynamic_columns_definition', 'keterangan_label', 'expires_at', 'show_letterhead',
-            'tagihan_source_column',
+            'penandatangan', 'jabatan', 'total_amount', 'status', 'business_unit',
+            'dynamic_columns_definition', 'keterangan_label', 'expires_at',
         ])->all();
         $snapshot['items'] = $memo->items->map(fn ($item) => collect($item->toArray())->only([
             'nama', 'dynamic_columns', 'tagihan', 'sort_order'

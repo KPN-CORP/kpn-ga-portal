@@ -66,16 +66,9 @@
                                     <th class="p-2">
                                         <input type="text" x-model="col.name" class="w-full text-center border-none bg-transparent focus:ring-0" placeholder="Kolom">
                                         <button @click="removeColumn(idx)" class="text-red-500 ml-1 hover:text-red-700">✖</button>
-                                        <label class="flex items-center justify-center gap-1 text-[10px] text-gray-400 mt-1 cursor-pointer font-normal" title="Ikutkan nilai kolom ini ke dalam Tagihan (Rp) — bisa dicentang di beberapa kolom sekaligus, nilainya akan dijumlah jadi Tagihan tiap baris.">
-                                            <input type="checkbox" class="scale-75" :checked="tagihanSourceIndices.includes(idx)" @change="toggleTagihanSource(idx)">
-                                            + Tagihan
-                                        </label>
                                     </th>
                                 </template>
-                                <th class="p-2 w-36 text-right">
-                                    Tagihan (Rp)
-                                    <span x-show="tagihanSourceIndices.length > 0" class="block text-[10px] font-normal text-gray-400" x-text="'(otomatis: ' + tagihanSourceIndices.map(i => dynamicCols[i] ? dynamicCols[i].name : '').join(' + ') + ')'"></span>
-                                </th>
+                                <th class="p-2 w-36 text-right">Tagihan (Rp)</th>
                                 <th class="p-2 w-8"></th>
                             </tr>
                         </thead>
@@ -85,16 +78,9 @@
                                     <td class="p-2 text-center text-gray-500" x-text="idx + 1"></td>
                                     <td class="p-2"><input type="text" x-model="row.keterangan" class="w-full p-1 border rounded" :placeholder="keteranganLabel"></td>
                                     <template x-for="(col, cidx) in dynamicCols" :key="cidx">
-                                        <td class="p-2"><input type="text" x-model="row.dynamic[cidx]" @input="onDynamicInput(row, cidx)" class="w-full p-1 border rounded" :placeholder="col.name"></td>
+                                        <td class="p-2"><input type="text" x-model="row.dynamic[cidx]" class="w-full p-1 border rounded" :placeholder="col.name"></td>
                                     </template>
-                                    <td class="p-2">
-                                        <input type="text" inputmode="decimal" x-model="row.tagihanDisplay"
-                                               @input="onTagihanInput(row, $event)"
-                                               @blur="row.tagihanDisplay = formatRupiah(row.tagihan)"
-                                               :readonly="tagihanSourceIndices.length > 0"
-                                               :class="tagihanSourceIndices.length > 0 ? 'bg-gray-100 text-gray-500' : ''"
-                                               class="w-full p-1 border rounded text-right" placeholder="0">
-                                    </td>
+                                    <td class="p-2"><input type="text" inputmode="decimal" x-model="row.tagihanDisplay" @input="onTagihanInput(row, $event)" @blur="row.tagihanDisplay = formatRupiah(row.tagihan)" class="w-full p-1 border rounded text-right" placeholder="0"></td>
                                     <td class="p-2 text-center"><button @click="removeRow(idx)" class="text-red-500 hover:text-red-700">✖</button></td>
                                 </tr>
                             </template>
@@ -131,23 +117,6 @@
                 <template x-if="form.sertakan_rekening">
                     <div><label class="text-xs text-gray-600">No Rek</label><input x-model="form.no_rek" class="w-full border rounded p-1"></div>
                 </template>
-            </div>
-
-            <!-- Tampilan: Total & Letterhead -->
-            <div class="mt-3 flex flex-col gap-1">
-                <label class="flex items-center gap-2 text-sm text-gray-700">
-                    <input type="checkbox" x-model="form.show_total" class="rounded">
-                    Tampilkan baris TOTAL di tabel rincian
-                </label>
-                <label class="flex items-center gap-2 text-sm text-gray-700">
-                    <input type="checkbox" x-model="form.show_letterhead" class="rounded">
-                    Tampilkan Letterhead Tim di kop memo
-                    @if($teamLetterhead)
-                        <span class="text-xs text-gray-400">("{{ $teamLetterhead }}")</span>
-                    @else
-                        <span class="text-xs text-amber-500">(Anda belum terdaftar di tim manapun — tidak ada letterhead)</span>
-                    @endif
-                </label>
             </div>
 
             <!-- Penandatangan (otomatis dari data admin tim) -->
@@ -290,9 +259,6 @@ function memoCreator() {
     return {
         memoId: {{ isset($memo) ? $memo->id : 'null' }},
         memoNumber: @json(isset($memo) ? $memo->memo_number : null),
-        teamLetterhead: @json($teamLetterhead ?? null),
-        tagihanSourceColumnsLoaded: @json(isset($memo) ? ($memo->tagihan_source_column ?? []) : []),
-        tagihanSourceIndices: [],
         signer: @json($signer),
         form: {
             kepada: @json(isset($memo) ? $memo->kepada : ''),
@@ -303,9 +269,7 @@ function memoCreator() {
             atas_nama: @json(isset($memo) ? $memo->atas_nama : ''),
             no_rek: @json(isset($memo) ? $memo->no_rek : ''),
             sertakan_rekening: @json(isset($memo) ? (bool) $memo->sertakan_rekening : true),
-            paragraf_pembuka: @json(isset($memo) ? $memo->paragraf_pembuka : ''),
-            show_total: @json(isset($memo) ? (bool) $memo->show_total : true),
-            show_letterhead: @json(isset($memo) ? (bool) $memo->show_letterhead : true)
+            paragraf_pembuka: @json(isset($memo) ? $memo->paragraf_pembuka : '')
         },
         rows: @json($rowsForJs),
         dynamicCols: @json($dynamicColsForJs),
@@ -317,14 +281,6 @@ function memoCreator() {
         selectedTemplateId: '',
         init() {
             if (this.rows.length === 0) this.addRow();
-            if (this.tagihanSourceColumnsLoaded && this.tagihanSourceColumnsLoaded.length) {
-                this.tagihanSourceIndices = this.tagihanSourceColumnsLoaded
-                    .map(name => this.dynamicCols.findIndex(c => c.name === name))
-                    .filter(idx => idx !== -1);
-                if (this.tagihanSourceIndices.length) {
-                    this.rows.forEach(r => this.syncTagihanFromSource(r));
-                }
-            }
             this.calculateTotal();
             this.generatePreview();
             this.setupPrint();
@@ -494,44 +450,6 @@ function memoCreator() {
         removeColumn(idx) {
             this.dynamicCols.splice(idx, 1);
             this.rows.forEach(r => r.dynamic.splice(idx, 1));
-            // Jaga konsistensi index kolom "sumber Tagihan" kalau kolom yang dihapus
-            // ada di sebelum/termasuk salah satu kolom yang lagi dicentang.
-            this.tagihanSourceIndices = this.tagihanSourceIndices
-                .filter(i => i !== idx)
-                .map(i => i > idx ? i - 1 : i);
-            this.calculateTotal();
-        },
-        // Centang/hapus centang kolom dinamis ke-idx sebagai salah satu sumber
-        // Tagihan (Rp). Bisa lebih dari satu kolom dicentang sekaligus — nilainya
-        // akan dijumlah jadi Tagihan tiap baris. Begitu ada minimal satu kolom
-        // yang dicentang, input Tagihan (Rp) jadi read-only & selalu mengikuti.
-        toggleTagihanSource(idx) {
-            const pos = this.tagihanSourceIndices.indexOf(idx);
-            if (pos === -1) {
-                this.tagihanSourceIndices.push(idx);
-            } else {
-                this.tagihanSourceIndices.splice(pos, 1);
-            }
-            if (this.tagihanSourceIndices.length) {
-                this.rows.forEach(r => this.syncTagihanFromSource(r));
-            }
-            this.calculateTotal();
-        },
-        // Dipanggil tiap kali user ngetik di kolom dinamis manapun; cuma
-        // berefek kalau kolom itu termasuk salah satu sumber Tagihan.
-        onDynamicInput(row, idx) {
-            if (this.tagihanSourceIndices.includes(idx)) {
-                this.syncTagihanFromSource(row);
-            }
-        },
-        syncTagihanFromSource(row) {
-            // parseFormattedNumber() didefinisikan di bawah — sudah disamain dengan
-            // MemoItemsTableColumns::parseFormattedNumber() di backend.
-            const sum = this.tagihanSourceIndices.reduce((s, i) => {
-                return s + this.parseFormattedNumber((row.dynamic[i] || '').toString());
-            }, 0);
-            row.tagihan = sum;
-            row.tagihanDisplay = this.formatRupiah(sum);
             this.calculateTotal();
         },
         setupPrint() {
@@ -571,7 +489,6 @@ function memoCreator() {
                 status: status,
                 keteranganLabel: this.keteranganLabel,
                 dynamicColumns: this.dynamicCols.map(c => c.name),
-                tagihan_source_column: this.tagihanSourceIndices.map(i => this.dynamicCols[i].name),
                 items: this.rows.map(r => ({
                     keterangan: r.keterangan,
                     dynamic_columns: r.dynamic,
@@ -580,7 +497,7 @@ function memoCreator() {
             };
             let fd = new FormData();
             for (let k in payload) {
-                if (k === 'items' || k === 'dynamicColumns' || k === 'tagihan_source_column') {
+                if (k === 'items' || k === 'dynamicColumns') {
                     fd.append(k, JSON.stringify(payload[k]));
                 } else {
                     fd.append(k, payload[k]);
@@ -623,7 +540,7 @@ function memoCreator() {
                 if (col.type === 'group') {
                     itemsHtml += `<th class="text-center" colspan="2">${this.escapeHtml(col.label)}</th>`;
                 } else {
-                    let isMoney = this.isMoneyCol(col.label, col.indexes[0]);
+                    let isMoney = this.isMoneyColumn(col.label);
                     itemsHtml += `<th class="${isMoney ? 'text-center whitespace-nowrap' : 'text-center'}" rowspan="${hasGroups ? 2 : 1}">${this.escapeHtml(col.label)}</th>`;
                 }
             });
@@ -655,11 +572,11 @@ function memoCreator() {
                     itemsHtml += `<tr><td class="text-center">${idx + 1}</td><td>${this.escapeHtml(row.keterangan)}</td>`;
                     for (let i = 0; i < dynamicCols.length; i++) {
                         let val = row.dynamic[i] || '';
-                        let isMoney = this.isMoneyCol(dynamicCols[i], i);
+                        let isMoney = this.isMoneyColumn(dynamicCols[i]);
                         let displayVal = val;
                         if (isMoney && val !== '' && val !== '-') {
                             const num = this.parseFormattedNumber(val);
-                            displayVal = 'Rp ' + this.formatRupiah(num);
+                            displayVal = this.formatRupiah(num);
                         }
                         itemsHtml += `<td class="${isMoney ? 'text-right whitespace-nowrap' : ''}">${this.escapeHtml(displayVal || '-')}</td>`;
                     }
@@ -671,21 +588,19 @@ function memoCreator() {
             }
 
             // Baris TOTAL: label colspan = No + Keterangan + semua kolom non-nominal
-            if (this.form.show_total) {
-                let nonMoneyCount = dynamicCols.filter((c, i) => !this.isMoneyCol(c, i)).length;
-                let labelColspan = 2 + nonMoneyCount;
-                itemsHtml += `<tr class="font-bold"><td colspan="${labelColspan}" class="text-right">TOTAL</td>`;
-                dynamicCols.forEach((c, i) => {
-                    if (!this.isMoneyCol(c, i)) return;
-                    let isTagihanCol = c.trim().toLowerCase() === 'tagihan';
-                    let colTotal = isTagihanCol ? this.total : this.sumDynamicColumn(i);
-                    itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(colTotal)}</td>`;
-                });
-                if (!hasInlineTagihan) {
-                    itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(this.total)}</td>`;
-                }
-                itemsHtml += '</tr>';
+            let nonMoneyCount = dynamicCols.filter(c => !this.isMoneyColumn(c)).length;
+            let labelColspan = 2 + nonMoneyCount;
+            itemsHtml += `<tr class="font-bold"><td colspan="${labelColspan}" class="text-right">TOTAL</td>`;
+            dynamicCols.forEach((c, i) => {
+                if (!this.isMoneyColumn(c)) return;
+                let isTagihanCol = c.trim().toLowerCase() === 'tagihan';
+                let colTotal = isTagihanCol ? this.total : this.sumDynamicColumn(i);
+                itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(colTotal)}</td>`;
+            });
+            if (!hasInlineTagihan) {
+                itemsHtml += `<td class="text-right whitespace-nowrap">Rp ${this.formatRupiah(this.total)}</td>`;
             }
+            itemsHtml += '</tr>';
             itemsHtml += '</tbody></table>';
 
             // Ambil terbilang dari server jika total > 0
@@ -701,11 +616,7 @@ function memoCreator() {
             }
 
             const tgl = new Date().toLocaleDateString('id-ID');
-            const letterheadHtml = (this.form.show_letterhead && this.teamLetterhead)
-                ? `<div style="display:inline-block; font-weight:bold; font-size:16pt; line-height:1.15; text-align:center; color:#a3a7ae; letter-spacing:0.5px;">${this.escapeHtml(this.teamLetterhead).replace(/\n/g, '<br>')}</div>`
-                : '';
             this.previewHtml = `
-                ${letterheadHtml}
                 <div class="text-right text-sm">${tgl}<br>No. ${this.memoNumber ? this.escapeHtml(this.memoNumber) : '(Akan digenerate sistem saat submit)'}</div>
                 <h2 class="text-center text-xl font-bold my-3">MEMORANDUM</h2>
                 <p><strong>Kepada</strong> : ${this.escapeHtml(this.form.kepada) || '-'}</p>
@@ -788,12 +699,6 @@ function memoCreator() {
         isMoneyColumn(label) {
             label = String(label || '').toLowerCase().trim();
             return label === 'tagihan' || label.includes('pembebanan');
-        },
-        // Kolom dinamis dianggap "nominal" (perlu format Rp + titik ribuan) kalau
-        // namanya cocok heuristik backend (isMoneyColumn) ATAU user secara eksplisit
-        // mencentangnya sebagai salah satu sumber Tagihan (checkbox "+ Tagihan").
-        isMoneyCol(label, idx) {
-            return this.isMoneyColumn(label) || (idx !== undefined && idx !== null && this.tagihanSourceIndices.includes(idx));
         },
         // Jumlahkan nilai kolom dinamis ke-`colIndex` di semua baris (dipakai untuk baris TOTAL).
         sumDynamicColumn(colIndex) {

@@ -32,9 +32,6 @@
     <!-- Kanvas A4 -->
     <div class="a4-canvas">
         <div id="printMemoArea" class="a4-page" style="font-family: Verdana, Geneva, sans-serif; font-size: 10pt;">
-            @if($memo->show_letterhead && $memo->team)
-                <div style="display:inline-block; font-weight:bold; font-size:18pt; line-height:0.5; margin-bottom:6px; white-space:pre-line; text-align:center; color:#a3a7ae; letter-spacing:0.5px;">{!! nl2br(e($memo->team->resolvedLetterhead())) !!}</div>
-            @endif
             <h2 class="text-center text-2xl font-bold mb-4">MEMORANDUM</h2>
 
             <table class="meta-table" style="border-collapse:collapse; margin-bottom:4px;">
@@ -88,7 +85,7 @@
                             @if($col['type'] === 'group')
                                 <th class="text-center" colspan="2">{{ $col['label'] }}</th>
                             @else
-                                @php $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($col['label']) || in_array($col['label'], $memo->tagihan_source_column ?? []); @endphp
+                                @php $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($col['label']); @endphp
                                 <th class="{{ $isMoney ? 'whitespace-nowrap text-center' : 'text-center' }}" rowspan="{{ $hasGroups ? 2 : 1 }}">{{ $col['label'] }}</th>
                             @endif
                         @endforeach
@@ -116,10 +113,10 @@
                         @php $dyn = is_array($item->dynamic_columns) ? $item->dynamic_columns : []; @endphp
                         @foreach($dynamicColumns as $i => $colName)
                             @php
-                                $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName) || in_array($colName, $memo->tagihan_source_column ?? []);
+                                $isMoney = \App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName);
                                 $rawVal = $dyn[$i] ?? null;
                                 $displayVal = ($isMoney && $rawVal !== null && $rawVal !== '' && $rawVal !== '-')
-                                    ? 'Rp ' . rupiah(\App\Support\Memos\MemoItemsTableColumns::parseFormattedNumber($rawVal))
+                                    ? rupiah(\App\Support\Memos\MemoItemsTableColumns::parseFormattedNumber($rawVal))
                                     : ($rawVal ?? '-');
                             @endphp
                             <td class="{{ $isMoney ? 'whitespace-nowrap text-right' : '' }}">{{ $displayVal }}</td>
@@ -129,11 +126,10 @@
                         @endunless
                     </tr>
                     @endforeach
-                    @if($memo->show_total)
                     <tr class="font-bold">
                         <td colspan="{{ $labelColspan }}" class="text-right">TOTAL</td>
                         @foreach($dynamicColumns as $i => $colName)
-                            @continue(!\App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName) && !in_array($colName, $memo->tagihan_source_column ?? []))
+                            @continue(!\App\Support\Memos\MemoItemsTableColumns::isMoneyColumn($colName))
                             @php
                                 $isTagihanCol = strcasecmp(trim($colName), 'Tagihan') === 0;
                                 $total = $isTagihanCol ? $memo->total_amount : \App\Support\Memos\MemoItemsTableColumns::sumColumn($memo->items, $i);
@@ -144,7 +140,6 @@
                             <td class="text-right whitespace-nowrap">Rp {{ rupiah($memo->total_amount) }}</td>
                         @endunless
                     </tr>
-                    @endif
                 </tbody>
             </table>
 

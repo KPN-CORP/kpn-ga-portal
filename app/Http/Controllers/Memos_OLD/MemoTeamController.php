@@ -62,22 +62,6 @@ class MemoTeamController extends Controller
         return redirect()->route('memo-teams.index')->with('success', 'Tim dihapus');
     }
 
-    /**
-     * Set teks letterhead/kop tim ini (mis. "HC Corporate"). Otomatis dipakai
-     * di kop semua memo tim ini (selama toggle "Tampilkan Letterhead" di memo
-     * yang bersangkutan aktif).
-     */
-    public function updateLetterhead(Request $request, MemoTeam $memoTeam)
-    {
-        $request->validate([
-            'letterhead_text' => 'nullable|string|max:500',
-        ]);
-
-        $memoTeam->update(['letterhead_text' => $request->letterhead_text]);
-
-        return back()->with('success', 'Letterhead tim diperbarui');
-    }
-
     // ---------- Kelola admin dalam tim ----------
 
     public function addAdmin(Request $request, MemoTeam $memoTeam)

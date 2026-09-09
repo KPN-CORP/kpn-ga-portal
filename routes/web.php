@@ -653,52 +653,65 @@ Route::middleware(['auth'])->group(function () {
             });
         });
 
-    Route::middleware(['auth'])->group(function () {
-        // Import Excel & export HARUS didaftarkan sebelum Route::resource('memos', ...)
-        // supaya path "memos/import" & "memos/export" tidak ketangkep sebagai {memo}.
-        Route::get('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'importForm'])->name('memos.import.form');
-        Route::post('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'import'])->name('memos.import.store');
-        Route::get('memos/export', [\App\Http\Controllers\Memos\MemosController::class, 'export'])->name('memos.export');
+        Route::middleware(['auth'])->group(function () {
+            // Import Excel & export HARUS didaftarkan sebelum Route::resource('memos', ...)
+            // supaya path "memos/import" & "memos/export" tidak ketangkep sebagai {memo}.
+            Route::get('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'importForm'])->name('memos.import.form');
+            Route::post('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'import'])->name('memos.import.store');
+            Route::get('memos/export', [\App\Http\Controllers\Memos\MemosController::class, 'export'])->name('memos.export');
 
-        Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
-        Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
-        Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
-        Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
-        Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
+            Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
+            Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
+            Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
+            Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
+            Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
 
-        // Preview HTML (isinya sama persis dengan PDF): dipakai iframe di show.blade.php (memo tersimpan)
-        // dan create.blade.php (data form yang belum disimpan, live).
-        Route::get('/memos/{memo}/preview', [\App\Http\Controllers\Memos\MemosController::class, 'preview'])->name('memos.preview');
-        Route::post('/memos/preview', [\App\Http\Controllers\Memos\MemosController::class, 'previewLive'])->name('memos.preview.live');
+            // Preview HTML (isinya sama persis dengan PDF): dipakai iframe di show.blade.php (memo tersimpan)
+            // dan create.blade.php (data form yang belum disimpan, live).
+            Route::get('/memos/{memo}/preview', [\App\Http\Controllers\Memos\MemosController::class, 'preview'])->name('memos.preview');
+            Route::post('/memos/preview', [\App\Http\Controllers\Memos\MemosController::class, 'previewLive'])->name('memos.preview.live');
 
-        Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
-        Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
-        Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');
-        Route::put('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'update'])->name('memo-templates.update');
-        Route::delete('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
-        // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
-        Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'index'])->name('memo-teams.index');
-            Route::get('/create', [\App\Http\Controllers\Memos\MemoTeamController::class, 'create'])->name('memo-teams.create');
-            Route::post('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'store'])->name('memo-teams.store');
-            Route::get('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'show'])->name('memo-teams.show');
-            Route::delete('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'destroy'])->name('memo-teams.destroy');
+            Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
+            Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
+            Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');
+            Route::put('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'update'])->name('memo-templates.update');
+            Route::delete('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
 
-            Route::post('/{memoTeam}/admins', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addAdmin'])->name('memo-teams.admins.add');
-            Route::delete('/{memoTeam}/admins/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeAdmin'])->name('memo-teams.admins.remove');
-            Route::patch('/{memoTeam}/admins/{user}/jabatan', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateAdminJabatan'])->name('memo-teams.admins.jabatan');
+            // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
+            Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'index'])->name('memo-teams.index');
+                Route::get('/create', [\App\Http\Controllers\Memos\MemoTeamController::class, 'create'])->name('memo-teams.create');
+                Route::post('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'store'])->name('memo-teams.store');
+                Route::get('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'show'])->name('memo-teams.show');
+                Route::delete('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'destroy'])->name('memo-teams.destroy');
 
-            Route::post('/{memoTeam}/members', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addMember'])->name('memo-teams.members.add');
-            Route::delete('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeMember'])->name('memo-teams.members.remove');
-            Route::patch('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateMemberAdmin'])->name('memo-teams.members.update-admin');
+                // ===== REVISI: Rute letterhead =====
+                // 1. Menampilkan halaman letterhead (GET) — tanpa duplikasi segmen
+                Route::get('/{memoTeam}/letterhead', [\App\Http\Controllers\Memos\MemoTeamController::class, 'letterhead'])
+                    ->name('memo-teams.letterhead');
+
+                // 2. Menyimpan perubahan letterhead (PATCH)
+                Route::patch('/{memoTeam}/letterhead', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateLetterhead'])
+                    ->name('memo-teams.letterhead.update');
+
+                // Kelola admin dalam tim
+                Route::post('/{memoTeam}/admins', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addAdmin'])->name('memo-teams.admins.add');
+                Route::delete('/{memoTeam}/admins/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeAdmin'])->name('memo-teams.admins.remove');
+                Route::patch('/{memoTeam}/admins/{user}/jabatan', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateAdminJabatan'])->name('memo-teams.admins.jabatan');
+
+                // Kelola anggota tim
+                Route::post('/{memoTeam}/members', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addMember'])->name('memo-teams.members.add');
+                Route::delete('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeMember'])->name('memo-teams.members.remove');
+                Route::patch('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateMemberAdmin'])->name('memo-teams.members.update-admin');
+            });
+
+            // Setting nomor memo (superadmin)
+            Route::middleware(['memo.superadmin'])->prefix('memo-number-settings')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'index'])->name('memo-number-settings.index');
+                Route::post('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'store'])->name('memo-number-settings.store');
+                Route::patch('/{memoNumberSetting}/counter', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'updateCounter'])->name('memo-number-settings.counter');
+            });
         });
-
-        Route::middleware(['memo.superadmin'])->prefix('memo-number-settings')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'index'])->name('memo-number-settings.index');
-            Route::post('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'store'])->name('memo-number-settings.store');
-            Route::patch('/{memoNumberSetting}/counter', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'updateCounter'])->name('memo-number-settings.counter');
-        });
-    });
 
     Route::middleware(['auth'])->prefix('feedbacks')->name('feedbacks.')->group(function () {
         Route::get('/', [FeedbackController::class, 'index'])->name('index');
