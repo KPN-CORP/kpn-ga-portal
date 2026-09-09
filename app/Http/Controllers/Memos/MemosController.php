@@ -7,6 +7,7 @@ use App\Models\Memos\Memos;
 use App\Models\Memos\MemosItems;
 use App\Models\Memos\MemosAttachments;
 use App\Models\Memos\MemoNumberSetting;
+use App\Models\Memos\MemoRevision;
 use App\Models\ApiEmpHcis;
 use App\Support\Memos\MemoImportProfiles;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class MemosController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Memos::viewable(auth()->user())->with(['creator', 'attachments']);
+        $query = Memos::viewable(auth()->user())->with(['creator', 'attachments', 'revisions.revisedBy']);
         $this->applyDateFilter($query, $request);
 
         $memos = $query->latest()->paginate(15)->withQueryString();
@@ -45,13 +46,15 @@ class MemosController extends Controller
     }
 
     /**
-     * Form edit, hanya untuk memo berstatus draft milik user yang bersangkutan
-     * (otorisasi 'update' sudah dicek lewat authorizeResource di constructor).
+     * Form edit — draft (belum bernomor) maupun submitted (revisi memo yang
+     * sudah bernomor) bisa dibuka lewat sini, selama itu memo milik user
+     * yang bersangkutan (otorisasi 'update' sudah dicek lewat authorizeResource
+     * di constructor).
      */
     public function edit(Memos $memo)
     {
-        if ($memo->status !== 'draft') {
-            return redirect()->route('memos.show', $memo)->with('error', 'Hanya draft yang bisa diedit');
+        if (!in_array($memo->status, ['draft', 'submitted'], true)) {
+            return redirect()->route('memos.show', $memo)->with('error', 'Memo ini tidak bisa diedit');
         }
 
         $memo->load('items', 'attachments');
@@ -122,13 +125,19 @@ class MemosController extends Controller
     }
 
     /**
-     * Update draft yang sudah ada. Kalau statusnya diubah jadi 'submitted' di sini,
-     * nomor memo otomatis digenerate (lihat event 'updating' di model Memos).
+     * Update memo. Untuk draft, perilaku sama seperti sebelumnya (bisa disimpan
+     * lagi sebagai draft atau langsung submit — nomor memo digenerate saat itu,
+     * lihat event 'updating' di model Memos).
+     *
+     * Untuk memo yang SUDAH submitted (sudah bernomor), ini jadi jalur REVISI:
+     * status & nomor memo dikunci tetap 'submitted' + nomor lama (tidak bisa
+     * ditumpangi jadi draft lagi atau ganti nomor lewat request), field lain
+     * tetap bisa diubah, dan versi lamanya otomatis dibackup ke memo_revisions.
      */
     public function update(Request $request, Memos $memo)
     {
-        if ($memo->status !== 'draft') {
-            return response()->json(['success' => false, 'message' => 'Hanya draft yang bisa diedit'], 422);
+        if (!in_array($memo->status, ['draft', 'submitted'], true)) {
+            return response()->json(['success' => false, 'message' => 'Memo ini tidak bisa diedit'], 422);
         }
 
         $request->validate([
@@ -150,12 +159,17 @@ class MemosController extends Controller
 
         $dynamicColumns = $this->decodeDynamicColumns($request);
 
+        // Memo yang sudah submitted tidak boleh ditumpangi jadi draft lagi lewat
+        // form edit yang sama — statusnya dikunci tetap 'submitted'.
+        $isRevisionOfSubmitted = $memo->status === 'submitted';
+        $targetStatus = $isRevisionOfSubmitted ? 'submitted' : $request->status;
+
         DB::beginTransaction();
         try {
             $total = collect($items)->sum('tagihan');
             $signer = MemoNumberSetting::resolveSigner(auth()->user());
 
-            $memo->update([
+            $newValues = [
                 'perihal'       => $request->perihal,
                 'kepada'        => $request->kepada,
                 'dari'          => $request->dari,
@@ -168,18 +182,27 @@ class MemosController extends Controller
                 'penandatangan' => $signer['penandatangan'],
                 'jabatan'       => $signer['jabatan'],
                 'total_amount'  => $total,
-                'status'        => $request->status,
+                'status'        => $targetStatus,
                 'dynamic_columns_definition' => $dynamicColumns,
                 'keterangan_label' => $request->keteranganLabel,
-                'expires_at'    => $request->status === 'draft' ? now()->addHours(24) : null
-            ]);
+                // Draft dapat masa expired 24 jam; memo submitted (termasuk saat
+                // direvisi) tidak pernah expired.
+                'expires_at'    => $targetStatus === 'draft' ? now()->addHours(24) : null
+            ];
+
+            // Backup versi sebelumnya + catat log SEBELUM perubahan disimpan,
+            // supaya kalau ada yang perlu dibalikin datanya masih utuh.
+            $this->backupBeforeUpdate($memo, $newValues);
+
+            $memo->update($newValues);
 
             $memo->items()->delete();
             $this->syncItems($memo, $items);
             $this->storeAttachments($request, $memo);
 
             DB::commit();
-            return response()->json(['success' => true, 'memo_id' => $memo->id, 'message' => 'Memo diperbarui']);
+            $message = $isRevisionOfSubmitted ? 'Revisi memo tersimpan' : 'Memo diperbarui';
+            return response()->json(['success' => true, 'memo_id' => $memo->id, 'message' => $message]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -188,7 +211,7 @@ class MemosController extends Controller
 
     public function show(Memos $memo)
     {
-        $memo->load('items', 'attachments', 'creator');
+        $memo->load('items', 'attachments', 'creator', 'revisions.revisedBy');
         return view('Memos.Memos.show', compact('memo'));
     }
 
@@ -554,6 +577,68 @@ class MemosController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * Field yang ditampilkan di ringkasan log revisi, beserta label untuk UI.
+     * (dynamic_columns_definition & expires_at sengaja tidak dimasukkan karena
+     * bukan informasi yang perlu ditonjolkan ke pengguna).
+     */
+    private const REVISION_LOGGED_FIELDS = [
+        'perihal'           => 'Perihal',
+        'kepada'            => 'Kepada',
+        'dari'              => 'Dari',
+        'instruksi'         => 'Instruksi',
+        'bank'              => 'Bank',
+        'atas_nama'         => 'Atas Nama',
+        'no_rek'            => 'No. Rekening',
+        'total_amount'      => 'Total Tagihan',
+        'status'            => 'Status',
+        'keterangan_label'  => 'Label Keterangan',
+    ];
+
+    /**
+     * Simpan snapshot memo (versi SEBELUM diupdate) + ringkasan field yang
+     * berubah ke tabel memo_revisions. Dipanggil di dalam transaction yang
+     * sama dengan update(), sebelum $memo->update() dieksekusi.
+     */
+    private function backupBeforeUpdate(Memos $memo, array $newValues): void
+    {
+        $memo->loadMissing('items', 'attachments');
+
+        $snapshot = collect($memo->toArray())->only([
+            'memo_number', 'perihal', 'kepada', 'dari', 'instruksi', 'bank',
+            'atas_nama', 'no_rek', 'sertakan_rekening', 'paragraf_pembuka',
+            'penandatangan', 'jabatan', 'total_amount', 'status', 'business_unit',
+            'dynamic_columns_definition', 'keterangan_label', 'expires_at',
+        ])->all();
+        $snapshot['items'] = $memo->items->map(fn ($item) => collect($item->toArray())->only([
+            'nama', 'dynamic_columns', 'tagihan', 'sort_order'
+        ])->all())->values()->all();
+
+        $changedFields = [];
+        foreach (self::REVISION_LOGGED_FIELDS as $field => $label) {
+            $old = $memo->getAttribute($field);
+            $new = $newValues[$field] ?? null;
+            // total_amount dibandingkan sebagai angka supaya "100.00" vs 100 tidak dianggap berubah.
+            $isDifferent = $field === 'total_amount'
+                ? round((float) $old, 2) !== round((float) $new, 2)
+                : (string) $old !== (string) $new;
+
+            if ($isDifferent) {
+                $changedFields[$field] = ['label' => $label, 'old' => $old, 'new' => $new];
+            }
+        }
+
+        $nextRevisionNumber = ($memo->revisions()->max('revision_number') ?? 0) + 1;
+
+        MemoRevision::create([
+            'memo_id'         => $memo->id,
+            'revision_number' => $nextRevisionNumber,
+            'snapshot'        => $snapshot,
+            'changed_fields'  => $changedFields,
+            'revised_by'      => auth()->id(),
+        ]);
     }
 
     /**

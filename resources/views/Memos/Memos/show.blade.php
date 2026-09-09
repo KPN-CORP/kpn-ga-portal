@@ -9,14 +9,16 @@
         <a href="{{ route('memos.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700">
             <i class="fas fa-arrow-left mr-2"></i> Kembali
         </a>
-        @if($memo->status === 'draft' && $memo->created_by == auth()->id())
+        @if(in_array($memo->status, ['draft', 'submitted']) && $memo->created_by == auth()->id())
             <div class="flex gap-2">
                 <a href="{{ route('memos.edit', $memo) }}" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg">
-                    <i class="fas fa-pen mr-2"></i> Edit Draft
+                    <i class="fas fa-pen mr-2"></i> {{ $memo->status === 'draft' ? 'Edit Draft' : 'Revisi Memo' }}
                 </a>
+                @if($memo->status === 'draft')
                 <button @click="showDeleteModal = true" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg">
                     <i class="fas fa-trash-alt mr-2"></i> Hapus Draft
                 </button>
+                @endif
             </div>
         @endif
     </div>
@@ -195,6 +197,52 @@
     </div>
     @endif
 
+    <!-- Riwayat Revisi -->
+    @if($memo->revisions->count())
+    <div class="mt-6 border-t pt-4 no-print" x-data="{ openRev: null }">
+        <h3 class="font-bold flex items-center gap-2"><i class="fas fa-clock-rotate-left"></i> Riwayat Revisi ({{ $memo->revisions->count() }})</h3>
+        <ul class="space-y-2 mt-2">
+            @foreach($memo->revisions as $rev)
+            <li class="bg-gray-50 rounded-lg">
+                <button type="button" @click="openRev = (openRev === {{ $rev->id }} ? null : {{ $rev->id }})"
+                    class="w-full flex justify-between items-center p-3 text-left">
+                    <span class="text-sm">
+                        <span class="font-semibold">Revisi #{{ $rev->revision_number }}</span>
+                        <span class="text-gray-500"> — {{ $rev->created_at->timezone('Asia/Jakarta')->format('d-m-Y H:i') }} WIB oleh {{ optional($rev->revisedBy)->name ?? '—' }}</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-gray-400 text-xs" :class="openRev === {{ $rev->id }} ? 'rotate-180' : ''"></i>
+                </button>
+                <div x-show="openRev === {{ $rev->id }}" x-cloak class="px-3 pb-3 text-sm">
+                    @if(!empty($rev->changed_fields))
+                        <table class="w-full text-xs border-collapse mb-2">
+                            <thead>
+                                <tr class="text-left text-gray-500">
+                                    <th class="pr-2 py-1">Field</th>
+                                    <th class="pr-2 py-1">Sebelum</th>
+                                    <th class="py-1">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($rev->changed_fields as $change)
+                                <tr class="border-t">
+                                    <td class="pr-2 py-1 font-medium whitespace-nowrap">{{ $change['label'] }}</td>
+                                    <td class="pr-2 py-1 text-red-600">{{ $change['old'] ?: '—' }}</td>
+                                    <td class="py-1 text-green-700">{{ $change['new'] ?: '—' }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @else
+                        <p class="text-gray-500 text-xs mb-2">Tidak ada perubahan pada field utama (kemungkinan hanya rincian item/lampiran yang berubah).</p>
+                    @endif
+                    <p class="text-gray-400 text-xs">Data lengkap versi ini (termasuk rincian item) tersimpan sebagai backup di sistem.</p>
+                </div>
+            </li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
     <!-- Modal Hapus -->
     <div x-show="showDeleteModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm" x-cloak>
         <div class="bg-white rounded-xl max-w-md w-full p-6">
@@ -237,6 +285,11 @@
             <p class="mb-2">
                 Memo ini masih <strong>draft</strong> — gunakan "Edit Draft" untuk mengubah isinya,
                 atau "Hapus Draft" untuk membatalkan.
+            </p>
+            @elseif($memo->status === 'submitted' && $memo->created_by == auth()->id())
+            <p class="mb-2">
+                Perlu perbaikan? Gunakan "Revisi Memo" — nomor memo dan status memo tetap sama,
+                versi sebelumnya otomatis tersimpan di "Riwayat Revisi" di bawah.
             </p>
             @endif
             @if($memo->attachments->count())

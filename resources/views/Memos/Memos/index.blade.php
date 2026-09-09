@@ -109,13 +109,46 @@
                                 <span class="px-2 py-1 rounded-full text-xs {{ $memo->status=='draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800' }}">
                                     {{ $memo->status=='draft' ? 'Draf' : 'Tersimpan' }}
                                 </span>
+                                @if($memo->revisions->count())
+                                    <div x-data="{ open: false }" class="relative flex justify-center">
+                                        <button @click="open = !open" @click.outside="open = false"
+                                            class="flex items-center gap-1 text-gray-500 hover:text-purple-600" title="Riwayat Revisi">
+                                            <i class="fas fa-clock-rotate-left"></i>
+                                            <span class="text-xs">{{ $memo->revisions->count() }}</span>
+                                        </button>
+                                        <div x-show="open" x-cloak x-transition
+                                            class="absolute right-0 top-6 z-20 w-72 bg-white border rounded-lg shadow-lg p-2 text-left">
+                                            <p class="text-xs font-semibold text-gray-500 px-1 pb-1 border-b mb-1">Riwayat Revisi</p>
+                                            <ul class="max-h-56 overflow-y-auto divide-y">
+                                                @foreach($memo->revisions as $rev)
+                                                <li class="px-1 py-1.5 text-xs text-gray-700">
+                                                    <div class="flex justify-between items-center">
+                                                        <span class="font-medium">Revisi #{{ $rev->revision_number }}</span>
+                                                        <span class="text-gray-400">{{ $rev->created_at->timezone('Asia/Jakarta')->format('d-m-Y H:i') }}</span>
+                                                    </div>
+                                                    <div class="text-gray-500">oleh {{ optional($rev->revisedBy)->name ?? '—' }}</div>
+                                                    @if(!empty($rev->changed_fields))
+                                                        <ul class="mt-1 list-disc list-inside text-gray-500">
+                                                            @foreach($rev->changed_fields as $change)
+                                                                <li>{{ $change['label'] }} diubah</li>
+                                                            @endforeach
+                                                        </ul>
+                                                    @endif
+                                                </li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                    </div>
+                                @endif
                                 <a href="{{ route('memos.show', $memo) }}" class="text-blue-600 hover:text-blue-800">
                                     <i class="fas fa-eye"></i> Lihat
                                 </a>
-                                @if($memo->status === 'draft' && $memo->created_by == auth()->id())
+                                @if(in_array($memo->status, ['draft', 'submitted']) && $memo->created_by == auth()->id())
                                     <a href="{{ route('memos.edit', $memo) }}" class="text-amber-600 hover:text-amber-800">
-                                        <i class="fas fa-pen"></i> Edit
+                                        <i class="fas fa-pen"></i> {{ $memo->status === 'draft' ? 'Edit' : 'Revisi' }}
                                     </a>
+                                @endif
+                                @if($memo->status === 'draft' && $memo->created_by == auth()->id())
                                     <form action="{{ route('memos.destroy', $memo) }}" method="POST" onsubmit="return confirm('Hapus draft ini?')">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="text-red-500 hover:text-red-700">

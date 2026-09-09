@@ -58,6 +58,15 @@ class Memos extends Model
         return $this->hasMany(MemosAttachments::class, 'memo_id');
     }
 
+    /**
+     * Riwayat revisi (backup versi sebelumnya + log siapa/kapan berubah),
+     * diurutkan dari yang paling baru.
+     */
+    public function revisions()
+    {
+        return $this->hasMany(MemoRevision::class, 'memo_id')->orderByDesc('revision_number');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

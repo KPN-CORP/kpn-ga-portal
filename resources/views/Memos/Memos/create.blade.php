@@ -1,11 +1,11 @@
 @extends('layouts.app_memos')
-@section('title', isset($memo) ? 'Edit Draft Memo' : 'Buat Memo Baru')
+@section('title', isset($memo) ? ($memo->status === 'submitted' ? 'Revisi Memo' : 'Edit Draft Memo') : 'Buat Memo Baru')
 @section('content')
 <div x-data="memoCreator()" x-init="init()" class="w-full px-2 md:px-4">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <!-- Panel Form -->
         <div class="bg-white rounded-xl shadow-sm p-5">
-            <h2 class="text-xl font-bold mb-4">📝 {{ isset($memo) ? 'Edit Draft Memo' : 'Buat E-Memo' }}</h2>
+            <h2 class="text-xl font-bold mb-4">📝 {{ isset($memo) ? ($memo->status === 'submitted' ? 'Revisi Memo ' . $memo->memo_number : 'Edit Draft Memo') : 'Buat E-Memo' }}</h2>
 
             <!-- Template Tim -->
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
@@ -159,11 +159,18 @@
             </div>
 
             <!-- Tombol Aksi -->
-            <div class="flex gap-3 mt-6">
-                <button @click="saveMemo('draft')" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition">💾 Simpan Draft</button>
-                <button @click="saveMemo('submitted')" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">✅ Simpan & Submit</button>
-            </div>
-            <p class="text-xs text-gray-400 text-center mt-3">Draft belum mendapat nomor memo. Nomor otomatis dibuat saat memo disubmit. Draft akan otomatis dihapus setelah 24 jam bila tidak diperbarui.</p>
+            @if(isset($memo) && $memo->status === 'submitted')
+                <div class="flex gap-3 mt-6">
+                    <button @click="saveMemo('submitted')" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">💾 Simpan Revisi</button>
+                </div>
+                <p class="text-xs text-gray-400 text-center mt-3">Nomor memo &amp; status tetap sama ({{ $memo->memo_number }}). Versi sebelumnya otomatis tersimpan di Riwayat Revisi.</p>
+            @else
+                <div class="flex gap-3 mt-6">
+                    <button @click="saveMemo('draft')" class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition">💾 Simpan Draft</button>
+                    <button @click="saveMemo('submitted')" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">✅ Simpan &amp; Submit</button>
+                </div>
+                <p class="text-xs text-gray-400 text-center mt-3">Draft belum mendapat nomor memo. Nomor otomatis dibuat saat memo disubmit. Draft akan otomatis dihapus setelah 24 jam bila tidak diperbarui.</p>
+            @endif
         </div>
 
         <!-- Preview Panel -->
@@ -251,6 +258,7 @@
 function memoCreator() {
     return {
         memoId: {{ isset($memo) ? $memo->id : 'null' }},
+        memoNumber: @json(isset($memo) ? $memo->memo_number : null),
         signer: @json($signer),
         form: {
             kepada: @json(isset($memo) ? $memo->kepada : ''),
@@ -609,7 +617,7 @@ function memoCreator() {
 
             const tgl = new Date().toLocaleDateString('id-ID');
             this.previewHtml = `
-                <div class="text-right text-sm">${tgl}<br>No. (Akan digenerate sistem saat submit)</div>
+                <div class="text-right text-sm">${tgl}<br>No. ${this.memoNumber ? this.escapeHtml(this.memoNumber) : '(Akan digenerate sistem saat submit)'}</div>
                 <h2 class="text-center text-xl font-bold my-3">MEMORANDUM</h2>
                 <p><strong>Kepada</strong> : ${this.escapeHtml(this.form.kepada) || '-'}</p>
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
