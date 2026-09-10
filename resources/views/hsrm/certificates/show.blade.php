@@ -38,7 +38,22 @@
         </div>
         <div>
             <label class="text-sm text-gray-500">Expired Date</label>
-            <p class="font-medium">{{ $cert->expired_date ? $cert->expired_date->format('d M Y') : '-' }}</p>
+            @if($cert->expired_date)
+                @php
+                    $isExpired = $cert->expired_date->isPast();
+                    $isNearExpiry = !$isExpired && $cert->expired_date->lte(now()->addDays(30));
+                @endphp
+                <p class="font-medium">
+                    <span class="inline-block px-2 py-1 rounded text-sm
+                        @if($isExpired) bg-red-100 text-red-700
+                        @elseif($isNearExpiry) bg-yellow-100 text-yellow-700
+                        @else text-gray-800 @endif">
+                        {{ $cert->expired_date->format('d M Y') }}
+                    </span>
+                </p>
+            @else
+                <p class="font-medium">-</p>
+            @endif
         </div>
         <div>
             <label class="text-sm text-gray-500">Verification Status</label>

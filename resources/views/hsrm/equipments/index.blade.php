@@ -99,7 +99,22 @@
                 <td class="p-3">{{ $eq->location ?? '-' }}</td>
                 <td class="p-3">{{ $eq->capacity }}</td>
                 <td class="p-3">{{ $eq->total_items ?? 1 }}</td>
-                <td class="p-3">{{ $eq->expired_date ? $eq->expired_date->format('d M Y') : '-' }}</td>
+                <td class="p-3">
+                    @if($eq->expired_date)
+                        @php
+                            $isExpired = $eq->expired_date->isPast();
+                            $isNearExpiry = !$isExpired && $eq->expired_date->lte(now()->addDays(30));
+                        @endphp
+                        <span class="inline-block px-2 py-1 rounded text-xs font-semibold
+                            @if($isExpired) bg-red-100 text-red-700
+                            @elseif($isNearExpiry) bg-yellow-100 text-yellow-700
+                            @else text-gray-700 @endif">
+                            {{ $eq->expired_date->format('d M Y') }}
+                        </span>
+                    @else
+                        -
+                    @endif
+                </td>
                 <td class="p-3">
                     <span class="status-badge 
                         @if($eq->status_verif == 'pending') status-pending
@@ -187,7 +202,20 @@
             </div>
             <div>
                 <span class="text-gray-500">Expired:</span>
-                <span class="font-medium">{{ $eq->expired_date ? $eq->expired_date->format('d M Y') : '-' }}</span>
+                @if($eq->expired_date)
+                    @php
+                        $isExpired = $eq->expired_date->isPast();
+                        $isNearExpiry = !$isExpired && $eq->expired_date->lte(now()->addDays(30));
+                    @endphp
+                    <span class="font-medium inline-block px-2 py-0.5 rounded text-xs
+                        @if($isExpired) bg-red-100 text-red-700
+                        @elseif($isNearExpiry) bg-yellow-100 text-yellow-700
+                        @else text-gray-800 @endif">
+                        {{ $eq->expired_date->format('d M Y') }}
+                    </span>
+                @else
+                    <span class="font-medium">-</span>
+                @endif
             </div>
             <div>
                 <span class="text-gray-500">Ownership:</span>

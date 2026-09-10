@@ -302,7 +302,9 @@
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="p-3 text-left">Certificate Type</th>
+                        @if($isAdmin)
                         <th class="p-3 text-center">Regulatory</th>
+                        @endif
                         <th class="p-3 text-center">Quota</th>
                         <th class="p-3 text-center">Active</th>
                         <th class="p-3 text-center">Expired</th>
@@ -318,15 +320,15 @@
                     @foreach($certificateData as $row)
                     <tr data-id="{{ $row->type->id }}" data-module="certificate"
                         data-quota="{{ $row->quota }}" data-budget="{{ $row->budget ?? '' }}"
-                        data-regulatory="{{ $row->regulatory ?? '' }}"
+                        @if($isAdmin) data-regulatory="{{ $row->regulatory ?? '' }}" @endif
                         data-application-type="{{ $row->application_type ?? '' }}">
                         <td class="p-3">{{ $row->type->name }}</td>
+                        @if($isAdmin)
                         <td class="p-3 text-center regulatory-cell">
                             <span class="regulatory-readonly">{{ $row->regulatory ?? '-' }}</span>
-                            @if($isAdmin)
                             <input type="text" name="regulatory" value="{{ $row->regulatory ?? '' }}" class="regulatory-input hidden" maxlength="50">
-                            @endif
                         </td>
+                        @endif
                         <td class="p-3 text-center quota-cell">
                             <span class="quota-readonly">{{ $row->quota }}</span>
                             @if($isAdmin)
