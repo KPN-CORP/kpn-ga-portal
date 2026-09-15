@@ -16,9 +16,26 @@ use Illuminate\Support\Facades\Auth;
 class FuelLogController extends Controller
 {
     /**
+     * Mapping company_group (AMS) -> business_unit_id (DRMS), lihat
+     * Manual Book v3.0 bagian 4. Dipakai supaya param business_unit_id
+     * juga menerima kode grup (mis. "CORP"), bukan cuma angka.
+     */
+    private const BU_GROUP_MAP = [
+        'CORP' => 1,
+        'CMT'  => 2,
+        'PTY'  => 3,
+        'PLT'  => 4,
+        'DWS'  => 5,
+    ];
+
+    /**
      * GET /api/v1/fuel-logs
      * Query params opsional:
      * - plate_number   : filter plat nomor (boleh sebagian, mis. "1234")
+     * - business_unit_id : filter 1 business unit — angka (1-5) atau kode
+     *                      grup AMS (CORP/CMT/PTY/PLT/DWS). Token
+     *                      non-superadmin cuma boleh minta BU miliknya
+     *                      sendiri (kalau dikirim BU lain -> 403).
      * - updated_since   : ISO date/datetime, cuma tampilkan yang diupdate sejak tanggal itu
      * - is_verified     : 1 / 0, filter status verifikasi
      * - date_from / date_to : filter filling_date
@@ -28,7 +45,7 @@ class FuelLogController extends Controller
     {
         $query = FuelLog::with('vehicle');
 
-        $buId = $this->getBusinessUnitId();
+        $buId = $this->resolveBusinessUnitId($request);
         if ($buId) {
             $query->whereHas('vehicle', fn ($q) => $q->where('business_unit_id', $buId));
         }
@@ -77,12 +94,37 @@ class FuelLogController extends Controller
         return (new FuelLogResource($fuelLog))->response();
     }
 
-    private function getBusinessUnitId()
+    /**
+     * BARU: sebelumnya method ini (getBusinessUnitId) SELALU mengambil BU
+     * dari akun token sendiri dan mengabaikan total query param apa pun.
+     * Ini sebabnya param business_unit_id yang dikirim AMS tidak pernah
+     * berefek — token integrasi AMS adalah superadmin (getBusinessUnitId
+     * lama return null = tanpa filter = semua BU ikut kebawa).
+     *
+     * Sekarang: kalau param business_unit_id dikirim, dipakai (setelah
+     * divalidasi/di-resolve dari kode grup kalau perlu). Token
+     * non-superadmin tetap dibatasi ke BU miliknya sendiri saja.
+     */
+    private function resolveBusinessUnitId(Request $request)
     {
         $user = Auth::user();
-        if ($user->isDrmsSuperAdmin()) {
-            return null;
+        $ownBuId = $user->isDrmsSuperAdmin() ? null : ($user->drmsProfile->business_unit_id ?? null);
+
+        if (! $request->filled('business_unit_id')) {
+            return $ownBuId;
         }
-        return $user->drmsProfile->business_unit_id ?? null;
+
+        $raw = $request->business_unit_id;
+        $requested = is_numeric($raw)
+            ? (int) $raw
+            : (self::BU_GROUP_MAP[strtoupper(trim($raw))] ?? null);
+
+        abort_if($requested === null, 422, 'business_unit_id tidak dikenali. Gunakan angka 1-5 atau kode: ' . implode('/', array_keys(self::BU_GROUP_MAP)));
+
+        if (! $user->isDrmsSuperAdmin() && $requested !== $ownBuId) {
+            abort(403, 'business_unit_id di luar akses token ini.');
+        }
+
+        return $requested;
     }
 }

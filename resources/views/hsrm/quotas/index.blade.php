@@ -483,10 +483,8 @@
                             <span class="dropdown-readonly">{{ $row->application_type ?? '-' }}</span>
                             <select name="application_type" class="dropdown-input hidden">
                                 <option value="">-- Select --</option>
-                                <option value="Extension Application" {{ $row->application_type == 'Extension Application' ? 'selected' : '' }}>Extension Application</option>
-                                <option value="Certification Application" {{ $row->application_type == 'Certification Application' ? 'selected' : '' }}>Certification Application</option>
-                                <option value="License Application" {{ $row->application_type == 'License Application' ? 'selected' : '' }}>License Application</option>
-                                <option value="Amendment & Extension Application" {{ $row->application_type == 'Amendment & Extension Application' ? 'selected' : '' }}>Amendment & Extension Application</option>
+                                <option value="Unit Addition" {{ $row->application_type == 'Unit Addition' ? 'selected' : '' }}>Unit Addition</option>
+                                <option value="Fire extinguisher recharge" {{ $row->application_type == 'Fire extinguisher recharge' ? 'selected' : '' }}>Fire extinguisher recharge</option>
                             </select>
                         </td>
                         <td class="p-3 text-center action-cell">

@@ -56,10 +56,21 @@
         </div>
 
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Upload Struk (biarkan kosong jika tidak mengganti)</label>
-            <input type="file" name="receipt_file" accept="image/*" capture="environment" class="w-full border rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            <label class="block text-sm font-medium text-gray-700">
+                Upload Struk
+                @if($log->receipt_file)
+                    <span class="text-gray-400 font-normal">(biarkan kosong jika tidak mengganti)</span>
+                @else
+                    <span class="text-red-500">*</span>
+                @endif
+            </label>
+            <input type="file" name="receipt_file" accept="image/*" capture="environment"
+                   @if(!$log->receipt_file) required @endif
+                   class="w-full border rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
             @if($log->receipt_file)
                 <a href="{{ route('drms.private.image', $log->receipt_file) }}" target="_blank" class="text-blue-600 text-sm">Lihat struk saat ini</a>
+            @else
+                <p class="text-xs text-red-500 mt-1">Log ini belum punya foto struk, wajib diupload.</p>
             @endif
         </div>
 

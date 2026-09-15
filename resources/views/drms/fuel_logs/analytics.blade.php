@@ -127,21 +127,124 @@
     </div>
     @endif
 
-    {{-- TABEL PER KENDARAAN --}}
+    {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) + ESTIMASI KE DEPAN --}}
+    @if($vehicleDetail)
+    <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
+        <h3 class="font-semibold text-gray-700 mb-1">🔍 Riwayat Pengisian — {{ $vehicleDetail['vehicle']->plate_number }}</h3>
+        <p class="text-xs text-gray-400 mb-3">Tidak dirangkum jadi rata-rata saja — tiap baris membandingkan pengisian sebelumnya dengan pengisian sekarang.</p>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pengisian Sebelumnya</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pengisian Sekarang</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jarak (km)</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ $vehicleDetail['fuel_unit_label'] }} Diisi</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Biaya</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Deviasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($vehicleDetail['rows'] as $row)
+                    @php
+                        $rowBg = match($row['warning_level'] ?? null) {
+                            'red' => 'bg-red-50',
+                            'yellow' => 'bg-yellow-50',
+                            default => '',
+                        };
+                    @endphp
+                    <tr class="border-t {{ $rowBg }}">
+                        <td class="px-4 py-2 text-gray-500">
+                            @if($row['previous_date'])
+                                {{ $row['previous_date']->format('d M Y') }}<br>
+                                <span class="text-xs text-gray-400">odo {{ number_format($row['previous_odometer'], 0, ',', '.') }} km</span>
+                            @else
+                                <span class="text-gray-400 italic">Pengisian pertama</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 font-medium">
+                            {{ $row['current_date']->format('d M Y') }}<br>
+                            <span class="text-xs text-gray-400 font-normal">odo {{ number_format($row['current_odometer'], 0, ',', '.') }} km</span>
+                        </td>
+                        <td class="px-4 py-2">
+                            @if($row['distance'] !== null)
+                                {{ number_format($row['distance'], 0, ',', '.') }}
+                            @else
+                                <span class="text-gray-400">-</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">{{ number_format($row['liters'], 2, ',', '.') }}</td>
+                        <td class="px-4 py-2">Rp {{ number_format($row['cost'], 0, ',', '.') }}</td>
+                        <td class="px-4 py-2">
+                            @if($row['efficiency'] !== null)
+                                {{ number_format($row['efficiency'], 2) }} {{ $vehicleDetail['unit_label'] }}
+                            @else
+                                <span class="text-gray-400" title="Butuh pengisian sebelumnya untuk hitung jarak">-</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">
+                            @if($row['deviation_percent'] !== null)
+                                @if($row['warning_level'] === 'red')
+                                    <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 {{ $row['deviation_percent'] }}%</span>
+                                @elseif($row['warning_level'] === 'yellow')
+                                    <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">🟡 {{ $row['deviation_percent'] }}%</span>
+                                @else
+                                    <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢 {{ $row['deviation_percent'] }}%</span>
+                                @endif
+                            @else
+                                <span class="text-gray-400">-</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        {{-- ESTIMASI KE DEPAN --}}
+        @if($vehicleDetail['estimate'])
+            @php $est = $vehicleDetail['estimate']; @endphp
+            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 class="font-semibold text-blue-800 mb-2">🔮 Estimasi ke Depan (dari pengisian {{ $est['based_on_date']->format('d M Y') }})</h4>
+                <p class="text-sm text-blue-900 mb-2">
+                    Isi terakhir <strong>{{ number_format($est['based_on_liters'], 2, ',', '.') }} {{ $vehicleDetail['fuel_unit_label'] }}</strong>,
+                    dengan rata-rata efisiensi historis <strong>{{ number_format($est['avg_efficiency'], 2) }} {{ $vehicleDetail['unit_label'] }}</strong>,
+                    diperkirakan bisa menempuh sekitar <strong>{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km</strong> ke depan.
+                </p>
+                <p class="text-sm text-blue-900">
+                    @if($est['estimated_next_fill_date'])
+                        Berdasarkan rata-rata jarak antar pengisian (~{{ $est['avg_days_between_fills'] }} hari), pengisian berikutnya diperkirakan sekitar
+                        <strong>{{ $est['estimated_next_fill_date']->format('d M Y') }}</strong>,
+                    @else
+                        Pengisian berikutnya diperkirakan
+                    @endif
+                    dengan estimasi volume <strong>{{ number_format($est['estimated_next_liters'], 2, ',', '.') }} {{ $vehicleDetail['fuel_unit_label'] }}</strong>
+                    dan estimasi biaya <strong>Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}</strong>
+                    (pakai harga per {{ $vehicleDetail['fuel_unit_label'] }} dari pengisian terakhir).
+                </p>
+                <p class="text-xs text-blue-400 mt-2">*Estimasi kasar dari pola historis, bukan jaminan — kondisi jalan, gaya berkendara, dan beban bisa mengubah hasil aktual.</p>
+            </div>
+        @else
+            <p class="text-xs text-gray-400 mt-3">Belum cukup data (minimal 2 pengisian dengan jarak berbeda) untuk membuat estimasi ke depan.</p>
+        @endif
+    </div>
+    @else
+    <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; estimasi tiap kendaraan sudah langsung tampil di tabel di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
+    @endif
+
+    {{-- TABEL PER KENDARAAN — sudah termasuk info "isi terakhir" & "estimasi berikutnya" langsung, tanpa perlu klik --}}
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kendaraan</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rata-rata Konsumsi</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Standar</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi Aktual</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deviasi</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi vs Standar</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Isi Terakhir</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estimasi Isi Berikutnya</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Liter/kWh</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Biaya</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Jarak (km)</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah Isi</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
                 </tr>
             </thead>
             <tbody>
@@ -152,72 +255,89 @@
                         'yellow' => 'bg-yellow-50',
                         default => '',
                     };
-                    $unitLabel = ($data['fuel_type'] ?? 'Bensin') == 'Listrik' ? 'km/kWh' : 'km/L';
+                    $est = $data['estimate'] ?? null;
                 @endphp
-                <tr class="{{ $rowBg }}">
+                <tr class="{{ $rowBg }} align-top">
                     <td class="px-6 py-4 font-medium">
                         <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => $data['vehicle_id'], 'date_from' => request('date_from'), 'date_to' => request('date_to')])) }}"
                            class="text-blue-600 hover:underline">
                             {{ $data['plate_number'] }}
                         </a>
+                        <div class="text-xs text-gray-400 mt-0.5">{{ $data['fuel_type'] ?? 'Bensin' }}</div>
                     </td>
-                    <td class="px-6 py-4">
-                        @if($data['avg_consumption'] !== null)
-                            {{ number_format($data['avg_consumption'], 2) }}
-                        @else
-                            <span class="text-gray-400" title="Butuh minimal 2 riwayat pengisian untuk menghitung konsumsi">-</span>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 text-gray-500">{{ $data['efficiency_standard'] }} {{ $unitLabel }}</td>
                     <td class="px-6 py-4">
                         @if($data['actual_efficiency'] !== null)
-                            {{ number_format($data['actual_efficiency'], 2) }} {{ $unitLabel }}
+                            <div>{{ number_format($data['actual_efficiency'], 2) }} {{ $data['unit_label'] }}
+                                <span class="text-gray-400 text-xs">(standar {{ $data['efficiency_standard'] }})</span>
+                            </div>
+                            @if($data['warning_level'] === 'red')
+                                <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Boros signifikan, lebih dari 10% di bawah standar">
+                                    🔴 -{{ $data['deviation_percent'] }}%
+                                </span>
+                            @elseif($data['warning_level'] === 'yellow')
+                                <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold" title="Mulai boros, lebih dari 5% di bawah standar">
+                                    🟡 -{{ $data['deviation_percent'] }}%
+                                </span>
+                            @else
+                                <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Sesuai atau lebih baik dari standar">
+                                    🟢 Aman
+                                </span>
+                            @endif
                         @else
-                            <span class="text-gray-400">-</span>
+                            <span class="text-gray-400" title="Butuh minimal 2 riwayat pengisian untuk menghitung efisiensi">-</span>
                         @endif
                     </td>
                     <td class="px-6 py-4">
-                        @if($data['deviation_percent'] !== null)
-                            @if($data['warning_level'] === 'red')
-                                <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Boros signifikan, lebih dari 10% di bawah standar">
-                                    🔴 {{ $data['deviation_percent'] }}%
-                                </span>
-                            @elseif($data['warning_level'] === 'yellow')
-                                <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold" title="Mulai boros, lebih dari 5% di bawah standar">
-                                    🟡 {{ $data['deviation_percent'] }}%
-                                </span>
+                        @if($data['last_fill_date'])
+                            <div>{{ $data['last_fill_date']->format('d M Y') }}</div>
+                            @if($data['last_interval_distance'] !== null && $data['last_interval_efficiency'] !== null)
+                                <div class="text-xs text-gray-400">
+                                    {{ number_format($data['last_interval_distance'], 0, ',', '.') }} km
+                                    · {{ number_format($data['last_interval_efficiency'], 2) }} {{ $data['unit_label'] }}
+                                </div>
                             @else
-                                <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Sesuai atau lebih baik dari standar">
-                                    🟢 {{ $data['deviation_percent'] }}%
-                                </span>
+                                <div class="text-xs text-gray-400 italic">pengisian pertama</div>
                             @endif
                         @else
                             <span class="text-gray-400">-</span>
                         @endif
                     </td>
                     <td class="px-6 py-4">
-                        {{ number_format($data['total_liters'], 2, ',', '.') }}
-                        {{ ($data['fuel_type'] ?? 'Bensin') == 'Listrik' ? 'kWh' : 'Liter' }}
+                        @if($est)
+                            @if($est['estimated_next_fill_date'])
+                                <div>~{{ $est['estimated_next_fill_date']->format('d M Y') }}</div>
+                            @else
+                                <div class="text-gray-400 italic">tanggal blm bisa diprediksi</div>
+                            @endif
+                            <div class="text-xs text-gray-400">
+                                ~{{ number_format($est['estimated_next_liters'], 1, ',', '.') }} {{ $data['fuel_unit_label'] }}
+                                · Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}
+                            </div>
+                            <div class="text-xs text-gray-400">jarak ~{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km lagi</div>
+                        @else
+                            <span class="text-gray-400" title="Minimal 2 pengisian dengan jarak berbeda untuk membuat estimasi">-</span>
+                        @endif
+                    </td>
+                    <td class="px-6 py-4">
+                        {{ number_format($data['total_liters'], 2, ',', '.') }} {{ $data['fuel_unit_label'] }}
                     </td>
                     <td class="px-6 py-4">Rp {{ number_format($data['total_cost'], 0, ',', '.') }}</td>
-                    <td class="px-6 py-4">{{ number_format($data['total_distance'], 0, ',', '.') }}</td>
                     <td class="px-6 py-4">{{ $data['count'] }}</td>
-                    <td class="px-6 py-4">{{ $data['fuel_type'] ?? 'Bensin' }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="10" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi untuk filter ini.</td></tr>
+                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi untuk filter ini.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
     <p class="text-xs text-gray-400 mt-3">
-        Catatan: rata-rata konsumsi dihitung dari selisih odometer antar pengisian yang berurutan.
-        Liter pengisian pertama pada setiap periode tidak dihitung ke rata-rata konsumsi (karena belum ada jarak pembanding),
-        namun tetap dihitung ke Total Liter/kWh dan Total Biaya.
-        Standar efisiensi: mobil BBM 8 km/L, mobil listrik 6 km/kWh. Deviasi &gt;5% di bawah standar diberi warning kuning, &gt;10% diberi warning merah.
+        Catatan: efisiensi &amp; estimasi dihitung dari selisih odometer antar pengisian yang berurutan.
+        Standar efisiensi: mobil BBM 8 km/L, mobil listrik 6 km/kWh. Deviasi &gt;5% di bawah standar = warning kuning, &gt;10% = warning merah.
+        Klik nomor plat untuk lihat riwayat pengisian lengkap satu-satu.
     </p>
 </div>
+
 
 {{-- Autocomplete pencarian kendaraan untuk filter (tanpa dropdown) --}}
 <script>

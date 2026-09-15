@@ -247,49 +247,30 @@ class FuelLogController extends Controller
         $grouped = $logs->groupBy('vehicle_id');
         $result = [];
         foreach ($grouped as $vehicleId => $items) {
-            $vehicle = $items->first()->vehicle;
-            if (!$vehicle) continue;
+            $detail = $this->buildVehicleFillDetail($items);
+            if (!$detail) continue;
+            $vehicle = $detail['vehicle'];
 
-            // Total liter/kWh yang benar-benar dibeli pada periode ini (untuk info biaya & volume)
+            // Total liter/kWh & biaya yang benar-benar dibeli pada periode ini
             $totalLiters = $items->sum('fuel_liters');
             $totalCost = $items->sum('total_cost');
             $count = $items->count();
+            $totalDistance = (int) collect($detail['rows'])->sum('distance');
 
-            $totalDistance = 0;
-            $litersForConsumption = 0; // liter yang "berpasangan" dengan jarak tempuh (tanpa liter pengisian pertama)
-            $prevOdometer = null;
-            foreach ($items as $item) {
-                if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
-                    $totalDistance += ($item->odometer_start - $prevOdometer);
-                    // liter pengisian ini dianggap "menutup" jarak sejak pengisian sebelumnya
-                    $litersForConsumption += $item->fuel_liters;
-                }
-                $prevOdometer = $item->odometer_start;
-            }
-
-            // Konsumsi dihitung dari liter yang berpasangan dengan jarak saja,
-            // supaya tidak bias oleh liter pengisian pertama yang tidak punya jarak pembanding.
-            $avgConsumption = ($totalDistance > 0) ? round(($litersForConsumption / $totalDistance) * 100, 2) : null;
+            // Efisiensi aktual = rata-rata efisiensi per-interval (pakai baris riwayat
+            // yang sama dengan yang ditampilkan di tabel detail, biar konsisten).
+            $validRows = collect($detail['rows'])->filter(fn ($r) => $r['distance'] !== null && $r['efficiency'] !== null);
+            $actualEfficiency = $validRows->isNotEmpty() ? round($validRows->avg('efficiency'), 2) : null;
 
             // ===== Skema standar efisiensi =====
-            // Mobil BBM  : 8 km/L
-            // Mobil Listrik : 6 km/kWh
-            // avg_consumption di atas satuannya liter (atau kWh) per 100 km, jadi
-            // dikonversi dulu ke km per liter/kWh (actual_efficiency) supaya bisa
-            // dibandingkan langsung dengan standar di atas.
+            // Mobil BBM  : 8 km/L, Mobil Listrik : 6 km/kWh.
             // Deviasi (%) = seberapa jauh efisiensi aktual di BAWAH standar:
             //   - deviasi > 10%  -> warning MERAH (boros signifikan)
             //   - deviasi > 5%   -> warning KUNING (mulai boros)
             //   - deviasi <= 5%  -> normal (termasuk yang lebih irit dari standar)
-            $isListrik = ($vehicle->fuel_type === 'Listrik');
-            $efficiencyStandard = $isListrik ? 6 : 8;
-
-            $actualEfficiency = ($avgConsumption !== null && $avgConsumption > 0)
-                ? round(100 / $avgConsumption, 2)
-                : null;
-
+            $efficiencyStandard = $detail['standard'];
             $deviationPercent = null;
-            $warningLevel = null; // null = belum ada data pembanding
+            $warningLevel = null;
             if ($actualEfficiency !== null) {
                 $deviationPercent = round((($efficiencyStandard - $actualEfficiency) / $efficiencyStandard) * 100, 1);
                 if ($deviationPercent > 10) {
@@ -301,25 +282,37 @@ class FuelLogController extends Controller
                 }
             }
 
+            // Baris pengisian PALING TERAKHIR -- ditampilkan langsung di tabel ringkasan
+            // supaya orang gak perlu klik ke kendaraan itu dulu buat lihat "sebelum vs sekarang".
+            $lastRow = collect($detail['rows'])->last();
+
             $result[] = [
                 'vehicle_id' => $vehicleId,
                 'plate_number' => $vehicle->plate_number,
-                'avg_consumption' => $avgConsumption,
+                'fuel_type' => $vehicle->fuel_type,
+                'unit_label' => $detail['unit_label'],
+                'fuel_unit_label' => $detail['fuel_unit_label'],
                 'total_liters' => $totalLiters,
                 'total_cost' => $totalCost,
                 'total_distance' => $totalDistance,
                 'count' => $count,
-                'fuel_type' => $vehicle->fuel_type,
                 'efficiency_standard' => $efficiencyStandard,
                 'actual_efficiency' => $actualEfficiency,
                 'deviation_percent' => $deviationPercent,
                 'warning_level' => $warningLevel,
+                // Pengisian terakhir (sebelum vs sekarang), langsung dari riwayat
+                'last_fill_date' => $lastRow['current_date'] ?? null,
+                'last_interval_distance' => $lastRow['distance'] ?? null,
+                'last_interval_efficiency' => $lastRow['efficiency'] ?? null,
+                'last_interval_warning' => $lastRow['warning_level'] ?? null,
+                // Estimasi ke depan, langsung tampil tanpa perlu klik
+                'estimate' => $detail['estimate'],
             ];
         }
         usort($result, function ($a, $b) {
-            if ($a['avg_consumption'] === null) return 1;
-            if ($b['avg_consumption'] === null) return -1;
-            return $a['avg_consumption'] <=> $b['avg_consumption'];
+            if ($a['actual_efficiency'] === null) return 1;
+            if ($b['actual_efficiency'] === null) return -1;
+            return $a['actual_efficiency'] <=> $b['actual_efficiency'];
         });
 
         // Ringkasan total keseluruhan untuk periode/filter yang sedang aktif
@@ -337,6 +330,125 @@ class FuelLogController extends Controller
             ->orderBy('plate_number')
             ->get();
 
-        return view('drms.fuel_logs.analytics', compact('result', 'summary', 'vehicles'));
+        // ===== Detail per pengisian (bukan cuma rata-rata) =====
+        // Kalau admin sudah memfilter ke SATU kendaraan, tampilkan juga riwayat
+        // pengisian sebelum vs sekarang satu-satu (bukan cuma dirangkum jadi
+        // satu baris rata-rata), plus estimasi ke depan berdasarkan pengisian
+        // yang paling baru — seolah-olah "kalau isi sekarang, kira-kira sampai
+        // kapan/berapa jauh lagi & isi berikutnya kira-kira berapa".
+        $vehicleDetail = null;
+        if ($request->filled('vehicle_id') && $logs->isNotEmpty()) {
+            $vehicleDetail = $this->buildVehicleFillDetail($logs);
+        }
+
+        return view('drms.fuel_logs.analytics', compact('result', 'summary', 'vehicles', 'vehicleDetail'));
+    }
+
+    /**
+     * Bangun riwayat pengisian per-pasangan (pengisian sebelumnya -> pengisian
+     * sekarang) untuk SATU kendaraan, beserta estimasi ke depan berdasarkan
+     * pengisian paling baru.
+     *
+     * @param  \Illuminate\Support\Collection  $items  FuelLog milik SATU kendaraan, urut tanggal (lama -> baru)
+     */
+    private function buildVehicleFillDetail($items)
+    {
+        $vehicle = $items->first()->vehicle ?? null;
+        if (!$vehicle) return null;
+
+        $isListrik = ($vehicle->fuel_type === 'Listrik');
+        $standard = $isListrik ? 6 : 8;
+        $unitLabel = $isListrik ? 'km/kWh' : 'km/L';
+        $fuelUnitLabel = $isListrik ? 'kWh' : 'Liter';
+
+        // ----- Riwayat per pasangan pengisian (sebelum vs sekarang) -----
+        $rows = [];
+        $prev = null;
+        foreach ($items as $item) {
+            $distance = null;
+            $efficiency = null;
+            $deviationPercent = null;
+            $warningLevel = null;
+
+            if ($prev !== null && $item->odometer_start > $prev->odometer_start) {
+                $distance = $item->odometer_start - $prev->odometer_start;
+                if ($item->fuel_liters > 0) {
+                    $efficiency = round($distance / $item->fuel_liters, 2);
+                    $deviationPercent = round((($standard - $efficiency) / $standard) * 100, 1);
+                    if ($deviationPercent > 10) {
+                        $warningLevel = 'red';
+                    } elseif ($deviationPercent > 5) {
+                        $warningLevel = 'yellow';
+                    } else {
+                        $warningLevel = 'normal';
+                    }
+                }
+            }
+
+            $rows[] = [
+                'previous_date'     => $prev->filling_date ?? null,
+                'previous_odometer' => $prev->odometer_start ?? null,
+                'current_date'      => $item->filling_date,
+                'current_odometer'  => $item->odometer_start,
+                'liters'            => $item->fuel_liters,
+                'cost'              => $item->total_cost,
+                'distance'          => $distance,
+                'efficiency'        => $efficiency,
+                'deviation_percent' => $deviationPercent,
+                'warning_level'     => $warningLevel,
+            ];
+
+            $prev = $item;
+        }
+
+        // ----- Estimasi ke depan, dianggap "kalau isi sekarang" (dari pengisian TERAKHIR) -----
+        // Efisiensi acuan pakai RATA-RATA dari seluruh interval yang punya jarak
+        // pembanding (bukan cuma interval terakhir saja), supaya estimasinya tidak
+        // terlalu liar kalau baru ada 1-2 riwayat pengisian.
+        $validRows = collect($rows)->filter(fn ($r) => $r['distance'] !== null && $r['efficiency'] !== null);
+        $lastFill = $items->last();
+
+        $estimate = null;
+        if ($lastFill && $validRows->isNotEmpty()) {
+            $avgEfficiency = round($validRows->avg('efficiency'), 2);
+            $avgLitersPerFill = round($items->avg('fuel_liters'), 2);
+
+            // Rata-rata jarak hari antar pengisian, dari seluruh riwayat tanggal.
+            $dateDiffs = [];
+            $prevDate = null;
+            foreach ($items as $item) {
+                if ($prevDate !== null && $item->filling_date) {
+                    $dateDiffs[] = $prevDate->diffInDays($item->filling_date);
+                }
+                $prevDate = $item->filling_date;
+            }
+            $avgDaysBetweenFills = !empty($dateDiffs) ? round(array_sum($dateDiffs) / count($dateDiffs), 1) : null;
+
+            $estimate = [
+                'based_on_date'          => $lastFill->filling_date,
+                'based_on_liters'        => $lastFill->fuel_liters,
+                'avg_efficiency'         => $avgEfficiency,
+                // Estimasi jarak yang bisa ditempuh dari volume pengisian TERAKHIR ini,
+                // pakai rata-rata efisiensi historisnya.
+                'estimated_range_km'     => round($avgEfficiency * $lastFill->fuel_liters, 0),
+                'avg_days_between_fills' => $avgDaysBetweenFills,
+                'estimated_next_fill_date' => $avgDaysBetweenFills
+                    ? \Carbon\Carbon::parse($lastFill->filling_date)->addDays($avgDaysBetweenFills)
+                    : null,
+                'estimated_next_liters'  => $avgLitersPerFill,
+                // Estimasi biaya isi berikutnya pakai harga per liter/kWh dari pengisian terakhir
+                // (asumsi harga relatif stabil dalam waktu dekat).
+                'estimated_next_cost'    => round($avgLitersPerFill * $lastFill->fuel_price_per_liter, 0),
+            ];
+        }
+
+        return [
+            'vehicle'        => $vehicle,
+            'unit_label'     => $unitLabel,
+            'fuel_unit_label'=> $fuelUnitLabel,
+            'standard'       => $standard,
+            'rows'           => $rows,
+            'estimate'       => $estimate,
+        ];
     }
 }

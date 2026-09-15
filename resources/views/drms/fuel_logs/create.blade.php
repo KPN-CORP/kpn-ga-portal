@@ -149,7 +149,7 @@
             <div class="mb-4">
 
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Bukti Pengisian
+                    Bukti Pengisian <span class="text-red-500">*</span>
                 </label>
 
                 <div class="flex items-center gap-3">
@@ -186,6 +186,7 @@
                            name="receipt_file"
                            accept="image/*"
                            capture="environment"
+                           required
                            class="hidden">
 
                     {{-- Status File --}}
@@ -225,6 +226,10 @@
 
                 <p class="text-xs text-gray-400 mt-2">
                     Tekan ikon kamera untuk mengambil foto bukti pengisian.
+                </p>
+
+                <p id="receipt_error" class="hidden text-xs text-red-600 font-medium mt-1">
+                    Foto bukti pengisian wajib diisi.
                 </p>
 
             </div>
@@ -385,12 +390,29 @@
         searchInput
             .closest('form')
             .addEventListener('submit', function (e) {
+                let hasError = false;
+
                 if (!hiddenInput.value) {
                     e.preventDefault();
                     searchInput.setCustomValidity('Silakan pilih kendaraan dari daftar saran.');
                     searchInput.reportValidity();
+                    hasError = true;
                 } else {
                     searchInput.setCustomValidity('');
+                }
+
+                // Foto bukti pengisian wajib diisi. Validasi manual di sini karena
+                // atribut `required` pada <input type="file"> yang disembunyikan
+                // (class="hidden" / display:none) tidak dicek oleh sebagian browser.
+                if (!receiptFile.files || receiptFile.files.length === 0) {
+                    e.preventDefault();
+                    receiptError.classList.remove('hidden');
+                    if (!hasError) {
+                        receiptError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    hasError = true;
+                } else {
+                    receiptError.classList.add('hidden');
                 }
             });
 
@@ -413,6 +435,7 @@
         const receiptPreview = document.getElementById('receipt_preview');
         const receiptPreviewImg = document.getElementById('receipt_preview_img');
         const removeReceipt = document.getElementById('remove_receipt');
+        const receiptError = document.getElementById('receipt_error');
 
         receiptFile.addEventListener('change', function () {
             if (this.files && this.files.length > 0) {
@@ -420,6 +443,7 @@
                 receiptFileName.textContent = file.name;
                 receiptFileName.classList.remove('text-gray-500');
                 receiptFileName.classList.add('text-green-600');
+                receiptError.classList.add('hidden');
 
                 const reader = new FileReader();
                 reader.onload = function (e) {

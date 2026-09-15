@@ -96,7 +96,16 @@
             History Approval
             <span class="ml-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ $historyRequests->total() }}</span>
         </button>
+        @if(($forwardedSummary['total'] ?? 0) > 0)
+        <button type="button" @click="setTab('monitor')"
+                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
+                :class="activeTab === 'monitor' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+            🔀 Dipantau (Dialihkan ke BU Lain)
+            <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ ($forwardedSummary['stale'] ?? 0) > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }}">{{ $forwardedSummary['active'] ?? 0 }}</span>
+        </button>
+        @endif
     </div>
+
 
     {{-- ==================== PENDING REQUESTS ==================== --}}
     <div x-show="activeTab === 'pending'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -506,6 +515,164 @@
         @endif
     </div>
 
+    {{-- ==================== DIPANTAU: REQUEST BU SENDIRI YANG DI-FORWARD KE BU LAIN (READ-ONLY) ==================== --}}
+    @if(($forwardedSummary['total'] ?? 0) > 0)
+    <div x-show="activeTab === 'monitor'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm" x-data="{ showResolved: {{ request('monitor_page') ? 'true' : 'false' }} }">
+        <div class="bg-gray-50 px-6 py-3 border-b">
+            <h2 class="font-semibold text-gray-700">🔀 Request BU Anda yang Dialihkan ke BU Lain</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Ini permintaan dari user BU Anda yang admin-nya alihkan ke Business Unit lain (karena BU sendiri gak ada mobil, dsb). Read-only — cuma buat pantau statusnya, aksi (setujui/tolak/dsb) tetap di tangan BU yang menangani.</p>
+        </div>
+
+        {{-- Ringkasan singkat, biar gak perlu scroll buat tau gambaran umum --}}
+        <div class="px-6 py-3 border-b bg-white flex flex-wrap gap-2 text-xs">
+            <span class="px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">⏳ {{ $forwardedSummary['active'] }} masih diproses BU tujuan</span>
+            @if($forwardedSummary['stale'] > 0)
+                <span class="px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium">⚠️ {{ $forwardedSummary['stale'] }} sudah ≥2 hari belum ditindak</span>
+            @endif
+            <span class="px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">📦 {{ $forwardedSummary['resolved'] }} sudah selesai (riwayat)</span>
+        </div>
+
+        {{-- ===== BAGIAN 1: MASIH PERLU DIPANTAU (approved_l1, belum ditindak BU tujuan) ===== --}}
+        {{-- Ini yang paling penting, jadi selalu tampil semua tanpa pagination -- jumlahnya
+             biasanya kecil karena begitu BU tujuan menindak, otomatis pindah ke bagian "Riwayat". --}}
+        @if($forwardedAwayRequests->isEmpty())
+            <p class="px-6 py-6 text-center text-gray-500 text-sm">🎉 Tidak ada yang masih menunggu tindakan BU tujuan saat ini.</p>
+        @else
+        <div class="hidden md:block overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-100 text-gray-600">
+                    <tr>
+                        <th class="px-4 py-3 text-left">No. Request</th>
+                        <th class="px-4 py-3 text-left">Pemohon</th>
+                        <th class="px-4 py-3 text-left">Perjalanan</th>
+                        <th class="px-4 py-3 text-left">Dialihkan ke BU</th>
+                        <th class="px-4 py-3 text-left">Menunggu Sejak</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    @foreach($forwardedAwayRequests as $req)
+                    <tr class="{{ $req->isStale ? 'bg-red-50' : '' }}">
+                        <td class="px-4 py-3 font-medium">{{ $req->request_no }}</td>
+                        <td class="px-4 py-3">{{ $req->requester->name ?? '-' }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ $req->pickup_location }} → {{ $req->destination }}</td>
+                        <td class="px-4 py-3">{{ $req->currentBusinessUnit->nama_bisnis_unit ?? '-' }}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-gray-500">{{ $req->forwarded_at ? $req->forwarded_at->format('d/m/Y H:i') : '-' }}</span>
+                            @if($req->isStale)
+                                <span class="block mt-1 text-xs text-red-600 font-medium">⚠️ Sudah {{ $req->forwarded_at->diffInDays(now()) }} hari belum ditindak</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Mobile Cards --}}
+        <div class="md:hidden divide-y">
+            @foreach($forwardedAwayRequests as $req)
+            <div class="p-4 {{ $req->isStale ? 'bg-red-50' : '' }}">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-semibold">{{ $req->request_no }}</p>
+                        <p class="text-xs text-gray-500">{{ $req->requester->name ?? '-' }}</p>
+                    </div>
+                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Menunggu</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-2">{{ $req->pickup_location }} → {{ $req->destination }}</p>
+                <p class="text-xs text-gray-500 mt-1">Dialihkan ke: <span class="font-medium">{{ $req->currentBusinessUnit->nama_bisnis_unit ?? '-' }}</span></p>
+                <p class="text-xs text-gray-400 mt-1">Menunggu sejak: {{ $req->forwarded_at ? $req->forwarded_at->format('d/m/Y H:i') : '-' }}</p>
+                @if($req->isStale)
+                    <p class="text-xs text-red-600 font-medium mt-1">⚠️ Sudah {{ $req->forwarded_at->diffInDays(now()) }} hari belum ditindak BU tujuan</p>
+                @endif
+            </div>
+            @endforeach
+        </div>
+        @endif
+
+        {{-- ===== BAGIAN 2: RIWAYAT YANG SUDAH SELESAI (collapsed by default + pagination) ===== --}}
+        @if($forwardedSummary['resolved'] > 0)
+        <div class="border-t">
+            <button type="button" @click="showResolved = !showResolved"
+                    class="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <span>📦 Riwayat yang sudah selesai ({{ $forwardedSummary['resolved'] }})</span>
+                <span x-text="showResolved ? '▲ Sembunyikan' : '▼ Tampilkan'"></span>
+            </button>
+            <div x-show="showResolved" x-cloak>
+                <div class="hidden md:block overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100 text-gray-600">
+                            <tr>
+                                <th class="px-4 py-3 text-left">No. Request</th>
+                                <th class="px-4 py-3 text-left">Pemohon</th>
+                                <th class="px-4 py-3 text-left">Perjalanan</th>
+                                <th class="px-4 py-3 text-left">Ditangani BU</th>
+                                <th class="px-4 py-3 text-left">Status</th>
+                                <th class="px-4 py-3 text-left">Terakhir Update</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            @foreach($forwardedResolvedRequests as $req)
+                            @php
+                                $statusBadge = match($req->status) {
+                                    'approved_admin' => ['bg-green-100 text-green-800', '✅ Disetujui BU Tujuan'],
+                                    'rejected_admin' => ['bg-red-100 text-red-800', '❌ Ditolak BU Tujuan'],
+                                    'completed' => ['bg-blue-100 text-blue-800', '🏁 Selesai'],
+                                    default => ['bg-gray-100 text-gray-600', $req->status],
+                                };
+                                $lastUpdate = $req->approved_admin_at ?? $req->updated_at;
+                            @endphp
+                            <tr>
+                                <td class="px-4 py-3 font-medium">{{ $req->request_no }}</td>
+                                <td class="px-4 py-3">{{ $req->requester->name ?? '-' }}</td>
+                                <td class="px-4 py-3 text-gray-600">{{ $req->pickup_location }} → {{ $req->destination }}</td>
+                                <td class="px-4 py-3">{{ $req->currentBusinessUnit->nama_bisnis_unit ?? '-' }}</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium {{ $statusBadge[0] }}">{{ $statusBadge[1] }}</span></td>
+                                <td class="px-4 py-3 text-gray-500">{{ $lastUpdate ? \Carbon\Carbon::parse($lastUpdate)->format('d/m/Y H:i') : '-' }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Mobile Cards --}}
+                <div class="md:hidden divide-y">
+                    @foreach($forwardedResolvedRequests as $req)
+                    @php
+                        $statusBadge = match($req->status) {
+                            'approved_admin' => ['bg-green-100 text-green-800', '✅ Disetujui BU Tujuan'],
+                            'rejected_admin' => ['bg-red-100 text-red-800', '❌ Ditolak BU Tujuan'],
+                            'completed' => ['bg-blue-100 text-blue-800', '🏁 Selesai'],
+                            default => ['bg-gray-100 text-gray-600', $req->status],
+                        };
+                        $lastUpdate = $req->approved_admin_at ?? $req->updated_at;
+                    @endphp
+                    <div class="p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold">{{ $req->request_no }}</p>
+                                <p class="text-xs text-gray-500">{{ $req->requester->name ?? '-' }}</p>
+                            </div>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium {{ $statusBadge[0] }}">{{ $statusBadge[1] }}</span>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-2">{{ $req->pickup_location }} → {{ $req->destination }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Ditangani: <span class="font-medium">{{ $req->currentBusinessUnit->nama_bisnis_unit ?? '-' }}</span></p>
+                        <p class="text-xs text-gray-400 mt-1">Update: {{ $lastUpdate ? \Carbon\Carbon::parse($lastUpdate)->format('d/m/Y H:i') : '-' }}</p>
+                    </div>
+                    @endforeach
+                </div>
+
+                @if($forwardedResolvedRequests->hasPages())
+                <div class="px-6 py-3 border-t">
+                    {{ $forwardedResolvedRequests->appends(array_merge(request()->query(), ['tab' => 'monitor']))->links() }}
+                </div>
+                @endif
+            </div>
+        </div>
+        @endif
+    </div>
+    @endif
+
     {{-- MODAL REJECT --}}
     <div x-show="rejectModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
@@ -677,7 +844,10 @@ function validateSwapForm(form) {
 
 function approvalAdminModal() {
     return {
-        activeTab: new URLSearchParams(window.location.search).get('tab') === 'history' ? 'history' : 'pending',
+        activeTab: (function() {
+            const t = new URLSearchParams(window.location.search).get('tab');
+            return (t === 'history' || t === 'monitor') ? t : 'pending';
+        })(),
         filterOpen: (function() {
             const p = new URLSearchParams(window.location.search);
             return p.has('search') || p.has('status') || p.has('date_from') || p.has('date_to');
@@ -695,8 +865,8 @@ function approvalAdminModal() {
         setTab(tab) {
             this.activeTab = tab;
             const url = new URL(window.location.href);
-            if (tab === 'history') {
-                url.searchParams.set('tab', 'history');
+            if (tab === 'history' || tab === 'monitor') {
+                url.searchParams.set('tab', tab);
             } else {
                 url.searchParams.delete('tab');
                 url.searchParams.delete('page');

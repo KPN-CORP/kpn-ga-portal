@@ -51,7 +51,68 @@ class AppAdminController extends Controller
                 ->get();
         }
 
-        // ------------------- HISTORY REQUESTS (dengan filter) -------------------
+        // ------------------- DIPANTAU: request BU SENDIRI yang di-forward ke BU LAIN -------------------
+        // Begitu di-forward, request ini hilang dari $pendingRequests BU asal (karena scope
+        // pendingForAdmin ikut current_business_unit_id), dan begitu selesai diproses BU tujuan
+        // juga tidak akan masuk $historyRequests BU asal (karena admin_id jadi milik admin BU
+        // tujuan). Akibatnya BU asal jadi buta total sama nasib request user-nya sendiri.
+        // Section ini kasih visibilitas READ-ONLY (tanpa tombol aksi apapun) supaya BU asal
+        // tetap bisa pantau: masih diproses BU tujuan, sudah disetujui/ditolak, atau malah
+        // didiamkan (masih approved_l1 udah lama gak ada perubahan).
+        //
+        // Dipecah 2 supaya listnya gak numpuk panjang ke bawah kalau banyak yang di-forward:
+        // - "Active"   : yang MASIH approved_l1 (belum ditindak BU tujuan) -- ini yang paling
+        //                perlu dipantau, jumlahnya biasanya sedikit, jadi ditampilkan langsung
+        //                semua tanpa pagination.
+        // - "Resolved" : yang SUDAH selesai diproses BU tujuan (approved_admin/rejected_admin/
+        //                completed) -- ini cuma arsip riwayat, jumlahnya bisa terus menumpuk
+        //                seiring waktu, jadi dipaginate & disembunyikan di balik toggle
+        //                "Tampilkan riwayat yang sudah selesai" biar gak bikin halaman panjang.
+        $forwardedAwayRequests = collect();
+        $forwardedResolvedRequests = null;
+        $forwardedSummary = ['total' => 0, 'active' => 0, 'stale' => 0, 'resolved' => 0];
+
+        if (!$user->isDrmsSuperAdmin() && $businessUnitId) {
+            $forwardedBaseQuery = fn () => DriverRequest::where('original_business_unit_id', $businessUnitId)
+                ->where(function ($q) use ($businessUnitId) {
+                    $q->whereNull('current_business_unit_id')
+                      ->orWhere('current_business_unit_id', '!=', $businessUnitId);
+                });
+
+            $forwardedAwayRequests = $forwardedBaseQuery()
+                ->with(['requester', 'currentBusinessUnit', 'admin', 'forwardedBy'])
+                ->where('status', 'approved_l1')
+                ->latest('forwarded_at')
+                ->get();
+
+            // Tandai request yang kelihatan "didiamkan" BU tujuan: masih approved_l1
+            // (belum ditindak sama sekali) padahal sudah di-forward lebih dari 2 hari lalu.
+            foreach ($forwardedAwayRequests as $req) {
+                $req->isStale = $req->forwarded_at && $req->forwarded_at->diffInDays(now()) >= 2;
+            }
+            // Yang paling lama didiamkan ditaruh paling atas (stable sort: urutkan tanggal dulu,
+            // baru status stale, supaya di dalam grup stale/non-stale tetap urut terbaru dulu).
+            $forwardedAwayRequests = $forwardedAwayRequests
+                ->sortByDesc(fn ($r) => $r->forwarded_at)
+                ->sortByDesc(fn ($r) => $r->isStale ? 1 : 0)
+                ->values();
+
+            $forwardedResolvedRequests = $forwardedBaseQuery()
+                ->with(['requester', 'currentBusinessUnit', 'admin', 'forwardedBy'])
+                ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed'])
+                ->latest('forwarded_at')
+                ->paginate(10, ['*'], 'monitor_page')
+                ->appends($request->query());
+
+            $forwardedSummary = [
+                'active'   => $forwardedAwayRequests->count(),
+                'stale'    => $forwardedAwayRequests->where('isStale', true)->count(),
+                'resolved' => $forwardedResolvedRequests->total(),
+            ];
+            $forwardedSummary['total'] = $forwardedSummary['active'] + $forwardedSummary['resolved'];
+        }
+
+
         $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers', 'mergedInto']);
 
         if ($user->isDrmsSuperAdmin()) {
@@ -128,7 +189,7 @@ class AppAdminController extends Controller
         }
         $availableVehicles = $availableVehiclesQuery->orderBy('plate_number')->get();
 
-        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers', 'availableVehicles'));
+        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers', 'availableVehicles', 'forwardedAwayRequests', 'forwardedResolvedRequests', 'forwardedSummary'));
     }
 
     /**

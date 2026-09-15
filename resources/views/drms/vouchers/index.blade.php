@@ -178,7 +178,14 @@
                                 <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">🔒 Used</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4">{{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}</td>
+                        <td class="px-6 py-4">
+                            {{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}
+                            @if(!auth()->user()->isDrmsSuperAdmin() && ($businessUnitId ?? null) && $v->business_unit_id != $businessUnitId)
+                                <span class="block mt-0.5 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium w-fit" title="Voucher ini milik Business Unit lain, ditampilkan karena dipakai oleh user dari BU Anda (mis. request yang di-forward)">
+                                    🔗 Dipakai user BU Anda
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4">
                             @if($v->expired_at)
                                 <span class="text-sm {{ $v->is_expired ? 'text-red-600 font-semibold' : 'text-gray-700' }}">

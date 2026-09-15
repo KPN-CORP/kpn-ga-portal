@@ -61,9 +61,23 @@ class VoucherController extends Controller
             'request.requester',        // siapa yang pakai (voucher utama / data lama)
         ]);
 
-        // Filter Business Unit (kecuali superadmin)
+        // Filter Business Unit (kecuali superadmin).
+        // KECUALI: admin tetap boleh IKUT LIHAT (read-only) voucher milik BU lain,
+        // KALAU voucher itu dipakai oleh request dari user yang berasal dari BU-nya
+        // sendiri. Ini buat kasus request user-nya di-forward ke BU lain (karena BU
+        // asal gak punya mobil) — vouchernya kepunyaan BU yang nanganin, tapi
+        // admin BU asal tetap perlu lihat karena itu request anak buahnya.
+        // Hak edit/hapus TETAP dikunci ke BU pemilik asli (lihat edit/update/destroy).
         if ($businessUnitId) {
-            $query->where('business_unit_id', $businessUnitId);
+            $query->where(function ($q) use ($businessUnitId) {
+                $q->where('business_unit_id', $businessUnitId)
+                  ->orWhereHas('usedByRequests.requester.drmsProfile', function ($sq) use ($businessUnitId) {
+                      $sq->where('business_unit_id', $businessUnitId);
+                  })
+                  ->orWhereHas('request.requester.drmsProfile', function ($sq) use ($businessUnitId) {
+                      $sq->where('business_unit_id', $businessUnitId);
+                  });
+            });
         }
 
         // Filter pencarian (kode)
@@ -108,7 +122,7 @@ class VoucherController extends Controller
             $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
         }
 
-        return view('drms.vouchers.index', compact('vouchers', 'businessUnits', 'isSpecialBu', 'month'));
+        return view('drms.vouchers.index', compact('vouchers', 'businessUnits', 'isSpecialBu', 'month', 'businessUnitId'));
     }
 
     public function create()

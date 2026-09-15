@@ -37,10 +37,76 @@ use Illuminate\Support\Facades\DB;
  * - Blok "owner" (data pemilik aset dari AMS, tabel db_asset_vehicles) di
  *   setiap item vehicle_breakdown, efficiency_top10, dan trip-logs,
  *   disinkronkan berdasarkan plat nomor.
+ *
+ * v3.1 — TAMBAHAN atas permintaan AMS (15 Sep 2026):
+ * - Param company_code (cocok ke db_asset_vehicles.asset_owner_code, mis.
+ *   "CD") untuk menyaring hasil ke 1 perusahaan pemilik aset AMS.
+ * - Param company (cocok SEBAGIAN ke owner_company_name, mis. "cisadane")
+ *   — AMS lebih sering punya nama perusahaan daripada kode, jadi ini yang
+ *   dipakai duluan.
+ *   Dua-duanya BELUM MENYARING seluruh bagian "summary" (total_fuel_cost
+ *   dkk) dan "transport_distribution" — dua bagian itu dihitung oleh trait
+ *   CalculatesOperationalStats yang cuma nerima 1 vehicle_id, bukan
+ *   daftar. Yang SUDAH disaring: vehicle_breakdown, efficiency_top10,
+ *   dan 4 field jumlah-aset (total_fuel_asset_bbm dkk).
+ *   Lihat catatan TODO di resolveCompanyVehicleIds().
  */
 class OperationalReportController extends Controller
 {
     use CalculatesOperationalStats;
+
+    /**
+     * BARU (v3.1/v3.2) — cari daftar vehicle_id DRMS milik 1 perusahaan AMS,
+     * lewat pencocokan plat nomor (dinormalisasi: hilangkan spasi, uppercase),
+     * sama seperti pencocokan owner yang sudah dipakai OwnerLookupCache.
+     *
+     * $companyCode  → cocok persis ke db_asset_vehicles.asset_owner_code
+     *                 (mis. "CD").
+     * $companyName  → cocok SEBAGIAN (LIKE, tidak case-sensitive) ke
+     *                 db_asset_vehicles.owner_company_name (mis. "cisadane"
+     *                 cocok dengan "PT.CISADANE RAYA CHEMICAL"). Ini yang
+     *                 dipakai param "company" atas permintaan AMS (15 Sep
+     *                 2026) — mereka isi nama perusahaan, bukan kode.
+     * Kalau dua-duanya dikirim, keduanya WAJIB cocok (AND).
+     *
+     * db_asset_vehicles ada di DB DRMS sendiri (hasil sinkron dari AMS),
+     * jadi query langsung ke situ, bukan ke sistem AMS.
+     *
+     * TODO: kalau CalculatesOperationalStats sudah bisa nerima daftar
+     * vehicle_id (bukan cuma 1), sambungkan juga ke getOperationalStats()
+     * & getTransportDistribution() supaya param ini menyaring seluruh
+     * response, bukan cuma vehicle_breakdown/efficiency_top10/asset-count.
+     */
+    private function resolveCompanyVehicleIds(?string $companyCode, ?string $companyName): array
+    {
+        $query = DB::table('db_asset_vehicles')->whereNotNull('registration_plates');
+
+        if ($companyCode) {
+            $query->where('asset_owner_code', $companyCode);
+        }
+        if ($companyName) {
+            $query->where('owner_company_name', 'like', '%' . $companyName . '%');
+        }
+
+        $plates = $query->pluck('registration_plates')
+            ->map(fn ($p) => strtoupper(str_replace(' ', '', $p)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($plates)) {
+            return [];
+        }
+
+        return DB::table('drms_vehicles')
+            ->whereRaw(
+                "UPPER(REPLACE(plate_number, ' ', '')) IN (" . implode(',', array_fill(0, count($plates), '?')) . ')',
+                $plates
+            )
+            ->pluck('id')
+            ->all();
+    }
 
     /**
      * GET /api/v1/operational-summary
@@ -58,6 +124,19 @@ class OperationalReportController extends Controller
      *                           "bbm" (semua selain listrik: Bensin/Solar/Hybrid/
      *                           Lainnya/kosong, digabung — sama seperti pengelompokan
      *                           yang sudah dipakai di halaman analytics BBM).
+     * - company_code          : BARU (v3.1) — kode pemilik aset AMS persis
+     *                           (mis. "CD"), cocok field owner.code.
+     * - company                : BARU (v3.2, atas permintaan AMS 15 Sep 2026)
+     *                           — NAMA perusahaan pemilik aset, boleh sebagian
+     *                           (mis. "cisadane" cocok "PT.CISADANE RAYA
+     *                           CHEMICAL"), cocok field owner.company_name.
+     *                           Beda dari company_code — ini teks bebas, bukan
+     *                           kode. Boleh dipakai bareng company_code
+     *                           (keduanya harus cocok kalau dua-duanya dikirim).
+     *                           Sama seperti company_code: menyaring
+     *                           vehicle_breakdown, efficiency_top10, dan 4
+     *                           field jumlah-aset. Tidak ada yang cocok ->
+     *                           bagian itu kosong/0, bukan error.
      */
     public function summary(Request $request)
     {
@@ -65,6 +144,8 @@ class OperationalReportController extends Controller
         $vehicleId = $request->get('vehicle_id');
         $driverId = $request->get('driver_id');
         $fuelGroup = $request->get('fuel_type');
+        $companyCode = $request->get('company_code');
+        $companyName = $request->get('company');
 
         if ($request->filled('date_from') && $request->filled('date_to')) {
             $dateFrom = \Carbon\Carbon::parse($request->date_from)->toDateString();
@@ -79,11 +160,19 @@ class OperationalReportController extends Controller
 
         abort_if(\Carbon\Carbon::parse($dateFrom)->gt(\Carbon\Carbon::parse($dateTo)), 422, 'date_from harus sebelum date_to.');
 
-        // "v3" ditambahkan di cache key supaya request pertama setelah deploy
-        // TIDAK kebaca dari cache lama (v2.0) yang belum punya field/owner baru.
-        $cacheKey = "api.operational-summary.v3.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}";
+        // BARU — daftar vehicle_id DRMS milik company_code/company yang diminta.
+        // null = tidak dikirim sama sekali (tidak difilter). [] = dikirim tapi
+        // tidak ada plat yang cocok di DRMS (hasil kosong).
+        $companyVehicleIds = ($companyCode || $companyName)
+            ? $this->resolveCompanyVehicleIds($companyCode, $companyName)
+            : null;
 
-        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup) {
+        // "v3" + company ditambahkan di cache key supaya kombinasi filter
+        // company/company_code punya entry cache sendiri, tidak nabrak cache lain.
+        $cacheKey = "api.operational-summary.v3.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}."
+            . ($companyCode ?: '-') . '.' . ($companyName ?: '-');
+
+        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup, $companyVehicleIds, $companyCode, $companyName) {
             // Batasi waktu eksekusi query di sesi ini — kalau ada yang nyangkut,
             // MySQL yang hentikan sendiri, gak jalan tanpa batas dan gak ganggu
             // resource DB untuk user GA Portal lain yang lagi pakai bersamaan.
@@ -120,17 +209,21 @@ class OperationalReportController extends Controller
                 FuelLog::query(), 'filling_date', $buId, $vehicleId, $driverId, $dateFrom, $dateTo,
                 fn ($q) => $q->whereHas('vehicle', function ($vq) {
                     $vq->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
-                })
+                }),
+                $companyVehicleIds
             );
             $summary['total_fuel_asset_listrik'] = $this->countDistinctVehicles(
                 FuelLog::query(), 'filling_date', $buId, $vehicleId, $driverId, $dateFrom, $dateTo,
-                fn ($q) => $q->whereHas('vehicle', fn ($vq) => $vq->where('fuel_type', 'Listrik'))
+                fn ($q) => $q->whereHas('vehicle', fn ($vq) => $vq->where('fuel_type', 'Listrik')),
+                $companyVehicleIds
             );
             $summary['total_maintenance_asset_service_schedules'] = $this->countDistinctVehicles(
-                ServiceSchedule::query(), 'service_date', $buId, $vehicleId, null, $dateFrom, $dateTo
+                ServiceSchedule::query(), 'service_date', $buId, $vehicleId, null, $dateFrom, $dateTo,
+                null, $companyVehicleIds
             );
             $summary['total_maintenance_asset_repairment'] = $this->countDistinctVehicles(
-                Repair::query(), 'report_date', $buId, $vehicleId, null, $dateFrom, $dateTo
+                Repair::query(), 'report_date', $buId, $vehicleId, null, $dateFrom, $dateTo,
+                null, $companyVehicleIds
             );
 
             $vehicleBreakdown = $fuelGroup
@@ -160,9 +253,37 @@ class OperationalReportController extends Controller
                 return $row;
             })->values()->all();
 
+            // BARU — company_code/company menyaring vehicle_breakdown &
+            // efficiency_top10 lewat blok owner yang barusan di-attach.
+            // company_code cocok persis owner.code, company cocok SEBAGIAN
+            // (tidak case-sensitive) ke owner.company_name. efficiency_top10
+            // masih dihitung dari SEMUA kendaraan dulu baru disaring di sini,
+            // jadi bisa < 10 baris kalau company-nya kecil (belum bisa
+            // disaring dari sumbernya — lihat TODO di resolveCompanyVehicleIds()).
+            if ($companyCode || $companyName) {
+                $matchesCompany = function ($row) use ($companyCode, $companyName) {
+                    $owner = $row['owner'] ?? null;
+                    if (! $owner) {
+                        return false;
+                    }
+                    if ($companyCode && ($owner['code'] ?? null) !== $companyCode) {
+                        return false;
+                    }
+                    if ($companyName && stripos($owner['company_name'] ?? '', $companyName) === false) {
+                        return false;
+                    }
+                    return true;
+                };
+
+                $vehicleBreakdown = collect($vehicleBreakdown)->filter($matchesCompany)->values()->all();
+                $efficiencyTop10 = collect($efficiencyTop10)->filter($matchesCompany)->values()->all();
+            }
+
             return [
                 'period'                 => ['date_from' => $dateFrom, 'date_to' => $dateTo],
                 'business_unit_id'       => $buId ? (int) $buId : null,
+                'company_code'           => $companyCode ?: null,
+                'company'                => $companyName ?: null,
                 'summary'                => $summary,
                 'transport_distribution' => $transportDistribution,
                 'efficiency_top10'       => $efficiencyTop10,
@@ -191,7 +312,8 @@ class OperationalReportController extends Controller
         $driverId,
         string $dateFrom,
         string $dateTo,
-        ?callable $extra = null
+        ?callable $extra = null,
+        ?array $companyVehicleIds = null
     ): int {
         $query->whereHas('vehicle', function ($q) use ($buId, $vehicleId) {
             if ($buId) {
@@ -201,6 +323,13 @@ class OperationalReportController extends Controller
                 $q->where('id', $vehicleId);
             }
         });
+
+        // BARU — filter company_code/company: null = tidak difilter, array
+        // (termasuk kosong) = harus masuk daftar vehicle_id company tsb.
+        // Array kosong sengaja bikin hasil 0, bukan diabaikan.
+        if ($companyVehicleIds !== null) {
+            $query->whereIn('vehicle_id', $companyVehicleIds);
+        }
 
         // ServiceSchedule & Repair tidak punya kolom driver_id — guard ini
         // supaya tidak error "Unknown column" kalau $driverId dikirim.
