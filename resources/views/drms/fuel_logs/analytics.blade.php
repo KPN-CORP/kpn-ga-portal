@@ -111,6 +111,22 @@
         </div>
     </div>
 
+    {{-- RINGKASAN WARNING EFISIENSI --}}
+    @if(($summary['warning_yellow_count'] ?? 0) > 0 || ($summary['warning_red_count'] ?? 0) > 0)
+    <div class="flex flex-wrap gap-3 mb-6">
+        @if($summary['warning_red_count'] > 0)
+        <div class="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+            🔴 <span><strong>{{ $summary['warning_red_count'] }}</strong> kendaraan boros signifikan (&gt;10% di bawah standar)</span>
+        </div>
+        @endif
+        @if($summary['warning_yellow_count'] > 0)
+        <div class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded-lg text-sm">
+            🟡 <span><strong>{{ $summary['warning_yellow_count'] }}</strong> kendaraan mulai boros (&gt;5% di bawah standar)</span>
+        </div>
+        @endif
+    </div>
+    @endif
+
     {{-- TABEL PER KENDARAAN --}}
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
@@ -118,6 +134,9 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kendaraan</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rata-rata Konsumsi</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Standar</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi Aktual</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deviasi</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Liter/kWh</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Biaya</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Jarak (km)</th>
@@ -127,7 +146,15 @@
             </thead>
             <tbody>
                 @forelse($result as $data)
-                <tr>
+                @php
+                    $rowBg = match($data['warning_level'] ?? null) {
+                        'red' => 'bg-red-50',
+                        'yellow' => 'bg-yellow-50',
+                        default => '',
+                    };
+                    $unitLabel = ($data['fuel_type'] ?? 'Bensin') == 'Listrik' ? 'km/kWh' : 'km/L';
+                @endphp
+                <tr class="{{ $rowBg }}">
                     <td class="px-6 py-4 font-medium">
                         <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => $data['vehicle_id'], 'date_from' => request('date_from'), 'date_to' => request('date_to')])) }}"
                            class="text-blue-600 hover:underline">
@@ -141,6 +168,33 @@
                             <span class="text-gray-400" title="Butuh minimal 2 riwayat pengisian untuk menghitung konsumsi">-</span>
                         @endif
                     </td>
+                    <td class="px-6 py-4 text-gray-500">{{ $data['efficiency_standard'] }} {{ $unitLabel }}</td>
+                    <td class="px-6 py-4">
+                        @if($data['actual_efficiency'] !== null)
+                            {{ number_format($data['actual_efficiency'], 2) }} {{ $unitLabel }}
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </td>
+                    <td class="px-6 py-4">
+                        @if($data['deviation_percent'] !== null)
+                            @if($data['warning_level'] === 'red')
+                                <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Boros signifikan, lebih dari 10% di bawah standar">
+                                    🔴 {{ $data['deviation_percent'] }}%
+                                </span>
+                            @elseif($data['warning_level'] === 'yellow')
+                                <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold" title="Mulai boros, lebih dari 5% di bawah standar">
+                                    🟡 {{ $data['deviation_percent'] }}%
+                                </span>
+                            @else
+                                <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Sesuai atau lebih baik dari standar">
+                                    🟢 {{ $data['deviation_percent'] }}%
+                                </span>
+                            @endif
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </td>
                     <td class="px-6 py-4">
                         {{ number_format($data['total_liters'], 2, ',', '.') }}
                         {{ ($data['fuel_type'] ?? 'Bensin') == 'Listrik' ? 'kWh' : 'Liter' }}
@@ -151,7 +205,7 @@
                     <td class="px-6 py-4">{{ $data['fuel_type'] ?? 'Bensin' }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi untuk filter ini.</td></tr>
+                <tr><td colspan="10" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi untuk filter ini.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -161,6 +215,7 @@
         Catatan: rata-rata konsumsi dihitung dari selisih odometer antar pengisian yang berurutan.
         Liter pengisian pertama pada setiap periode tidak dihitung ke rata-rata konsumsi (karena belum ada jarak pembanding),
         namun tetap dihitung ke Total Liter/kWh dan Total Biaya.
+        Standar efisiensi: mobil BBM 8 km/L, mobil listrik 6 km/kWh. Deviasi &gt;5% di bawah standar diberi warning kuning, &gt;10% diberi warning merah.
     </p>
 </div>
 

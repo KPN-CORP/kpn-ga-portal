@@ -86,7 +86,7 @@
             <p class="text-xl font-bold text-yellow-600">Rp {{ number_format($stats['total_fuel_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
-            <p class="text-xs text-gray-500 uppercase">Service</p>
+            <p class="text-xs text-gray-500 uppercase">Service Rutin</p>
             <p class="text-xl font-bold text-orange-600">Rp {{ number_format($stats['total_service_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
@@ -148,13 +148,14 @@
     @if(count($vehicleStats) > 0)
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan (Bulan {{ date('F Y', mktime(0,0,0,$month,1,$year)) }})</h3>
+        <p class="text-xs text-gray-400 mb-2">Kolom Jarak &amp; Liter/kWh dihitung dari Log Pengisian BBM/EV Charging (selisih odometer antar pengisian), sama seperti di <a href="{{ route('drms.fuel-logs.analytics') }}" class="underline">Analisis Konsumsi</a>.</p>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-left">Kendaraan</th>
                         <th class="px-4 py-2 text-left">BBM/Charge (Rp)</th>
-                        <th class="px-4 py-2 text-left">Service (Rp)</th>
+                        <th class="px-4 py-2 text-left">Service Rutin (Rp)</th>
                         <th class="px-4 py-2 text-left">Perbaikan (Rp)</th>
                         <th class="px-4 py-2 text-left">Total Biaya (Rp)</th>
                         <th class="px-4 py-2 text-left">Jarak (km)</th>
@@ -259,6 +260,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const transportData = @json($transportDistribution);
     const vehicleStats = @json($vehicleStats);
 
+    // ========== DRILL-DOWN: klik grafik batang -> halaman sumber data yang sesuai ==========
+    // Base URL tiap halaman sumber data (tanpa query string, ditambahkan lewat JS sesuai
+    // bar/segmen yang diklik supaya bulan & kendaraan yang relevan langsung ikut ter-filter).
+    const drilldownBaseUrl = {
+        fuel:    "{{ route('drms.fuel-logs.index') }}",
+        service: "{{ route('drms.service-schedules.index') }}",
+        repair:  "{{ route('drms.repairs.index') }}",
+    };
+    // Filter kendaraan yang sedang aktif di form filter dashboard (kalau ada), dibawa
+    // serta ke halaman tujuan supaya konteksnya konsisten dengan yang sedang dilihat admin.
+    const currentVehicleFilter = @json($filterVehicleId ?? null);
+    // Bulan+tahun yang sedang aktif di dashboard, dalam format "YYYY-MM" (dipakai grafik
+    // per-kendaraan, yang cuma menampilkan 1 bulan, beda dengan grafik bulanan yang 12 bulan).
+    const currentPeriod = @json(sprintf('%04d-%02d', $year, $month));
+
+    function goToDrilldown(baseUrl, params) {
+        const url = new URL(baseUrl, window.location.origin);
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                url.searchParams.set(key, value);
+            }
+        });
+        window.location.href = url.toString();
+    }
+
     // ========== CHART BIAYA PER BULAN ==========
     const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
     new Chart(ctxMonthly, {
@@ -274,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderWidth: 1
                 },
                 {
-                    label: 'Service',
+                    label: 'Service Rutin',
                     data: monthlyData.map(d => Number(d.service)),
                     backgroundColor: 'rgba(249,115,22,0.7)',
                     borderColor: 'rgba(249,115,22,1)',
@@ -301,6 +327,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     beginAtZero: true,
                     ticks: { callback: function(value) { return 'Rp ' + value.toLocaleString(); } }
                 }
+            },
+            // Klik salah satu batang (BBM/Service/Perbaikan) -> menuju halaman sumber
+            // data yang sesuai, sudah difilter ke bulan batang yang diklik.
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const el = elements[0];
+                const datasetKeys = ['fuel', 'service', 'repair'];
+                const key = datasetKeys[el.datasetIndex];
+                if (!key) return;
+                const monthValue = monthlyData[el.index]?.month; // format "YYYY-MM"
+                goToDrilldown(drilldownBaseUrl[key], {
+                    month: monthValue,
+                    vehicle_id: currentVehicleFilter,
+                });
+            },
+            onHover: (evt, elements) => {
+                evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
             }
         }
     });
@@ -396,6 +439,25 @@ document.addEventListener('DOMContentLoaded', function() {
                                 }
                             }
                         }
+                    },
+                    // Klik batang kendaraan -> menuju Log Pengisian BBM/EV
+                    // (drms.fuel-logs.index), difilter ke kendaraan + bulan yang sedang
+                    // ditampilkan. Tab "Biaya" DAN tab "Jarak" sama-sama diarahkan ke
+                    // halaman yang sama, karena keduanya sekarang sama-sama bersumber
+                    // dari Log Pengisian BBM/EV Charging (FuelLog) — jarak dihitung dari
+                    // selisih odometer antar pengisian, bukan lagi dari Log Perjalanan.
+                    onClick: (evt, elements) => {
+                        if (!elements.length) return;
+                        const idx = elements[0].index;
+                        const vehicleId = vehicleStats[idx]?.id;
+                        if (!vehicleId) return;
+                        goToDrilldown(drilldownBaseUrl.fuel, {
+                            vehicle_id: vehicleId,
+                            month: currentPeriod,
+                        });
+                    },
+                    onHover: (evt, elements) => {
+                        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
                     }
                 }
             });

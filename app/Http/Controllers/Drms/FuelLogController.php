@@ -271,6 +271,36 @@ class FuelLogController extends Controller
             // supaya tidak bias oleh liter pengisian pertama yang tidak punya jarak pembanding.
             $avgConsumption = ($totalDistance > 0) ? round(($litersForConsumption / $totalDistance) * 100, 2) : null;
 
+            // ===== Skema standar efisiensi =====
+            // Mobil BBM  : 8 km/L
+            // Mobil Listrik : 6 km/kWh
+            // avg_consumption di atas satuannya liter (atau kWh) per 100 km, jadi
+            // dikonversi dulu ke km per liter/kWh (actual_efficiency) supaya bisa
+            // dibandingkan langsung dengan standar di atas.
+            // Deviasi (%) = seberapa jauh efisiensi aktual di BAWAH standar:
+            //   - deviasi > 10%  -> warning MERAH (boros signifikan)
+            //   - deviasi > 5%   -> warning KUNING (mulai boros)
+            //   - deviasi <= 5%  -> normal (termasuk yang lebih irit dari standar)
+            $isListrik = ($vehicle->fuel_type === 'Listrik');
+            $efficiencyStandard = $isListrik ? 6 : 8;
+
+            $actualEfficiency = ($avgConsumption !== null && $avgConsumption > 0)
+                ? round(100 / $avgConsumption, 2)
+                : null;
+
+            $deviationPercent = null;
+            $warningLevel = null; // null = belum ada data pembanding
+            if ($actualEfficiency !== null) {
+                $deviationPercent = round((($efficiencyStandard - $actualEfficiency) / $efficiencyStandard) * 100, 1);
+                if ($deviationPercent > 10) {
+                    $warningLevel = 'red';
+                } elseif ($deviationPercent > 5) {
+                    $warningLevel = 'yellow';
+                } else {
+                    $warningLevel = 'normal';
+                }
+            }
+
             $result[] = [
                 'vehicle_id' => $vehicleId,
                 'plate_number' => $vehicle->plate_number,
@@ -280,6 +310,10 @@ class FuelLogController extends Controller
                 'total_distance' => $totalDistance,
                 'count' => $count,
                 'fuel_type' => $vehicle->fuel_type,
+                'efficiency_standard' => $efficiencyStandard,
+                'actual_efficiency' => $actualEfficiency,
+                'deviation_percent' => $deviationPercent,
+                'warning_level' => $warningLevel,
             ];
         }
         usort($result, function ($a, $b) {
@@ -294,6 +328,8 @@ class FuelLogController extends Controller
             'total_cost'     => $logs->sum('total_cost'),
             'total_distance' => array_sum(array_column($result, 'total_distance')),
             'count'          => $logs->count(),
+            'warning_yellow_count' => count(array_filter($result, fn ($r) => $r['warning_level'] === 'yellow')),
+            'warning_red_count'    => count(array_filter($result, fn ($r) => $r['warning_level'] === 'red')),
         ];
 
         // Daftar kendaraan untuk dropdown filter

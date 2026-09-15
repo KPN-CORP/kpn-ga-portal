@@ -98,30 +98,19 @@ class AdminOperationalController extends Controller
                 ->whereYear('report_date', $year)
                 ->sum('total_cost');
 
-            // Distance — dari Log Perjalanan (TripLog) yang sudah diverifikasi, konsisten
-            // dengan total_distance di getOperationalStats().
-            $vehicleTripLogsQuery = TripLog::where('is_verified', 1)
-                ->whereNotNull('odometer_start')
-                ->whereNotNull('odometer_finish')
-                ->whereHas('request', function ($q) use ($vehicle, $filterDriverId, $month, $year) {
-                    $q->where('vehicle_id', $vehicle->id)
-                      ->whereMonth('usage_date', $month)
-                      ->whereYear('usage_date', $year);
-                    if ($filterDriverId) $q->where('driver_id', $filterDriverId);
-                });
-            $totalDistance = $vehicleTripLogsQuery->get()
-                ->sum(fn ($log) => max(0, $log->odometer_finish - $log->odometer_start));
-
-            // Fuel liters
-            $fuelLiters = FuelLog::where('vehicle_id', $vehicle->id)
-                ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
-                ->whereYear('filling_date', $year);
-            if ($filterDriverId) $fuelLiters->where('driver_id', $filterDriverId);
-            $fuelLiters = $fuelLiters->sum('fuel_liters');
+            // Jarak & Liter/kWh — sekarang sumbernya Log Pengisian BBM/EV Charging
+            // (FuelLog), BUKAN Log Perjalanan (TripLog) lagi. Jarak dihitung dari
+            // selisih odometer_start antar pengisian yang berurutan dalam periode
+            // ini, persis skema yang dipakai di FuelLogController::analytics(),
+            // supaya "Rincian per Kendaraan" di dashboard konsisten dengan angka
+            // yang ditampilkan di /drms/fuel-logs/analytics.
+            $fuelLogStats = $this->getVehicleFuelLogStats($vehicle->id, $month, $year, $filterDriverId);
+            $totalDistance = $fuelLogStats['distance'];
+            $fuelLiters = $fuelLogStats['fuel_liters'];
 
             if ($fuelCost > 0 || $serviceCost > 0 || $repairCost > 0 || $totalDistance > 0) {
                 $vehicleStats[] = [
+                    'id'           => $vehicle->id, // dipakai FE untuk drill-down klik grafik ke halaman sumber data
                     'plate_number' => $vehicle->plate_number,
                     'fuel_cost'    => $fuelCost,
                     'service_cost' => $serviceCost,
@@ -545,6 +534,39 @@ class AdminOperationalController extends Controller
             ];
         }
         return $data;
+    }
+
+    /**
+     * Hitung jarak & total liter/kWh satu kendaraan untuk periode (bulan/tahun) tertentu,
+     * bersumber dari Log Pengisian BBM/EV Charging (FuelLog) yang sudah diverifikasi.
+     * Jarak = akumulasi selisih odometer_start antar pengisian berurutan (skema yang
+     * sama seperti FuelLogController::analytics), bukan dari Log Perjalanan (TripLog).
+     */
+    private function getVehicleFuelLogStats($vehicleId, $month, $year, $filterDriverId = null)
+    {
+        $query = FuelLog::where('vehicle_id', $vehicleId)
+            ->where('is_verified', 1)
+            ->whereMonth('filling_date', $month)
+            ->whereYear('filling_date', $year);
+        if ($filterDriverId) $query->where('driver_id', $filterDriverId);
+
+        $items = $query->orderBy('filling_date')->orderBy('odometer_start')->get();
+
+        $fuelLiters = $items->sum('fuel_liters');
+
+        $totalDistance = 0;
+        $prevOdometer = null;
+        foreach ($items as $item) {
+            if ($prevOdometer !== null && $item->odometer_start > $prevOdometer) {
+                $totalDistance += ($item->odometer_start - $prevOdometer);
+            }
+            $prevOdometer = $item->odometer_start;
+        }
+
+        return [
+            'distance'    => $totalDistance,
+            'fuel_liters' => $fuelLiters,
+        ];
     }
 
     private function getRecentLogs($buId, $limit = 5, $vehicleId = null, $driverId = null)

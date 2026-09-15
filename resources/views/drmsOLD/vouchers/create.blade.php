@@ -1,0 +1,105 @@
+@extends('layouts.app_car_sidebar')
+
+@section('content')
+<div class="container mx-auto max-w-lg">
+    <h1 class="text-2xl font-bold mb-4">Tambah Voucher</h1>
+
+    @if($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <ul class="list-disc pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('drms.vouchers.store') }}" method="POST" class="bg-white p-6 rounded shadow">
+        @csrf
+        <div class="mb-4">
+            <label for="code" class="block text-sm font-medium text-gray-700 mb-1">Kode Voucher</label>
+            <input type="text" name="code" id="code" value="{{ old('code') }}" required
+                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="mb-4">
+            <label for="nominal" class="block text-sm font-medium text-gray-700 mb-1">Nominal (Rp)</label>
+            <input type="number" name="nominal" id="nominal" value="{{ old('nominal') }}" required min="0"
+                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="mb-4">
+            <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Tipe Voucher</label>
+            <select name="type" id="type" required
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="grab" {{ old('type') == 'grab' ? 'selected' : '' }}>Grab</option>
+                <option value="gojek" {{ old('type') == 'gojek' ? 'selected' : '' }}>Gojek</option>
+                <option value="taxi" {{ old('type') == 'taxi' ? 'selected' : '' }}>Bluebird</option>
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select name="status" id="status" required
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="available" {{ old('status') == 'available' ? 'selected' : '' }}>Available</option>
+                <option value="used" {{ old('status') == 'used' ? 'selected' : '' }}>Used</option>
+            </select>
+        </div>
+
+        {{-- UPDATED: expired_at is now required --}}
+        <div class="mb-4">
+            <label for="expired_at" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Expired</label>
+            <input type="date" name="expired_at" id="expired_at" value="{{ old('expired_at') }}" required
+                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Tanggal expired wajib diisi.</p>
+        </div>
+
+        @if($isSuperAdmin ?? false)
+        <div class="mb-4">
+            <label for="business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+            <select name="business_unit_id" id="business_unit_id" required
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Pilih Business Unit --</option>
+                @foreach($businessUnits as $bu)
+                    <option value="{{ $bu->id_bisnis_unit }}"
+                            {{ old('business_unit_id', $ownBusinessUnitId ?? '') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        {{ $bu->nama_bisnis_unit }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Voucher ini akan tercatat milik Business Unit yang dipilih.</p>
+        </div>
+        @elseif($ownBusinessUnitName ?? null)
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Business Unit</label>
+            <input type="text" value="{{ $ownBusinessUnitName }}" disabled
+                   class="w-full border rounded px-3 py-2 bg-gray-100 text-gray-600">
+            <p class="text-xs text-gray-500 mt-1">Voucher ini otomatis tercatat milik Business Unit Anda sendiri.</p>
+        </div>
+        @endif
+
+        {{-- This field remains optional --}}
+        @if($isSpecialBu ?? false)
+        <div class="mb-4">
+            <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Dibebankan ke BU</label>
+            <select name="input_business_unit_id" id="input_business_unit_id"
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Pilih Dibebankan ke BU --</option>
+                @foreach($businessUnits as $bu)
+                    <option value="{{ $bu->id_bisnis_unit }}" {{ old('input_business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                        {{ $bu->nama_bisnis_unit }}
+                    </option>
+                @endforeach
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Khusus KPN Corporation: pilih business unit tujuan penggunaan voucher ini. (Opsional)</p>
+        </div>
+        @endif
+
+        <div class="flex justify-end space-x-2">
+            <a href="{{ route('drms.vouchers.index') }}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Batal</a>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Simpan</button>
+        </div>
+    </form>
+</div>
+@endsection

@@ -251,13 +251,13 @@
                                         <span>Perbaikan</span>
                                     </a>
                                 </li>
-                                <li>
+                                <!-- <li>
                                     <a href="{{ route('drms.vehicle-documents.index') }}"
                                        class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('drms.vehicle-documents.*') ? 'active' : '' }}">
                                         <i class="fas fa-file-alt w-4 mr-3"></i>
                                         <span>Dokumen Kendaraan</span>
                                     </a>
-                                </li>
+                                </li> -->
                             </ul>
                         </div>
                     </li>

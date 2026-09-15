@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\DashboardBadgeService;
 
 class DashboardController extends Controller
 {
@@ -52,7 +53,9 @@ class DashboardController extends Controller
             $totalAccess = 0;
         }
 
-        return view('dashboard', compact('access', 'totalAccess'));
+        $menuBadges = DashboardBadgeService::computeAll($user);
+
+        return view('dashboard', compact('access', 'totalAccess', 'menuBadges'));
     }
 
     /**
