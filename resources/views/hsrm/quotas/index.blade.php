@@ -336,7 +336,7 @@
                             @endif
                         </td>
                         <td class="p-3 text-center font-medium">
-                            <a href="{{ route('hsrm.certificates.index', ['area_id' => $selectedArea->id_area_kerja, 'certificate_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
+                            <a href="{{ route('hsrm.certificates.index', ['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja, 'certificate_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
                                class="text-blue-600 hover:underline" target="_blank">
                                 {{ $row->active }}
                             </a>
@@ -382,6 +382,7 @@
                                 <option value="Certification Application" {{ $row->application_type == 'Certification Application' ? 'selected' : '' }}>Certification Application</option>
                                 <option value="License Application" {{ $row->application_type == 'License Application' ? 'selected' : '' }}>License Application</option>
                                 <option value="Amendment & Extension Application" {{ $row->application_type == 'Amendment & Extension Application' ? 'selected' : '' }}>Amendment & Extension Application</option>
+                                <option value="Certification & License Application" {{ $row->application_type == 'Certification & License Application' ? 'selected' : '' }}>Certification & License Application</option>
                             </select>
                         </td>
                         <td class="p-3 text-center action-cell">
@@ -441,7 +442,7 @@
                             @endif
                         </td>
                         <td class="p-3 text-center font-medium">
-                            <a href="{{ route('hsrm.equipments.index', ['area_id' => $selectedArea->id_area_kerja, 'equipment_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
+                            <a href="{{ route('hsrm.equipments.index', ['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja, 'equipment_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
                                class="text-blue-600 hover:underline" target="_blank">
                                 {{ $row->active }}
                             </a>

@@ -18,6 +18,7 @@ class ServiceSchedule extends Model
         'service_date' => 'date',
         'next_service_date' => 'date',
         'cost' => 'decimal:2',
+        'service_type' => 'array',
     ];
 
     public function vehicle()

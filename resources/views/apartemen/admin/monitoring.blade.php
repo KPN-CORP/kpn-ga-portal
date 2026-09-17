@@ -464,6 +464,14 @@
                                         @else
                                             <span class="text-gray-400 text-xs">-</span>
                                         @endif
+
+                                        @if($assign && $assign->status == 'AKTIF')
+                                            <button type="button"
+                                                    onclick="openPindahModal({{ $assign->id }}, '{{ addslashes($p->nama) }}', {{ $assign->unit->id ?? 'null' }}, {{ $assign->penghuniAktif()->count() }}); return false;"
+                                                    class="block mt-1 text-indigo-600 hover:text-indigo-800 text-xs md:text-sm font-medium whitespace-nowrap">
+                                                Pindah Unit
+                                            </button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
@@ -533,6 +541,76 @@
 <form id="checkoutForm" method="POST" style="display: none;">
     @csrf
 </form>
+
+{{-- MODAL PINDAH UNIT --}}
+<div id="pindahUnitModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(17, 24, 39, 0.5);">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <form id="pindahUnitForm" method="POST" action="">
+            @csrf
+            <div class="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200">
+                <h3 class="text-base md:text-lg font-semibold text-gray-800">Pindah Unit Penghuni</h3>
+                <button type="button" onclick="closePindahModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-4 md:px-6 py-4 space-y-4">
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500">Penghuni</p>
+                    <p id="pindahNamaPenghuni" class="font-medium text-gray-900 text-sm md:text-base">-</p>
+                    <p id="pindahCoResidentNote" class="text-xs text-amber-600 mt-1 hidden"></p>
+                </div>
+
+                <div>
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Unit Tujuan (kosong / READY)</label>
+                    <select name="unit_id" id="pindahUnitSelect" required
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Pilih Unit --</option>
+                        @foreach($unitKosong as $u)
+                        <option value="{{ $u->id }}" data-unit-id="{{ $u->id }}">
+                            {{ $u->apartemen->nama_apartemen ?? '-' }} - Unit {{ $u->nomor_unit }} (Kapasitas {{ $u->kapasitas }})
+                        </option>
+                        @endforeach
+                    </select>
+                    @if($unitKosong->isEmpty())
+                    <p class="text-xs text-red-600 mt-1">Tidak ada unit kosong (READY) saat ini.</p>
+                    @endif
+                </div>
+
+                <div>
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Tanggal Pindah</label>
+                    <input type="date" name="tanggal_transfer" id="pindahTanggal" required
+                           value="{{ now()->format('Y-m-d') }}"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Alasan Pindah</label>
+                    <textarea name="alasan" id="pindahAlasan" required rows="3" maxlength="500"
+                              placeholder="Contoh: unit lama bermasalah, permintaan penghuni, dll."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <p class="text-[11px] md:text-xs text-gray-400">
+                    Riwayat penempatan unit sebelumnya akan tetap tersimpan di halaman Riwayat.
+                </p>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 px-4 md:px-6 py-4 border-t border-gray-200">
+                <button type="button" onclick="closePindahModal()"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Batal
+                </button>
+                <button type="submit" id="pindahSubmitBtn"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                    Pindahkan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <style>
 /* Smooth transitions */
@@ -806,5 +884,71 @@ setTimeout(() => {
         });
     }
 }, 10000);
+
+// ==== PINDAH UNIT (per assignment / penempatan) ====
+function openPindahModal(assignId, nama, currentUnitId, activeCount) {
+    const modal = document.getElementById('pindahUnitModal');
+    const form = document.getElementById('pindahUnitForm');
+    const select = document.getElementById('pindahUnitSelect');
+    const note = document.getElementById('pindahCoResidentNote');
+
+    document.getElementById('pindahNamaPenghuni').textContent = nama;
+    form.action = `/apartemen/admin/transfer/${assignId}`;
+
+    if (activeCount > 1) {
+        note.textContent = `Unit ini dihuni ${activeCount} orang — semuanya akan ikut dipindahkan bersama.`;
+        note.classList.remove('hidden');
+    } else {
+        note.classList.add('hidden');
+    }
+
+    // Reset pilihan & sembunyikan unit yang sedang ditempati (jaga-jaga kalau ada di daftar kosong)
+    select.value = '';
+    Array.from(select.options).forEach(opt => {
+        if (opt.dataset.unitId && currentUnitId && parseInt(opt.dataset.unitId) === parseInt(currentUnitId)) {
+            opt.disabled = true;
+        } else {
+            opt.disabled = false;
+        }
+    });
+
+    document.getElementById('pindahAlasan').value = '';
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closePindahModal() {
+    const modal = document.getElementById('pindahUnitModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+document.getElementById('pindahUnitForm')?.addEventListener('submit', function(e) {
+    const nama = document.getElementById('pindahNamaPenghuni').textContent;
+    const unitText = document.getElementById('pindahUnitSelect').selectedOptions[0]?.text || '';
+
+    if (!document.getElementById('pindahUnitSelect').value) {
+        e.preventDefault();
+        alert('Pilih unit tujuan terlebih dahulu.');
+        return;
+    }
+
+    if (!confirm(`Yakin memindahkan ${nama} ke ${unitText}?`)) {
+        e.preventDefault();
+        return;
+    }
+
+    const btn = document.getElementById('pindahSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Memproses...';
+});
+
+// Tutup modal jika klik di luar konten
+document.getElementById('pindahUnitModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePindahModal();
+    }
+});
 </script>
 @endsection

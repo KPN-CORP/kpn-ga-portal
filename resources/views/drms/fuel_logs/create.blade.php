@@ -4,7 +4,7 @@
 {{-- Tampilan khusus mobile --}}
 <div class="block md:hidden">
     <div class="container mx-auto max-w-2xl">
-        <h1 class="text-2xl font-bold mb-4">Tambah Log</h1>
+        <h1 class="text-2xl font-bold mb-4">Validasi Pengisian (Odometer + Struk)</h1>
 
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -127,6 +127,7 @@
                            min="0.01"
                            step="0.01"
                            required>
+                           <p class="text-xs text-gray-500 mt-1">Isi jumlah liter bahan bakar yang dibeli (contoh: 50.5).</p>
                 </div>
 
                 <div class="mb-4">
@@ -141,6 +142,7 @@
                            min="0"
                            step="0.01"
                            required>
+                           <p class="text-xs text-gray-500 mt-1">Masukkan total harga dalam angka (contoh: 750000).</p>
                 </div>
 
             </div>
@@ -149,7 +151,7 @@
             <div class="mb-4">
 
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Bukti Pengisian <span class="text-red-500">*</span>
+                    Ambil Foto Validasi <span class="text-red-500">*</span>
                 </label>
 
                 <div class="flex items-center gap-3">
@@ -181,6 +183,9 @@
                     </label>
 
                     {{-- Input file dengan capture --}}
+                    {{-- Atribut capture diatur lewat JS: untuk kendaraan listrik
+                         dilepas (boleh pilih dari galeri hp), selain itu tetap
+                         "environment" supaya hanya bisa ambil foto langsung. --}}
                     <input type="file"
                            id="receipt_file"
                            name="receipt_file"
@@ -192,7 +197,7 @@
                     {{-- Status File --}}
                     <span id="receipt_file_name"
                           class="text-sm text-gray-500">
-                        Ambil foto bukti pengisian
+                        Foto Odometer + Struk Pengisian
                     </span>
 
                 </div>
@@ -313,6 +318,20 @@
             fuelUnitLabel.innerHTML = unit + ' <span class="text-red-500">*</span>';
         }
 
+        // Mobil listrik: boleh ambil foto dari galeri hp (atribut capture dilepas).
+        // Mobil lain: wajib ambil foto langsung dari kamera (capture="environment").
+        function updateReceiptCaptureMode(fuelType) {
+            const receiptInput = document.getElementById('receipt_file');
+            if (!receiptInput) return;
+
+            const isElectric = fuelType && fuelType.toLowerCase() === 'listrik';
+            if (isElectric) {
+                receiptInput.removeAttribute('capture');
+            } else {
+                receiptInput.setAttribute('capture', 'environment');
+            }
+        }
+
         function hideSuggestions() {
             suggestionBox.innerHTML = '';
             suggestionBox.classList.add('hidden');
@@ -349,6 +368,7 @@
                         hiddenInput.value = this.getAttribute('data-id');
                         searchInput.value = this.getAttribute('data-label');
                         updateFuelUnit(this.getAttribute('data-fuel'));
+                        updateReceiptCaptureMode(this.getAttribute('data-fuel'));
                         hideSuggestions();
                     });
                 });
@@ -423,8 +443,10 @@
         if (hiddenInput.value) {
             const selected = VEHICLES_DATA.find(v => String(v.id) === String(hiddenInput.value));
             updateFuelUnit(selected ? selected.fuel : null);
+            updateReceiptCaptureMode(selected ? selected.fuel : null);
         } else {
             updateFuelUnit(null);
+            updateReceiptCaptureMode(null);
         }
 
         /* =====================================================
@@ -437,9 +459,72 @@
         const removeReceipt = document.getElementById('remove_receipt');
         const receiptError = document.getElementById('receipt_error');
 
-        receiptFile.addEventListener('change', function () {
+        // Kompres foto di browser sebelum diupload, supaya tidak kena limit
+        // "max:5120" (5MB) di server sebelum sempat dikompres ulang di backend.
+        // Foto langsung dari kamera HP modern seringkali > 5MB.
+        function compressImage(file, maxDim, quality) {
+            return new Promise(function (resolve, reject) {
+                const img = new Image();
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    img.onload = function () {
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height && width > maxDim) {
+                            height = Math.round(height * (maxDim / width));
+                            width = maxDim;
+                        } else if (height > maxDim) {
+                            width = Math.round(width * (maxDim / height));
+                            height = maxDim;
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob(function (blob) {
+                            if (!blob) {
+                                reject(new Error('Gagal kompres gambar'));
+                                return;
+                            }
+                            const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                            resolve(new File([blob], newName, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        receiptFile.addEventListener('change', async function () {
             if (this.files && this.files.length > 0) {
-                const file = this.files[0];
+                let file = this.files[0];
+                const MAX_SIZE = 5 * 1024 * 1024; // samakan dengan max:5120 di server
+
+                if (file.type.startsWith('image/') && file.size > MAX_SIZE) {
+                    receiptFileName.textContent = 'Mengompres foto...';
+                    try {
+                        const compressed = await compressImage(file, 1600, 0.7);
+                        if (compressed.size < file.size) {
+                            file = compressed;
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            receiptFile.files = dt.files;
+                        }
+                    } catch (err) {
+                        console.error('Gagal kompres foto:', err);
+                    }
+                }
+
                 receiptFileName.textContent = file.name;
                 receiptFileName.classList.remove('text-gray-500');
                 receiptFileName.classList.add('text-green-600');

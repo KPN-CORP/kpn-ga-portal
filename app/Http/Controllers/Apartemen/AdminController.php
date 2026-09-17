@@ -443,7 +443,15 @@ class AdminController extends Controller
         $penghuni = $query->paginate(10);
         $apartemen = Apartemen::all();
 
-        return view('apartemen.admin.monitoring', compact('penghuni', 'apartemen'));
+        // Unit kosong (READY) untuk opsi pindah unit, lengkap dengan nama apartemen
+        $unitKosong = ApartemenUnit::active()
+            ->ready()
+            ->with('apartemen')
+            ->orderBy('apartemen_id')
+            ->orderBy('nomor_unit')
+            ->get();
+
+        return view('apartemen.admin.monitoring', compact('penghuni', 'apartemen', 'unitKosong'));
     }
 
     // CHECKOUT PER ORANG

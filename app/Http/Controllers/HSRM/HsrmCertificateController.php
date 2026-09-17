@@ -29,6 +29,10 @@ class HsrmCertificateController extends Controller
             $query->whereIn('area_id', $areaIds);
         }
 
+        // $filter bisa datang dari segment route (/hsrm/certificates/active)
+        // ATAU dari query string (?filter=active), tergantung link yang dipakai.
+        $filter = $filter ?: $request->query('filter');
+
         if ($filter) {
             switch ($filter) {
                 case 'active':

@@ -351,14 +351,26 @@ class AppAdminController extends Controller
         // ----- QUERY TRIP YANG BISA DIGABUNG -----
         // Hanya request yang sudah "jalan" (approved_admin), sudah punya driver+kendaraan,
         // dan dia sendiri BUKAN request yang sedang menumpang ke trip lain (mencegah gabung berlapis).
-        $mergeableQuery = DriverRequest::with(['requester', 'driver', 'vehicle'])
+        $mergeableQuery = DriverRequest::with(['requester.drmsProfile', 'driver', 'vehicle'])
             ->where('id', '!=', $driverRequest->id)
             ->where('status', 'approved_admin')
             ->whereNotNull('driver_id')
             ->whereNull('merged_into_id')
             ->where('usage_date', $driverRequest->usage_date);
         if (!$showAllBu) {
-            $mergeableQuery->where('current_business_unit_id', $businessUnitId);
+            // `current_business_unit_id` cuma terisi kalau trip pernah di-forward ke BU lain;
+            // untuk trip normal kolom ini NULL, jadi kita fallback ke BU asli requester-nya
+            // (sama seperti cara $businessUnitId dihitung di atas) supaya trip yang memang
+            // satu BU tetap muncul sebagai opsi gabung, bukan cuma trip yang pernah di-forward.
+            $mergeableQuery->where(function ($q) use ($businessUnitId) {
+                $q->where('current_business_unit_id', $businessUnitId)
+                  ->orWhere(function ($sub) use ($businessUnitId) {
+                      $sub->whereNull('current_business_unit_id')
+                          ->whereHas('requester.drmsProfile', function ($p) use ($businessUnitId) {
+                              $p->where('business_unit_id', $businessUnitId);
+                          });
+                  });
+            });
         }
         $mergeableRequests = $mergeableQuery->orderBy('start_time')->get();
 

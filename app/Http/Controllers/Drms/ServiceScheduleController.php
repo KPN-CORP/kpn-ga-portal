@@ -47,9 +47,9 @@ class ServiceScheduleController extends Controller
             $query->whereDate('service_date', '<=', $request->date_to);
         }
 
-        // Filter jenis servis
+        // Filter jenis servis (kolom service_type sekarang array/JSON)
         if ($request->filled('service_type')) {
-            $query->where('service_type', $request->service_type);
+            $query->whereJsonContains('service_type', $request->service_type);
         }
 
         // Filter kendaraan
@@ -86,7 +86,8 @@ class ServiceScheduleController extends Controller
             'vehicle_id' => 'required|exists:drms_vehicles,id',
             'service_date' => 'required|date',
             'odometer_at_service' => 'nullable|integer|min:0',
-            'service_type' => 'required|in:oil_change,filter_change,tune_up,spooring,balancing,general',
+            'service_type' => 'required|array|min:1',
+            'service_type.*' => 'string|max:50',
             'workshop_name' => 'nullable|string|max:255',
             'cost' => 'required|numeric|min:0',
             'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
@@ -126,7 +127,8 @@ class ServiceScheduleController extends Controller
             'vehicle_id' => 'required|exists:drms_vehicles,id',
             'service_date' => 'required|date',
             'odometer_at_service' => 'nullable|integer|min:0',
-            'service_type' => 'required|in:oil_change,filter_change,tune_up,spooring,balancing,general',
+            'service_type' => 'required|array|min:1',
+            'service_type.*' => 'string|max:50',
             'workshop_name' => 'nullable|string|max:255',
             'cost' => 'required|numeric|min:0',
             'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',

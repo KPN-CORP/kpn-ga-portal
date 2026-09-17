@@ -32,6 +32,12 @@
         ];
         $thisMonthLabel = $bulanIndo[$today->month] . ' ' . $today->year;
         $lastMonthLabel = $bulanIndo[$lastMonth->month] . ' ' . $lastMonth->year;
+
+        // BARU: pisahkan total liter (BBM) dan total kWh (listrik) dari $result,
+        // supaya kartu ringkasan tidak menjumlahkan 2 satuan yang beda jadi 1 angka.
+        // Dihitung dari fuel_unit_label per kendaraan yang sudah ada di $result.
+        $totalLiterBbm   = collect($result)->where('fuel_unit_label', 'Liter')->sum('total_liters');
+        $totalKwhListrik = collect($result)->where('fuel_unit_label', 'kWh')->sum('total_liters');
     @endphp
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-4">
         <form method="GET" action="{{ route('drms.fuel-logs.analytics') }}" class="flex flex-wrap gap-3 items-end">
@@ -92,14 +98,19 @@
     </div>
 
     {{-- RINGKASAN TOTAL (sesuai filter aktif) --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    {{-- BARU: "Total Liter/kWh" dipecah jadi 2 kartu terpisah — BBM (Liter) dan Listrik (kWh) — supaya tidak dijumlah campur 1 angka. --}}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Jumlah Pengisian</p>
             <p class="text-2xl font-bold">{{ $summary['count'] }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-            <p class="text-xs text-gray-500 uppercase">Total Liter/kWh</p>
-            <p class="text-2xl font-bold text-green-600">{{ number_format($summary['total_liters'], 2, ',', '.') }}</p>
+            <p class="text-xs text-gray-500 uppercase">Total Liter (BBM)</p>
+            <p class="text-2xl font-bold text-green-600">{{ number_format($totalLiterBbm, 2, ',', '.') }}</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500">
+            <p class="text-xs text-gray-500 uppercase">Total kWh (Listrik)</p>
+            <p class="text-2xl font-bold text-teal-600">{{ number_format($totalKwhListrik, 2, ',', '.') }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>

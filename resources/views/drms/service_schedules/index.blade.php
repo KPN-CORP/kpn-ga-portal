@@ -86,8 +86,8 @@
     @php
         $total = $services->total();
         $totalCost = $services->sum('cost');
-        $totalOilChange = $services->where('service_type', 'oil_change')->count();
-        $totalGeneral = $services->where('service_type', 'general')->count();
+        $totalOilChange = $services->filter(fn($s) => in_array('oil_change', $s->service_type ?? []))->count();
+        $totalGeneral = $services->filter(fn($s) => in_array('general', $s->service_type ?? []))->count();
         $uniqueVehicles = $services->pluck('vehicle_id')->unique()->count();
     @endphp
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -136,15 +136,19 @@
                         </td>
                         <td class="px-6 py-4">{{ $service->service_date->format('d M Y') }}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs 
-                                @if($service->service_type == 'oil_change') bg-blue-100 text-blue-800
-                                @elseif($service->service_type == 'filter_change') bg-yellow-100 text-yellow-800
-                                @elseif($service->service_type == 'tune_up') bg-purple-100 text-purple-800
-                                @elseif($service->service_type == 'spooring') bg-green-100 text-green-800
-                                @elseif($service->service_type == 'balancing') bg-pink-100 text-pink-800
-                                @else bg-gray-100 text-gray-800 @endif">
-                                {{ ucfirst(str_replace('_', ' ', $service->service_type)) }}
-                            </span>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach(($service->service_type ?? []) as $type)
+                                    <span class="px-2 py-1 rounded-full text-xs
+                                        @if($type == 'oil_change') bg-blue-100 text-blue-800
+                                        @elseif($type == 'filter_change') bg-yellow-100 text-yellow-800
+                                        @elseif($type == 'tune_up') bg-purple-100 text-purple-800
+                                        @elseif($type == 'spooring') bg-green-100 text-green-800
+                                        @elseif($type == 'balancing') bg-pink-100 text-pink-800
+                                        @else bg-gray-100 text-gray-800 @endif">
+                                        {{ ucfirst(str_replace('_', ' ', $type)) }}
+                                    </span>
+                                @endforeach
+                            </div>
                         </td>
                         <td class="px-6 py-4 font-semibold text-red-600">Rp {{ number_format($service->cost, 0, ',', '.') }}</td>
                         <td class="px-6 py-4">

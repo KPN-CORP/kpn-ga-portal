@@ -8,8 +8,11 @@ use App\Models\Apartemen\ApartemenAssign;
 use App\Models\Apartemen\ApartemenRequest;
 use App\Models\Apartemen\ApartemenUnit;
 use App\Models\Apartemen\ApartemenPenghuni;
+use App\Models\Apartemen\ApartemenHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class AssignController extends Controller
 {
@@ -114,7 +117,7 @@ class AssignController extends Controller
         }
     }
 
-    // TRANSFER PENGHUNI
+    // TRANSFER PENGHUNI (pindah unit) - pindahkan seluruh penghuni pada 1 assignment ke unit lain yang kosong, tercatat di history
     public function transfer(Request $request, $id)
     {
         $validated = $request->validate([
@@ -125,13 +128,45 @@ class AssignController extends Controller
 
         DB::beginTransaction();
         try {
-            $assign = ApartemenAssign::with(['penghuni', 'unit'])->findOrFail($id);
-            $newUnit = ApartemenUnit::findOrFail($validated['unit_id']);
+            $assign = ApartemenAssign::with(['penghuni', 'unit.apartemen'])
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($assign->status != 'AKTIF') {
+                return back()->with('error', 'Penempatan ini sudah tidak aktif.');
+            }
+
+            if (!$assign->unit) {
+                return back()->with('error', 'Unit saat ini tidak ditemukan.');
+            }
+
+            if ($assign->unit->id == $validated['unit_id']) {
+                return back()->with('error', 'Unit tujuan sama dengan unit saat ini.');
+            }
+
+            $newUnit = ApartemenUnit::whereNull('deleted_at')
+                ->lockForUpdate()
+                ->findOrFail($validated['unit_id']);
+
+            // Unit tujuan harus kosong (READY)
+            if ($newUnit->status != 'READY') {
+                return back()->with('error', 'Unit tujuan tidak kosong / tidak tersedia.');
+            }
+
+            $penghuniAktif = $assign->penghuni->where('status', 'AKTIF');
+
+            if ($penghuniAktif->isEmpty()) {
+                return back()->with('error', 'Tidak ada penghuni aktif pada penempatan ini.');
+            }
 
             // Cek kapasitas unit baru
-            if ($newUnit->kapasitas < $assign->penghuni->count()) {
+            if ($newUnit->kapasitas < $penghuniAktif->count()) {
                 return back()->with('error', 'Kapasitas unit tidak mencukupi.');
             }
+
+            $apartemenLama = $assign->unit->apartemen->nama_apartemen ?? '-';
+            $unitLama = $assign->unit->nomor_unit ?? '-';
+            $mulaiLama = $assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-';
 
             // Update assignment lama
             $assign->update(['status' => 'SELESAI']);
@@ -144,19 +179,34 @@ class AssignController extends Controller
                 'tanggal_mulai' => $validated['tanggal_transfer'],
                 'tanggal_selesai' => $assign->tanggal_selesai,
                 'status' => 'AKTIF',
+                'assign_by' => Auth::id(),
             ]);
 
-            // Copy penghuni ke assignment baru
-            foreach ($assign->penghuni as $penghuni) {
+            // Copy penghuni aktif ke assignment baru + catat history per penghuni
+            foreach ($penghuniAktif as $penghuni) {
                 ApartemenPenghuni::create([
                     'assign_id' => $newAssign->id,
                     'nama' => $penghuni->nama,
                     'id_karyawan' => $penghuni->id_karyawan,
+                    'no_hp' => $penghuni->no_hp,
                     'unit_kerja' => $penghuni->unit_kerja,
                     'gol' => $penghuni->gol,
                     'tanggal_mulai' => $validated['tanggal_transfer'],
                     'tanggal_selesai' => $assign->tanggal_selesai,
                     'status' => 'AKTIF',
+                ]);
+
+                ApartemenHistory::create([
+                    'nama' => $penghuni->nama,
+                    'id_karyawan' => $penghuni->id_karyawan,
+                    'no_hp' => $penghuni->no_hp ?? '-',
+                    'unit_kerja' => $penghuni->unit_kerja ?? '-',
+                    'gol' => $penghuni->gol ?? '-',
+                    'apartemen' => $apartemenLama,
+                    'unit' => $unitLama,
+                    'periode' => $mulaiLama . ' - ' . \Carbon\Carbon::parse($validated['tanggal_transfer'])->format('d/m/Y'),
+                    'status_selesai' => 'DIPINDAH',
+                    'created_at' => now(),
                 ]);
             }
 
@@ -164,18 +214,17 @@ class AssignController extends Controller
             $assign->unit->update(['status' => 'READY']);
             $newUnit->update(['status' => 'TERISI']);
 
-            // Record to history
-            ApartemenHistory::create([
-                'nama' => $assign->penghuni->first()->nama ?? '-',
-                'id_karyawan' => $assign->penghuni->first()->id_karyawan ?? '-',
-                'apartemen' => $assign->unit->apartemen->nama_apartemen,
-                'unit' => $assign->unit->nomor_unit,
-                'periode' => $assign->tanggal_mulai->format('d M Y') . ' - ' . $validated['tanggal_transfer'],
-                'status_selesai' => 'DIPINDAH',
+            Log::info('Transfer unit berhasil', [
+                'assign_lama' => $assign->id,
+                'assign_baru' => $newAssign->id,
+                'unit_lama' => $unitLama,
+                'unit_baru' => $newUnit->nomor_unit,
+                'alasan' => $validated['alasan'],
             ]);
 
             DB::commit();
-            return back()->with('success', 'Transfer penghuni berhasil dilakukan.');
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('success', 'Transfer penghuni ke unit ' . $newUnit->nomor_unit . ' berhasil dilakukan.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());

@@ -50,6 +50,19 @@ use Illuminate\Support\Facades\DB;
  *   daftar. Yang SUDAH disaring: vehicle_breakdown, efficiency_top10,
  *   dan 4 field jumlah-aset (total_fuel_asset_bbm dkk).
  *   Lihat catatan TODO di resolveCompanyVehicleIds().
+ *
+ * v3.3 — TAMBAHAN atas permintaan AMS (15 Sep 2026):
+ * - Param plate_number (cocok SEBAGIAN ke drms_vehicles.plate_number,
+ *   dinormalisasi: hilangkan spasi, tidak case-sensitive, mis. "1929"
+ *   cocok dengan "B 1929 SDW") — AMS bisa cari ringkasan 1 kendaraan
+ *   tanpa perlu tahu vehicle_id DRMS-nya, cukup pakai plat nomor, sama
+ *   seperti param plate_number yang sudah dipakai di endpoint 1-7.
+ *   Boleh dipakai BARENGAN company_code/company (semuanya harus cocok —
+ *   AND), lewat resolvePlateVehicleIds() + combineVehicleIdFilters().
+ *   Cakupan penyaringannya SAMA seperti company_code/company: menyaring
+ *   vehicle_breakdown, efficiency_top10, dan 4 field jumlah-aset — BELUM
+ *   menyaring "summary" & "transport_distribution" (lihat TODO yang
+ *   sama di resolveCompanyVehicleIds()).
  */
 class OperationalReportController extends Controller
 {
@@ -109,6 +122,50 @@ class OperationalReportController extends Controller
     }
 
     /**
+     * BARU (v3.3) — cari daftar vehicle_id DRMS lewat pencocokan SEBAGIAN
+     * plat nomor (dinormalisasi: hilangkan spasi, uppercase), persis pola
+     * yang sudah dipakai plate_number di ServiceScheduleController /
+     * RepairController / FuelLogController — bedanya di sini hasilnya
+     * daftar vehicle_id (dipakai buat filter internal), bukan query
+     * langsung ke tabel service/repair/fuel_log.
+     *
+     * $plate boleh sebagian, mis. "1929" cocok dengan plat manapun yang
+     * mengandung "1929" (termasuk "B 1929 SDW").
+     */
+    private function resolvePlateVehicleIds(string $plate): array
+    {
+        $normalized = strtoupper(str_replace(' ', '', $plate));
+
+        return DB::table('drms_vehicles')
+            ->whereRaw("UPPER(REPLACE(plate_number, ' ', '')) LIKE ?", ["%{$normalized}%"])
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * BARU (v3.3) — gabungkan 2 hasil filter vehicle_id (company & plate)
+     * jadi 1 daftar akhir, dengan aturan:
+     * - null + null   -> null (tidak ada filter sama sekali)
+     * - null + array  -> array itu (cuma 1 filter yang dikirim)
+     * - array + array -> irisan (AND) — vehicle_id harus cocok KEDUANYA
+     *
+     * Array kosong itu valid & beda dari null: artinya filter dikirim
+     * tapi tidak ada yang cocok, jadi hasil akhir memang harus kosong
+     * (0 kendaraan), bukan diabaikan.
+     */
+    private function combineVehicleIdFilters(?array $a, ?array $b): ?array
+    {
+        if ($a === null) {
+            return $b;
+        }
+        if ($b === null) {
+            return $a;
+        }
+
+        return array_values(array_intersect($a, $b));
+    }
+
+    /**
      * GET /api/v1/operational-summary
      *
      * Query params:
@@ -137,6 +194,16 @@ class OperationalReportController extends Controller
      *                           vehicle_breakdown, efficiency_top10, dan 4
      *                           field jumlah-aset. Tidak ada yang cocok ->
      *                           bagian itu kosong/0, bukan error.
+     * - plate_number          : BARU (v3.3, atas permintaan AMS 15 Sep 2026)
+     *                           — cari ringkasan lewat plat nomor, boleh
+     *                           sebagian (mis. "1929" cocok "B 1929 SDW"),
+     *                           sama seperti plate_number di endpoint 1-7.
+     *                           Boleh dipakai bareng company_code/company
+     *                           (semuanya harus cocok — AND). Cakupan
+     *                           penyaringan sama seperti company_code/
+     *                           company: vehicle_breakdown, efficiency_top10,
+     *                           dan 4 field jumlah-aset. Tidak ada yang
+     *                           cocok -> bagian itu kosong/0, bukan error.
      */
     public function summary(Request $request)
     {
@@ -146,6 +213,7 @@ class OperationalReportController extends Controller
         $fuelGroup = $request->get('fuel_type');
         $companyCode = $request->get('company_code');
         $companyName = $request->get('company');
+        $plateNumber = $request->get('plate_number');
 
         if ($request->filled('date_from') && $request->filled('date_to')) {
             $dateFrom = \Carbon\Carbon::parse($request->date_from)->toDateString();
@@ -167,12 +235,23 @@ class OperationalReportController extends Controller
             ? $this->resolveCompanyVehicleIds($companyCode, $companyName)
             : null;
 
-        // "v3" + company ditambahkan di cache key supaya kombinasi filter
-        // company/company_code punya entry cache sendiri, tidak nabrak cache lain.
-        $cacheKey = "api.operational-summary.v3.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}."
-            . ($companyCode ?: '-') . '.' . ($companyName ?: '-');
+        // BARU (v3.3) — daftar vehicle_id DRMS yang platnya cocok (sebagian)
+        // dengan param plate_number. null = tidak dikirim, [] = dikirim tapi
+        // tidak ada plat yang cocok.
+        $plateVehicleIds = $plateNumber
+            ? $this->resolvePlateVehicleIds($plateNumber)
+            : null;
 
-        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup, $companyVehicleIds, $companyCode, $companyName) {
+        // BARU (v3.3) — gabungkan filter company + plate jadi 1 daftar
+        // vehicle_id akhir (AND kalau dua-duanya dikirim).
+        $filterVehicleIds = $this->combineVehicleIdFilters($companyVehicleIds, $plateVehicleIds);
+
+        // "v3" + company + plate ditambahkan di cache key supaya tiap kombinasi
+        // filter punya entry cache sendiri, tidak nabrak cache lain.
+        $cacheKey = "api.operational-summary.v3.{$buId}.{$dateFrom}.{$dateTo}.{$vehicleId}.{$driverId}.{$fuelGroup}."
+            . ($companyCode ?: '-') . '.' . ($companyName ?: '-') . '.' . ($plateNumber ?: '-');
+
+        $payload = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($buId, $dateFrom, $dateTo, $vehicleId, $driverId, $fuelGroup, $filterVehicleIds, $companyCode, $companyName, $plateNumber) {
             // Batasi waktu eksekusi query di sesi ini — kalau ada yang nyangkut,
             // MySQL yang hentikan sendiri, gak jalan tanpa batas dan gak ganggu
             // resource DB untuk user GA Portal lain yang lagi pakai bersamaan.
@@ -210,20 +289,20 @@ class OperationalReportController extends Controller
                 fn ($q) => $q->whereHas('vehicle', function ($vq) {
                     $vq->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
                 }),
-                $companyVehicleIds
+                $filterVehicleIds
             );
             $summary['total_fuel_asset_listrik'] = $this->countDistinctVehicles(
                 FuelLog::query(), 'filling_date', $buId, $vehicleId, $driverId, $dateFrom, $dateTo,
                 fn ($q) => $q->whereHas('vehicle', fn ($vq) => $vq->where('fuel_type', 'Listrik')),
-                $companyVehicleIds
+                $filterVehicleIds
             );
             $summary['total_maintenance_asset_service_schedules'] = $this->countDistinctVehicles(
                 ServiceSchedule::query(), 'service_date', $buId, $vehicleId, null, $dateFrom, $dateTo,
-                null, $companyVehicleIds
+                null, $filterVehicleIds
             );
             $summary['total_maintenance_asset_repairment'] = $this->countDistinctVehicles(
                 Repair::query(), 'report_date', $buId, $vehicleId, null, $dateFrom, $dateTo,
-                null, $companyVehicleIds
+                null, $filterVehicleIds
             );
 
             $vehicleBreakdown = $fuelGroup
@@ -244,6 +323,14 @@ class OperationalReportController extends Controller
             $vehicleBreakdown = collect($vehicleBreakdown)->map(function ($row) {
                 $row = (array) $row;
                 $row['owner'] = OwnerLookupCache::get($row['plate_number'] ?? null);
+
+                // BARU — total_cost per kendaraan, pola sama seperti yang sudah
+                // dipakai AdminOperationalController (dashboard & Export CSV),
+                // supaya AMS tidak perlu jumlahkan sendiri fuel/service/repair.
+                $row['total_cost'] = (float) ($row['fuel_cost'] ?? 0)
+                    + (float) ($row['service_cost'] ?? 0)
+                    + (float) ($row['repair_cost'] ?? 0);
+
                 return $row;
             })->values()->all();
 
@@ -253,30 +340,64 @@ class OperationalReportController extends Controller
                 return $row;
             })->values()->all();
 
-            // BARU — company_code/company menyaring vehicle_breakdown &
-            // efficiency_top10 lewat blok owner yang barusan di-attach.
-            // company_code cocok persis owner.code, company cocok SEBAGIAN
-            // (tidak case-sensitive) ke owner.company_name. efficiency_top10
+            // BARU — company_code/company/plate_number menyaring vehicle_breakdown
+            // & efficiency_top10. company_code cocok persis owner.code, company
+            // cocok SEBAGIAN (tidak case-sensitive) ke owner.company_name,
+            // plate_number (BARU v3.3) cocok SEBAGIAN (dinormalisasi: hilangkan
+            // spasi, tidak case-sensitive) ke plate_number/vehicle baris ybs.
+            // Semua kondisi yang dikirim harus cocok (AND). efficiency_top10
             // masih dihitung dari SEMUA kendaraan dulu baru disaring di sini,
-            // jadi bisa < 10 baris kalau company-nya kecil (belum bisa
+            // jadi bisa < 10 baris kalau hasil filternya kecil (belum bisa
             // disaring dari sumbernya — lihat TODO di resolveCompanyVehicleIds()).
-            if ($companyCode || $companyName) {
-                $matchesCompany = function ($row) use ($companyCode, $companyName) {
-                    $owner = $row['owner'] ?? null;
-                    if (! $owner) {
-                        return false;
+            if ($companyCode || $companyName || $plateNumber) {
+                $normalizedPlateQuery = $plateNumber ? strtoupper(str_replace(' ', '', $plateNumber)) : null;
+
+                $matchesFilter = function ($row) use ($companyCode, $companyName, $normalizedPlateQuery) {
+                    if ($companyCode || $companyName) {
+                        $owner = $row['owner'] ?? null;
+                        if (! $owner) {
+                            return false;
+                        }
+                        if ($companyCode && ($owner['code'] ?? null) !== $companyCode) {
+                            return false;
+                        }
+                        if ($companyName && stripos($owner['company_name'] ?? '', $companyName) === false) {
+                            return false;
+                        }
                     }
-                    if ($companyCode && ($owner['code'] ?? null) !== $companyCode) {
-                        return false;
+
+                    if ($normalizedPlateQuery) {
+                        $rowPlate = strtoupper(str_replace(' ', '', $row['plate_number'] ?? $row['vehicle'] ?? ''));
+                        if (strpos($rowPlate, $normalizedPlateQuery) === false) {
+                            return false;
+                        }
                     }
-                    if ($companyName && stripos($owner['company_name'] ?? '', $companyName) === false) {
-                        return false;
-                    }
+
                     return true;
                 };
 
-                $vehicleBreakdown = collect($vehicleBreakdown)->filter($matchesCompany)->values()->all();
-                $efficiencyTop10 = collect($efficiencyTop10)->filter($matchesCompany)->values()->all();
+                $vehicleBreakdown = collect($vehicleBreakdown)->filter($matchesFilter)->values()->all();
+                $efficiencyTop10 = collect($efficiencyTop10)->filter($matchesFilter)->values()->all();
+
+                // BARU — sebelumnya "summary" (total_fuel_cost dkk) TIDAK ikut
+                // tersaring company_code/company/plate_number (lihat TODO lama
+                // di resolveCompanyVehicleIds()), jadi tetap angka SELURUH BU
+                // meski request-nya minta 1 kendaraan/perusahaan. Sekarang
+                // dihitung ulang dari vehicle_breakdown yang SUDAH difilter,
+                // supaya summary konsisten dengan vehicle_breakdown yang
+                // dikembalikan di response yang sama.
+                //
+                // Catatan: pending_verification, total_trips, dan avg_efficiency
+                // BELUM ikut disaring di sini — field itu butuh query terpisah
+                // per-kendaraan (bukan hasil agregat vehicle_breakdown), jadi
+                // masih ambil angka seluruh BU untuk sementara.
+                $summary['total_fuel_cost'] = collect($vehicleBreakdown)->sum(fn ($r) => (float) $r['fuel_cost']);
+                $summary['total_service_cost'] = collect($vehicleBreakdown)->sum(fn ($r) => (float) $r['service_cost']);
+                $summary['total_repair_cost'] = collect($vehicleBreakdown)->sum(fn ($r) => (float) $r['repair_cost']);
+                $summary['total_operational_cost'] = $summary['total_fuel_cost']
+                    + $summary['total_service_cost']
+                    + $summary['total_repair_cost'];
+                $summary['total_distance'] = collect($vehicleBreakdown)->sum(fn ($r) => (float) ($r['distance'] ?? 0));
             }
 
             return [
@@ -284,6 +405,7 @@ class OperationalReportController extends Controller
                 'business_unit_id'       => $buId ? (int) $buId : null,
                 'company_code'           => $companyCode ?: null,
                 'company'                => $companyName ?: null,
+                'plate_number'           => $plateNumber ?: null,
                 'summary'                => $summary,
                 'transport_distribution' => $transportDistribution,
                 'efficiency_top10'       => $efficiencyTop10,
