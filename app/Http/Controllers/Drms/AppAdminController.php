@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Drms\Driver;
 use App\Models\Drms\DriverRequest;
 use App\Models\Drms\DriverSwapLog;
+use App\Models\Drms\RequestLog;
 use App\Models\Drms\Vehicle;
 use App\Models\Drms\Voucher;
 use App\Models\BisnisUnit;
@@ -156,8 +157,14 @@ class AppAdminController extends Controller
         foreach ($historyRequests as $req) {
             if ($req->status !== 'approved_admin') {
                 $req->canComplete = false;
+                $req->canReturnToPending = false;
                 continue;
             }
+            // Boleh dikembalikan ke Pending hanya selama jam perjalanan belum berakhir,
+            // dan bukan request voucher (voucher tidak bisa dikembalikan).
+            $req->canReturnToPending = !$req->hasEnded()
+                && $req->transport_type !== 'voucher'
+                && $req->vouchers->isEmpty();
             $log = \App\Models\Drms\TripLog::where('request_id', $req->id)->first();
             $logOk = $log && $log->is_submitted && $log->odometer_start !== null && $log->odometer_finish !== null;
             $usageDate = $req->usage_date instanceof \Carbon\Carbon
@@ -522,6 +529,10 @@ class AppAdminController extends Controller
 
             $newVoucherIds = $data['transport_type'] === 'voucher' ? ($data['voucher_ids'] ?? []) : [];
 
+            // Request voucher tidak punya driver/log perjalanan yang bisa diselesaikan,
+            // jadi begitu disetujui statusnya otomatis langsung "Selesai" (completed).
+            $isVoucher = $data['transport_type'] === 'voucher';
+
             $driverRequest->update([
                 'transport_type'    => $data['transport_type'],
                 'driver_id'         => $data['driver_id'] ?? null,
@@ -529,8 +540,9 @@ class AppAdminController extends Controller
                 'voucher_id'        => $newVoucherIds[0] ?? null, // voucher utama, untuk kompatibilitas tampilan lama
                 'merged_into_id'    => null,
                 'admin_id'          => Auth::id(),
-                'status'            => 'approved_admin',
+                'status'            => $isVoucher ? 'completed' : 'approved_admin',
                 'approved_admin_at' => now(),
+                'completed_at'      => $isVoucher ? now() : null,
                 'rejection_reason'  => $data['keterangan'] ?? null,
             ]);
 
@@ -805,6 +817,94 @@ class AppAdminController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors('Gagal mengganti driver: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mengembalikan request yang sudah disetujui (approved_admin) ke Pending Admin (approved_l1)
+     * supaya bisa diproses ulang. Hanya boleh selama jam perjalanan belum berakhir.
+     * Driver/kendaraan/voucher dilepas, dan aksinya dicatat di drms_request_logs.
+     */
+    public function returnToPending(Request $request, $id)
+    {
+        $request->validate(['note' => 'required|string|max:500']);
+
+        $driverRequest = DriverRequest::with('vouchers')->findOrFail($id);
+        $user = Auth::user();
+
+        if (!$user->isDrmsSuperAdmin()) {
+            $this->authorizeAdminAccess($driverRequest);
+        }
+
+        if ($driverRequest->status !== 'approved_admin') {
+            return back()->withErrors('Hanya permintaan berstatus Disetujui yang bisa dikembalikan ke Pending.');
+        }
+
+        if ($driverRequest->transport_type === 'voucher' || $driverRequest->vouchers->isNotEmpty()) {
+            return back()->withErrors('Permintaan dengan voucher tidak bisa dikembalikan ke Pending.');
+        }
+
+        if ($driverRequest->hasEnded()) {
+            return back()->withErrors('Jam perjalanan sudah berakhir (' . $driverRequest->scheduledEnd()->format('d M Y H:i') . '). Permintaan ini tidak bisa diubah lagi.');
+        }
+
+        if (DriverRequest::where('merged_into_id', $driverRequest->id)->exists()) {
+            return back()->withErrors('Trip ini punya penumpang gabungan. Lepaskan/proses penumpangnya dulu sebelum dikembalikan ke Pending.');
+        }
+
+        // Request yang menumpang ke trip lain hanya melepas ikatannya; driver & kendaraan
+        // milik trip induk, jadi statusnya tidak boleh disentuh.
+        $isPassenger   = (bool) $driverRequest->merged_into_id;
+        $oldDriverId   = $driverRequest->driver_id;
+        $oldVehicleId  = $driverRequest->vehicle_id;
+        $oldVoucherIds = $driverRequest->vouchers->pluck('id')->toArray();
+
+        $detail = 'Jenis: ' . ($driverRequest->transport_type ?? '-')
+            . ' | Driver: ' . ($oldDriverId ? (optional(Driver::find($oldDriverId))->name ?? ('#' . $oldDriverId)) : '-')
+            . ' | Kendaraan: ' . ($oldVehicleId ? (optional(Vehicle::find($oldVehicleId))->plate_number ?? ('#' . $oldVehicleId)) : '-')
+            . ' | Voucher: ' . ($driverRequest->vouchers->isNotEmpty() ? $driverRequest->vouchers->pluck('code')->implode(', ') : '-')
+            . ($isPassenger ? ' | Menumpang ke request #' . $driverRequest->merged_into_id : '');
+
+        DB::beginTransaction();
+        try {
+            RequestLog::create([
+                'request_id'  => $driverRequest->id,
+                'action'      => 'return_to_pending',
+                'from_status' => 'approved_admin',
+                'to_status'   => 'approved_l1',
+                'note'        => $request->note,
+                'detail'      => $detail,
+                'user_id'     => $user->id,
+            ]);
+
+            $driverRequest->update([
+                'status'              => 'approved_l1',
+                'admin_id'            => null,
+                'approved_admin_at'   => null,
+                'rejection_reason'    => null,
+                'transport_type'      => null,
+                'driver_id'           => null,
+                'vehicle_id'          => null,
+                'voucher_id'          => null,
+                'merged_into_id'      => null,
+                'email_approved_sent' => 0, // approve ulang nanti -> email disetujui terkirim lagi
+            ]);
+            $driverRequest->vouchers()->sync([]);
+
+            if (!$isPassenger) {
+                if ($oldDriverId)  Driver::where('id', $oldDriverId)->update(['status' => 'available']);
+                if ($oldVehicleId) Vehicle::where('id', $oldVehicleId)->update(['status' => 'available']);
+            }
+            if (!empty($oldVoucherIds)) {
+                Voucher::whereIn('id', $oldVoucherIds)->update(['status' => 'available']);
+            }
+
+            DB::commit();
+            return redirect()->route('drms.approval.admin.index')
+                ->with('success', 'Permintaan dikembalikan ke Pending Admin.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors('Gagal mengembalikan ke Pending: ' . $e->getMessage());
         }
     }
 

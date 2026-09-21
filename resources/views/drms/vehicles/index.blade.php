@@ -132,7 +132,7 @@
             <table class="min-w-full">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Merek</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plat Nomor</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Live GPS</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kapasitas</th>

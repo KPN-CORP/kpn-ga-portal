@@ -250,7 +250,7 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kendaraan</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi vs Standar</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Parameter</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Isi Terakhir</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estimasi Isi Berikutnya</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Liter/kWh</th>
@@ -291,7 +291,7 @@
                                 </span>
                             @else
                                 <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Sesuai atau lebih baik dari standar">
-                                    🟢 Aman
+                                    🟢 
                                 </span>
                             @endif
                         @else

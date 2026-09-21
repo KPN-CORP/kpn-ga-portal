@@ -268,14 +268,12 @@
                             <i class="fas fa-circle text-blue-600 text-xs"></i>
                         </div>
                         <div>
-                            <div class="flex justify-between items-start">
-                                <p class="font-medium text-gray-900 text-sm">
-                                    {{ $statusLabels[$log->status_baru] ?? $log->status_baru }}
-                                </p>
-                                <span class="text-xs text-gray-500" title="{{ $log->created_at->format('d/m/Y H:i') }}">
-                                    {{ $log->created_at->diffForHumans() }}
-                                </span>
-                            </div>
+                            <p class="font-medium text-gray-900 text-sm">
+                                {{ $statusLabels[$log->status_baru] ?? $log->status_baru }}
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                {{ $log->created_at->format('d/m/Y H:i') }}
+                            </p>
                             <p class="text-xs text-gray-600 mt-0.5">Oleh: {{ $logUserName }}</p>
                             @if($log->catatan)
                             <div class="mt-1 p-2 bg-gray-50 rounded text-xs text-gray-600">

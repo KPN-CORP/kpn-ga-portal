@@ -304,6 +304,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('{driverRequest}/complete', [AppAdminController::class, 'complete'])->name('complete');
             Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
             Route::post('{id}/swap-driver', [AppAdminController::class, 'swapDriver'])->name('swap_driver');
+            Route::post('{id}/return-to-pending', [AppAdminController::class, 'returnToPending'])->name('return_to_pending');
             Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
             Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
         });

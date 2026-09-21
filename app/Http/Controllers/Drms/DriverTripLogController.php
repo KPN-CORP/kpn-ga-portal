@@ -39,9 +39,11 @@ class DriverTripLogController extends Controller
             }
         }
 
-        // Ambil odometer finish dari trip log kendaraan yang sama paling akhir,
-        // supaya Start (km) otomatis terisi dan driver tidak perlu input ulang (double input).
+        // Ambil odometer finish & foto "sesudah" dari trip log kendaraan yang sama
+        // paling akhir, supaya Start (km) dan Foto Sebelum otomatis terisi dan
+        // driver tidak perlu input ulang (double input).
         $previousOdometerFinish = null;
+        $previousPhotoAfter = null;
         if ($request->vehicle_id) {
             $previousLog = TripLog::whereHas('request', function ($q) use ($request, $requestId) {
                     $q->where('vehicle_id', $request->vehicle_id)
@@ -51,9 +53,20 @@ class DriverTripLogController extends Controller
                 ->orderByDesc('id')
                 ->first();
             $previousOdometerFinish = $previousLog->odometer_finish ?? null;
+
+            // Foto "Sesudah" tidak selalu terisi bareng odometer_finish (mis. draft),
+            // jadi dicari terpisah dari log terakhir kendaraan yang sama yang punya foto.
+            $previousPhotoLog = TripLog::whereHas('request', function ($q) use ($request, $requestId) {
+                    $q->where('vehicle_id', $request->vehicle_id)
+                      ->where('id', '!=', $requestId);
+                })
+                ->whereNotNull('photo_after')
+                ->orderByDesc('id')
+                ->first();
+            $previousPhotoAfter = $previousPhotoLog->photo_after ?? null;
         }
 
-        return view('drms.drivers.trip_log_form', compact('request', 'log', 'previousOdometerFinish'));
+        return view('drms.drivers.trip_log_form', compact('request', 'log', 'previousOdometerFinish', 'previousPhotoAfter'));
     }
 
     public function store(Request $request, $requestId)
@@ -87,13 +100,48 @@ class DriverTripLogController extends Controller
         $this->validate($request, [
             'odometer_start' => ($isSubmitting ? 'required' : 'nullable') . '|integer|min:0',
             'odometer_finish' => ($isSubmitting ? 'required' : 'nullable') . '|integer|min:0|gte:odometer_start',
-            'photo_before' => 'nullable|image|max:5120',
-            'photo_after' => 'nullable|image|max:5120',
+            // Tanpa batas ukuran (max) — foto akan dikompres otomatis oleh
+            // ImageHelper::compressAndStore() sebelum disimpan, jadi driver bebas
+            // upload foto dari kamera HP berapa pun ukurannya.
+            'photo_before' => 'nullable|image',
+            'photo_after' => 'nullable|image',
             'notes' => 'nullable|string|max:500',
         ], [
             'odometer_start.required' => 'Odometer Start (km) wajib diisi sebelum mengirim log ke admin.',
             'odometer_finish.required' => 'Odometer Finish (km) wajib diisi sebelum mengirim log ke admin.',
         ]);
+
+        // Cari foto "sesudah" trip terakhir kendaraan yang sama (dipakai untuk
+        // auto-fill photo_before) sekaligus untuk cek kelengkapan sebelum submit.
+        $previousPhotoLog = null;
+        if ($requestData->vehicle_id) {
+            $previousPhotoLog = TripLog::whereHas('request', function ($q) use ($requestData, $requestId) {
+                    $q->where('vehicle_id', $requestData->vehicle_id)
+                      ->where('id', '!=', $requestId);
+                })
+                ->whereNotNull('photo_after')
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        // Foto wajib diisi kalau driver mengirim ke admin (submit=1). Foto Sebelum
+        // dianggap terisi kalau ada upload baru, sudah tersimpan sebelumnya, ATAU
+        // bisa di-auto-fill dari foto Sesudah trip sebelumnya. Foto Sesudah tidak
+        // punya sumber auto-fill, jadi wajib upload baru atau sudah tersimpan.
+        if ($isSubmitting) {
+            $willHavePhotoBefore = $request->hasFile('photo_before')
+                || ($log->photo_before ?? null)
+                || ($previousPhotoLog->photo_after ?? null);
+            $willHavePhotoAfter = $request->hasFile('photo_after') || ($log->photo_after ?? null);
+
+            if (!$willHavePhotoBefore || !$willHavePhotoAfter) {
+                return back()->withErrors(
+                    !$willHavePhotoBefore
+                        ? 'Foto Sebelum wajib diisi sebelum mengirim log ke admin.'
+                        : 'Foto Sesudah wajib diisi sebelum mengirim log ke admin.'
+                )->withInput();
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -120,14 +168,31 @@ class DriverTripLogController extends Controller
             }
 
             if ($request->hasFile('photo_before')) {
-                if ($log->photo_before) ImageHelper::deleteImage($log->photo_before);
+                // Hanya hapus file lama jika benar-benar milik log ini (bukan sekadar
+                // referensi/parameter ke foto_after log lain), supaya foto trip
+                // sebelumnya yang dipinjam tidak ikut terhapus.
+                if ($log->photo_before && !$this->isPhotoPathShared($log->photo_before, $log->id)) {
+                    ImageHelper::deleteImage($log->photo_before);
+                }
                 $log->photo_before = ImageHelper::compressAndStore(
                     $request->file('photo_before'),
                     'trip_logs/before'
                 );
+            } elseif (!$log->photo_before) {
+                // Foto Sebelum belum pernah tersimpan dan driver tidak upload foto baru:
+                // ambil otomatis dari foto Sesudah trip terakhir kendaraan yang sama
+                // (sudah dihitung di atas). Path foto lama dipakai langsung sebagai
+                // referensi (parameter), tanpa duplikasi file, sama seperti odometer_start.
+                if ($previousPhotoLog) {
+                    $log->photo_before = $previousPhotoLog->photo_after;
+                }
             }
             if ($request->hasFile('photo_after')) {
-                if ($log->photo_after) ImageHelper::deleteImage($log->photo_after);
+                // Sama seperti photo_before: jangan hapus file jika masih dipinjam
+                // sebagai photo_before oleh log trip berikutnya (kendaraan yang sama).
+                if ($log->photo_after && !$this->isPhotoPathShared($log->photo_after, $log->id)) {
+                    ImageHelper::deleteImage($log->photo_after);
+                }
                 $log->photo_after = ImageHelper::compressAndStore(
                     $request->file('photo_after'),
                     'trip_logs/after'
@@ -158,5 +223,29 @@ class DriverTripLogController extends Controller
             DB::rollBack();
             return back()->withErrors('Gagal menyimpan log: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Cek apakah path foto masih dipakai/direferensikan oleh trip log lain
+     * (baik sebagai photo_before maupun photo_after). Dipakai supaya proses
+     * hapus-foto-lama saat re-upload tidak menghapus file yang sebenarnya
+     * "dipinjam" antar trip (lihat fitur auto-fill photo_before dari
+     * photo_after trip sebelumnya).
+     */
+    protected function isPhotoPathShared($path, $excludeLogId = null): bool
+    {
+        if (!$path) {
+            return false;
+        }
+
+        $query = TripLog::where(function ($q) use ($path) {
+            $q->where('photo_before', $path)->orWhere('photo_after', $path);
+        });
+
+        if ($excludeLogId) {
+            $query->where('id', '!=', $excludeLogId);
+        }
+
+        return $query->exists();
     }
 }

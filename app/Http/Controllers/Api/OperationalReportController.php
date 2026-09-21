@@ -398,6 +398,20 @@ class OperationalReportController extends Controller
                     + $summary['total_service_cost']
                     + $summary['total_repair_cost'];
                 $summary['total_distance'] = collect($vehicleBreakdown)->sum(fn ($r) => (float) ($r['distance'] ?? 0));
+
+                // BARU — total_fuel_cost_listrik & total_fuel_cost_bbm juga
+                // masih ambil angka seluruh BU sebelum ini (sama kasusnya
+                // seperti total_fuel_cost dkk di atas). Sekarang dipecah dari
+                // vehicle_breakdown yang sudah difilter, berdasarkan fuel_type
+                // per kendaraan: "Listrik" masuk total_fuel_cost_listrik,
+                // selain itu (Bensin/Solar/dst) masuk total_fuel_cost_bbm.
+                $isListrik = fn ($r) => strtolower(trim($r['fuel_type'] ?? '')) === 'listrik';
+                $summary['total_fuel_cost_listrik'] = collect($vehicleBreakdown)
+                    ->filter($isListrik)
+                    ->sum(fn ($r) => (float) $r['fuel_cost']);
+                $summary['total_fuel_cost_bbm'] = collect($vehicleBreakdown)
+                    ->reject($isListrik)
+                    ->sum(fn ($r) => (float) $r['fuel_cost']);
             }
 
             return [

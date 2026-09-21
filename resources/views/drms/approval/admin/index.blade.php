@@ -366,26 +366,29 @@
                             @endif
                         </td>
                         <td class="px-4 py-3">
-                            <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold hover:underline">Detail</button>
-                            @if($req->status === 'approved_admin')
-                                @if($req->canComplete)
-                                    <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-2" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
-                                        @csrf
-                                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-semibold">
-                                            ✅ Selesaikan
-                                        </button>
-                                    </form>
-                                @else
-                                    <span class="ml-2 text-xs text-gray-400 italic" title="{{ $req->completeBlockReason }}">🔒 {{ $req->completeBlockReason }}</span>
+                            <div class="flex flex-wrap items-center gap-1">
+                                <button @click="openDetailModal({{ json_encode($detailData) }})" title="Lihat detail permintaan" class="text-blue-600 font-semibold hover:underline text-xs px-1">Detail</button>
+                                @if($req->status === 'approved_admin')
+                                    @if($req->canComplete)
+                                        <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
+                                            @csrf
+                                            <button type="submit" title="Tandai perjalanan ini selesai. Driver &amp; kendaraan kembali tersedia." class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold">✅ Selesai</button>
+                                        </form>
+                                    @else
+                                        <span class="text-xs text-gray-400 cursor-help px-1" title="{{ $req->completeBlockReason }}">🔒</span>
+                                    @endif
+                                    @if($req->driver_id && !$req->merged_into_id)
+                                        <button type="button"
+                                                @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
+                                                title="Ganti driver dan/atau kendaraan. Request tetap berstatus Disetujui." class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs font-semibold">🔄 Driver</button>
+                                    @endif
+                                    @if($req->canReturnToPending)
+                                        <button type="button" @click="openReturnModal({{ $req->id }}, @js($req->request_no))"
+                                                title="Kembalikan ke Pending Admin untuk diproses ulang. Driver &amp; kendaraan dilepas. Hanya bisa sebelum jam perjalanan berakhir dan bukan request voucher."
+                                                class="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs font-semibold">↩ Pending</button>
+                                    @endif
                                 @endif
-                                @if($req->driver_id && !$req->merged_into_id)
-                                    <button type="button"
-                                            @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
-                                            class="ml-2 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-semibold">
-                                        🔄 Ganti Driver
-                                    </button>
-                                @endif
-                            @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
@@ -456,20 +459,24 @@
                         <td class="px-3 pt-3 pb-1">{{ $start }}</td>
                         <td class="px-3 pt-3 pb-1">{{ $req->pickup_location }}</td>
                         <td class="px-3 pt-3 pb-1 text-right">
-                            <button @click="openDetailModal({{ json_encode($detailData) }})" class="text-blue-600 font-semibold">Detail</button>
+                            <button @click="openDetailModal({{ json_encode($detailData) }})" title="Lihat detail permintaan" class="text-blue-600 font-semibold">Detail</button>
                             @if($req->status === 'approved_admin')
                                 @if($req->canComplete)
                                     <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-1" onsubmit="return confirm('Tandai selesai?')">
                                         @csrf
-                                        <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
+                                        <button type="submit" title="Tandai perjalanan ini selesai" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
                                     </form>
                                 @else
-                                    <span class="text-[11px] text-gray-400 italic">🔒 {{ $req->completeBlockReason }}</span>
+                                    <span class="text-[11px] text-gray-400" title="{{ $req->completeBlockReason }}">🔒</span>
                                 @endif
                                 @if($req->driver_id && !$req->merged_into_id)
                                     <button type="button"
                                             @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
-                                            class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
+                                            title="Ganti driver dan/atau kendaraan" class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
+                                @endif
+                                @if($req->canReturnToPending)
+                                    <button type="button" @click="openReturnModal({{ $req->id }}, @js($req->request_no))"
+                                            title="Kembalikan ke Pending Admin (hanya sebelum jam perjalanan berakhir)" class="bg-gray-600 text-white px-2 py-1 rounded text-xs">↩</button>
                                 @endif
                             @endif
                         </td>
@@ -717,6 +724,26 @@
         </div>
     </div>
 
+    {{-- MODAL KEMBALIKAN KE PENDING --}}
+    <div x-show="returnModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-lg font-semibold mb-1">Pending Admin</h2>
+            <p class="text-xs text-gray-500 mb-4">
+                <span class="font-semibold font-mono" x-text="returnRequestNo"></span> akan kembali ke daftar Pending Admin.
+                Driver, kendaraan, dan voucher yang sudah diberikan dilepas. Hanya bisa selama jam perjalanan belum berakhir.
+            </p>
+            <form :action="`{{ url('drms/approval/admin') }}/${returnRequestId}/return-to-pending`" method="POST">
+                @csrf
+                <label class="block text-sm font-medium text-gray-700 mb-1">Alasan <span class="text-red-500">*</span></label>
+                <textarea name="note" rows="3" required maxlength="500" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Contoh: salah pilih driver, perlu diproses ulang"></textarea>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" @click="returnModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-gray-700 text-white rounded-lg text-sm">Kembalikan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     {{-- MODAL GANTI DRIVER (BARU) --}}
     <div x-show="swapModalOpen" x-cloak style="display: none;" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
@@ -856,6 +883,9 @@ function approvalAdminModal() {
         rejectRequestId: null,
         forwardModalOpen: false,
         forwardRequestId: null,
+        returnModalOpen: false,
+        returnRequestId: null,
+        returnRequestNo: '',
         swapModalOpen: false,
         swapRequestId: null,
         swapCurrentDriver: '-',
@@ -880,6 +910,11 @@ function approvalAdminModal() {
         openForwardModal(id) {
             this.forwardRequestId = id;
             this.forwardModalOpen = true;
+        },
+        openReturnModal(id, requestNo) {
+            this.returnRequestId = id;
+            this.returnRequestNo = requestNo || '';
+            this.returnModalOpen = true;
         },
         openSwapModal(id, currentDriver, currentVehicle) {
             this.swapRequestId = id;

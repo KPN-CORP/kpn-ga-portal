@@ -80,15 +80,28 @@
         {{-- FOTO SPEEDOMETER --}}
         <div class="bg-gray-50 p-4 rounded-xl mb-6">
             <h3 class="font-semibold text-gray-700 mb-3">📸 Foto Speedometer</h3>
+            @php
+                // Foto Sebelum diambil otomatis dari foto Sesudah trip sebelumnya
+                // (kendaraan yang sama), supaya driver tidak perlu foto ulang
+                // speedometer yang posisinya sama dengan akhir trip sebelumnya.
+                $photoBeforeExisting = $log->photo_before ?? null;
+                $photoBeforeIsAuto = !$photoBeforeExisting && $previousPhotoAfter;
+                $photoBeforeDisplay = $photoBeforeExisting ?: $previousPhotoAfter;
+            @endphp
             <div class="grid grid-cols-2 gap-4">
                 <div class="camera-card" onclick="{{ $isLocked ? '' : "document.getElementById('photo_before').click()" }}">
                     <div class="bg-white rounded-xl p-4 text-center shadow-sm hover:shadow-md transition cursor-pointer border-2 border-dashed border-gray-300 hover:border-blue-400 {{ $isLocked ? 'opacity-60 cursor-not-allowed' : '' }}">
                         <div class="text-5xl text-gray-400 mb-2">📷</div>
-                        <p class="text-sm font-medium text-gray-600">Ambil Sebelum</p>
+                        <p class="text-sm font-medium text-gray-600">
+                            Ambil Sebelum
+                            @if($photoBeforeIsAuto)
+                                <br><span class="text-xs text-emerald-600">(otomatis dari trip sebelumnya, klik untuk ganti)</span>
+                            @endif
+                        </p>
                         <input type="file" name="photo_before" id="photo_before" accept="image/*" capture="environment" class="hidden" onchange="handleFile(this, 'preview_before')" {{ $isLocked ? 'disabled' : '' }}>
                         <div id="preview_before" class="mt-2">
-                            @if($log && $log->photo_before)
-                                <img src="{{ route('drms.private.image', $log->photo_before) }}" class="w-full h-20 object-cover rounded-lg">
+                            @if($photoBeforeDisplay)
+                                <img src="{{ route('drms.private.image', $photoBeforeDisplay) }}" class="w-full h-20 object-cover rounded-lg">
                             @endif
                         </div>
                     </div>

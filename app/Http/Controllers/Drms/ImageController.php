@@ -51,12 +51,15 @@ class ImageController extends Controller
 
     private function checkImageInSameBu($path, $buId)
     {
-        $log = \App\Models\Drms\TripLog::where('photo_before', $path)
+        // Pakai get() bukan first(): satu path foto sekarang bisa direferensikan oleh
+        // lebih dari satu TripLog (photo_after trip lama dipinjam jadi photo_before
+        // trip baru untuk driver berikutnya), jadi semua kemungkinan log harus dicek.
+        $logs = \App\Models\Drms\TripLog::where('photo_before', $path)
             ->orWhere('photo_after', $path)
             ->orWhere('photo_fuel_receipt', $path)
-            ->first();
-        if ($log) {
-            $requestBu = $log->request->current_business_unit_id ?? $log->request->requester->drmsProfile->business_unit_id;
+            ->get();
+        foreach ($logs as $log) {
+            $requestBu = $log->request->current_business_unit_id ?? $log->request->requester->drmsProfile->business_unit_id ?? null;
             if ($requestBu == $buId) return;
         }
 
@@ -74,11 +77,16 @@ class ImageController extends Controller
 
     private function checkImageBelongsToDriver($path, $driverId)
     {
-        $log = \App\Models\Drms\TripLog::where('photo_before', $path)
+        // Sama seperti di atas: cek semua log yang mereferensikan path ini, karena
+        // foto "sesudah" trip sebelumnya bisa dipakai/dipinjam sebagai foto "sebelum"
+        // oleh driver lain di trip berikutnya untuk kendaraan yang sama.
+        $logs = \App\Models\Drms\TripLog::where('photo_before', $path)
             ->orWhere('photo_after', $path)
             ->orWhere('photo_fuel_receipt', $path)
-            ->first();
-        if ($log && $log->request->driver_id == $driverId) return;
+            ->get();
+        foreach ($logs as $log) {
+            if ($log->request && $log->request->driver_id == $driverId) return;
+        }
 
         $fuelLog = \App\Models\Drms\FuelLog::where('receipt_file', $path)->first();
         if ($fuelLog && $fuelLog->driver_id == $driverId) return;

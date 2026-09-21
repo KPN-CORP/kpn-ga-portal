@@ -25,6 +25,8 @@ class DriverRequest extends Model
         'merged_into_id',
         // Waktu aktual perjalanan ditandai selesai (bukan end_time terjadwal)
         'completed_at',
+        // Di-reset saat dikembalikan ke Pending supaya email "disetujui" terkirim lagi setelah approve ulang
+        'email_approved_sent',
     ];
 
     protected $casts = [
@@ -133,6 +135,24 @@ class DriverRequest extends Model
     public function passengers()
     {
         return $this->hasMany(DriverRequest::class, 'merged_into_id');
+    }
+
+    /**
+     * Waktu berakhirnya perjalanan sesuai jadwal (return_date/return_time untuk pulang-pergi,
+     * selain itu usage_date + end_time). Logikanya sama dengan yang dipakai cek bentrok jadwal.
+     */
+    public function scheduledEnd(): Carbon
+    {
+        $roundTrip = $this->trip_type === 'round_trip' && $this->return_date;
+        $date = $roundTrip ? $this->return_date : $this->usage_date;
+        $time = $roundTrip ? ($this->return_time ?? $this->end_time) : $this->end_time;
+
+        return Carbon::parse($date->format('Y-m-d') . ' ' . ($time ?: $this->start_time));
+    }
+
+    public function hasEnded(): bool
+    {
+        return now()->gte($this->scheduledEnd());
     }
 
     /**
