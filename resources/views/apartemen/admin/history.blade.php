@@ -102,7 +102,7 @@
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div class="w-full">
                     <form action="{{ route('apartemen.admin.history') }}" method="GET" class="space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
                             <div class="md:col-span-2">
                                 <div class="flex items-center gap-2">
                                     <input type="date" name="tanggal_mulai" value="{{ request('tanggal_mulai') }}" 
@@ -121,6 +121,17 @@
                                     <option value="DIBATALKAN" {{ request('status_selesai') == 'DIBATALKAN' ? 'selected' : '' }}>Dibatalkan</option>
                                 </select>
                             </div>
+
+                            <div>
+                                <select name="bisnis_unit" class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" onchange="this.form.submit()">
+                                    <option value="">Semua Bisnis Unit</option>
+                                    @foreach($bisnisUnits as $bu)
+                                    <option value="{{ $bu->nama_bisnis_unit }}" {{ request('bisnis_unit') == $bu->nama_bisnis_unit ? 'selected' : '' }}>
+                                        {{ $bu->nama_bisnis_unit }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
@@ -129,7 +140,7 @@
                                     Terapkan Filter
                                 </button>
                                 
-                                @if(request()->anyFilled(['tanggal_mulai', 'tanggal_selesai', 'status_selesai', 'search']))
+                                @if(request()->anyFilled(['tanggal_mulai', 'tanggal_selesai', 'status_selesai', 'bisnis_unit', 'search']))
                                 <a href="{{ route('apartemen.admin.history') }}" class="text-gray-600 hover:text-gray-800 text-xs md:text-sm font-medium whitespace-nowrap w-full sm:w-auto text-center">
                                     Reset Filter
                                 </a>
@@ -137,7 +148,7 @@
                             </div>
                             
                             {{-- Info Filter Aktif --}}
-                            @if(request()->anyFilled(['tanggal_mulai', 'status_selesai']))
+                            @if(request()->anyFilled(['tanggal_mulai', 'status_selesai', 'bisnis_unit']))
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 sm:border-none w-full">
                                 <span class="text-xs text-gray-500">Filter aktif:</span>
                                 <div class="flex flex-wrap gap-1">
@@ -156,6 +167,11 @@
                                     @if(request('tanggal_mulai') && request('tanggal_selesai'))
                                     <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
                                         {{ \Carbon\Carbon::parse(request('tanggal_mulai'))->format('d/m') }} - {{ \Carbon\Carbon::parse(request('tanggal_selesai'))->format('d/m/Y') }}
+                                    </span>
+                                    @endif
+                                    @if(request('bisnis_unit'))
+                                    <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
+                                        {{ request('bisnis_unit') }}
                                     </span>
                                     @endif
                                 </div>
@@ -422,6 +438,11 @@
                                     {{-- Periode (Desktop) --}}
                                     <td class="py-3 px-2 md:px-3 lg:px-4 hidden lg:table-cell">
                                         <div class="text-sm text-gray-900 truncate">{{ $history->periode }}</div>
+                                        @if(!empty($history->catatan))
+                                        <div class="text-xs text-gray-500 truncate max-w-[180px] mt-1" title="{{ $history->catatan }}">
+                                            <i class="fas fa-sticky-note mr-1"></i>{{ $history->catatan }}
+                                        </div>
+                                        @endif
                                     </td>
 
                                     {{-- Status --}}
@@ -524,13 +545,13 @@
                 </div>
                 <h3 class="text-base md:text-lg font-medium text-gray-900 mb-1 md:mb-2">Belum ada riwayat</h3>
                 <p class="text-gray-500 max-w-xs md:max-w-md mx-auto text-xs md:text-sm">
-                    @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai'))
+                    @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai') || request()->filled('bisnis_unit'))
                     Tidak ditemukan riwayat yang sesuai dengan filter.
                     @else
                     Riwayat akan muncul setelah permintaan selesai diproses.
                     @endif
                 </p>
-                @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai'))
+                @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai') || request()->filled('bisnis_unit'))
                 <a href="{{ route('apartemen.admin.history') }}" 
                    class="mt-3 md:mt-4 inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 border border-transparent text-xs md:text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     Reset Filter

@@ -19,7 +19,9 @@ class ApartemenHistory extends Model
         'apartemen',
         'unit',
         'periode',
-        'status_selesai'
+        'status_selesai',
+        'catatan',
+        'bisnis_unit'
     ];
 
     // Kolom created_at sudah ada di tabel, jadi timestamps aktif

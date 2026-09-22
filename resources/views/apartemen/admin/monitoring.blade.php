@@ -471,7 +471,30 @@
                                                     class="block mt-1 text-indigo-600 hover:text-indigo-800 text-xs md:text-sm font-medium whitespace-nowrap">
                                                 Pindah Unit
                                             </button>
+                                            <button type="button"
+                                                    onclick="openBatalkanModal({{ $assign->id }}, '{{ addslashes($p->nama) }}', {{ $assign->penghuniAktif()->count() }}); return false;"
+                                                    class="block mt-1 text-red-600 hover:text-red-800 text-xs md:text-sm font-medium whitespace-nowrap">
+                                                Batalkan
+                                            </button>
                                         @endif
+
+                                        <button type="button"
+                                                onclick="openDetailModal(
+                                                    '{{ addslashes($p->nama) }}',
+                                                    '{{ addslashes($p->id_karyawan) }}',
+                                                    '{{ addslashes($p->no_hp ?? '-') }}',
+                                                    '{{ addslashes($p->unit_kerja ?? '-') }}',
+                                                    '{{ addslashes($p->gol ?? '-') }}',
+                                                    '{{ addslashes($assign->unit->apartemen->nama_apartemen ?? '-') }}',
+                                                    '{{ addslashes($assign->unit->nomor_unit ?? '-') }}',
+                                                    '{{ $assign ? $assign->tanggal_mulai->format('d/m/Y') : '-' }}',
+                                                    '{{ $assign ? $assign->tanggal_selesai->format('d/m/Y') : '-' }}',
+                                                    '{{ $assign && $assign->checkin_at ? $assign->checkin_at->format('d/m/Y H:i') : 'Belum check-in' }}',
+                                                    '{{ addslashes($statusLabel) }}'
+                                                ); return false;"
+                                                class="block mt-1 text-gray-600 hover:text-gray-800 text-xs md:text-sm font-medium whitespace-nowrap">
+                                            Lihat Detail
+                                        </button>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -609,6 +632,108 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+{{-- MODAL BATALKAN PENEMPATAN --}}
+<div id="batalkanModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(17, 24, 39, 0.5);">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <form id="batalkanForm" method="POST" action="">
+            @csrf
+            <div class="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200">
+                <h3 class="text-base md:text-lg font-semibold text-gray-800">Batalkan Penempatan</h3>
+                <button type="button" onclick="closeBatalkanModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-4 md:px-6 py-4 space-y-4">
+                <div>
+                    <p class="text-xs md:text-sm text-gray-500">Penghuni</p>
+                    <p id="batalkanNamaPenghuni" class="font-medium text-gray-900 text-sm md:text-base">-</p>
+                    <p id="batalkanCoResidentNote" class="text-xs text-amber-600 mt-1 hidden"></p>
+                </div>
+
+                <div class="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs text-red-700">
+                    Penempatan akan dihentikan dan unit akan kembali kosong (READY). Tindakan ini akan tercatat di halaman Riwayat.
+                </div>
+
+                <div>
+                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Catatan / Alasan Pembatalan</label>
+                    <textarea name="alasan" id="batalkanAlasan" required rows="3" maxlength="500"
+                              placeholder="Contoh: permintaan penghuni, salah input penempatan, dll."
+                              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-red-500"></textarea>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 px-4 md:px-6 py-4 border-t border-gray-200">
+                <button type="button" onclick="closeBatalkanModal()"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Batal
+                </button>
+                <button type="submit" id="batalkanSubmitBtn"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                    Batalkan Penempatan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- MODAL DETAIL PENGHUNI --}}
+<div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background-color: rgba(17, 24, 39, 0.5);">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-200">
+            <h3 class="text-base md:text-lg font-semibold text-gray-800">Detail Penghuni</h3>
+            <button type="button" onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="px-4 md:px-6 py-4 space-y-3 text-sm">
+            <div class="grid grid-cols-2 gap-y-2">
+                <div class="text-gray-500">Nama</div>
+                <div id="detailNama" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">ID Karyawan</div>
+                <div id="detailIdKaryawan" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">No. HP</div>
+                <div id="detailNoHp" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Unit Kerja</div>
+                <div id="detailUnitKerja" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Golongan</div>
+                <div id="detailGol" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Apartemen</div>
+                <div id="detailApartemen" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Unit</div>
+                <div id="detailUnit" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Periode</div>
+                <div id="detailPeriode" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Check-in</div>
+                <div id="detailCheckin" class="font-medium text-gray-900 text-right">-</div>
+
+                <div class="text-gray-500">Status</div>
+                <div id="detailStatus" class="font-medium text-gray-900 text-right">-</div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-4 md:px-6 py-4 border-t border-gray-200">
+            <button type="button" onclick="closeDetailModal()"
+                    class="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700">
+                Tutup
+            </button>
+        </div>
     </div>
 </div>
 
@@ -948,6 +1073,90 @@ document.getElementById('pindahUnitForm')?.addEventListener('submit', function(e
 document.getElementById('pindahUnitModal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closePindahModal();
+    }
+});
+
+// ==== BATALKAN PENEMPATAN (per assignment) ====
+function openBatalkanModal(assignId, nama, activeCount) {
+    const modal = document.getElementById('batalkanModal');
+    const form = document.getElementById('batalkanForm');
+    const note = document.getElementById('batalkanCoResidentNote');
+
+    document.getElementById('batalkanNamaPenghuni').textContent = nama;
+    form.action = `/apartemen/admin/assign/${assignId}/cancel`;
+
+    if (activeCount > 1) {
+        note.textContent = `Unit ini dihuni ${activeCount} orang — semuanya akan ikut dibatalkan.`;
+        note.classList.remove('hidden');
+    } else {
+        note.classList.add('hidden');
+    }
+
+    document.getElementById('batalkanAlasan').value = '';
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeBatalkanModal() {
+    const modal = document.getElementById('batalkanModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+document.getElementById('batalkanForm')?.addEventListener('submit', function(e) {
+    const nama = document.getElementById('batalkanNamaPenghuni').textContent;
+    const alasan = document.getElementById('batalkanAlasan').value.trim();
+
+    if (!alasan) {
+        e.preventDefault();
+        alert('Catatan/alasan pembatalan wajib diisi.');
+        return;
+    }
+
+    if (!confirm(`Yakin membatalkan penempatan ${nama}? Tindakan ini tidak dapat dibatalkan kembali.`)) {
+        e.preventDefault();
+        return;
+    }
+
+    const btn = document.getElementById('batalkanSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Memproses...';
+});
+
+document.getElementById('batalkanModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeBatalkanModal();
+    }
+});
+
+// ==== DETAIL PENGHUNI ====
+function openDetailModal(nama, idKaryawan, noHp, unitKerja, gol, apartemen, unit, tglMulai, tglSelesai, checkin, status) {
+    document.getElementById('detailNama').textContent = nama;
+    document.getElementById('detailIdKaryawan').textContent = idKaryawan;
+    document.getElementById('detailNoHp').textContent = noHp;
+    document.getElementById('detailUnitKerja').textContent = unitKerja;
+    document.getElementById('detailGol').textContent = gol;
+    document.getElementById('detailApartemen').textContent = apartemen;
+    document.getElementById('detailUnit').textContent = unit;
+    document.getElementById('detailPeriode').textContent = `${tglMulai} - ${tglSelesai}`;
+    document.getElementById('detailCheckin').textContent = checkin;
+    document.getElementById('detailStatus').textContent = status;
+
+    const modal = document.getElementById('detailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeDetailModal() {
+    const modal = document.getElementById('detailModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+document.getElementById('detailModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDetailModal();
     }
 });
 </script>

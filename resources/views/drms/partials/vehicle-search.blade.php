@@ -95,7 +95,11 @@
         var visibleCount = 0;
         options.forEach(function(opt) {
             var isAllOption = opt.dataset.id === '';
-            var match = isAllOption || q === '' || opt.dataset.search.indexOf(q) !== -1;
+            // Cocokkan per kata (plat + merek, urutan bebas); plat juga cocok tanpa spasi.
+            var hay = opt.dataset.search, hayCompact = hay.replace(/\s+/g, '');
+            var match = isAllOption || q === '' || q.split(/\s+/).every(function (t) {
+                return hay.indexOf(t) !== -1 || hayCompact.indexOf(t) !== -1;
+            });
             opt.classList.toggle('hidden', !match);
             if (match) visibleCount++;
         });

@@ -52,12 +52,13 @@
                 @error('area_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- PIC (Admin only) --}}
+            {{-- PIC: admin bisa pilih manual. Kalau tidak dipilih, sistem otomatis
+                 mencatat Anda (user yang input) sebagai PIC. --}}
             @if($isAdmin)
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">PIC (Person In Charge)</label>
                 <select name="pic_user_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select PIC</option>
+                    <option value="">Otomatis (saya: {{ auth()->user()->name }})</option>
                     @foreach($pics as $pic)
                         <option value="{{ $pic->id }}" {{ old('pic_user_id') == $pic->id ? 'selected' : '' }}>
                             {{ $pic->name }}
@@ -65,6 +66,13 @@
                     @endforeach
                 </select>
                 @error('pic_user_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            </div>
+            @else
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">PIC (Person In Charge)</label>
+                <div class="w-full border rounded-lg px-3 py-2 bg-gray-50 text-gray-600">
+                    {{ auth()->user()->name }} <span class="text-xs text-gray-400">(otomatis, mengikuti user yang input/edit terakhir)</span>
+                </div>
             </div>
             @endif
 

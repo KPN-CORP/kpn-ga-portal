@@ -19,9 +19,16 @@
         @method('PUT')
 
         <div class="mb-4">
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nama Driver</label>
-            <input type="text" name="name" id="name" value="{{ old('name', $driver->name) }}" required
-                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label for="account_input" class="block text-sm font-medium text-gray-700 mb-1">Nama Driver</label>
+            @php
+                $linked = $driver->username ? $accounts->firstWhere('username', $driver->username) : null;
+            @endphp
+            @include('drms.partials.driver-account-picker', [
+                'accounts'    => $accounts,
+                'selectedId'  => $linked->id ?? null,
+                'currentName' => $driver->name,
+                'keepCurrent' => true,
+            ])
         </div>
 
         <div class="mb-4">

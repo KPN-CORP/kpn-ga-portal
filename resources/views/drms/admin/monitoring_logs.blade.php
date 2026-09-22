@@ -19,10 +19,19 @@
         <form method="GET" action="{{ route('drms.admin.monitoring.logs') }}" class="space-y-4">
             <div class="flex flex-wrap gap-3 items-end">
                 <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Cari</label>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Cari Plat + Merek</label>
                     <input type="text" name="search" value="{{ request('search') }}" 
-                           placeholder="Cari request, driver..." 
+                           placeholder="Plat nomor / merek (cth: B 1929 BYD) atau no. request" 
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Driver</label>
+                    <select name="driver_id" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Driver</option>
+                        @foreach($drivers as $d)
+                            <option value="{{ $d->id }}" {{ request('driver_id') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
@@ -59,7 +68,7 @@
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
                         🔍 Filter
                     </button>
-                    @if(request()->anyFilled(['search', 'status', 'date_from', 'date_to']))
+                    @if(request()->anyFilled(['search', 'driver_id', 'status', 'date_from', 'date_to']))
                         <a href="{{ route('drms.admin.monitoring.logs') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">
                             Reset
                         </a>
@@ -121,7 +130,8 @@
                     <div class="flex-1">
                         <div class="flex items-center gap-3 flex-wrap">
                             <span class="font-semibold text-lg">#{{ $log->request->request_no ?? '-' }}</span>
-                            <span class="text-sm text-gray-500">🚗 {{ $log->request->driver->name ?? '-' }}</span>
+                            <span class="text-sm text-gray-500">👤 {{ $log->request->driver->name ?? '-' }}</span>
+                            <span class="text-sm text-gray-600">🚗 {{ $log->request->vehicle->plate_number ?? '-' }} {{ $log->request->vehicle->type ?? '' }}</span>
                             <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $statusColor }}">{{ $badgeIcon }} {{ $statusText }}</span>
                             @if($log->needsRevision() && $revisionDeadline)
                                 <span class="text-xs text-gray-400">

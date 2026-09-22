@@ -42,19 +42,29 @@
                 @error('area_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>
 
-            {{-- PIC (Admin only) --}}
+            {{-- PIC: admin bisa pilih manual. Kalau tidak dipilih, sistem otomatis pindahkan
+                 PIC ke Anda (user yang mengedit data ini sekarang). --}}
             @if($isAdmin)
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">PIC</label>
                 <select name="pic_user_id" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 soft-border">
-                    <option value="">Select PIC</option>
+                    <option value="">Otomatis (saya: {{ auth()->user()->name }})</option>
                     @foreach($pics as $pic)
                         <option value="{{ $pic->id }}" {{ old('pic_user_id', $equipment->pic_user_id) == $pic->id ? 'selected' : '' }}>
                             {{ $pic->name }}
                         </option>
                     @endforeach
                 </select>
+                <p class="text-xs text-gray-400 mt-1">Saat ini: {{ $equipment->pic->name ?? '-' }}. Biarkan "Otomatis" untuk menjadikan diri Anda PIC.</p>
                 @error('pic_user_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+            </div>
+            @else
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">PIC</label>
+                <div class="w-full border rounded-lg px-3 py-2 bg-gray-50 text-gray-600 soft-border">
+                    Saat ini: {{ $equipment->pic->name ?? '-' }}
+                    <span class="text-xs text-gray-400">(akan otomatis menjadi "{{ auth()->user()->name }}" setelah disimpan)</span>
+                </div>
             </div>
             @endif
 

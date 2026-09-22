@@ -150,6 +150,8 @@ class HsrmCertificateController extends Controller
         $isAdmin = session('hsrm_role') === 'admin';
 
         // Validasi dasar
+        // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin PIC diisi
+        // otomatis dari user yang membuat data ini (lihat penetapan $data['pic_user_id'] di bawah).
         $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
@@ -183,9 +185,7 @@ class HsrmCertificateController extends Controller
             if (!in_array($data['area_id'], $allowedAreaIds)) {
                 return back()->withErrors(['area_id' => 'You are not authorized to create in this area.'])->withInput();
             }
-            unset($data['pic_user_id']);
         }
-
         // Validasi kuota hanya jika certificate_type_id ada (bukan custom)
         if (!empty($data['certificate_type_id'])) {
             $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
@@ -208,6 +208,11 @@ class HsrmCertificateController extends Controller
         }
 
         $data['created_by'] = $user->id;
+        // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
+        // Non-admin, atau admin yang tidak memilih PIC, otomatis PIC = orang yang membuat data ini.
+        if (!$isAdmin || empty($data['pic_user_id'])) {
+            $data['pic_user_id'] = $user->id;
+        }
         $data['status_verif'] = HsrmCertificate::STATUS_PENDING;
         $data['pending_action'] = 'create';
         $data['old_attachments'] = [];
@@ -273,6 +278,8 @@ class HsrmCertificateController extends Controller
         $user = auth()->user();
         $isAdmin = session('hsrm_role') === 'admin';
 
+        // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin, PIC pindah
+        // otomatis ke user yang melakukan update ini (lihat $data['pic_user_id'] di bawah).
         $rules = [
             'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
@@ -304,7 +311,6 @@ class HsrmCertificateController extends Controller
             if (!in_array($data['area_id'], $allowedAreaIds)) {
                 return back()->withErrors(['area_id' => 'You are not authorized to edit in this area.'])->withInput();
             }
-            unset($data['pic_user_id']);
         }
 
         // Validasi kuota jika area atau tipe berubah dan bukan custom
@@ -356,6 +362,11 @@ class HsrmCertificateController extends Controller
         $data['approved_by'] = null;
         $data['approved_at'] = null;
         $data['updated_by'] = auth()->id();
+        // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
+        // Non-admin, atau admin yang tidak memilih PIC, otomatis pindah ke user yang mengedit ini.
+        if (!$isAdmin || empty($data['pic_user_id'])) {
+            $data['pic_user_id'] = auth()->id();
+        }
 
         $cert->update($data);
 

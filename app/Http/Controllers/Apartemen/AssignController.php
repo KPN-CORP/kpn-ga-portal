@@ -9,6 +9,7 @@ use App\Models\Apartemen\ApartemenRequest;
 use App\Models\Apartemen\ApartemenUnit;
 use App\Models\Apartemen\ApartemenPenghuni;
 use App\Models\Apartemen\ApartemenHistory;
+use App\Models\Apartemen\BisnisUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -128,7 +129,7 @@ class AssignController extends Controller
 
         DB::beginTransaction();
         try {
-            $assign = ApartemenAssign::with(['penghuni', 'unit.apartemen'])
+            $assign = ApartemenAssign::with(['penghuni', 'unit.apartemen', 'request.user'])
                 ->lockForUpdate()
                 ->findOrFail($id);
 
@@ -167,6 +168,7 @@ class AssignController extends Controller
             $apartemenLama = $assign->unit->apartemen->nama_apartemen ?? '-';
             $unitLama = $assign->unit->nomor_unit ?? '-';
             $mulaiLama = $assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-';
+            $bisnisUnitLama = BisnisUnit::resolveNamaForUser($assign->request->user ?? null);
 
             // Update assignment lama
             $assign->update(['status' => 'SELESAI']);
@@ -206,6 +208,8 @@ class AssignController extends Controller
                     'unit' => $unitLama,
                     'periode' => $mulaiLama . ' - ' . \Carbon\Carbon::parse($validated['tanggal_transfer'])->format('d/m/Y'),
                     'status_selesai' => 'DIPINDAH',
+                    'catatan' => $validated['alasan'],
+                    'bisnis_unit' => $bisnisUnitLama ?? $penghuni->unit_kerja,
                     'created_at' => now(),
                 ]);
             }
@@ -227,6 +231,80 @@ class AssignController extends Controller
                 ->with('success', 'Transfer penghuni ke unit ' . $newUnit->nomor_unit . ' berhasil dilakukan.');
         } catch (\Exception $e) {
             DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    // BATALKAN PENEMPATAN (cancel) - hentikan penempatan aktif dengan catatan alasan, tercatat di history
+    public function cancel(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'alasan' => 'required|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $assign = ApartemenAssign::with(['penghuni', 'unit.apartemen', 'request.user'])
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($assign->status != 'AKTIF') {
+                return back()->with('error', 'Penempatan ini sudah tidak aktif.');
+            }
+
+            $penghuniAktif = $assign->penghuni->where('status', 'AKTIF');
+
+            if ($penghuniAktif->isEmpty()) {
+                return back()->with('error', 'Tidak ada penghuni aktif pada penempatan ini.');
+            }
+
+            $apartemenNama = $assign->unit->apartemen->nama_apartemen ?? '-';
+            $unitNomor = $assign->unit->nomor_unit ?? '-';
+            $periode = ($assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-')
+                . ' - ' . ($assign->tanggal_selesai ? $assign->tanggal_selesai->format('d/m/Y') : '-');
+            $bisnisUnit = BisnisUnit::resolveNamaForUser($assign->request->user ?? null);
+
+            // Catat history pembatalan untuk setiap penghuni aktif
+            foreach ($penghuniAktif as $penghuni) {
+                ApartemenHistory::create([
+                    'nama' => $penghuni->nama,
+                    'id_karyawan' => $penghuni->id_karyawan,
+                    'no_hp' => $penghuni->no_hp ?? '-',
+                    'unit_kerja' => $penghuni->unit_kerja ?? '-',
+                    'gol' => $penghuni->gol ?? '-',
+                    'apartemen' => $apartemenNama,
+                    'unit' => $unitNomor,
+                    'periode' => $periode,
+                    'status_selesai' => 'DIBATALKAN',
+                    'catatan' => $validated['alasan'],
+                    'bisnis_unit' => $bisnisUnit ?? $penghuni->unit_kerja,
+                    'created_at' => now(),
+                ]);
+            }
+
+            // Tutup assignment & penghuni
+            $assign->update(['status' => 'SELESAI']);
+            $assign->penghuni()->update(['status' => 'SELESAI']);
+
+            // Unit kembali kosong
+            if ($assign->unit) {
+                $assign->unit->update(['status' => 'READY']);
+            }
+
+            Log::info('Pembatalan penempatan berhasil', [
+                'assign_id' => $assign->id,
+                'unit' => $unitNomor,
+                'alasan' => $validated['alasan'],
+            ]);
+
+            DB::commit();
+            return redirect()->route('apartemen.admin.monitoring')
+                ->with('success', 'Penempatan berhasil dibatalkan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('=== BATALKAN PENEMPATAN ERROR ===', [
+                'message' => $e->getMessage(),
+            ]);
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }

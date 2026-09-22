@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Drms\Driver;
 use App\Models\Drms\DriverRequest;
 use App\Models\BisnisUnit;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -64,31 +65,46 @@ class DriverController extends Controller
         if (!$user->isDrmsSuperAdmin() && !$user->drmsProfile->business_unit_id) {
             abort(403, 'Anda tidak memiliki unit bisnis.');
         }
-        return view('drms.drivers.create');
+        $accounts = $this->driverCandidates($user);
+        return view('drms.drivers.create', compact('accounts'));
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
 
+        // Nama driver TIDAK lagi diketik bebas: dipilih dari daftar akun terdaftar (user_id),
+        // lalu nama, username, dan business unit diisi otomatis dari akun tersebut.
         $data = $request->validate([
-            'name'   => 'required|string|max:255',
-            'phone'  => 'nullable|string|max:20',
-            'status' => 'required|in:available,on_trip,off_duty',
+            'user_id' => 'required|exists:users,id',
+            'phone'   => 'nullable|string|max:20',
+            'status'  => 'required|in:available,on_trip,off_duty',
+        ], [
+            'user_id.required' => 'Pilih nama driver dari daftar.',
+            'user_id.exists'   => 'Nama driver yang dipilih tidak valid.',
         ]);
 
+        $account = User::with('drmsProfile')->findOrFail($data['user_id']);
+        $this->assertAccountUsable($user, $account);
+
+        $payload = [
+            'name'     => $account->name,
+            'username' => $account->username,
+            'phone'    => $data['phone'] ?? null,
+            'status'   => $data['status'],
+        ];
+
         if ($user->isDrmsSuperAdmin()) {
-            // Superadmin bisa memilih business_unit_id (tambahkan field di form jika diperlukan)
-            // Untuk sederhananya, kita set null atau minta input. Agar aman, kita set null dulu.
-            // Namun lebih baik tambahkan select business_unit di form untuk superadmin.
-            // Untuk sekarang, jika tidak ada input, kita set null (artinya driver milik semua BU? Tidak ideal)
-            // Sesuaikan dengan kebutuhan. Contoh: jika superadmin, wajib pilih BU.
-            $data['business_unit_id'] = $request->business_unit_id ?? null;
+            // Superadmin: business unit mengikuti profil akun yang dipilih
+            // (fallback ke input business_unit_id kalau profil akun belum punya BU).
+            $payload['business_unit_id'] = $account->drmsProfile->business_unit_id
+                ?? $request->business_unit_id
+                ?? null;
         } else {
-            $data['business_unit_id'] = $user->drmsProfile->business_unit_id;
+            $payload['business_unit_id'] = $user->drmsProfile->business_unit_id;
         }
 
-        Driver::create($data);
+        Driver::create($payload);
 
         return redirect()->route('drms.drivers.index')
             ->with('success', 'Driver berhasil ditambahkan.');
@@ -100,7 +116,8 @@ class DriverController extends Controller
         if (!$user->isDrmsSuperAdmin()) {
             $this->checkBusinessUnit($driver);
         }
-        return view('drms.drivers.edit', compact('driver'));
+        $accounts = $this->driverCandidates($user, $driver->username);
+        return view('drms.drivers.edit', compact('driver', 'accounts'));
     }
 
     public function update(Request $request, Driver $driver)
@@ -110,13 +127,27 @@ class DriverController extends Controller
             $this->checkBusinessUnit($driver);
         }
 
+        // Nama tidak lagi free text. Kalau admin memilih akun baru di dropdown (user_id),
+        // nama + username driver mengikuti akun itu. Kalau tidak diubah, nama lama dipertahankan.
         $data = $request->validate([
-            'name'   => 'required|string|max:255',
-            'phone'  => 'nullable|string|max:20',
-            'status' => 'required|in:available,on_trip,off_duty',
+            'user_id' => 'nullable|exists:users,id',
+            'phone'   => 'nullable|string|max:20',
+            'status'  => 'required|in:available,on_trip,off_duty',
         ]);
 
-        $driver->update($data);
+        $payload = [
+            'phone'  => $data['phone'] ?? null,
+            'status' => $data['status'],
+        ];
+
+        if (!empty($data['user_id'])) {
+            $account = User::with('drmsProfile')->findOrFail($data['user_id']);
+            $this->assertAccountUsable($user, $account, $driver);
+            $payload['name']     = $account->name;
+            $payload['username'] = $account->username;
+        }
+
+        $driver->update($payload);
 
         return redirect()->route('drms.drivers.index')
             ->with('success', 'Driver berhasil diperbarui.');
@@ -169,6 +200,17 @@ class DriverController extends Controller
         $driverQuery->where('business_unit_id', $businessUnitId);
     }
 
+    // Daftar pilihan dropdown Driver: semua driver dalam cakupan BU (sebelum filter
+    // Driver / Cari Driver diterapkan), supaya dropdown tetap lengkap setelah difilter.
+    $driverOptions = (clone $driverQuery)->orderBy('name')->get(['id', 'name', 'business_unit_id']);
+
+    // Filter Driver (dropdown, satu driver tertentu)
+    $driverIdFilter = $request->get('driver_id');
+    if ($driverIdFilter) {
+        $driverQuery->where('id', $driverIdFilter);
+    }
+
+    // Cari Driver (kotak pencarian bebas, terpisah dari dropdown)
     if ($searchDriver) {
         $driverQuery->where('name', 'LIKE', '%' . $searchDriver . '%');
     }
@@ -224,8 +266,8 @@ class DriverController extends Controller
         }
     }
 
-    // Filter berdasarkan driver yang sudah dipilih
-    if ($searchDriver) {
+    // Filter berdasarkan driver yang sudah dipilih (dropdown Driver atau Cari Driver)
+    if ($searchDriver || $driverIdFilter) {
         $driverIds = $drivers->pluck('id')->toArray();
         $requestQuery->whereIn('driver_id', $driverIds);
     } else {
@@ -342,9 +384,63 @@ class DriverController extends Controller
 
     return view('drms.drivers.schedule', compact(
         'drivers', 'driverLanes', 'allRequests', 'daysInMonth', 'totalDays', 'month', 'monthStart', 'monthEnd',
-        'searchDriver', 'statusFilter', 'businessUnits', 'user'
+        'searchDriver', 'statusFilter', 'businessUnits', 'user', 'driverOptions', 'driverIdFilter'
     ));
 }
+
+    /**
+     * Daftar akun yang bisa dipilih di dropdown "Nama Driver": akun ber-username yang
+     * BELUM terdaftar sebagai driver. Non-superadmin hanya melihat akun di business unit-nya.
+     * $keepUsername = username driver yang sedang diedit (tetap muncul supaya bisa terpilih).
+     */
+    private function driverCandidates($authUser, $keepUsername = null)
+    {
+        $taken = Driver::whereNotNull('username')->pluck('username')
+            ->reject(fn($u) => $keepUsername !== null && $u === $keepUsername)
+            ->all();
+
+        $query = User::whereNotNull('username')->where('username', '!=', '');
+
+        if (!$authUser->isDrmsSuperAdmin()) {
+            $buId = $authUser->drmsProfile->business_unit_id ?? null;
+            $query->whereHas('drmsProfile', fn($q) => $q->where('business_unit_id', $buId));
+        }
+
+        if (!empty($taken)) {
+            $query->whereNotIn('username', $taken);
+        }
+
+        return $query->orderBy('name')->get(['id', 'name', 'username']);
+    }
+
+    /**
+     * Validasi sisi server untuk akun yang dipilih (dropdown bisa dimanipulasi dari browser).
+     */
+    private function assertAccountUsable($authUser, User $account, ?Driver $current = null)
+    {
+        if (empty($account->username)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user_id' => 'Akun yang dipilih belum punya username, tidak bisa dijadikan driver.',
+            ]);
+        }
+
+        if (!$authUser->isDrmsSuperAdmin()) {
+            $myBu = $authUser->drmsProfile->business_unit_id ?? null;
+            $accBu = $account->drmsProfile->business_unit_id ?? null;
+            if (!$myBu || (int) $myBu !== (int) $accBu) {
+                abort(403, 'Akun ini bukan bagian dari business unit Anda.');
+            }
+        }
+
+        $exists = Driver::where('username', $account->username)
+            ->when($current, fn($q) => $q->where('id', '!=', $current->id))
+            ->exists();
+        if ($exists) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user_id' => 'Akun ini sudah terdaftar sebagai driver.',
+            ]);
+        }
+    }
 
     /**
      * Cek apakah driver milik business unit user yang sedang login (kecuali superadmin).

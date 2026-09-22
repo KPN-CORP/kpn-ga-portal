@@ -41,6 +41,12 @@ class RepairController extends Controller
             });
         }
 
+        // Filter Plat + Merek (gabungan, semua kata harus cocok di plat ATAU merek kendaraan)
+        if ($request->filled('plate_brand')) {
+            $term = $request->plate_brand;
+            $query->whereHas('vehicle', fn($q) => $q->searchPlateBrand($term));
+        }
+
         // Filter status
         if ($request->filled('status')) {
             $query->where('status', $request->status);

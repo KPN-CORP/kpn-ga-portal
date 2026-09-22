@@ -457,6 +457,7 @@ Route::middleware(['auth'])->group(function () {
                 Route::post('/penghuni/{id}/checkout', [AdminController::class, 'checkoutPenghuni'])->name('apartemen.admin.penghuni.checkout');
                 Route::post('/penghuni/{id}/checkin', [AdminController::class, 'checkin'])->name('checkin');
                 Route::post('/transfer/{id}', [AssignController::class, 'transfer'])->name('apartemen.admin.transfer');
+                Route::post('/assign/{id}/cancel', [AssignController::class, 'cancel'])->name('apartemen.admin.assign.cancel');
                 Route::post('/maintenance/{id}', [AdminController::class, 'setMaintenance'])->name('apartemen.admin.maintenance');
                 Route::get('/request/{id}/detail', [AdminController::class, 'detail'])->name('apartemen.admin.detail');
                 Route::get('/report', [AdminController::class, 'report'])->name('apartemen.admin.report');

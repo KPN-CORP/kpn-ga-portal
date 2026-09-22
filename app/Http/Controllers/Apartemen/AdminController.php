@@ -462,7 +462,7 @@ class AdminController extends Controller
             
             DB::beginTransaction();
             
-            $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen', 'assign.penghuni'])
+            $penghuni = ApartemenPenghuni::with(['assign.unit.apartemen', 'assign.penghuni', 'assign.request.user'])
                 ->where('id', $id)
                 ->where('status', 'AKTIF')
                 ->lockForUpdate()
@@ -516,6 +516,8 @@ class AdminController extends Controller
                 }
             }
             
+            $bisnisUnit = BisnisUnit::resolveNamaForUser($assign->request->user ?? null);
+
             $historyData = [
                 'nama' => $penghuni->nama,
                 'id_karyawan' => $penghuni->id_karyawan,
@@ -526,6 +528,7 @@ class AdminController extends Controller
                 'unit' => $assign->unit->nomor_unit ?? '-',
                 'periode' => ($assign->tanggal_mulai ? $assign->tanggal_mulai->format('d/m/Y') : '-') . ' - ' . ($assign->tanggal_selesai ? $assign->tanggal_selesai->format('d/m/Y') : '-'),
                 'status_selesai' => 'SELESAI',
+                'bisnis_unit' => $bisnisUnit ?? $penghuni->unit_kerja,
                 'created_at' => now()
             ];
             
@@ -570,6 +573,10 @@ class AdminController extends Controller
             $query->where('status_selesai', $request->status_selesai);
         }
 
+        if ($request->filled('bisnis_unit')) {
+            $query->where('bisnis_unit', $request->bisnis_unit);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -580,9 +587,10 @@ class AdminController extends Controller
             });
         }
 
-        $histories = $query->paginate(10);
+        $histories = $query->paginate(10)->withQueryString();
+        $bisnisUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
-        return view('apartemen.admin.history', compact('histories'));
+        return view('apartemen.admin.history', compact('histories', 'bisnisUnits'));
     }
 
     // MANAJEMEN APARTEMEN & UNIT

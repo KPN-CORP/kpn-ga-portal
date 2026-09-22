@@ -25,9 +25,51 @@
         </div>
     </div>
 
-    {{-- FILTER --}}
+    {{-- FILTER: urutan Business Unit → Kendaraan → Driver → Bulan → Tahun --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" action="{{ route('drms.admin.operational.dashboard') }}" class="flex flex-wrap gap-3 items-end">
+        <form method="GET" id="dashboardFilterForm" action="{{ route('drms.admin.operational.dashboard') }}" class="flex flex-wrap gap-3 items-end">
+            <div>
+                <label class="block text-xs font-medium text-gray-600">🏢 Business Unit</label>
+                @if($isSuperAdmin ?? false)
+                    <select name="business_unit_id" id="filter_bu" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua BU</option>
+                        @foreach($businessUnits as $bu)
+                            <option value="{{ $bu->id_bisnis_unit }}" {{ (string) $filterBusinessUnitId === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>
+                                {{ $bu->nama_bisnis_unit }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    {{-- Admin biasa: terkunci ke BU sendiri (server mengabaikan input lain) --}}
+                    <select id="filter_bu" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                        @foreach($businessUnits as $bu)
+                            <option selected>{{ $bu->nama_bisnis_unit }}</option>
+                        @endforeach
+                    </select>
+                @endif
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600">🚗 Kendaraan</label>
+                <select name="vehicle_id" id="filter_vehicle" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua Kendaraan</option>
+                    @foreach($vehicles as $v)
+                        <option value="{{ $v->id }}" data-bu="{{ $v->business_unit_id }}" {{ $filterVehicleId == $v->id ? 'selected' : '' }}>
+                            {{ $v->plate_number }} - {{ $v->type }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600">👤 Driver</label>
+                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua Driver</option>
+                    @foreach($drivers as $d)
+                        <option value="{{ $d->id }}" data-bu="{{ $d->business_unit_id }}" {{ $filterDriverId == $d->id ? 'selected' : '' }}>
+                            {{ $d->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600">Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -44,28 +86,6 @@
                     @endforeach
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600">🚗 Kendaraan</label>
-                <select name="vehicle_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua Kendaraan</option>
-                    @foreach($vehicles as $v)
-                        <option value="{{ $v->id }}" {{ $filterVehicleId == $v->id ? 'selected' : '' }}>
-                            {{ $v->plate_number }} - {{ $v->type }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600">👤 Driver</label>
-                <select name="driver_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua Driver</option>
-                    @foreach($drivers as $d)
-                        <option value="{{ $d->id }}" {{ $filterDriverId == $d->id ? 'selected' : '' }}>
-                            {{ $d->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                 Tampilkan
             </button>
@@ -74,6 +94,30 @@
             </a>
         </form>
     </div>
+
+    {{-- Cascade filter: pilihan Kendaraan & Driver menyesuaikan Business Unit yang dipilih (superadmin) --}}
+    <script>
+    (function () {
+        var bu = document.getElementById('filter_bu');
+        var vehicle = document.getElementById('filter_vehicle');
+        var driver = document.getElementById('filter_driver');
+        if (!bu || bu.disabled) return;
+
+        function applyBu(select) {
+            var selectedBu = bu.value;
+            Array.prototype.forEach.call(select.options, function (opt) {
+                if (!opt.value) return; // opsi "Semua ..."
+                var match = !selectedBu || String(opt.dataset.bu) === String(selectedBu);
+                opt.hidden = !match;
+                opt.disabled = !match;
+                if (!match && opt.selected) select.value = '';
+            });
+        }
+        function applyAll() { applyBu(vehicle); applyBu(driver); }
+        bu.addEventListener('change', applyAll);
+        applyAll();
+    })();
+    </script>
 
     {{-- STATISTIK UTAMA --}}
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -275,7 +319,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // per-kendaraan, yang cuma menampilkan 1 bulan, beda dengan grafik bulanan yang 12 bulan).
     const currentPeriod = @json(sprintf('%04d-%02d', $year, $month));
 
+    // Business Unit yang sedang dipilih (superadmin); ikut dibawa ke halaman tujuan.
+    const currentBuFilter = @json($filterBusinessUnitId ?? null);
+
     function goToDrilldown(baseUrl, params) {
+        if (currentBuFilter && !params.business_unit_id) {
+            params = Object.assign({ business_unit_id: currentBuFilter }, params);
+        }
         const url = new URL(baseUrl, window.location.origin);
         Object.entries(params).forEach(([key, value]) => {
             if (value !== null && value !== undefined && value !== '') {

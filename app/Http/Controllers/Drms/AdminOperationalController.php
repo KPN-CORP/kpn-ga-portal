@@ -25,7 +25,8 @@ class AdminOperationalController extends Controller
     public function dashboard(Request $request)
     {
         $user = Auth::user();
-        $businessUnitId = $this->getBusinessUnitId($user);
+        // Superadmin boleh memilih Business Unit lewat filter; admin biasa tetap terkunci ke BU-nya.
+        $businessUnitId = $this->resolveBusinessUnitId($user, $request);
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
         $filterVehicleId = $request->get('vehicle_id');
@@ -46,6 +47,22 @@ class AdminOperationalController extends Controller
         $drivers = Driver::when($businessUnitId, function ($q) use ($businessUnitId) {
             return $q->where('business_unit_id', $businessUnitId);
         })->orderBy('name')->get();
+
+        // Daftar Business Unit untuk filter (dropdown aktif hanya untuk superadmin;
+        // admin biasa melihat BU-nya sendiri, terkunci).
+        $businessUnits = $user->isDrmsSuperAdmin()
+            ? \App\Models\BisnisUnit::orderBy('nama_bisnis_unit')->get()
+            : \App\Models\BisnisUnit::where('id_bisnis_unit', $businessUnitId)->get();
+        $filterBusinessUnitId = $businessUnitId;
+
+        // Kendaraan/driver yang dipilih tapi bukan bagian dari BU terpilih (mis. BU baru
+        // diganti, kendaraan lama masih terbawa di URL) diabaikan supaya hasil tidak kosong.
+        if ($filterVehicleId && !$vehicles->contains('id', (int) $filterVehicleId)) {
+            $filterVehicleId = null;
+        }
+        if ($filterDriverId && !$drivers->contains('id', (int) $filterDriverId)) {
+            $filterDriverId = null;
+        }
 
         // Statistik
         $stats = $this->getOperationalStats($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
@@ -148,7 +165,8 @@ class AdminOperationalController extends Controller
             'transportDistribution', 'months', 'years', 'month', 'year',
             'recentLogs', 'isSuperAdmin',
             'vehicleStats', 'totals',
-            'vehicles', 'drivers', 'filterVehicleId', 'filterDriverId'
+            'vehicles', 'drivers', 'filterVehicleId', 'filterDriverId',
+            'businessUnits', 'filterBusinessUnitId'
         ));
     }
 
@@ -158,7 +176,7 @@ class AdminOperationalController extends Controller
     public function export(Request $request)
     {
         $user = Auth::user();
-        $businessUnitId = $this->getBusinessUnitId($user);
+        $businessUnitId = $this->resolveBusinessUnitId($user, $request);
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
         $filterVehicleId = $request->get('vehicle_id');
@@ -363,14 +381,22 @@ class AdminOperationalController extends Controller
                 }
             });
 
+        // Pencarian: No. Request ATAU Plat Nomor + Merek kendaraan (nama driver tidak lagi
+        // dicari lewat kolom ini — pakai dropdown Driver).
         if ($request->filled('search')) {
-            $search = '%' . $request->search . '%';
-            $query->whereHas('request', function ($q) use ($search) {
-                $q->where('request_no', 'LIKE', $search)
-                  ->orWhereHas('driver', function ($q2) use ($search) {
-                      $q2->where('name', 'LIKE', $search);
-                  });
+            $term = $request->search;
+            $like = '%' . $term . '%';
+            $query->whereHas('request', function ($q) use ($term, $like) {
+                $q->where(function ($q1) use ($term, $like) {
+                    $q1->where('request_no', 'LIKE', $like)
+                       ->orWhereHas('vehicle', fn($q2) => $q2->searchPlateBrand($term));
+                });
             });
+        }
+
+        // Filter Driver (dropdown)
+        if ($request->filled('driver_id')) {
+            $query->whereHas('request', fn($q) => $q->where('driver_id', $request->driver_id));
         }
 
         if ($request->filled('date_from')) {
@@ -413,8 +439,13 @@ class AdminOperationalController extends Controller
 
         $logs = $query->latest()->paginate(20)->appends($request->query());
 
+        // Daftar driver untuk dropdown filter (dibatasi BU untuk admin biasa)
+        $drivers = Driver::when($businessUnitId, fn($q) => $q->where('business_unit_id', $businessUnitId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('drms.admin.monitoring_logs', compact(
-            'logs', 'month', 'totalLogs', 'pendingCount', 'verifiedCount', 'draftCount', 'revisionCount'
+            'logs', 'month', 'totalLogs', 'pendingCount', 'verifiedCount', 'draftCount', 'revisionCount', 'drivers'
         ));
     }
 
@@ -470,6 +501,19 @@ class AdminOperationalController extends Controller
     }
 
     // ==================== HELPER METHODS ====================
+
+    /**
+     * Business Unit yang dipakai untuk query dashboard/export.
+     * - Superadmin: ikut filter business_unit_id di request (kosong = semua BU).
+     * - Admin biasa: selalu BU miliknya sendiri (request diabaikan).
+     */
+    private function resolveBusinessUnitId($user, Request $request)
+    {
+        if ($user->isDrmsSuperAdmin()) {
+            return $request->filled('business_unit_id') ? (int) $request->business_unit_id : null;
+        }
+        return $this->getBusinessUnitId($user);
+    }
 
     private function getBusinessUnitId($user)
     {

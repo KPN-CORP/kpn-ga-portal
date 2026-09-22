@@ -41,6 +41,26 @@
     @endphp
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-4">
         <form method="GET" action="{{ route('drms.fuel-logs.analytics') }}" class="flex flex-wrap gap-3 items-end">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
+                @if(auth()->user()->isDrmsSuperAdmin())
+                    <select name="business_unit_id" id="bu_filter" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua BU</option>
+                        @foreach($businessUnits as $bu)
+                            <option value="{{ $bu->id_bisnis_unit }}" {{ (string) $filterBusinessUnitId === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>
+                                {{ $bu->nama_bisnis_unit }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    {{-- User biasa: terkunci ke BU sendiri --}}
+                    <select id="bu_filter" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                        @foreach($businessUnits as $bu)
+                            <option selected>{{ $bu->nama_bisnis_unit }}</option>
+                        @endforeach
+                    </select>
+                @endif
+            </div>
             <div class="relative">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
                 @php
@@ -69,7 +89,7 @@
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['vehicle_id', 'date_from', 'date_to']))
+                @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'date_from', 'date_to']))
                     <a href="{{ route('drms.fuel-logs.analytics') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -80,16 +100,16 @@
         {{-- Quick filter periode --}}
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t">
             <span class="text-xs text-gray-500 self-center mr-1">Periode cepat:</span>
-            <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => request('vehicle_id'), 'date_from' => $thisMonthFrom, 'date_to' => $thisMonthTo])) }}"
+            <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id'), 'date_from' => $thisMonthFrom, 'date_to' => $thisMonthTo])) }}"
                class="px-3 py-1.5 rounded-full text-xs font-medium {{ $isThisMonth ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                 Bulan Ini ({{ $thisMonthLabel }})
             </a>
-            <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => request('vehicle_id'), 'date_from' => $lastMonthFrom, 'date_to' => $lastMonthTo])) }}"
+            <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id'), 'date_from' => $lastMonthFrom, 'date_to' => $lastMonthTo])) }}"
                class="px-3 py-1.5 rounded-full text-xs font-medium {{ $isLastMonth ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                 Bulan Lalu ({{ $lastMonthLabel }})
             </a>
             @if(request()->filled('date_from') || request()->filled('date_to'))
-                <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => request('vehicle_id')])) }}"
+                <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id')])) }}"
                    class="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
                     Semua Periode
                 </a>
@@ -270,7 +290,7 @@
                 @endphp
                 <tr class="{{ $rowBg }} align-top">
                     <td class="px-6 py-4 font-medium">
-                        <a href="{{ route('drms.fuel-logs.analytics', array_filter(['vehicle_id' => $data['vehicle_id'], 'date_from' => request('date_from'), 'date_to' => request('date_to')])) }}"
+                        <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => $data['vehicle_id'], 'date_from' => request('date_from'), 'date_to' => request('date_to')])) }}"
                            class="text-blue-600 hover:underline">
                             {{ $data['plate_number'] }}
                         </a>
@@ -354,7 +374,7 @@
 <script>
     const VEHICLES_FILTER_DATA = [
         @foreach($vehicles as $v)
-        { id: {{ $v->id }}, label: @json($v->plate_number . ' - ' . $v->type) },
+        { id: {{ $v->id }}, bu: {{ (int) $v->business_unit_id }}, label: @json($v->plate_number . ' - ' . $v->type) },
         @endforeach
     ];
 
@@ -387,10 +407,32 @@
             });
         }
 
+        const buSelect = document.getElementById('bu_filter');
+
+        // Cocokkan per kata (plat + merek, urutan bebas); plat juga cocok tanpa spasi.
+        function matchesTerm(label, q) {
+            const l = label.toLowerCase();
+            const compact = l.replace(/\s+/g, '');
+            return q.split(/\s+/).filter(Boolean).every(t => l.includes(t) || compact.includes(t));
+        }
+
         function search(term) {
             const q = term.trim().toLowerCase();
-            if (!q) return VEHICLES_FILTER_DATA;
-            return VEHICLES_FILTER_DATA.filter(v => v.label.toLowerCase().includes(q));
+            const buVal = (buSelect && !buSelect.disabled) ? buSelect.value : '';
+            return VEHICLES_FILTER_DATA.filter(v =>
+                (!buVal || String(v.bu) === String(buVal)) && (!q || matchesTerm(v.label, q))
+            );
+        }
+
+        // Ganti Business Unit -> kosongkan pilihan kendaraan yang bukan milik BU tsb.
+        if (buSelect && !buSelect.disabled) {
+            buSelect.addEventListener('change', function () {
+                const cur = VEHICLES_FILTER_DATA.find(v => String(v.id) === String(hiddenInput.value));
+                if (cur && this.value && String(cur.bu) !== String(this.value)) {
+                    hiddenInput.value = '';
+                    searchInput.value = '';
+                }
+            });
         }
 
         searchInput.addEventListener('input', function () {

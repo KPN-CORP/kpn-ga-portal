@@ -17,9 +17,13 @@
     <form action="{{ route('drms.drivers.store') }}" method="POST" class="bg-white p-6 rounded shadow">
         @csrf
         <div class="mb-4">
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nama Driver</label>
-            <input type="text" name="name" id="name" value="{{ old('name') }}" required
-                   class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label for="account_input" class="block text-sm font-medium text-gray-700 mb-1">Nama Driver</label>
+            @include('drms.partials.driver-account-picker', [
+                'accounts'    => $accounts,
+                'selectedId'  => null,
+                'currentName' => '',
+                'keepCurrent' => false,
+            ])
         </div>
 
         <div class="mb-4">

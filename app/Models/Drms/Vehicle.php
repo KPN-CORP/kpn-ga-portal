@@ -29,6 +29,32 @@ class Vehicle extends Model
         return $this->belongsTo(BisnisUnit::class, 'business_unit_id', 'id_bisnis_unit');
     }
 
+    /**
+     * Pencarian gabungan PLAT NOMOR + MEREK (kolom `type`, mis. "BYD M6").
+     *
+     * Input dipecah per kata dan SEMUA kata harus cocok (di plat ATAU merek), jadi
+     * "B 1929 BYD" atau "byd sdw" tetap ketemu walau urutan/format platnya tidak persis.
+     * Plat juga dicocokkan tanpa spasi: "B1929SDW" cocok dengan "B 1929 SDW".
+     */
+    public function scopeSearchPlateBrand($query, $term)
+    {
+        $term = trim((string) $term);
+        if ($term === '') {
+            return $query;
+        }
+
+        foreach (preg_split('/\s+/', $term) as $word) {
+            $like = '%' . addcslashes($word, '%_\\') . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('plate_number', 'LIKE', $like)
+                  ->orWhere('type', 'LIKE', $like)
+                  ->orWhereRaw("REPLACE(plate_number, ' ', '') LIKE ?", [$like]);
+            });
+        }
+
+        return $query;
+    }
+
     public function requests()
     {
         return $this->hasMany(DriverRequest::class);

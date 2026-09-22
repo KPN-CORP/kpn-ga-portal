@@ -20,9 +20,34 @@ class FuelLogController extends Controller
         return $user->drmsProfile->business_unit_id ?? abort(403);
     }
 
-    public function index(Request $request)
+    /**
+     * Business Unit efektif untuk filter halaman list/analitik.
+     * - Superadmin: ikut filter business_unit_id di request (kosong = semua BU).
+     * - User biasa: selalu BU miliknya sendiri (input request diabaikan).
+     */
+    private function effectiveBusinessUnitId(Request $request)
     {
         $buId = $this->getBusinessUnitId();
+        if ($buId !== null) {
+            return $buId;
+        }
+        return $request->filled('business_unit_id') ? (int) $request->business_unit_id : null;
+    }
+
+    /**
+     * Daftar BU untuk dropdown filter (superadmin: semua; lainnya: BU sendiri saja, terkunci).
+     */
+    private function businessUnitOptions($lockedBuId)
+    {
+        return $lockedBuId !== null
+            ? \App\Models\BisnisUnit::where('id_bisnis_unit', $lockedBuId)->get()
+            : \App\Models\BisnisUnit::orderBy('nama_bisnis_unit')->get();
+    }
+
+    public function index(Request $request)
+    {
+        $lockedBuId = $this->getBusinessUnitId();           // null = superadmin
+        $buId = $this->effectiveBusinessUnitId($request);
         $query = FuelLog::with('vehicle', 'driver', 'user', 'verifier');
         if ($buId) {
             $query->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
@@ -35,13 +60,6 @@ class FuelLogController extends Controller
         }
         if ($request->filled('vehicle_id')) {
             $query->where('vehicle_id', $request->vehicle_id);
-        }
-        if ($request->filled('search')) {
-            $search = '%' . $request->search . '%';
-            $query->where(function($q) use ($search) {
-                $q->whereHas('vehicle', fn($sq) => $sq->where('plate_number', 'LIKE', $search))
-                  ->orWhereHas('driver', fn($sq) => $sq->where('name', 'LIKE', $search));
-            });
         }
         if ($request->filled('status')) {
             $query->where('is_verified', $request->status == 'verified' ? 1 : 0);
@@ -83,9 +101,12 @@ class FuelLogController extends Controller
 
         $logs = $query->latest()->paginate(20)->appends($request->query());
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
+        $businessUnits = $this->businessUnitOptions($lockedBuId);
+        $filterBusinessUnitId = $buId;
         return view('drms.fuel_logs.index', compact(
             'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount',
-            'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik'
+            'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik',
+            'businessUnits', 'filterBusinessUnitId'
         ));
     }
 
@@ -223,7 +244,8 @@ class FuelLogController extends Controller
 
     public function analytics(Request $request)
     {
-        $buId = $this->getBusinessUnitId();
+        $lockedBuId = $this->getBusinessUnitId();           // null = superadmin
+        $buId = $this->effectiveBusinessUnitId($request);
 
         $query = FuelLog::with('vehicle')
             ->where('is_verified', 1)
@@ -341,7 +363,12 @@ class FuelLogController extends Controller
             $vehicleDetail = $this->buildVehicleFillDetail($logs);
         }
 
-        return view('drms.fuel_logs.analytics', compact('result', 'summary', 'vehicles', 'vehicleDetail'));
+        $businessUnits = $this->businessUnitOptions($lockedBuId);
+        $filterBusinessUnitId = $buId;
+
+        return view('drms.fuel_logs.analytics', compact(
+            'result', 'summary', 'vehicles', 'vehicleDetail', 'businessUnits', 'filterBusinessUnitId'
+        ));
     }
 
     /**

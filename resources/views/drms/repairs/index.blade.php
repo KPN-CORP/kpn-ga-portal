@@ -24,6 +24,12 @@
                        class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🔎 Plat + Merek</label>
+                <input type="text" name="plate_brand" value="{{ request('plate_brand') }}"
+                       placeholder="cth: B 1929 BYD / SDW M6"
+                       class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
                 @include('drms.partials.vehicle-search', [
                     'vehicles' => $vehicles,
@@ -70,7 +76,7 @@
                 <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
+                @if(request()->anyFilled(['search', 'plate_brand', 'vehicle_id', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
                     <a href="{{ route('drms.repairs.index') }}" class="flex-1 sm:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -156,7 +162,7 @@
                         <td colspan="6" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">🔧</div>
                             <p>Belum ada laporan perbaikan.</p>
-                            @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                            @if(request()->anyFilled(['search', 'plate_brand', 'vehicle_id', 'status', 'date_from', 'date_to']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif
                             <a href="{{ route('drms.repairs.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Laporan</a>

@@ -10,17 +10,35 @@
 
     {{-- FILTER --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" action="{{ route('drms.drivers.schedule') }}" class="flex flex-wrap gap-3 items-end">
+        <form method="GET" id="scheduleFilterForm" action="{{ route('drms.drivers.schedule') }}" class="flex flex-wrap gap-3 items-end">
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
-                <input type="month" name="month" value="{{ $month }}"
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-medium text-gray-600 mb-1">👤 Driver</label>
+                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-52">
+                    <option value="">Semua Driver</option>
+                    @foreach($driverOptions as $opt)
+                        <option value="{{ $opt->id }}" data-bu="{{ $opt->business_unit_id }}" {{ (string) ($driverIdFilter ?? '') === (string) $opt->id ? 'selected' : '' }}>
+                            {{ $opt->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">👤 Cari Driver</label>
-                <input type="text" name="search" value="{{ $searchDriver ?? '' }}"
-                       placeholder="Nama driver..."
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
+                @if(auth()->user()->isDrmsSuperAdmin())
+                    <select name="business_unit_id" id="filter_bu" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua BU</option>
+                        @foreach($businessUnits as $bu)
+                            <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                                {{ $bu->nama_bisnis_unit }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    {{-- Admin biasa: terkunci ke BU sendiri --}}
+                    <select id="filter_bu" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                        <option selected>{{ $user->drmsProfile->businessUnit->nama_bisnis_unit ?? '-' }}</option>
+                    </select>
+                @endif
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
@@ -31,24 +49,22 @@
                     <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>✅ Selesai</option>
                 </select>
             </div>
-            @if(auth()->user()->isDrmsSuperAdmin())
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
-                <select name="business_unit_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua BU</option>
-                    @foreach($businessUnits as $bu)
-                        <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
-                            {{ $bu->nama_bisnis_unit }}
-                        </option>
-                    @endforeach
-                </select>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari Driver</label>
+                <input type="text" name="search" value="{{ $searchDriver ?? '' }}"
+                       placeholder="Ketik nama driver..."
+                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
             </div>
-            @endif
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
+                <input type="month" name="month" value="{{ $month }}"
+                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['month', 'search', 'status', 'business_unit_id']))
+                @if(request()->anyFilled(['month', 'search', 'status', 'business_unit_id', 'driver_id']))
                     <a href="{{ route('drms.drivers.schedule') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -56,6 +72,27 @@
             </div>
         </form>
     </div>
+
+    {{-- Cascade: pilihan Driver menyesuaikan Business Unit yang dipilih (superadmin) --}}
+    <script>
+    (function () {
+        var bu = document.getElementById('filter_bu');
+        var driver = document.getElementById('filter_driver');
+        if (!bu || bu.disabled) return;
+        function apply() {
+            var selectedBu = bu.value;
+            Array.prototype.forEach.call(driver.options, function (opt) {
+                if (!opt.value) return;
+                var match = !selectedBu || String(opt.dataset.bu) === String(selectedBu);
+                opt.hidden = !match;
+                opt.disabled = !match;
+                if (!match && opt.selected) driver.value = '';
+            });
+        }
+        bu.addEventListener('change', apply);
+        apply();
+    })();
+    </script>
 
     {{-- QUICK STATS --}}
     @php

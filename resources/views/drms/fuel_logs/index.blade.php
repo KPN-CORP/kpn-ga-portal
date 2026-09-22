@@ -22,10 +22,24 @@
     <div class="bg-white rounded-lg shadow p-4 mb-6 border">
         <form method="GET" action="{{ route('drms.fuel-logs.index') }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
-                <input type="text" name="search" value="{{ request('search') }}" 
-                       placeholder="Cari kendaraan, driver..." 
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
+                @if(auth()->user()->isDrmsSuperAdmin())
+                    <select name="business_unit_id" id="bu_filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua BU</option>
+                        @foreach($businessUnits as $bu)
+                            <option value="{{ $bu->id_bisnis_unit }}" {{ (string) $filterBusinessUnitId === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>
+                                {{ $bu->nama_bisnis_unit }}
+                            </option>
+                        @endforeach
+                    </select>
+                @else
+                    {{-- User biasa: terkunci ke BU sendiri --}}
+                    <select id="bu_filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                        @foreach($businessUnits as $bu)
+                            <option selected>{{ $bu->nama_bisnis_unit }}</option>
+                        @endforeach
+                    </select>
+                @endif
             </div>
             <div class="relative">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
@@ -74,7 +88,7 @@
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Filter
                 </button>
-                @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'status', 'date_from', 'date_to']))
                     <a href="{{ route('drms.fuel-logs.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -133,7 +147,7 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4">
                             <span class="font-medium">{{ $log->vehicle->plate_number }}</span>
-                            <span class="text-xs text-gray-400 block">{{ $log->vehicle->type }}</span>
+                            <span class="text-sm text-gray-600 block">{{ $log->vehicle->type }}</span>
                         </td>
                         <td class="px-6 py-4">{{ $log->filling_date->format('d M Y') }}</td>
                         <td class="px-6 py-4">{{ $log->driver->name ?? '-' }}</td>
@@ -170,7 +184,7 @@
                         <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">⛽</div>
                             <p>Belum ada log.</p>
-                            @if(request()->anyFilled(['search', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                            @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'status', 'date_from', 'date_to']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif
                         </td>
@@ -189,7 +203,7 @@
 <script>
     const VEHICLES_FILTER_DATA = [
         @foreach($vehicles as $v)
-        { id: {{ $v->id }}, label: @json($v->plate_number . ' - ' . $v->type) },
+        { id: {{ $v->id }}, bu: {{ (int) $v->business_unit_id }}, label: @json($v->plate_number . ' - ' . $v->type) },
         @endforeach
     ];
 
@@ -222,10 +236,32 @@
             });
         }
 
+        const buSelect = document.getElementById('bu_filter');
+
+        // Cocokkan per kata (plat + merek, urutan bebas); plat juga cocok tanpa spasi.
+        function matchesTerm(label, q) {
+            const l = label.toLowerCase();
+            const compact = l.replace(/\s+/g, '');
+            return q.split(/\s+/).filter(Boolean).every(t => l.includes(t) || compact.includes(t));
+        }
+
         function search(term) {
             const q = term.trim().toLowerCase();
-            if (!q) return VEHICLES_FILTER_DATA;
-            return VEHICLES_FILTER_DATA.filter(v => v.label.toLowerCase().includes(q));
+            const buVal = (buSelect && !buSelect.disabled) ? buSelect.value : '';
+            return VEHICLES_FILTER_DATA.filter(v =>
+                (!buVal || String(v.bu) === String(buVal)) && (!q || matchesTerm(v.label, q))
+            );
+        }
+
+        // Ganti Business Unit -> kosongkan pilihan kendaraan yang bukan milik BU tsb.
+        if (buSelect && !buSelect.disabled) {
+            buSelect.addEventListener('change', function () {
+                const cur = VEHICLES_FILTER_DATA.find(v => String(v.id) === String(hiddenInput.value));
+                if (cur && this.value && String(cur.bu) !== String(this.value)) {
+                    hiddenInput.value = '';
+                    searchInput.value = '';
+                }
+            });
         }
 
         searchInput.addEventListener('input', function () {
