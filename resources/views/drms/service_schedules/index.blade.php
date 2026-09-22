@@ -108,7 +108,7 @@
             <p class="text-2xl font-bold text-purple-600">{{ $totalGeneral }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500">
-            <p class="text-xs text-gray-500 uppercase">Kendaraan Unik</p>
+            <p class="text-xs text-gray-500 uppercase">Kendaraan</p>
             <p class="text-2xl font-bold text-indigo-600">{{ $uniqueVehicles }}</p>
         </div>
     </div>

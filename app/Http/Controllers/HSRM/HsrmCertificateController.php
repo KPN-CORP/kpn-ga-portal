@@ -186,26 +186,8 @@ class HsrmCertificateController extends Controller
                 return back()->withErrors(['area_id' => 'You are not authorized to create in this area.'])->withInput();
             }
         }
-        // Validasi kuota hanya jika certificate_type_id ada (bukan custom)
-        if (!empty($data['certificate_type_id'])) {
-            $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
-                        ->where('certificate_type_id', $data['certificate_type_id'])
-                        ->first();
-
-            if ($quota && $quota->quota > 0) {
-                $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
-                                ->where('certificate_type_id', $data['certificate_type_id'])
-                                ->where('status_verif', 'verified')
-                                ->notExpired()
-                                ->count();
-
-                if ($activeCount >= $quota->quota) {
-                    return back()->withErrors([
-                        'certificate_type_id' => 'Kuota untuk tipe sertifikat ini sudah penuh (maksimal '.$quota->quota.').'
-                    ])->withInput();
-                }
-            }
-        }
+        // Kuota untuk tipe sertifikat ini TIDAK lagi memblokir pembuatan data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
 
         $data['created_by'] = $user->id;
         // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
@@ -313,30 +295,8 @@ class HsrmCertificateController extends Controller
             }
         }
 
-        // Validasi kuota jika area atau tipe berubah dan bukan custom
-        $areaChanged = ($cert->area_id != $data['area_id']);
-        $typeChanged = ($cert->certificate_type_id != $data['certificate_type_id']);
-
-        if (!empty($data['certificate_type_id']) && ($areaChanged || $typeChanged)) {
-            $quota = HsrmCertificateQuota::where('area_id', $data['area_id'])
-                        ->where('certificate_type_id', $data['certificate_type_id'])
-                        ->first();
-
-            if ($quota && $quota->quota > 0) {
-                $activeCount = HsrmCertificate::where('area_id', $data['area_id'])
-                                ->where('certificate_type_id', $data['certificate_type_id'])
-                                ->where('status_verif', 'verified')
-                                ->notExpired()
-                                ->where('id', '!=', $cert->id)
-                                ->count();
-
-                if ($activeCount >= $quota->quota) {
-                    return back()->withErrors([
-                        'certificate_type_id' => 'Kuota untuk tipe sertifikat ini sudah penuh (maksimal '.$quota->quota.').'
-                    ])->withInput();
-                }
-            }
-        }
+        // Kuota untuk tipe sertifikat ini TIDAK lagi memblokir update data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
 
         $oldData = $cert->toArray();
 

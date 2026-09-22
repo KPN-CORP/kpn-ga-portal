@@ -304,8 +304,8 @@
                         <th class="p-3 text-left">Certificate Type</th>
                         @if($isAdmin)
                         <th class="p-3 text-center">Regulatory</th>
-                        @endif
                         <th class="p-3 text-center">Quota</th>
+                        @endif
                         <th class="p-3 text-center">Active</th>
                         <th class="p-3 text-center">Expired</th>
                         @if($isAdmin)
@@ -329,12 +329,12 @@
                             <input type="text" name="regulatory" value="{{ $row->regulatory ?? '' }}" class="regulatory-input hidden" maxlength="50">
                         </td>
                         @endif
+                        @if($isAdmin)
                         <td class="p-3 text-center quota-cell">
                             <span class="quota-readonly">{{ $row->quota }}</span>
-                            @if($isAdmin)
                             <input type="number" name="quota" value="{{ $row->quota }}" min="0" class="quota-input hidden">
-                            @endif
                         </td>
+                        @endif
                         <td class="p-3 text-center font-medium">
                             <a href="{{ route('hsrm.certificates.index', ['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja, 'certificate_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
                                class="text-blue-600 hover:underline" target="_blank">
@@ -418,7 +418,9 @@
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="p-3 text-left">Equipment Type</th>
+                        @if($isAdmin)
                         <th class="p-3 text-center">Quota (items)</th>
+                        @endif
                         <th class="p-3 text-center">Active (items)</th>
                         <th class="p-3 text-center">Expired (items)</th>
                         @if($isAdmin)
@@ -435,12 +437,12 @@
                         data-quota="{{ $row->quota }}" data-budget="{{ $row->budget ?? '' }}"
                         data-application-type="{{ $row->application_type ?? '' }}">
                         <td class="p-3">{{ $row->type->name }}</td>
+                        @if($isAdmin)
                         <td class="p-3 text-center quota-cell">
                             <span class="quota-readonly">{{ $row->quota }}</span>
-                            @if($isAdmin)
                             <input type="number" name="quota" value="{{ $row->quota }}" min="0" class="quota-input hidden">
-                            @endif
                         </td>
+                        @endif
                         <td class="p-3 text-center font-medium">
                             <a href="{{ route('hsrm.equipments.index', ['filter' => 'active', 'area_id' => $selectedArea->id_area_kerja, 'equipment_type_id' => $row->type->id, 'status_verif' => 'verified']) }}" 
                                class="text-blue-600 hover:underline" target="_blank">

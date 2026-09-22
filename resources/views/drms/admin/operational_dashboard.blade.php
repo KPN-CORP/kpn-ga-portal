@@ -14,11 +14,19 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('drms.admin.operational.export', array_merge(request()->query(), ['month' => $month, 'year' => $year])) }}" 
-               class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                Export CSV
-            </a>
+            @if($isAllMonths ?? false)
+                {{-- Export CSV masih per-bulan (belum mendukung "Semua Bulan") --}}
+                <span title="Pilih bulan tertentu dulu untuk export CSV" class="bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-not-allowed">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export CSV
+                </span>
+            @else
+                <a href="{{ route('drms.admin.operational.export', array_merge(request()->query(), ['month' => $month, 'year' => $year])) }}" 
+                   class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export CSV
+                </a>
+            @endif
             <a href="{{ route('drms.admin.monitoring.logs') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                 📋 Log Driver
             </a>
@@ -73,8 +81,9 @@
             <div>
                 <label class="block text-xs font-medium text-gray-600">Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="all" {{ ($monthSelect ?? $month) === 'all' ? 'selected' : '' }}>Semua Bulan</option>
                     @foreach($months as $key => $label)
-                        <option value="{{ $key }}" {{ $month == $key ? 'selected' : '' }}>{{ $label }}</option>
+                        <option value="{{ $key }}" {{ ($monthSelect ?? $month) == $key ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
@@ -191,7 +200,7 @@
     {{-- TABEL RINGKASAN PER KENDARAAN --}}
     @if(count($vehicleStats) > 0)
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan (Bulan {{ date('F Y', mktime(0,0,0,$month,1,$year)) }})</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan ({{ ($isAllMonths ?? false) ? 'Tahun ' . $year : 'Bulan ' . date('F Y', mktime(0,0,0,$month,1,$year)) }})</h3>
         <p class="text-xs text-gray-400 mb-2">Kolom Jarak &amp; Liter/kWh dihitung dari Log Pengisian BBM/EV Charging (selisih odometer antar pengisian), sama seperti di <a href="{{ route('drms.fuel-logs.analytics') }}" class="underline">Analisis Konsumsi</a>.</p>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -235,7 +244,7 @@
 
     {{-- GRAFIK DISTRIBUSI TRANSPORTASI --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ date('F Y', mktime(0, 0, 0, $month, 1, $year)) }})</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ ($isAllMonths ?? false) ? 'Tahun ' . $year : date('F Y', mktime(0, 0, 0, $month, 1, $year)) }})</h3>
         <div class="relative" style="height: 250px; max-width: 400px; margin: 0 auto;">
             <canvas id="transportChart"></canvas>
         </div>
@@ -317,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentVehicleFilter = @json($filterVehicleId ?? null);
     // Bulan+tahun yang sedang aktif di dashboard, dalam format "YYYY-MM" (dipakai grafik
     // per-kendaraan, yang cuma menampilkan 1 bulan, beda dengan grafik bulanan yang 12 bulan).
-    const currentPeriod = @json(sprintf('%04d-%02d', $year, $month));
+    const currentPeriod = @json(($isAllMonths ?? false) ? ((string) $year) : sprintf('%04d-%02d', $year, $month));
 
     // Business Unit yang sedang dipilih (superadmin); ikut dibawa ke halaman tujuan.
     const currentBuFilter = @json($filterBusinessUnitId ?? null);

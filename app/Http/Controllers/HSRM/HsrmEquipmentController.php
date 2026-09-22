@@ -181,27 +181,8 @@ class HsrmEquipmentController extends Controller
             }
         }
 
-        // Validasi kuota untuk tipe yang sudah ada (bukan custom)
-        if (!empty($data['equipment_type_id'])) {
-            $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
-                        ->where('equipment_type_id', $data['equipment_type_id'])
-                        ->first();
-
-            if ($quota && $quota->quota > 0) {
-                $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
-                                ->where('equipment_type_id', $data['equipment_type_id'])
-                                ->where('status_verif', 'verified')
-                                ->notExpired()
-                                ->sum('total_items');
-
-                $newTotal = $activeItems + ($data['total_items'] ?? 1);
-                if ($newTotal > $quota->quota) {
-                    return back()->withErrors([
-                        'equipment_type_id' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif, saat ini '.$activeItems.' aktif).'
-                    ])->withInput();
-                }
-            }
-        }
+        // Kuota untuk tipe peralatan ini TIDAK lagi memblokir pembuatan data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
 
         $data['created_by'] = $user->id;
         // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
@@ -305,31 +286,8 @@ class HsrmEquipmentController extends Controller
             }
         }
 
-        // Validasi kuota jika area atau tipe berubah
-        $areaChanged = ($equipment->area_id != $data['area_id']);
-        $typeChanged = ($equipment->equipment_type_id != $data['equipment_type_id']);
-
-        if (($areaChanged || $typeChanged) && !empty($data['equipment_type_id'])) {
-            $quota = HsrmEquipmentQuota::where('area_id', $data['area_id'])
-                        ->where('equipment_type_id', $data['equipment_type_id'])
-                        ->first();
-
-            if ($quota && $quota->quota > 0) {
-                $activeItems = HsrmEquipment::where('area_id', $data['area_id'])
-                                ->where('equipment_type_id', $data['equipment_type_id'])
-                                ->where('status_verif', 'verified')
-                                ->notExpired()
-                                ->where('id', '!=', $equipment->id)
-                                ->sum('total_items');
-
-                $newTotal = $activeItems + ($data['total_items'] ?? 1);
-                if ($newTotal > $quota->quota) {
-                    return back()->withErrors([
-                        'equipment_type_id' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif).'
-                    ])->withInput();
-                }
-            }
-        }
+        // Kuota untuk tipe peralatan ini TIDAK lagi memblokir update data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
 
         $oldData = $equipment->toArray();
 

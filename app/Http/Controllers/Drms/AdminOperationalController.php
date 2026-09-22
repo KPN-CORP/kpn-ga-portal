@@ -27,7 +27,10 @@ class AdminOperationalController extends Controller
         $user = Auth::user();
         // Superadmin boleh memilih Business Unit lewat filter; admin biasa tetap terkunci ke BU-nya.
         $businessUnitId = $this->resolveBusinessUnitId($user, $request);
-        $month = $request->get('month', now()->month);
+        // Pilih "Semua Bulan" (month=all) untuk melihat data satu tahun penuh.
+        $monthParam = $request->get('month', now()->month);
+        $isAllMonths = ($monthParam === 'all');
+        $month = $isAllMonths ? null : (int) $monthParam;
         $year = $request->get('year', now()->year);
         $filterVehicleId = $request->get('vehicle_id');
         $filterDriverId = $request->get('driver_id');
@@ -35,9 +38,14 @@ class AdminOperationalController extends Controller
         // Trait CalculatesOperationalStats sekarang kerja pakai rentang tanggal
         // (date_from/date_to), bukan month/year — supaya bisa dipakai juga untuk
         // rentang bebas (API operational-summary). Dashboard web tetap filter
-        // per bulan seperti biasa, cuma dikonversi ke rentang 1 bulan penuh.
-        $periodStart = \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-        $periodEnd = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
+        // per bulan seperti biasa, cuma dikonversi ke rentang 1 bulan penuh
+        // (atau 1 tahun penuh kalau "Semua Bulan" dipilih).
+        $periodStart = $isAllMonths
+            ? \Carbon\Carbon::create($year, 1, 1)->startOfYear()->toDateString()
+            : \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+        $periodEnd = $isAllMonths
+            ? \Carbon\Carbon::create($year, 12, 1)->endOfYear()->format('Y-m-d 23:59:59')
+            : \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
 
         // Dropdown filter
         $vehicles = Vehicle::when($businessUnitId, function ($q) use ($businessUnitId) {
@@ -82,7 +90,7 @@ class AdminOperationalController extends Controller
         if ($filterDriverId) {
             $driverVehicleIds = DriverRequest::where('driver_id', $filterDriverId)
                 ->whereIn('status', ['approved_admin', 'completed'])
-                ->whereMonth('usage_date', $month)
+                ->when($month, fn($q) => $q->whereMonth('usage_date', $month))
                 ->whereYear('usage_date', $year)
                 ->pluck('vehicle_id')
                 ->unique()
@@ -98,20 +106,20 @@ class AdminOperationalController extends Controller
             // Fuel cost
             $fuelQuery = FuelLog::where('vehicle_id', $vehicle->id)
                 ->where('is_verified', 1)
-                ->whereMonth('filling_date', $month)
+                ->when($month, fn($q) => $q->whereMonth('filling_date', $month))
                 ->whereYear('filling_date', $year);
             if ($filterDriverId) $fuelQuery->where('driver_id', $filterDriverId);
             $fuelCost = $fuelQuery->sum(DB::raw('fuel_liters * fuel_price_per_liter'));
 
             // Service cost
             $serviceCost = ServiceSchedule::where('vehicle_id', $vehicle->id)
-                ->whereMonth('service_date', $month)
+                ->when($month, fn($q) => $q->whereMonth('service_date', $month))
                 ->whereYear('service_date', $year)
                 ->sum('cost');
 
             // Repair cost
             $repairCost = Repair::where('vehicle_id', $vehicle->id)
-                ->whereMonth('report_date', $month)
+                ->when($month, fn($q) => $q->whereMonth('report_date', $month))
                 ->whereYear('report_date', $year)
                 ->sum('total_cost');
 
@@ -159,11 +167,13 @@ class AdminOperationalController extends Controller
         $years = range(now()->year - 2, now()->year);
 
         $isSuperAdmin = $user->isDrmsSuperAdmin();
+        // Nilai untuk pre-select <option> bulan di view: 'all' atau angka bulan.
+        $monthSelect = $isAllMonths ? 'all' : $month;
 
         return view('drms.admin.operational_dashboard', compact(
             'stats', 'chartData', 'efficiencyData',
             'transportDistribution', 'months', 'years', 'month', 'year',
-            'recentLogs', 'isSuperAdmin',
+            'recentLogs', 'isSuperAdmin', 'isAllMonths', 'monthSelect',
             'vehicleStats', 'totals',
             'vehicles', 'drivers', 'filterVehicleId', 'filterDriverId',
             'businessUnits', 'filterBusinessUnitId'
@@ -444,8 +454,13 @@ class AdminOperationalController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        // Daftar kendaraan untuk rekomendasi (autocomplete) kotak pencarian Plat + Merek
+        $vehicles = Vehicle::when($businessUnitId, fn($q) => $q->where('business_unit_id', $businessUnitId))
+            ->orderBy('plate_number')
+            ->get(['id', 'plate_number', 'type']);
+
         return view('drms.admin.monitoring_logs', compact(
-            'logs', 'month', 'totalLogs', 'pendingCount', 'verifiedCount', 'draftCount', 'revisionCount', 'drivers'
+            'logs', 'month', 'totalLogs', 'pendingCount', 'verifiedCount', 'draftCount', 'revisionCount', 'drivers', 'vehicles'
         ));
     }
 
@@ -586,11 +601,14 @@ class AdminOperationalController extends Controller
      * Jarak = akumulasi selisih odometer_start antar pengisian berurutan (skema yang
      * sama seperti FuelLogController::analytics), bukan dari Log Perjalanan (TripLog).
      */
+    /**
+     * $month bisa null (artinya "Semua Bulan" — hanya difilter per tahun).
+     */
     private function getVehicleFuelLogStats($vehicleId, $month, $year, $filterDriverId = null)
     {
         $query = FuelLog::where('vehicle_id', $vehicleId)
             ->where('is_verified', 1)
-            ->whereMonth('filling_date', $month)
+            ->when($month, fn($q) => $q->whereMonth('filling_date', $month))
             ->whereYear('filling_date', $year);
         if ($filterDriverId) $query->where('driver_id', $filterDriverId);
 

@@ -17,7 +17,7 @@
     {{-- FILTER --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <form method="GET" action="{{ route('drms.repairs.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div>
+            <!-- <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
                 <input type="text" name="search" value="{{ request('search') }}" 
                        placeholder="Cari kendaraan / keluhan..." 
@@ -28,7 +28,7 @@
                 <input type="text" name="plate_brand" value="{{ request('plate_brand') }}"
                        placeholder="cth: B 1929 BYD / SDW M6"
                        class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
+            </div> -->
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Kendaraan</label>
                 @include('drms.partials.vehicle-search', [

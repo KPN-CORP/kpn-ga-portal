@@ -12,17 +12,6 @@
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <form method="GET" id="scheduleFilterForm" action="{{ route('drms.drivers.schedule') }}" class="flex flex-wrap gap-3 items-end">
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">👤 Driver</label>
-                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-52">
-                    <option value="">Semua Driver</option>
-                    @foreach($driverOptions as $opt)
-                        <option value="{{ $opt->id }}" data-bu="{{ $opt->business_unit_id }}" {{ (string) ($driverIdFilter ?? '') === (string) $opt->id ? 'selected' : '' }}>
-                            {{ $opt->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
                 @if(auth()->user()->isDrmsSuperAdmin())
                     <select name="business_unit_id" id="filter_bu" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -39,6 +28,17 @@
                         <option selected>{{ $user->drmsProfile->businessUnit->nama_bisnis_unit ?? '-' }}</option>
                     </select>
                 @endif
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">👤 Driver</label>
+                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-52">
+                    <option value="">Semua Driver</option>
+                    @foreach($driverOptions as $opt)
+                        <option value="{{ $opt->id }}" data-bu="{{ $opt->business_unit_id }}" {{ (string) ($driverIdFilter ?? '') === (string) $opt->id ? 'selected' : '' }}>
+                            {{ $opt->name }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
