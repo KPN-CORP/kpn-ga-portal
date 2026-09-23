@@ -32,6 +32,20 @@
                        placeholder="Plat atau tipe..." 
                        class="w-full md:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div> -->
+            @if(auth()->user()->isDrmsSuperAdmin())
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
+                <select name="business_unit_id" class="w-full md:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua BU</option>
+                    @foreach($businessUnits as $bu)
+                        <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
+                            {{ $bu->nama_bisnis_unit }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+            
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
                 <select name="status" class="w-full md:w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -61,19 +75,6 @@
                     <option value="0" {{ request('gps') == '0' ? 'selected' : '' }}>❌ Nonaktif</option>
                 </select>
             </div>
-            @if(auth()->user()->isDrmsSuperAdmin())
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
-                <select name="business_unit_id" class="w-full md:w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua BU</option>
-                    @foreach($businessUnits as $bu)
-                        <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
-                            {{ $bu->nama_bisnis_unit }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            @endif
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Filter

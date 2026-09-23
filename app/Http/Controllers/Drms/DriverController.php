@@ -50,13 +50,22 @@ class DriverController extends Controller
 
         $drivers = $query->latest()->paginate(20)->appends($request->query());
 
+        // Daftar nama driver (tanpa filter search/status) untuk rekomendasi di kotak pencarian.
+        $driverNamesQuery = Driver::query();
+        if (!$user->isDrmsSuperAdmin()) {
+            $driverNamesQuery->where('business_unit_id', $user->drmsProfile->business_unit_id ?? null);
+        } elseif ($request->filled('business_unit_id')) {
+            $driverNamesQuery->where('business_unit_id', $request->business_unit_id);
+        }
+        $driverNames = $driverNamesQuery->orderBy('name')->pluck('name');
+
         // Ambil daftar business unit untuk dropdown filter (khusus superadmin)
         $businessUnits = [];
         if ($user->isDrmsSuperAdmin()) {
             $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
         }
 
-        return view('drms.drivers.index', compact('drivers', 'businessUnits'));
+        return view('drms.drivers.index', compact('drivers', 'businessUnits', 'driverNames'));
     }
 
     public function create()

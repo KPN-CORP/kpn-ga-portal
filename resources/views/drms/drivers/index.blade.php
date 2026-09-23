@@ -36,11 +36,16 @@
                     <option value="off_duty" {{ request('status') == 'off_duty' ? 'selected' : '' }}>⏸️ Off Duty</option>
                 </select>
             </div>
-            <div>
+            <div class="relative w-full md:w-64">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
-                <input type="text" name="search" value="{{ request('search') }}" 
-                       placeholder="Cari nama atau telepon..." 
-                       class="w-full md:w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                @include('drms.partials.search-suggest', [
+                    'items'       => $driverNames,
+                    'name'        => 'search',
+                    'value'       => request('search'),
+                    'placeholder' => 'Cari nama atau telepon...',
+                    'emptyText'   => 'Nama driver tidak ditemukan',
+                    'uid'         => 'driver_search',
+                ])
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">

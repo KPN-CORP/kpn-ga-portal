@@ -35,29 +35,6 @@
     {{-- FILTER --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <form method="GET" action="{{ route('drms.vouchers.index') }}" class="flex flex-wrap gap-3 items-end">
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
-                <input type="text" name="search" value="{{ request('search') }}" 
-                       placeholder="Cari kode voucher..." 
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
-                <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua</option>
-                    <option value="available" {{ request('status') == 'available' ? 'selected' : '' }}>✅ Available</option>
-                    <option value="used" {{ request('status') == 'used' ? 'selected' : '' }}>🔒 Used</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Tipe</label>
-                <select name="type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua</option>
-                    <option value="grab" {{ request('type') == 'grab' ? 'selected' : '' }}>Grab</option>
-                    <option value="gojek" {{ request('type') == 'gojek' ? 'selected' : '' }}>Gojek</option>
-                    <option value="taxi" {{ request('type') == 'taxi' ? 'selected' : '' }}>Bluebird</option>
-                </select>
-            </div>
             @if(auth()->user()->isDrmsSuperAdmin())
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
@@ -85,6 +62,23 @@
             </div>
             @endif
             <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
+                <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua</option>
+                    <option value="available" {{ request('status') == 'available' ? 'selected' : '' }}>✅ Available</option>
+                    <option value="used" {{ request('status') == 'used' ? 'selected' : '' }}>🔒 Used</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Tipe</label>
+                <select name="type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua</option>
+                    <option value="grab" {{ request('type') == 'grab' ? 'selected' : '' }}>Grab</option>
+                    <option value="gojek" {{ request('type') == 'gojek' ? 'selected' : '' }}>Gojek</option>
+                    <option value="taxi" {{ request('type') == 'taxi' ? 'selected' : '' }}>Bluebird</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
@@ -102,6 +96,12 @@
                         </option>
                     @endforeach
                 </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
+                <input type="text" name="search" value="{{ request('search') }}" 
+                       placeholder="Cari kode voucher..." 
+                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">

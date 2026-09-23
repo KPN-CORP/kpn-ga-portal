@@ -1,28 +1,31 @@
 {{--
-    Kotak pencarian bebas "Plat Nomor + Merek" dengan rekomendasi kendaraan. Begitu kotak
-    di-klik/fokus, SEMUA kendaraan langsung tampil sebagai rekomendasi (sama seperti
-    partials/vehicle-search), lalu tersaring saat mengetik. BEDA dari vehicle-search: di sini
-    tidak memaksa memilih salah satu (klik rekomendasi hanya mengisi teksnya, boleh tetap
-    ketik bebas), karena field ini dikirim sebagai teks pencarian bebas (LIKE), bukan
-    memilih 1 vehicle_id tertentu.
+    Kotak pencarian bebas dengan daftar rekomendasi (mis. nama driver). Begitu kotak
+    di-klik/fokus, semua item langsung tampil sebagai rekomendasi, lalu tersaring saat
+    mengetik. Klik rekomendasi hanya mengisi teksnya (boleh tetap ketik bebas) — field ini
+    dikirim sebagai teks pencarian bebas (LIKE), bukan memilih 1 id tertentu.
 
     Usage:
-        @include('drms.partials.vehicle-suggest', [
-            'vehicles'    => $vehicles,
+        @include('drms.partials.search-suggest', [
+            'items'       => $driverNames,           // koleksi string, atau array of ['label' => ..., 'search' => ...]
             'name'        => 'search',
             'value'       => request('search'),
-            'placeholder' => 'Plat nomor / merek (cth: B 1929 BYD)...',
-            'uid'         => 'plate_brand',
+            'placeholder' => 'Cari nama...',
+            'emptyText'   => 'Tidak ditemukan',
+            'uid'         => 'driver_search',
         ])
 --}}
 @php
     $name = $name ?? 'search';
     $value = $value ?? '';
-    $placeholder = $placeholder ?? 'Plat nomor / merek...';
-    $uid = 'vsug_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $uid ?? $name);
+    $placeholder = $placeholder ?? 'Ketik untuk mencari...';
+    $emptyText = $emptyText ?? 'Tidak ditemukan';
+    $uid = 'sug_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $uid ?? $name);
+    $itemList = collect($items ?? [])->map(function ($it) {
+        return is_array($it) ? $it : ['label' => $it, 'search' => strtolower($it)];
+    });
 @endphp
 
-<div class="relative" data-vehicle-suggest="{{ $uid }}">
+<div class="relative" data-search-suggest="{{ $uid }}">
     <input
         type="text"
         name="{{ $name }}"
@@ -37,15 +40,14 @@
     <button type="button" id="{{ $uid }}_clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none px-1" tabindex="-1">&times;</button>
 
     <div id="{{ $uid }}_dropdown" class="hidden absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white border rounded-lg shadow-lg">
-        @foreach($vehicles as $v)
-            <div class="vsug-option px-3 py-2.5 text-sm hover:bg-blue-50 active:bg-blue-100 cursor-pointer border-b last:border-b-0"
-                 data-label="{{ $v->plate_number }} - {{ $v->type }}"
-                 data-search="{{ strtolower($v->plate_number . ' ' . $v->type) }}">
-                <span class="font-medium">{{ $v->plate_number }}</span>
-                <span class="text-gray-400 text-xs block sm:inline sm:ml-1">{{ $v->type }}</span>
+        @foreach($itemList as $it)
+            <div class="sug-option px-3 py-2.5 text-sm hover:bg-blue-50 active:bg-blue-100 cursor-pointer border-b last:border-b-0"
+                 data-label="{{ $it['label'] }}"
+                 data-search="{{ $it['search'] ?? strtolower($it['label']) }}">
+                {{ $it['label'] }}
             </div>
         @endforeach
-        <div class="vsug-empty hidden px-3 py-3 text-sm text-gray-400 text-center">Kendaraan tidak ditemukan</div>
+        <div class="sug-empty hidden px-3 py-3 text-sm text-gray-400 text-center">{{ $emptyText }}</div>
     </div>
 </div>
 
@@ -55,8 +57,8 @@
     var input = document.getElementById(uid + '_input');
     var dropdown = document.getElementById(uid + '_dropdown');
     var clearBtn = document.getElementById(uid + '_clear');
-    var options = dropdown.querySelectorAll('.vsug-option');
-    var emptyMsg = dropdown.querySelector('.vsug-empty');
+    var options = dropdown.querySelectorAll('.sug-option');
+    var emptyMsg = dropdown.querySelector('.sug-empty');
 
     function updateClearBtn() {
         clearBtn.classList.toggle('hidden', !input.value);
@@ -72,10 +74,9 @@
         var q = input.value.trim().toLowerCase();
         var visibleCount = 0;
         options.forEach(function(opt) {
-            // Cocokkan per kata (plat + merek, urutan bebas); plat juga cocok tanpa spasi.
-            var hay = opt.dataset.search, hayCompact = hay.replace(/\s+/g, '');
+            var hay = opt.dataset.search;
             var match = q === '' || q.split(/\s+/).every(function (t) {
-                return hay.indexOf(t) !== -1 || hayCompact.indexOf(t) !== -1;
+                return hay.indexOf(t) !== -1;
             });
             opt.classList.toggle('hidden', !match);
             if (match) visibleCount++;
@@ -85,8 +86,7 @@
 
     updateClearBtn();
 
-    // Diklik/fokus (walau masih kosong) -> langsung tampilkan semua kendaraan sebagai
-    // rekomendasi, sama seperti pencarian kendaraan di halaman lain.
+    // Diklik/fokus (walau masih kosong) -> langsung tampilkan semua rekomendasi.
     input.addEventListener('focus', openDropdown);
     input.addEventListener('input', function() {
         updateClearBtn();
@@ -114,7 +114,7 @@
     });
 
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('[data-vehicle-suggest="' + uid + '"]')) {
+        if (!e.target.closest('[data-search-suggest="' + uid + '"]')) {
             closeDropdown();
         }
     });

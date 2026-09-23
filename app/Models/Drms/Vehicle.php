@@ -44,6 +44,12 @@ class Vehicle extends Model
         }
 
         foreach (preg_split('/\s+/', $term) as $word) {
+            // Lewati kata yang cuma tanda baca (mis. "-" dari label rekomendasi
+            // "B 1929 SDW - BYD M6") — kalau ini ikut disyaratkan cocok, hasilnya
+            // jadi salah/kosong karena plat/merek jarang benar-benar mengandung "-".
+            if ($word === '' || !preg_match('/[a-zA-Z0-9]/', $word)) {
+                continue;
+            }
             $like = '%' . addcslashes($word, '%_\\') . '%';
             $query->where(function ($q) use ($like) {
                 $q->where('plate_number', 'LIKE', $like)

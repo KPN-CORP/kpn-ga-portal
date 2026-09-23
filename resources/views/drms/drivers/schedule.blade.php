@@ -49,12 +49,12 @@
                     <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>✅ Selesai</option>
                 </select>
             </div>
-            <div>
+            <!-- <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari Driver</label>
                 <input type="text" name="search" value="{{ $searchDriver ?? '' }}"
                        placeholder="Ketik nama driver..."
                        class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
-            </div>
+            </div> -->
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
                 <input type="month" name="month" value="{{ $month }}"
