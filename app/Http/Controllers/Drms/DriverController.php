@@ -51,13 +51,21 @@ class DriverController extends Controller
         $drivers = $query->latest()->paginate(20)->appends($request->query());
 
         // Daftar nama driver (tanpa filter search/status) untuk rekomendasi di kotak pencarian.
+        // Business Unit tidak difilter di query ini -> filter BU dilakukan live di JS (data-bu),
+        // supaya saat pilih Business Unit atau pilih nama driver, keduanya langsung singkron
+        // tanpa perlu klik tombol Filter dulu.
         $driverNamesQuery = Driver::query();
         if (!$user->isDrmsSuperAdmin()) {
             $driverNamesQuery->where('business_unit_id', $user->drmsProfile->business_unit_id ?? null);
-        } elseif ($request->filled('business_unit_id')) {
-            $driverNamesQuery->where('business_unit_id', $request->business_unit_id);
         }
-        $driverNames = $driverNamesQuery->orderBy('name')->pluck('name');
+        $driverNames = $driverNamesQuery->orderBy('name')->get(['name', 'business_unit_id'])
+            ->map(function ($d) {
+                return [
+                    'label' => $d->name,
+                    'search' => strtolower($d->name),
+                    'bu' => (string) $d->business_unit_id,
+                ];
+            });
 
         // Ambil daftar business unit untuk dropdown filter (khusus superadmin)
         $businessUnits = [];

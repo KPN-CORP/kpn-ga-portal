@@ -6,12 +6,13 @@
 
     Usage:
         @include('drms.partials.search-suggest', [
-            'items'       => $driverNames,           // koleksi string, atau array of ['label' => ..., 'search' => ...]
+            'items'       => $driverNames,           // koleksi string, atau array of ['label' => ..., 'search' => ..., 'bu' => ...]
             'name'        => 'search',
             'value'       => request('search'),
             'placeholder' => 'Cari nama...',
             'emptyText'   => 'Tidak ditemukan',
             'uid'         => 'driver_search',
+            'busSelect'   => '#bu_filter',            // optional: CSS selector <select> Business Unit untuk disingkronkan
         ])
 --}}
 @php
@@ -20,6 +21,7 @@
     $placeholder = $placeholder ?? 'Ketik untuk mencari...';
     $emptyText = $emptyText ?? 'Tidak ditemukan';
     $uid = 'sug_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $uid ?? $name);
+    $busSelect = $busSelect ?? '';
     $itemList = collect($items ?? [])->map(function ($it) {
         return is_array($it) ? $it : ['label' => $it, 'search' => strtolower($it)];
     });
@@ -43,7 +45,8 @@
         @foreach($itemList as $it)
             <div class="sug-option px-3 py-2.5 text-sm hover:bg-blue-50 active:bg-blue-100 cursor-pointer border-b last:border-b-0"
                  data-label="{{ $it['label'] }}"
-                 data-search="{{ $it['search'] ?? strtolower($it['label']) }}">
+                 data-search="{{ $it['search'] ?? strtolower($it['label']) }}"
+                 data-bu="{{ $it['bu'] ?? '' }}">
                 {{ $it['label'] }}
             </div>
         @endforeach
@@ -59,6 +62,8 @@
     var clearBtn = document.getElementById(uid + '_clear');
     var options = dropdown.querySelectorAll('.sug-option');
     var emptyMsg = dropdown.querySelector('.sug-empty');
+    var busSelectSelector = "{{ $busSelect }}";
+    var busSelect = busSelectSelector ? document.querySelector(busSelectSelector) : null;
 
     function updateClearBtn() {
         clearBtn.classList.toggle('hidden', !input.value);
@@ -72,12 +77,15 @@
     }
     function filterOptions() {
         var q = input.value.trim().toLowerCase();
+        var buVal = busSelect ? busSelect.value : '';
         var visibleCount = 0;
         options.forEach(function(opt) {
             var hay = opt.dataset.search;
-            var match = q === '' || q.split(/\s+/).every(function (t) {
+            var matchText = q === '' || q.split(/\s+/).every(function (t) {
                 return hay.indexOf(t) !== -1;
             });
+            var matchBu = !buVal || !opt.dataset.bu || opt.dataset.bu === buVal;
+            var match = matchText && matchBu;
             opt.classList.toggle('hidden', !match);
             if (match) visibleCount++;
         });
@@ -103,6 +111,10 @@
             input.value = opt.dataset.label;
             updateClearBtn();
             closeDropdown();
+            // Pilih nama dari rekomendasi -> Business Unit ikut ter-set otomatis.
+            if (busSelect && opt.dataset.bu) {
+                busSelect.value = opt.dataset.bu;
+            }
         });
     });
 
@@ -113,6 +125,15 @@
         closeDropdown();
     });
 
+    // Ganti Business Unit -> daftar rekomendasi nama ikut tersaring (live, tanpa reload).
+    if (busSelect) {
+        busSelect.addEventListener('change', function() {
+            if (!dropdown.classList.contains('hidden')) {
+                filterOptions();
+            }
+        });
+    }
+
     document.addEventListener('click', function(e) {
         if (!e.target.closest('[data-search-suggest="' + uid + '"]')) {
             closeDropdown();
@@ -120,3 +141,4 @@
     });
 })();
 </script>
+

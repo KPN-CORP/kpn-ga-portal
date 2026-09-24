@@ -400,8 +400,14 @@
 
             suggestionBox.querySelectorAll('.vehicle-option').forEach(function (el) {
                 el.addEventListener('click', function () {
-                    hiddenInput.value = this.getAttribute('data-id');
-                    searchInput.value = this.getAttribute('data-id') ? this.getAttribute('data-label') : '';
+                    const id = this.getAttribute('data-id');
+                    hiddenInput.value = id;
+                    searchInput.value = id ? this.getAttribute('data-label') : '';
+                    // Pilih Kendaraan -> Business Unit ikut ter-set otomatis.
+                    if (id && buSelect && !buSelect.disabled) {
+                        const v = VEHICLES_FILTER_DATA.find(x => String(x.id) === String(id));
+                        if (v) buSelect.value = String(v.bu);
+                    }
                     hideSuggestions();
                 });
             });

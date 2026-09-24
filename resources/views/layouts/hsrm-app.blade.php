@@ -153,20 +153,28 @@
     </button>
 
     @php
-        // Status dropdown "Management" dihitung di server supaya tidak ada
-        // flicker (menu sempat kelihatan terbuka/tertutup) saat halaman refresh.
-        $managementActive = request()->routeIs([
+        $isAdmin = session('hsrm_role') === 'admin';
+
+        // Status dropdown "Management" (admin) / "My Quota" (PIC) dihitung di server
+        // supaya tidak ada flicker (menu sempat kelihatan terbuka/tertutup) saat refresh.
+        $quotaGroupActive = request()->routeIs([
             'hsrm.admin.quotas.*',
             'hsrm.certificate-types.*',
             'hsrm.equipment-types.*',
             'hsrm.logs.*',
         ]);
+
+        // Nama group yang harus otomatis terbuka saat load, tergantung role
+        $openGroupInit = null;
+        if ($quotaGroupActive) {
+            $openGroupInit = $isAdmin ? 'management' : 'quota';
+        }
     @endphp
 
     <div class="flex min-h-screen">
         <!-- Sidebar -->
         <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto overflow-x-visible"
-               x-data="sidebarComponent({{ $managementActive ? 'true' : 'false' }})">
+               x-data="sidebarComponent({{ $openGroupInit ? "'{$openGroupInit}'" : 'null' }})">
 
             <!-- Logo -->
             <div class="p-4 soft-border-bottom border-b flex items-center gap-2">
@@ -219,7 +227,6 @@
                     {{-- ============================================================ --}}
                     @php
                         $user = auth()->user();
-                        $isAdmin = session('hsrm_role') === 'admin';
                         $canApprove = $isAdmin || $user->hsrmUserRoles()->where('can_approve', true)->exists();
 
                         // Hitung pending hanya untuk area yang bisa di-approve (jika bukan admin)
@@ -248,15 +255,45 @@
                     @endif
 
                     {{-- ============================================================ --}}
-                    {{-- MENU MY QUOTA – khusus PIC, lihat kuota area miliknya sendiri --}}
+                    {{-- MENU MY QUOTA – khusus PIC, sekarang jadi dropdown (Quota Area, --}}
+                    {{-- Certificate Types, Equipment Types), sama modelnya dengan       --}}
+                    {{-- dropdown "Management" milik Admin.                             --}}
                     {{-- ============================================================ --}}
                     @if(!$isAdmin && session('hsrm_role') === 'pic')
-                    <li>
-                        <a href="{{ route('hsrm.admin.quotas.index') }}" title="My Quota"
-                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
-                            <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
-                            <span>Quota Area</span>
-                        </a>
+                    <li class="nav-group" :class="{ open: openGroup === 'quota' }">
+                        <div @click="toggleGroup('quota')" title="My Quota"
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
+                                <span class="font-medium">Informasi</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                        <div class="dropdown-content" :class="openGroup === 'quota' ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 pb-2">
+                                <li>
+                                    <a href="{{ route('hsrm.admin.quotas.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.admin.quotas.*') ? 'active' : '' }}">
+                                        <i class="fas fa-chart-pie w-4 mr-3"></i>
+                                        <span>Quota Area</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('hsrm.certificate-types.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.certificate-types.*') ? 'active' : '' }}">
+                                        <i class="fas fa-tags w-4 mr-3"></i>
+                                        <span>Certificate Types</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('hsrm.equipment-types.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('hsrm.equipment-types.*') ? 'active' : '' }}">
+                                        <i class="fas fa-fire-extinguisher w-4 mr-3"></i>
+                                        <span>Equipment Types</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
                     @endif
                 </ul>
@@ -397,10 +434,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('alpine:init', () => {
-            window.sidebarComponent = function(managementActive) {
+            window.sidebarComponent = function(initialGroup) {
                 return {
-                    // Accordion: hanya satu group yang bisa terbuka ('management' | null)
-                    openGroup: managementActive ? 'management' : null,
+                    // Accordion: hanya satu group yang bisa terbuka ('management' | 'quota' | null)
+                    openGroup: initialGroup,
                     toggleGroup(name) {
                         this.openGroup = this.openGroup === name ? null : name;
                     },

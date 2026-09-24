@@ -123,7 +123,28 @@
             });
         }
         function applyAll() { applyBu(vehicle); applyBu(driver); }
+
+        // Sebaliknya: kalau user pilih Kendaraan atau Driver duluan,
+        // Business Unit ikut ter-set otomatis sesuai BU kendaraan/driver tsb.
+        function syncBuFrom(select) {
+            var opt = select.options[select.selectedIndex];
+            if (!opt || !opt.value) return; // opsi "Semua ..." -> tidak mengubah BU
+            var optBu = opt.dataset.bu;
+            if (optBu && bu.value !== optBu) {
+                bu.value = optBu;
+            }
+        }
+
         bu.addEventListener('change', applyAll);
+        vehicle.addEventListener('change', function () {
+            syncBuFrom(vehicle);
+            applyAll();
+        });
+        driver.addEventListener('change', function () {
+            syncBuFrom(driver);
+            applyAll();
+        });
+
         applyAll();
     })();
     </script>

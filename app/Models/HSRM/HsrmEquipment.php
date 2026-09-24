@@ -18,8 +18,6 @@ class HsrmEquipment extends Model
 
     // Konstanta rekomendasi
     const REKOMENDASI_RECOMMENDED = 'recommended';
-    const REKOMENDASI_NOT_RECOMMENDED = 'not_recommended';
-    const REKOMENDASI_VALID = 'valid';
 
     protected $fillable = [
         'business_unit_id',
@@ -97,8 +95,6 @@ class HsrmEquipment extends Model
     {
         return match ($this->rekomendasi) {
             self::REKOMENDASI_RECOMMENDED => 'Recommended',
-            self::REKOMENDASI_NOT_RECOMMENDED => 'Not Recommended',
-            self::REKOMENDASI_VALID => 'Valid',
             default => '-',
         };
     }
@@ -110,8 +106,6 @@ class HsrmEquipment extends Model
     {
         return match ($this->rekomendasi) {
             self::REKOMENDASI_RECOMMENDED => 'text-green-600',
-            self::REKOMENDASI_NOT_RECOMMENDED => 'text-red-600',
-            self::REKOMENDASI_VALID => 'text-blue-600',
             default => 'text-gray-400',
         };
     }
@@ -140,13 +134,18 @@ class HsrmEquipment extends Model
      */
     public function scopeRekomendasi($query, $value)
     {
-        if (in_array($value, [
-            self::REKOMENDASI_RECOMMENDED,
-            self::REKOMENDASI_NOT_RECOMMENDED,
-            self::REKOMENDASI_VALID
-        ])) {
-            return $query->where('rekomendasi', $value);
+        if ($value === self::REKOMENDASI_RECOMMENDED) {
+            return $query->where('rekomendasi', self::REKOMENDASI_RECOMMENDED);
         }
+
+        // "dash" = yang tampil "-" di list: kosong / null / nilai lama selain "recommended".
+        if ($value === 'dash') {
+            return $query->where(function ($q) {
+                $q->whereNull('rekomendasi')
+                  ->orWhere('rekomendasi', '!=', self::REKOMENDASI_RECOMMENDED);
+            });
+        }
+
         return $query;
     }
 

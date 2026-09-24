@@ -17,7 +17,7 @@
             @if(auth()->user()->isDrmsSuperAdmin())
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
-                <select name="business_unit_id" class="w-full md:w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="business_unit_id" id="bu_filter" class="w-full md:w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua BU</option>
                     @foreach($businessUnits as $bu)
                         <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -45,6 +45,7 @@
                     'placeholder' => 'Cari nama atau telepon...',
                     'emptyText'   => 'Nama driver tidak ditemukan',
                     'uid'         => 'driver_search',
+                    'busSelect'   => '#bu_filter',
                 ])
             </div>
             <div class="flex gap-2">

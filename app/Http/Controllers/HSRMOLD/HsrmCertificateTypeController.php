@@ -10,18 +10,9 @@ class HsrmCertificateTypeController extends Controller
 {
     public function __construct()
     {
-        // PIC boleh melihat daftar (index), tapi hanya admin yang boleh
-        // menambah, mengubah, atau menghapus certificate type.
         $this->middleware(function ($request, $next) {
-            if (!in_array(session('hsrm_role'), ['admin', 'pic'])) {
-                abort(403, 'Unauthorized.');
-            }
-            return $next($request);
-        });
-
-        $this->middleware(function ($request, $next) {
-            if ($request->route()->getName() !== 'hsrm.certificate-types.index' && session('hsrm_role') !== 'admin') {
-                abort(403, 'Only admin can manage certificate types. PIC has view-only access.');
+            if (session('hsrm_role') !== 'admin') {
+                abort(403, 'Only admin can manage certificate types.');
             }
             return $next($request);
         });

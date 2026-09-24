@@ -89,7 +89,19 @@
                 if (!match && opt.selected) driver.value = '';
             });
         }
+        function syncBuFrom(select) {
+            var opt = select.options[select.selectedIndex];
+            if (!opt || !opt.value) return;
+            var optBu = opt.dataset.bu;
+            if (optBu && bu.value !== optBu) {
+                bu.value = optBu;
+            }
+        }
         bu.addEventListener('change', apply);
+        driver.addEventListener('change', function () {
+            syncBuFrom(driver);
+            apply();
+        });
         apply();
     })();
     </script>

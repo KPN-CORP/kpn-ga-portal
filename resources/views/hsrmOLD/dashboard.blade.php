@@ -4,8 +4,8 @@
 @section('page-title', 'Dashboard')
 
 @push('styles')
-<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <style>
     .chart-container {
         position: relative;
@@ -77,73 +77,6 @@
         height: 24px;
         border-radius: 4px;
         margin-right: 12px;
-    }
-    .recommend-card {
-        background: #ffffff;
-        border-radius: 16px;
-        border: 1px solid rgba(229,231,235,0.5);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.04);
-        padding: 1.75rem 1.5rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        justify-content: center;
-        transition: all 0.25s ease;
-        min-height: 400px;
-    }
-    .recommend-card:hover {
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
-        border-color: rgba(59,130,246,0.2);
-    }
-    .recommend-icon-wrap {
-        width: 56px;
-        height: 56px;
-        border-radius: 9999px;
-        background: #dbeafe;
-        color: #2563eb;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
-        margin-bottom: 0.85rem;
-    }
-    .recommend-label {
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #6b7280;
-        margin-bottom: 0.5rem;
-    }
-    .recommend-value {
-        font-size: 2.75rem;
-        font-weight: 800;
-        color: #2563eb;
-        line-height: 1;
-        margin-bottom: 0.6rem;
-        text-decoration: none;
-        display: block;
-    }
-    .recommend-value:hover {
-        opacity: 0.85;
-    }
-    .recommend-desc {
-        font-size: 0.85rem;
-        color: #6b7280;
-        max-width: 260px;
-    }
-    .recommend-footer {
-        margin-top: 1.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid rgba(229,231,235,0.6);
-        font-size: 0.78rem;
-        color: #9ca3af;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        width: 100%;
-        justify-content: center;
     }
     .status-badge {
         padding: 0.25rem 0.75rem;
@@ -235,46 +168,6 @@
     }
     .area-error-text.show {
         display: block;
-    }
-    /* Rose / starburst chart (radius per slice mengikuti persentase) dengan leader line ke label */
-    .rose-chart-wrap {
-        width: 100%;
-        height: 420px;
-    }
-    .rose-chart-wrap svg {
-        width: 100%;
-        height: 100%;
-    }
-    @media (max-width: 640px) {
-        .rose-chart-wrap {
-            height: 380px;
-        }
-    }
-    /* Status chart + Recommendation card ditampilkan berdampingan dengan tinggi yang seimbang */
-    .status-recommend-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1.25rem;
-        align-items: stretch;
-    }
-    @media (min-width: 768px) {
-        .status-recommend-grid {
-            grid-template-columns: 1.35fr 1fr;
-        }
-    }
-    .status-chart-card {
-        display: flex;
-        flex-direction: column;
-        min-height: 400px;
-    }
-    .status-chart-card .rose-chart-wrap {
-        flex: 1 1 auto;
-        height: auto;
-        min-height: 0;
-    }
-    .status-recommend-grid .recommend-card {
-        min-height: 400px;
-        height: 100%;
     }
 </style>
 @endpush
@@ -487,7 +380,7 @@
             <div class="flex items-center justify-between">
                 <div class="text-sm text-gray-500">Recommendation</div>
                 <div class="stat-icon bg-sky-50 text-sky-500">
-                    <i class="fas fa-star"></i>
+                    <i class="fas fa-thumbs-up"></i>
                 </div>
             </div>
             <a href="{{ route('hsrm.certificates.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-sky-600 mt-1.5">
@@ -496,30 +389,18 @@
         </div>
     </div>
 
-    @php
-        $certTotalSWE = ($certData['active'] ?? 0) + ($certData['warning'] ?? 0) + ($certData['expired'] ?? 0);
-        $certActivePct = $certTotalSWE > 0 ? round((($certData['active'] ?? 0) / $certTotalSWE) * 100, 1) : 0;
-        $certWarningPct = $certTotalSWE > 0 ? round((($certData['warning'] ?? 0) / $certTotalSWE) * 100, 1) : 0;
-        $certExpiredPct = $certTotalSWE > 0 ? round((($certData['expired'] ?? 0) / $certTotalSWE) * 100, 1) : 0;
-    @endphp
 
-    <div class="status-recommend-grid mb-5">
-        <div class="chart-card status-chart-card">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+        <div class="chart-card">
             <div class="chart-title">Status</div>
-            <div class="rose-chart-wrap" id="certStatusRoseWrap"></div>
-        </div>
-
-        <div class="recommend-card">
-            <div class="recommend-icon-wrap">
-                <i class="fas fa-star"></i>
+            <div class="chart-container" style="height:400px;">
+                <canvas id="certStatusChart"></canvas>
             </div>
-            <div class="recommend-label">Recommendation</div>
-            <a href="{{ route('hsrm.certificates.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="recommend-value">
-                {{ $certData['recommended'] ?? 0 }}
-            </a>
-            <div class="recommend-desc">Total certificates that need recommendation</div>
-            <div class="recommend-footer">
-                <i class="fas fa-info-circle"></i> Based on current certificate status
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Recommendation</div>
+            <div class="chart-container" style="height:400px;">
+                <canvas id="certRecommendChart"></canvas>
             </div>
         </div>
     </div>
@@ -593,7 +474,7 @@
             <div class="flex items-center justify-between">
                 <div class="text-sm text-gray-500">Recommendation</div>
                 <div class="stat-icon bg-sky-50 text-sky-500">
-                    <i class="fas fa-star"></i>
+                    <i class="fas fa-thumbs-up"></i>
                 </div>
             </div>
             <a href="{{ route('hsrm.equipments.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="stat-link text-2xl font-bold text-sky-600 mt-1.5">
@@ -602,30 +483,18 @@
         </div>
     </div>
 
-    @php
-        $eqTotalSWE = ($eqData['total_items_active'] ?? 0) + ($eqData['total_items_warning'] ?? 0) + ($eqData['total_items_expired'] ?? 0);
-        $eqActivePct = $eqTotalSWE > 0 ? round((($eqData['total_items_active'] ?? 0) / $eqTotalSWE) * 100, 1) : 0;
-        $eqWarningPct = $eqTotalSWE > 0 ? round((($eqData['total_items_warning'] ?? 0) / $eqTotalSWE) * 100, 1) : 0;
-        $eqExpiredPct = $eqTotalSWE > 0 ? round((($eqData['total_items_expired'] ?? 0) / $eqTotalSWE) * 100, 1) : 0;
-    @endphp
 
-    <div class="status-recommend-grid mb-5">
-        <div class="chart-card status-chart-card">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+        <div class="chart-card">
             <div class="chart-title">Status (Total Items)</div>
-            <div class="rose-chart-wrap" id="eqStatusRoseWrap"></div>
-        </div>
-
-        <div class="recommend-card">
-            <div class="recommend-icon-wrap">
-                <i class="fas fa-star"></i>
+            <div class="chart-container" style="height:400px;">
+                <canvas id="eqStatusChart"></canvas>
             </div>
-            <div class="recommend-label">Recommendation (Total Items)</div>
-            <a href="{{ route('hsrm.equipments.index', array_filter(['rekomendasi' => 'recommended', 'area_id' => $selectedArea->id_area_kerja ?? null])) }}" class="recommend-value">
-                {{ $eqData['total_items_recommended'] ?? 0 }}
-            </a>
-            <div class="recommend-desc">Total equipment items that need recommendation</div>
-            <div class="recommend-footer">
-                <i class="fas fa-info-circle"></i> Based on current equipment status
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Recommendation (Total Items)</div>
+            <div class="chart-container" style="height:400px;">
+                <canvas id="eqRecommendChart"></canvas>
             </div>
         </div>
     </div>
@@ -780,106 +649,41 @@
         // ============================================================
         Chart.register(ChartDataLabels);
 
-        // ============================================================
-        // ROSE / STARBURST CHART (donut, ketebalan ring seragam, sudut = persentase)
-        // Dipakai untuk chart Status Certificates & Equipments (Active/Warning/Expired)
-        // ============================================================
-        function renderRoseChart(containerId, slices, opts) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-
-            const width = 700, height = 420;
-            const cx = width * 0.4, cy = height / 2;
-            // Ketebalan ring SERAGAM untuk semua slice (tidak lagi mengikuti persentase)
-            const R = 150;       // radius luar (konstan)
-            const holeR = 82;    // radius dalam / lubang tengah (konstan)
-            const startAngle = -90; // mulai dari jam 12
-            const toRad = deg => (deg * Math.PI) / 180;
-            const minLabelGap = 46; // jarak vertikal minimum antar label di sisi yang sama
-
-            let slicesSvg = '';
-            let cumulative = 0;
-
-            // --- Pass 1: hitung geometri slice + posisi label alami ---
-            const labelData = slices.map((s) => {
-                const sliceAngle = Math.max(s.pct, 0) * 3.6; // persen -> derajat (360/100)
-                const a0 = startAngle + cumulative;
-                const a1 = a0 + sliceAngle;
-                const mid = (a0 + a1) / 2;
-                cumulative += sliceAngle;
-
-                const ox0 = cx + R * Math.cos(toRad(a0));
-                const oy0 = cy + R * Math.sin(toRad(a0));
-                const ox1 = cx + R * Math.cos(toRad(a1));
-                const oy1 = cy + R * Math.sin(toRad(a1));
-                const ix0 = cx + holeR * Math.cos(toRad(a0));
-                const iy0 = cy + holeR * Math.sin(toRad(a0));
-                const ix1 = cx + holeR * Math.cos(toRad(a1));
-                const iy1 = cy + holeR * Math.sin(toRad(a1));
-                const largeArc = (a1 - a0) > 180 ? 1 : 0;
-
-                slicesSvg += `<path d="M ${ox0.toFixed(1)} ${oy0.toFixed(1)} A ${R} ${R} 0 ${largeArc} 1 ${ox1.toFixed(1)} ${oy1.toFixed(1)} L ${ix1.toFixed(1)} ${iy1.toFixed(1)} A ${holeR} ${holeR} 0 ${largeArc} 0 ${ix0.toFixed(1)} ${iy0.toFixed(1)} Z" fill="${s.color}" stroke="#ffffff" stroke-width="2"/>`;
-
-                const tr = (R + holeR) / 2;
-                const tx = cx + tr * Math.cos(toRad(mid));
-                const ty = cy + tr * Math.sin(toRad(mid));
-                if (sliceAngle > 12) {
-                    slicesSvg += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="19" font-weight="700">${s.pct}%</text>`;
-                }
-
-                const isRight = Math.cos(toRad(mid)) >= 0;
-                const anchorX = cx + R * Math.cos(toRad(mid));
-                const anchorY = cy + R * Math.sin(toRad(mid));
-                const bendX = cx + (R + 24) * Math.cos(toRad(mid));
-                const naturalY = cy + (R + 24) * Math.sin(toRad(mid));
-                const edgeX = isRight ? width - 20 : 20;
-
-                return { s, isRight, anchorX, anchorY, bendX, naturalY, edgeX, finalY: naturalY };
-            });
-
-            // --- Pass 2: cegah label saling tumpuk di sisi yang sama (kiri/kanan) ---
-            ['left', 'right'].forEach(side => {
-                const group = labelData
-                    .filter(d => (side === 'right') === d.isRight)
-                    .sort((a, b) => a.naturalY - b.naturalY);
-                for (let i = 1; i < group.length; i++) {
-                    if (group[i].finalY - group[i - 1].finalY < minLabelGap) {
-                        group[i].finalY = group[i - 1].finalY + minLabelGap;
+        // --- Pie chart config ---
+        const pieOptions = {
+            type: 'pie',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 16,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            font: { size: 12, weight: '500' },
+                            color: '#374151'
+                        }
+                    },
+                    tooltip: { enabled: false },
+                    datalabels: {
+                        color: '#ffffff',
+                        font: { weight: 'bold', size: 14 },
+                        formatter: function(value, ctx) {
+                            let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return value + '\n' + percentage + '%';
+                        },
+                        textAlign: 'center',
+                        offset: 0,
+                        display: function(context) {
+                            return context.dataset.data[context.dataIndex] > 0;
+                        }
                     }
                 }
-                // jaga agar tidak keluar dari area chart (clamp lalu dorong ulang ke atas bila perlu)
-                for (let i = group.length - 1; i >= 0; i--) {
-                    if (group[i].finalY > height - 16) group[i].finalY = height - 16;
-                    if (i > 0 && group[i].finalY - group[i - 1].finalY < minLabelGap) {
-                        group[i - 1].finalY = group[i].finalY - minLabelGap;
-                    }
-                }
-            });
-
-            // --- Pass 3: render leader line + teks label ---
-            let labelsSvg = '';
-            labelData.forEach(d => {
-                const { s, isRight, anchorX, anchorY, bendX, finalY, edgeX } = d;
-                const textX = edgeX;
-                const anchor = isRight ? 'end' : 'start';
-
-                labelsSvg += `<circle cx="${anchorX.toFixed(1)}" cy="${anchorY.toFixed(1)}" r="3.5" fill="${s.color}"/>`;
-                labelsSvg += `<polyline points="${anchorX.toFixed(1)},${anchorY.toFixed(1)} ${bendX.toFixed(1)},${finalY.toFixed(1)} ${edgeX},${finalY.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="1.5"/>`;
-                labelsSvg += `<text x="${textX}" y="${(finalY - 10).toFixed(1)}" text-anchor="${anchor}" fill="#6b7280" font-size="11.5" font-weight="600" letter-spacing="0.3">${s.label.toUpperCase()}</text>`;
-                labelsSvg += `<text x="${textX}" y="${(finalY + 11).toFixed(1)}" text-anchor="${anchor}" fill="#1f2937" font-size="17" font-weight="800">${s.value}<tspan fill="#9ca3af" font-size="12" font-weight="600" dx="4">(${s.pct}%)</tspan></text>`;
-            });
-
-            const totalLabel = opts && opts.total !== undefined ? opts.total : '';
-
-            container.innerHTML = `
-                <svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-                    ${slicesSvg}
-                    <circle cx="${cx}" cy="${cy}" r="${holeR - 4}" fill="#ffffff"/>
-                    <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="30" font-weight="800" fill="#1f2937">${totalLabel}</text>
-                    <text x="${cx}" y="${cy + 20}" text-anchor="middle" font-size="11" letter-spacing="1.5" fill="#9ca3af">TOTAL</text>
-                    ${labelsSvg}
-                </svg>`;
-        }
+            }
+        };
 
         // --- Bar chart config ---
         const barOptions = {
@@ -952,11 +756,47 @@
         // CERTIFICATES CHARTS
         // ============================================================
         @if($view == 'certificates' || $view == 'all')
-            renderRoseChart('certStatusRoseWrap', [
-                { label: 'Active', value: {{ $certData['active'] ?? 0 }}, pct: {{ $certActivePct }}, color: '#16a34a' },
-                { label: 'Warning', value: {{ $certData['warning'] ?? 0 }}, pct: {{ $certWarningPct }}, color: '#f59e0b' },
-                { label: 'Expired', value: {{ $certData['expired'] ?? 0 }}, pct: {{ $certExpiredPct }}, color: '#dc2626' }
-            ], { total: {{ $certData['total'] ?? $certTotalSWE }} });
+            const certStatusEl = document.getElementById('certStatusChart');
+            if (certStatusEl) {
+                new Chart(certStatusEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Active', 'Warning', 'Expired'],
+                        datasets: [{
+                            data: [
+                                {{ $certData['active'] ?? 0 }},
+                                {{ $certData['warning'] ?? 0 }},
+                                {{ $certData['expired'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#16a34a', '#f59e0b', '#dc2626'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
+
+            const certRecommendEl = document.getElementById('certRecommendChart');
+            if (certRecommendEl) {
+                new Chart(certRecommendEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Recommended'],
+                        datasets: [{
+                            data: [
+                                {{ $certData['recommended'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#0ea5e9'],
+                            datalabels: {
+                                formatter: function(value) { return value; },
+                                font: { weight: 'bold', size: 36 }
+                            },
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
             const certAreaEl = document.getElementById('certAreaChart');
             if (certAreaEl && @json($certData['area_labels'] ?? []).length > 0) {
@@ -1004,11 +844,47 @@
         // EQUIPMENTS CHARTS
         // ============================================================
         @if($view == 'equipments' || $view == 'all')
-            renderRoseChart('eqStatusRoseWrap', [
-                { label: 'Active', value: {{ $eqData['total_items_active'] ?? 0 }}, pct: {{ $eqActivePct }}, color: '#4ade80' },
-                { label: 'Warning', value: {{ $eqData['total_items_warning'] ?? 0 }}, pct: {{ $eqWarningPct }}, color: '#fbbf24' },
-                { label: 'Expired', value: {{ $eqData['total_items_expired'] ?? 0 }}, pct: {{ $eqExpiredPct }}, color: '#fb7185' }
-            ], { total: {{ $eqData['total_items_all'] ?? $eqTotalSWE }} });
+            const eqStatusEl = document.getElementById('eqStatusChart');
+            if (eqStatusEl) {
+                new Chart(eqStatusEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Active', 'Warning', 'Expired'],
+                        datasets: [{
+                            data: [
+                                {{ $eqData['total_items_active'] ?? 0 }},
+                                {{ $eqData['total_items_warning'] ?? 0 }},
+                                {{ $eqData['total_items_expired'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#4ade80', '#fbbf24', '#fb7185'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
+
+            const eqRecommendEl = document.getElementById('eqRecommendChart');
+            if (eqRecommendEl) {
+                new Chart(eqRecommendEl, {
+                    ...pieOptions,
+                    data: {
+                        labels: ['Recommended'],
+                        datasets: [{
+                            data: [
+                                {{ $eqData['total_items_recommended'] ?? 0 }}
+                            ],
+                            backgroundColor: ['#06b6d4'],
+                            datalabels: {
+                                formatter: function(value) { return value; },
+                                font: { weight: 'bold', size: 36 }
+                            },
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    }
+                });
+            }
 
             const eqAreaEl = document.getElementById('eqAreaChart');
             if (eqAreaEl && @json($eqData['area_labels'] ?? []).length > 0) {
