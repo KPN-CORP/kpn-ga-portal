@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Drms;
 
 use App\Http\Controllers\Controller;
+use App\Models\Drms\AssetVehicle;
 use App\Models\Drms\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -102,31 +103,65 @@ class VehicleController extends Controller
 
     /**
      * Show the form for creating a new vehicle.
+     * Daftar kendaraan yang bisa dipilih HANYA dari db_asset_vehicles
+     * yang masih aktif dan belum terdaftar di drms_vehicles.
      */
     public function create()
     {
         $this->getUserBusinessUnitId(); // validasi akses
-        return view('drms.vehicles.create');
+
+        $assets = AssetVehicle::query()
+            ->active()
+            ->whereNotNull('registration_plates')
+            ->notYetImported()
+            ->orderBy('vehicle_brand')
+            ->orderBy('vehicle_model')
+            ->get();
+
+        return view('drms.vehicles.create', compact('assets'));
     }
 
     /**
      * Store a newly created vehicle in storage.
+     * Data type/plate_number/fuel_type DIAMBIL dari asset yang dipilih,
+     * bukan dari input bebas.
      */
     public function store(Request $request)
     {
         $user = Auth::user();
 
-        $data = $request->validate([
-            'type'         => 'required|string|max:255',
-            'plate_number' => 'required|string|max:20|unique:drms_vehicles',
-            'capacity'     => 'nullable|integer|min:1',
-            'status'       => 'required|in:available,in_use,maintenance',
-            'gps_enabled'  => 'sometimes|boolean',
-            'fuel_type'    => 'nullable|in:Bensin,Solar,Listrik,Hybrid,Lainnya',
+        $request->validate([
+            'asset_id'    => 'required|integer|exists:db_asset_vehicles,id',
+            'capacity'    => 'nullable|integer|min:1',
+            'status'      => 'required|in:available,in_use,maintenance',
+            'gps_enabled' => 'sometimes|boolean',
         ]);
 
-        // Konversi checkbox
-        $data['gps_enabled'] = $request->has('gps_enabled');
+        $asset = AssetVehicle::findOrFail($request->asset_id);
+        $plateNumber = AssetVehicle::normalizePlateForStorage($asset->registration_plates);
+
+        // Cek ulang di server side (jaga-jaga race condition / plat kosong).
+        // COLLATE dipaksa karena drms_vehicles pakai utf8mb4_unicode_ci sedangkan
+        // db_asset_vehicles pakai utf8mb4_0900_ai_ci.
+        $exists = Vehicle::whereRaw(
+            "REPLACE(REPLACE(REPLACE(UPPER(plate_number), ' ', ''), '-', ''), '.', '') COLLATE utf8mb4_unicode_ci = ?",
+            [AssetVehicle::normalizePlate($plateNumber)]
+        )->exists();
+
+        if ($exists) {
+            return back()
+                ->withErrors(['asset_id' => 'Kendaraan dengan plat ini sudah terdaftar di DRMS.'])
+                ->withInput();
+        }
+
+        $data = [
+            'type'         => $asset->display_type,
+            'plate_number' => $plateNumber,
+            'capacity'     => $request->capacity ?: 4,
+            'status'       => $request->status,
+            'fuel_type'    => $asset->mapped_fuel_type,
+            'gps_enabled'  => $request->has('gps_enabled'),
+        ];
 
         if ($user->isDrmsSuperAdmin()) {
             $data['business_unit_id'] = $request->business_unit_id ?? null;
@@ -137,7 +172,7 @@ class VehicleController extends Controller
         Vehicle::create($data);
 
         return redirect()->route('drms.vehicles.index')
-            ->with('success', 'Kendaraan berhasil ditambahkan.');
+            ->with('success', 'Kendaraan berhasil ditambahkan dari data aset.');
     }
 
     /**
