@@ -118,7 +118,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/access-data', [DashboardController::class, 'getAccessData'])->name('api.access.data');
 
-    Route::prefix('messenger')->middleware('auth')->group(function () {
+        Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::middleware('messenger.access:status_messenger')->get('/', [App\Http\Controllers\MessengerController::class, 'index'])->name('messenger.index');
         Route::middleware('messenger.access:request_messenger')->get('/request', [App\Http\Controllers\MessengerController::class, 'request'])->name('messenger.request');
         Route::middleware('messenger.access:request_messenger')->post('/', [App\Http\Controllers\MessengerController::class, 'store'])->name('messenger.store');
@@ -127,6 +127,18 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/tolak', [App\Http\Controllers\MessengerController::class, 'tolak'])->name('messenger.tolak');
         Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/selesaikan', [App\Http\Controllers\MessengerController::class, 'selesaikan'])->name('messenger.selesaikan');
         Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/kembalikan', [App\Http\Controllers\MessengerController::class, 'kembalikan'])->name('messenger.kembalikan');
+
+        // ===== DASHBOARD ADMIN (harus di atas /{id}) =====
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'index'])
+            ->name('messenger.dashboard');
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard/data/kurir/{kurirId}', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'dataKurir'])
+            ->name('messenger.dashboard.data.kurir');
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard/data/bulan/{month}', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'dataBulan'])
+            ->name('messenger.dashboard.data.bulan');
+
         Route::middleware('messenger.access:detail_messenger')->get('/{no_transaksi}/print', [App\Http\Controllers\MessengerController::class, 'print'])->name('messenger.print');
         Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/cancel', [App\Http\Controllers\MessengerController::class, 'cancel'])->name('messenger.cancel');
         Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/kirim-ulang', [App\Http\Controllers\MessengerController::class, 'kirimUlang'])->name('messenger.kirimUlang');
