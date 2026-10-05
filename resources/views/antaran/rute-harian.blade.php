@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_messenger_sidebar')
 
 @section('content')
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">

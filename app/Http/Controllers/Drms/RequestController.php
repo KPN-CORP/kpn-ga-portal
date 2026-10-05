@@ -14,7 +14,7 @@ class RequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher'])
+        $query = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit'])
             ->where('requester_id', auth()->id());
 
         if ($request->filled('search')) {

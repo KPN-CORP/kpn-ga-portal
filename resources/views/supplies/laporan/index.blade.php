@@ -9,7 +9,6 @@
                 @csrf
                 <input type="hidden" name="tanggal_awal" value="{{ request('tanggal_awal', $tanggalAwal) }}">
                 <input type="hidden" name="tanggal_akhir" value="{{ request('tanggal_akhir', $tanggalAkhir) }}">
-                <input type="hidden" name="id_bisnis_unit" value="{{ request('id_bisnis_unit') }}">
                 <input type="hidden" name="id_barang" value="{{ request('id_barang') }}">
                 <input type="hidden" name="format" value="pdf">
                 <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 md:px-4 rounded-lg text-sm transition"><i class="fas fa-file-pdf mr-1"></i> PDF</button>
@@ -18,7 +17,6 @@
                 @csrf
                 <input type="hidden" name="tanggal_awal" value="{{ request('tanggal_awal', $tanggalAwal) }}">
                 <input type="hidden" name="tanggal_akhir" value="{{ request('tanggal_akhir', $tanggalAkhir) }}">
-                <input type="hidden" name="id_bisnis_unit" value="{{ request('id_bisnis_unit') }}">
                 <input type="hidden" name="id_barang" value="{{ request('id_barang') }}">
                 <input type="hidden" name="format" value="excel">
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 md:px-4 rounded-lg text-sm transition"><i class="fas fa-file-excel mr-1"></i> Excel</button>
@@ -27,7 +25,7 @@
     </div>
 
     <div class="bg-white border rounded-xl p-4">
-        <form method="GET" action="{{ route('supplies.laporan.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <form method="GET" action="{{ route('supplies.laporan.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
                 <label class="text-sm font-medium text-gray-600">Dari Tanggal</label>
                 <input type="date" name="tanggal_awal" value="{{ request('tanggal_awal', $tanggalAwal) }}" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -35,15 +33,6 @@
             <div>
                 <label class="text-sm font-medium text-gray-600">Sampai Tanggal</label>
                 <input type="date" name="tanggal_akhir" value="{{ request('tanggal_akhir', $tanggalAkhir) }}" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-600">Bisnis Unit</label>
-                <select name="id_bisnis_unit" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua</option>
-                    @foreach($bisnisUnits as $bu)
-                    <option value="{{ $bu->id_bisnis_unit }}" {{ request('id_bisnis_unit')==$bu->id_bisnis_unit ? 'selected' : '' }}>{{ $bu->nama_bisnis_unit }}</option>
-                    @endforeach
-                </select>
             </div>
             <div>
                 <label class="text-sm font-medium text-gray-600">Barang</label>
@@ -63,7 +52,7 @@
 
     <!-- Desktop Table -->
     <div class="bg-white border rounded-xl overflow-x-auto shadow-sm hidden md:block">
-        <table class="w-full text-sm min-w-[1100px]">
+        <table class="w-full text-sm min-w-[1300px]">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-3 py-3">No-Request</th>
@@ -72,11 +61,12 @@
                     <th class="px-3 py-3">Barang</th>
                     <th class="px-3 py-3 text-right">Jumlah</th>
                     <th class="px-3 py-3">Satuan</th>
-                    <th class="px-3 py-3">Bisnis Unit</th>
                     <th class="px-3 py-3">Keperluan</th>
                     <th class="px-3 py-3">Request</th>
+                    <th class="px-3 py-3">Tgl Diajukan</th>
                     <th class="px-3 py-3">Noted Approve</th>
                     <th class="px-3 py-3">Approve</th>
+                    <th class="px-3 py-3">Tgl Approve</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
@@ -88,15 +78,16 @@
                     <td class="px-3 py-2">{{ $t->barang->nama_barang }}</td>
                     <td class="px-3 py-2 text-right">{{ number_format($t->jumlah, 0, ',', '.') }} ({{ $t->barang->satuan }})</td>
                     <td class="px-3 py-2">{{ $t->barang->satuan }}</td>
-                    <td class="px-3 py-2">{{ $t->bisnisUnit->nama_bisnis_unit ?? '-' }}</td>
                     <td class="px-3 py-2 break-words max-w-[150px]">{{ $t->permintaan->keterangan ?? '-' }}</td>
                     <td class="px-3 py-2 break-words max-w-[120px]">{{ $t->permintaan->pemohon->name ?? '-' }}</td>
+                    <td class="px-3 py-2 whitespace-nowrap">{{ $t->tgl_diajukan ?? '-' }}</td>
                     <td class="px-3 py-2 break-words max-w-[200px]">{{ $t->keterangan ?? '-' }}</td>
                     <td class="px-3 py-2 break-words max-w-[120px]">{{ $t->permintaan->approver->name ?? '-' }}</td>
+                    <td class="px-3 py-2 whitespace-nowrap">{{ $t->tgl_approve ?? '-' }}</td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="11" class="py-10 text-center text-gray-500">Tidak ada data</td>
+                    <td colspan="12" class="py-10 text-center text-gray-500">Tidak ada data</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -116,9 +107,12 @@
             </div>
             <div class="mt-2 text-sm text-gray-600 grid grid-cols-2 gap-1">
                 <span>Jumlah: {{ number_format($t->jumlah, 0, ',', '.') }} {{ $t->barang->satuan }}</span>
-                <span>Unit: {{ $t->bisnisUnit->nama_bisnis_unit ?? '-' }}</span>
                 <span class="col-span-2">Tanggal: {{ $t->tanggal->format('d/m/Y H:i') }}</span>
                 <span class="col-span-2">Keperluan: {{ $t->permintaan->keterangan ?? '-' }}</span>
+                @if($t->tgl_diajukan)
+                <span class="col-span-2">Diajukan: {{ $t->tgl_diajukan }} <span class="text-gray-400">({{ $t->permintaan->pemohon->name ?? '-' }})</span></span>
+                <span class="col-span-2">Di-approve: {{ $t->tgl_approve ?? '-' }} <span class="text-gray-400">({{ $t->permintaan->approver->name ?? '-' }})</span></span>
+                @endif
             </div>
         </div>
         @empty

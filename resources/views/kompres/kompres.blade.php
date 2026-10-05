@@ -19,6 +19,18 @@
         <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{{ session('error') }}</div>
     @endif
 
+    @if(!empty($unregisteredCount))
+        <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
+            {{ $unregisteredCount }} file di folder ini belum terdaftar di sistem penyimpanan GA Portal sehingga tidak ditampilkan.
+            Jalankan <code>php artisan gafiles:backfill-mailing</code> di server Cloud.
+        </div>
+    @endif
+
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg p-3">
+        Tombol Hapus di sini hanya menghapus salinan di Cloud, dan hanya untuk file yang sudah aman (terverifikasi) di server Local.
+        File tetap ada di Local dan otomatis diambil kembali saat dibuka.
+    </div>
+
     {{-- Ringkasan --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-white border rounded-xl p-4 shadow-sm">
@@ -41,7 +53,7 @@
             <i class="fas fa-play"></i> Kompres Semua yang Perlu
         </button>
         <button id="deleteSelectedBtn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2" disabled>
-            <i class="fas fa-trash"></i> Hapus File Terpilih (<span id="selectedCount">0</span>)
+            <i class="fas fa-trash"></i> Hapus dari Cloud (<span id="selectedCount">0</span>)
         </button>
         <span class="text-xs text-gray-500">
             <i class="fas fa-info-circle"></i> Kompres berjalan bertahap (50 file/batch). Gambar & PDF diproses otomatis sesuai jenisnya.
@@ -98,7 +110,7 @@
                     </td>
                     <td class="p-3">
                         <button type="button" class="deleteOneBtn text-red-500 hover:underline text-xs" data-path="{{ $f['path'] }}">
-                            <i class="fas fa-trash"></i> Hapus
+                            <i class="fas fa-trash"></i> Hapus dari Cloud
                         </button>
                     </td>
                 </tr>
@@ -250,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const path = paths[idx];
                 const tr = rowFor(path);
                 if (r.status === 'success') {
-                    addLog(`🗑️ ${r.name} : terhapus`, 'success');
+                    addLog(`🗑️ ${r.name} : ${r.message}`, 'success');
                     if (tr) tr.remove();
                 } else {
                     addLog(`❌ ${r.name} : ${r.message}`, 'failed');
@@ -265,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
     deleteSelectedBtn.addEventListener('click', function() {
         const checked = Array.from(tableBody.querySelectorAll('.rowCheck:checked')).map(cb => cb.value);
         if (checked.length === 0) return;
-        if (!confirm(`Hapus ${checked.length} file terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+        if (!confirm(`Hapus ${checked.length} file terpilih dari Cloud? File tetap aman di server Local dan diambil kembali saat dibuka.`)) return;
         deletePaths(checked);
     });
 
@@ -273,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btn = e.target.closest('.deleteOneBtn');
         if (!btn) return;
         const path = btn.dataset.path;
-        if (!confirm(`Hapus file ini?\n${path}`)) return;
+        if (!confirm(`Hapus file ini dari Cloud? (tetap ada di Local)\n${path}`)) return;
         deletePaths([path]);
     });
 });

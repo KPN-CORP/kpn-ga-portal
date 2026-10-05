@@ -6,7 +6,6 @@
         <form method="POST" action="{{ route('supplies.stok.masuk.store') }}" id="formStokMasuk">
             @csrf
             <div class="mb-4"><label>Barang</label><select name="id_barang" class="w-full border rounded-lg p-2" required>@foreach($barang as $b)<option value="{{ $b->id }}">{{ $b->kode_barang }} - {{ $b->nama_barang }}</option>@endforeach</select></div>
-            <div class="mb-4"><label>Bisnis Unit</label><select name="id_bisnis_unit" class="w-full border rounded-lg p-2" required>@foreach($bisnisUnits as $bu)<option value="{{ $bu->id_bisnis_unit }}">{{ $bu->nama_bisnis_unit }}</option>@endforeach</select></div>
             <div class="mb-4"><label>Jumlah</label><input type="number" step="0.01" name="jumlah" class="w-full border rounded-lg p-2" required></div>
             <div class="mb-4"><label>Nomor Referensi (Faktur)</label><input type="text" name="no_ref" class="w-full border rounded-lg p-2"></div>
             <div class="mb-4"><label>Keterangan</label><textarea name="keterangan" rows="3" class="w-full border rounded-lg p-2"></textarea></div>

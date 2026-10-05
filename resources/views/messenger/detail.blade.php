@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_messenger_sidebar')
 
 @push('styles')
 <style>

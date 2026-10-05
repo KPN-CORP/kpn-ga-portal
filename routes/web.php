@@ -80,6 +80,7 @@ use App\Http\Controllers\Antaran\AntaranController;
 use App\Http\Controllers\Antaran\AntaranKurirController;
 use App\Http\Controllers\Antaran\AntaranTrackingController;
 use App\Http\Controllers\Compress\FotopdfmailingController;
+use App\Http\Controllers\GaFileStatusController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -195,6 +196,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/proses', [FotopdfmailingController::class, 'proses'])->name('proses');
         Route::post('/hapus', [FotopdfmailingController::class, 'hapus'])->name('hapus');
     });
+
+    Route::get('/files/requests/{id}', [GaFileStatusController::class, 'show'])->name('files.request-status');
 
     Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
         Route::get('/tiket/{tiket}/pdf', [HelpTiketPDFController::class, 'download'])->name('tiket.pdf');

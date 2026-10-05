@@ -24,7 +24,7 @@
         <div class="p-3 md:p-5">
             <h3 class="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Filter Laporan</h3>
             <form method="GET" action="{{ route('apartemen.admin.report') }}" class="space-y-3">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     <div>
                         <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
                         <input type="date" name="tanggal_mulai" value="{{ request('tanggal_mulai') }}"
@@ -41,6 +41,24 @@
                             <option value="">Semua Status</option>
                             <option value="SELESAI" {{ request('status') == 'SELESAI' ? 'selected' : '' }}>Selesai</option>
                             <option value="AKTIF" {{ request('status') == 'AKTIF' ? 'selected' : '' }}>Aktif (menginap)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Request</label>
+                        <select name="request_user" class="w-full border border-gray-300 rounded-md md:rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm">
+                            <option value="">Semua Request</option>
+                            @foreach($requesters as $r)
+                                <option value="{{ $r->id }}" {{ (string) request('request_user') === (string) $r->id ? 'selected' : '' }}>{{ $r->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Unit Kerja</label>
+                        <select name="unit_kerja" class="w-full border border-gray-300 rounded-md md:rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-sm">
+                            <option value="">Semua Unit Kerja</option>
+                            @foreach($unitKerjaList as $uk)
+                                <option value="{{ $uk }}" {{ request('unit_kerja') === $uk ? 'selected' : '' }}>{{ $uk }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="flex items-end">

@@ -115,7 +115,7 @@
                         <a href="{{ route('dashboard') }}" title="Dashboard Utama"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-home w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard Utama</span>
+                            <span>Dashboard</span>
                         </a>
                     </li>
                 </ul>
@@ -142,7 +142,7 @@
                         <a href="{{ route('messenger.index') }}" title="Daftar Pengiriman"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('messenger.index') ? 'active' : '' }}">
                             <i class="fas fa-box w-5 mr-3 text-gray-400"></i>
-                            <span>Daftar Pengiriman</span>
+                            <span>List</span>
                         </a>
                     </li>
                     @endif
@@ -151,7 +151,7 @@
                         <a href="{{ url('antaran/tugas') }}" title="Proses Kurir"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->is('antaran/tugas*') || request()->routeIs('messenger.proses') ? 'active' : '' }}">
                             <i class="fas fa-truck w-5 mr-3 text-gray-400"></i>
-                            <span>Proses Kurir</span>
+                            <span>Proses</span>
                         </a>
                     </li>
                     @endif
@@ -174,7 +174,7 @@
                         <a href="{{ route('messenger.dashboard') }}" title="Dashboard Admin"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('messenger.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-chart-bar w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard Admin</span>
+                            <span>Grafik</span>
                         </a>
                     </li>
                 </ul>

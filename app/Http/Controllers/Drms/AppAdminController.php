@@ -114,7 +114,7 @@ class AppAdminController extends Controller
         }
 
 
-        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers', 'mergedInto']);
+        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto']);
 
         if ($user->isDrmsSuperAdmin()) {
             $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
@@ -218,7 +218,7 @@ class AppAdminController extends Controller
         }
 
         // Bangun query export sama seperti di index
-        $exportQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers']);
+        $exportQuery = DriverRequest::with(['requester.drmsProfile', 'approverL1', 'admin', 'forwardedBy', 'driver', 'vehicle', 'voucher', 'vouchers']);
 
         if ($user->isDrmsSuperAdmin()) {
             $exportQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);

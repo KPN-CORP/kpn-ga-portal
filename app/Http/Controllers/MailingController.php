@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use App\Services\FileCacheService;
 
 class MailingController extends Controller
 {
@@ -132,6 +134,25 @@ class MailingController extends Controller
 
         imagedestroy($src);
         return $success;
+    }
+
+    private function files(): FileCacheService
+    {
+        return app(FileCacheService::class);
+    }
+
+    /**
+     * Daftarkan foto final ke sistem penyimpanan GA Portal (Cloud cache + Local master).
+     * Gagal mendaftar tidak boleh menggagalkan proses bisnis; file tetap bisa
+     * didaftarkan nanti lewat `php artisan gafiles:backfill-mailing`.
+     */
+    private function registerPhoto(string $path): void
+    {
+        try {
+            $this->files()->register('public', $path);
+        } catch (\Throwable $e) {
+            Log::error('GaFiles register gagal: ' . $path . ' - ' . $e->getMessage());
+        }
     }
 
     private function ensureDirectoryExists()
@@ -276,6 +297,8 @@ class MailingController extends Controller
 
             DB::commit();
 
+            $this->registerPhoto($storedPath);
+
             return redirect()->route('mailing.proses')
                 ->with('success', "✅ {$updated} mailing berhasil diselesaikan (foto dikompres ≤ 1.5 MB)");
 
@@ -336,6 +359,7 @@ class MailingController extends Controller
                 }
 
                 $mailing->update($updateData);
+                $this->registerPhoto($path);
                 return back()->with('success', 'Mailing selesai (foto dikompres ≤ 1.5 MB)');
             }
             return back()->with('error', 'Foto tidak ditemukan');
@@ -391,17 +415,16 @@ class MailingController extends Controller
         return view('mailing.create', compact('ekspedisi'));
     }
 
-    public function viewFoto($id)
+    public function viewFoto(Request $request, $id)
     {
-        try {
-            $mailing = Mailing::findOrFail($id);
-            if (!$mailing->mailing_foto) abort(404, 'Foto tidak ditemukan');
-            $path = storage_path('app/public/' . $mailing->mailing_foto);
-            if (!file_exists($path)) abort(404, 'File foto tidak ditemukan');
-            return response()->file($path, ['Content-Type' => mime_content_type($path)]);
-        } catch (\Exception $e) {
-            abort(404, 'Error: ' . $e->getMessage());
-        }
+        $mailing = Mailing::findOrFail($id);
+        if (!$mailing->mailing_foto) abort(404, 'Foto tidak ditemukan');
+
+        // Cloud punya file -> tampil langsung. Tidak ada di Cloud tetapi aman di Local ->
+        // buat request pengambilan (202) dan loader di browser menunggu otomatis.
+        return $this->files()->respond($request, 'public', $mailing->mailing_foto, [
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
     }
 
     public function bulkLantai47(Request $request)

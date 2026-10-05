@@ -119,7 +119,7 @@
                         'transport_type' => $item->transport_type,
                         'driver' => $item->driver ? ['name' => $item->driver->name, 'phone' => $item->driver->phone] : null,
                         'vehicle' => $item->vehicle ? ['type' => $item->vehicle->type, 'plate_number' => $item->vehicle->plate_number] : null,
-                        'vouchers' => $item->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                        'vouchers' => $item->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                     ];
                 @endphp
                 <tr class="hover:bg-gray-50">
@@ -212,7 +212,7 @@
                         'transport_type' => $item->transport_type,
                         'driver' => $item->driver ? ['name' => $item->driver->name, 'phone' => $item->driver->phone] : null,
                         'vehicle' => $item->vehicle ? ['type' => $item->vehicle->type, 'plate_number' => $item->vehicle->plate_number] : null,
-                        'vouchers' => $item->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                        'vouchers' => $item->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                     ];
                 @endphp
                 <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
@@ -423,7 +423,10 @@
                     <template x-if="detailItem.vehicle"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Kendaraan</td><td class="py-2" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td></tr></template>
                     <template x-if="detailItem.vouchers && detailItem.vouchers.length > 0"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium align-top">Voucher</td><td class="py-2">
                         <template x-for="v in detailItem.vouchers" :key="v.code">
-                            <div x-text="v.code + ' (' + v.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(v.nominal)"></div>
+                            <div class="mb-1">
+                                <div x-text="v.code + ' (' + v.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(v.nominal)"></div>
+                                <template x-if="v.beban_bu"><div class="text-sm text-gray-600" x-text="'Beban BU: ' + v.beban_bu"></div></template>
+                            </div>
                         </template>
                     </td></tr></template>
                 </tbody>

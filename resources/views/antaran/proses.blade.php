@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_messenger_sidebar')
 
 @section('content')
 <style>.jne-orange{background:#2563eb}.jne-text{color:#2563eb}</style>

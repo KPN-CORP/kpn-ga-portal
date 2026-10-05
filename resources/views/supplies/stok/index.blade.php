@@ -11,17 +11,6 @@
 
     <div class="bg-white border rounded-xl p-4 shadow-sm">
         <form method="GET" class="flex flex-col sm:flex-row gap-3 items-end">
-            <div class="w-full sm:w-auto">
-                <label class="text-xs text-gray-500 mb-1 block">Bisnis Unit</label>
-                <select name="id_bisnis_unit" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Semua Unit</option>
-                    @foreach($bisnisUnits as $bu)
-                    <option value="{{ $bu->id_bisnis_unit }}" {{ request('id_bisnis_unit')==$bu->id_bisnis_unit ? 'selected' : '' }}>
-                        {{ $bu->nama_bisnis_unit }}
-                    </option>
-                    @endforeach
-                </select>
-            </div>
             <div class="flex-1 w-full">
                 <label class="text-xs text-gray-500 mb-1 block">Cari Barang</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Nama / Kode barang" 
@@ -46,7 +35,6 @@
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Barang</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Kode Barang</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Satuan</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Bisnis Unit</th>
                     <th class="px-4 py-3 text-right font-semibold text-gray-600">Stok</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Update Terakhir</th>
                 </tr>
@@ -57,13 +45,12 @@
                     <td class="px-4 py-3">{{ $s->barang->nama_barang }}</td>
                     <td class="px-4 py-3">{{ $s->barang->kode_barang }}</td>
                     <td class="px-4 py-3">{{ $s->barang->satuan }}</td>
-                    <td class="px-4 py-3">{{ $s->bisnisUnit->nama_bisnis_unit ?? '-' }}</td>
                     <td class="px-4 py-3 text-right font-semibold">{{ number_format($s->jumlah) }}</td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $s->last_update ? \Carbon\Carbon::parse($s->last_update)->format('d/m/Y H:i') : '-' }}</td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="py-12 text-center text-gray-500">
+                    <td colspan="5" class="py-12 text-center text-gray-500">
                         <i class="fas fa-box-open text-3xl mb-2 opacity-40 block"></i>
                         Belum ada data stok
                     </td>
@@ -85,8 +72,7 @@
                 <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{{ $s->barang->satuan }}</span>
             </div>
             <div class="mt-2 text-sm text-gray-600 grid grid-cols-2 gap-1">
-                <span>Unit: {{ $s->bisnisUnit->nama_bisnis_unit ?? '-' }}</span>
-                <span class="text-right font-semibold">Stok: {{ number_format($s->jumlah) }}</span>
+                <span class="font-semibold">Stok: {{ number_format($s->jumlah) }}</span>
                 <span class="col-span-2 text-xs text-gray-400">Update: {{ $s->last_update ? \Carbon\Carbon::parse($s->last_update)->format('d/m/Y H:i') : '-' }}</span>
             </div>
         </div>

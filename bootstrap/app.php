@@ -68,6 +68,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
             'kompres.access' => \App\Http\Middleware\EnsureKompresAccess::class,
             'mobile.only' => \App\Http\Middleware\MobileOnly::class,
+            'ga.agent' => \App\Http\Middleware\GaAgentToken::class,
         ]);
 
         // Middleware groups

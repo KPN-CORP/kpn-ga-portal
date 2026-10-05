@@ -180,14 +180,27 @@ class MessengerController extends Controller
         $access = DB::table('tb_access_menu')
             ->where('username', $user->username)
             ->first();
-        
+
         $hasAccessAll = false;
         if ($access && isset($access->akses_messenger_all) && (int)$access->akses_messenger_all === 1) {
             $hasAccessAll = true;
         }
 
+        $pelangganList = [];
+        $kurirList = [];
         if ($hasAccessAll) {
-            $pelangganList = DB::table('tb_pelanggan')->get();
+            $pelangganList = DB::table('tb_pelanggan')
+                ->orderBy('nama_pelanggan')
+                ->get();
+
+            // kurir = pelanggan yang pernah tercatat di kolom tb_transaksi.kurir
+            $kurirList = DB::table('tb_transaksi as tk')
+                ->join('tb_pelanggan as pk', 'pk.id_pelanggan', '=', 'tk.kurir')
+                ->where('tk.kurir', '>', 0)
+                ->select('pk.id_pelanggan', 'pk.nama_pelanggan')
+                ->distinct()
+                ->orderBy('pk.nama_pelanggan')
+                ->get();
         }
 
         $query = DB::table('tb_transaksi as t')
@@ -195,7 +208,8 @@ class MessengerController extends Controller
             ->select(
                 't.*',
                 'p.nama_pelanggan as nama_pengirim',
-                'p.no_hp_pelanggan as hp_pengirim'
+                'p.no_hp_pelanggan as hp_pengirim',
+                DB::raw('(SELECT nama_pelanggan FROM tb_pelanggan WHERE id_pelanggan = t.kurir) as nama_kurir')
             );
 
         if (!$hasAccessAll) {
@@ -209,6 +223,7 @@ class MessengerController extends Controller
                     'transaksi' => $transaksi,
                     'pelanggan' => null,
                     'pelangganList' => [],
+                    'kurirList' => [],
                     'hasAccessAll' => $hasAccessAll,
                     'filters' => []
                 ]);
@@ -218,6 +233,11 @@ class MessengerController extends Controller
         } else {
             if ($request->filled('pengirim') && $request->pengirim !== 'all') {
                 $query->where('t.pengirim', $request->pengirim);
+            }
+
+            // Filter kurir yang memproses (admin)
+            if ($request->filled('kurir') && $request->kurir !== 'all') {
+                $query->where('t.kurir', $request->kurir);
             }
         }
 
@@ -236,8 +256,18 @@ class MessengerController extends Controller
             $query->where('t.status', $request->status);
         }
 
+        // Tanggal tunggal (lama)
         if ($request->filled('date')) {
             $query->whereDate('t.created_at', $request->date);
+        }
+
+        // Periode tanggal (dari - sampai)
+        $isDate = fn ($v) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v);
+        if ($request->filled('date_from') && $isDate($request->date_from)) {
+            $query->whereDate('t.created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to') && $isDate($request->date_to)) {
+            $query->whereDate('t.created_at', '<=', $request->date_to);
         }
 
         $transaksi = $query
@@ -252,7 +282,8 @@ class MessengerController extends Controller
         return view('messenger.messenger', [
             'transaksi' => $transaksi,
             'pelanggan' => $pelanggan,
-            'pelangganList' => $hasAccessAll ? $pelangganList ?? [] : [],
+            'pelangganList' => $hasAccessAll ? $pelangganList : [],
+            'kurirList' => $hasAccessAll ? $kurirList : [],
             'hasAccessAll' => $hasAccessAll,
             'filters' => $request->all()
         ]);

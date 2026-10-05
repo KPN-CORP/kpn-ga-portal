@@ -805,6 +805,25 @@ class AdminController extends Controller
         }
     }
 
+    // Filter tambahan laporan: Request (pemohon) & Unit Kerja (penghuni)
+    private function applyReportExtraFilters($query, Request $request)
+    {
+        // Filter Request (user yang mengajukan request)
+        if ($request->filled('request_user')) {
+            $requestUser = $request->request_user;
+            $query->whereHas('assign.request', function($q) use ($requestUser) {
+                $q->where('user_id', $requestUser);
+            });
+        }
+
+        // Filter Unit Kerja (unit kerja penghuni)
+        if ($request->filled('unit_kerja')) {
+            $query->where('unit_kerja', $request->unit_kerja);
+        }
+
+        return $query;
+    }
+
     // REPORT
     public function report(Request $request)
     {
@@ -858,6 +877,9 @@ class AdminController extends Controller
             });
         }
 
+        // Filter Request & Unit Kerja
+        $this->applyReportExtraFilters($query, $request);
+
         // Ambil data, lalu unik per assign_id + penghuni_id (sebenarnya sudah unik, tapi amankan)
         $penghuniList = $query->get()->unique(function($item) {
             return $item->assign_id . '_' . $item->id;
@@ -875,7 +897,25 @@ class AdminController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        return view('apartemen.admin.report', compact('histories'));
+        // Data dropdown filter
+        $requesters = \App\Models\User::whereIn('id', function($q) {
+                $q->select('user_id')
+                  ->from('tb_apartemen_request')
+                  ->whereNull('deleted_at')
+                  ->whereIn('id', function($q2) {
+                      $q2->select('request_id')->from('tb_apartemen_assign')->whereNull('deleted_at');
+                  });
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $unitKerjaList = ApartemenPenghuni::whereNotNull('unit_kerja')
+            ->where('unit_kerja', '!=', '')
+            ->distinct()
+            ->orderBy('unit_kerja')
+            ->pluck('unit_kerja');
+
+        return view('apartemen.admin.report', compact('histories', 'requesters', 'unitKerjaList'));
     }
 
     public function exportReport(Request $request)
@@ -926,6 +966,9 @@ class AdminController extends Controller
                 ->orWhere('id_karyawan', 'like', "%{$search}%");
             });
         }
+
+        // Filter Request & Unit Kerja
+        $this->applyReportExtraFilters($query, $request);
 
         $penghuniList = $query->get();
 

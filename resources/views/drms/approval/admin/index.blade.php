@@ -156,7 +156,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -232,7 +232,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                         ];
                     @endphp
@@ -331,7 +331,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                             'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
                         ];
@@ -449,7 +449,7 @@
                             'transport_type' => $req->transport_type,
                             'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
                             'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal])->values(),
+                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
                             'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
                             'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
                         ];
@@ -845,7 +845,10 @@
                     <template x-if="detailItem.vehicle"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Kendaraan</td><td class="py-2" x-text="detailItem.vehicle.type + ' - ' + detailItem.vehicle.plate_number"></td></tr></template>
                     <template x-if="detailItem.vouchers && detailItem.vouchers.length > 0"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium align-top">Voucher</td><td class="py-2">
                         <template x-for="v in detailItem.vouchers" :key="v.code">
-                            <div x-text="v.code + ' (' + v.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(v.nominal)"></div>
+                            <div class="mb-1">
+                                <div x-text="v.code + ' (' + v.type + ') Rp ' + new Intl.NumberFormat('id-ID').format(v.nominal)"></div>
+                                <template x-if="v.beban_bu"><div class="text-sm text-gray-600" x-text="'Beban BU: ' + v.beban_bu"></div></template>
+                            </div>
                         </template>
                     </td></tr></template>
                     <template x-if="detailItem.merged_into"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Gabung Trip</td><td class="py-2 text-purple-600 font-semibold" x-text="'🔗 ' + (detailItem.merged_into.request_no ?? '-')"></td></tr></template>

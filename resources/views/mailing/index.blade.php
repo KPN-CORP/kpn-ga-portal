@@ -179,11 +179,11 @@
                 @if($m->mailing_foto)
                 <div class="w-full">
                     <p class="text-xs font-medium text-gray-700 mb-2">Foto Bukti Distribusi:</p>
-                    <img src="{{ route('mailing.view-foto', $m->id_mailing) }}"
-                        class="w-full max-h-40 object-contain bg-gray-100 p-1 rounded-lg border"
-                        onclick="openPhotoModal('{{ route('mailing.view-foto', $m->id_mailing) }}')"
-                        alt="Foto bukti distribusi"
-                        onerror="this.onerror=null; this.src='{{ asset('images/no-image.jpg') }}';">
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                        data-ga-src="{{ route('mailing.view-foto', $m->id_mailing) }}"
+                        class="w-full max-h-40 object-contain bg-gray-100 p-1 rounded-lg border cursor-pointer"
+                        onclick="openPhotoModal(this.src.indexOf('blob:') === 0 ? this.src : this.dataset.gaSrc)"
+                        alt="Foto bukti distribusi">
                 </div>
                 @endif
             </div>
@@ -385,9 +385,10 @@
             <h4 class="text-xs font-semibold text-gray-700 mb-2">FOTO BUKTI</h4>
 
             @if($m->mailing_foto)
-            <img src="{{ route('mailing.view-foto', $m->id_mailing) }}"
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                 data-ga-src="{{ route('mailing.view-foto', $m->id_mailing) }}"
                  class="rounded-xl border w-full cursor-pointer hover:opacity-90"
-                 onclick="openPhotoModal(this.src)">
+                 onclick="openPhotoModal(this.src.indexOf('blob:') === 0 ? this.src : this.dataset.gaSrc)">
             <p class="text-xs text-gray-500 text-center mt-1">
                 Klik untuk memperbesar
             </p>
@@ -451,6 +452,7 @@
 </div>
 
 {{-- ================= SCRIPT ================= --}}
+<script src="{{ asset('js/ga-file-loader.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Toggle filter section
@@ -503,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function openPhotoModal(src){
     const modal = document.getElementById('photoModal');
     const img = document.getElementById('photoModalImg');
-    img.src = src;
+    if (window.GaFileLoader) { GaFileLoader.load(img, src); } else { img.src = src; }
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     

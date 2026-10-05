@@ -33,7 +33,7 @@
         </form>
 
         <button type="button" id="deleteSelectedBtn" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-semibold mb-4" disabled>
-            🗑️ Hapus Terpilih (<span id="selectedCount">0</span>)
+            🗑️ Hapus dari Cloud (<span id="selectedCount">0</span>)
         </button>
 
         {{-- Log hasil hapus --}}
@@ -85,7 +85,7 @@
                     <div class="flex items-center gap-3">
                         <a href="{{ $img['url'] }}" target="_blank" class="text-blue-500 hover:underline text-xs">🔍 Preview</a>
                         <button type="button" class="deleteOneBtn text-red-500 hover:underline text-xs" data-path="{{ $img['path'] }}">
-                            <i class="fas fa-trash"></i> Hapus
+                            <i class="fas fa-trash"></i> Hapus dari Cloud
                         </button>
                     </div>
                 </div>
@@ -117,7 +117,7 @@
                     <div class="flex items-center gap-3">
                         <a href="{{ $pdf['url'] }}" target="_blank" class="text-blue-500 hover:underline text-xs">🔍 Preview</a>
                         <button type="button" class="deleteOneBtn text-red-500 hover:underline text-xs" data-path="{{ $pdf['path'] }}">
-                            <i class="fas fa-trash"></i> Hapus
+                            <i class="fas fa-trash"></i> Hapus dari Cloud
                         </button>
                     </div>
                 </div>
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const path = paths[idx];
                 const row = document.querySelector(`[data-path="${CSS.escape(path)}"]`);
                 if (r.status === 'success') {
-                    addLog(`🗑️ ${r.name} : terhapus`, true);
+                    addLog(`🗑️ ${r.name} : ${r.message}`, true);
                     if (row) row.remove();
                 } else {
                     addLog(`❌ ${r.name} : ${r.message}`, false);
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
     deleteSelectedBtn.addEventListener('click', function() {
         const checked = Array.from(document.querySelectorAll('.rowCheck:checked')).map(cb => cb.value);
         if (checked.length === 0) return;
-        if (!confirm(`Hapus ${checked.length} file terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+        if (!confirm(`Hapus ${checked.length} file terpilih dari Cloud? File tetap aman di server Local dan diambil kembali saat dibuka.`)) return;
         deletePaths(checked);
     });
 
@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btn = e.target.closest('.deleteOneBtn');
         if (!btn) return;
         const path = btn.dataset.path;
-        if (!confirm(`Hapus file ini?\n${path}`)) return;
+        if (!confirm(`Hapus file ini dari Cloud? (tetap ada di Local)\n${path}`)) return;
         deletePaths([path]);
     });
 });

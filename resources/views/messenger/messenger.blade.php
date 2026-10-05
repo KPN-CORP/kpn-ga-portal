@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app_messenger_sidebar')
 
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
@@ -33,23 +33,44 @@
     </div>
 
     {{-- FILTER --}}
+    @php
+        $selectedPengirim = null;
+        if ($hasAccessAll && request()->filled('pengirim') && request('pengirim') !== 'all') {
+            $selectedPengirim = collect($pelangganList)->firstWhere('id_pelanggan', request('pengirim'));
+        }
+    @endphp
     <div id="filterSection"
          class="bg-white border rounded-xl p-4
-                {{ request()->hasAny(['search','status','date','pengirim']) ? '' : 'hidden' }}">
-        <form method="GET" action="{{ route('messenger.index') }}"
-              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{{ $hasAccessAll ? '5' : '4' }} gap-4">
+                {{ request()->hasAny(['search','status','date','pengirim','kurir','date_from','date_to']) ? '' : 'hidden' }}">
+        <form method="GET" action="{{ route('messenger.index') }}" id="filterForm"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
             @if($hasAccessAll)
-            <div>
+            {{-- PENGIRIM: ketik -> dropdown nama muncul --}}
+            <div class="relative" id="pengirimBox">
                 <label class="text-sm font-medium text-gray-600">Pengirim</label>
-                <select name="pengirim"
+                <input type="hidden" name="pengirim" id="pengirimId" value="{{ $selectedPengirim ? $selectedPengirim->id_pelanggan : 'all' }}">
+                <input type="text" id="pengirimText" autocomplete="off"
+                       placeholder="Ketik nama pengirim..."
+                       value="{{ $selectedPengirim ? $selectedPengirim->nama_pelanggan : '' }}"
+                       class="mt-1 w-full border rounded-lg px-3 py-2
+                              text-sm focus:ring-2 focus:ring-blue-500">
+                <div id="pengirimList"
+                     class="hidden absolute z-30 mt-1 w-full max-h-60 overflow-y-auto
+                            bg-white border rounded-lg shadow-lg"></div>
+            </div>
+
+            {{-- KURIR YANG MEMPROSES --}}
+            <div>
+                <label class="text-sm font-medium text-gray-600">Kurir yang Memproses</label>
+                <select name="kurir"
                         class="mt-1 w-full border rounded-lg px-3 py-2
                                text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all">Semua Pengirim</option>
-                    @foreach($pelangganList as $p)
-                        <option value="{{ $p->id_pelanggan }}" 
-                                {{ request('pengirim') == $p->id_pelanggan ? 'selected' : '' }}>
-                            {{ $p->nama_pelanggan }}
+                    <option value="all">Semua Kurir</option>
+                    @foreach($kurirList as $k)
+                        <option value="{{ $k->id_pelanggan }}"
+                                {{ request('kurir') == $k->id_pelanggan ? 'selected' : '' }}>
+                            {{ $k->nama_pelanggan }}
                         </option>
                     @endforeach
                 </select>
@@ -77,12 +98,28 @@
                 </select>
             </div>
 
+            @if($hasAccessAll)
+            {{-- PERIODE TANGGAL (admin) --}}
+            <div>
+                <label class="text-sm font-medium text-gray-600">Dari Tanggal</label>
+                <input type="date" name="date_from" value="{{ request('date_from') }}"
+                       class="mt-1 w-full border rounded-lg px-3 py-2
+                              text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-600">Sampai Tanggal</label>
+                <input type="date" name="date_to" value="{{ request('date_to') }}"
+                       class="mt-1 w-full border rounded-lg px-3 py-2
+                              text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            @else
             <div>
                 <label class="text-sm font-medium text-gray-600">Tanggal</label>
                 <input type="date" name="date" value="{{ request('date') }}"
                        class="mt-1 w-full border rounded-lg px-3 py-2
                               text-sm focus:ring-2 focus:ring-blue-500">
             </div>
+            @endif
 
             <div class="flex items-end gap-2">
                 <button class="w-full bg-blue-600 text-white py-2 rounded-lg
@@ -162,6 +199,13 @@
                     </div>
 
                     <div>
+                        <div class="text-xs text-gray-500">Nama Kurir</div>
+                        <div class="text-sm font-medium text-gray-800">
+                            {{ $item->nama_kurir ?: '-' }}
+                        </div>
+                    </div>
+
+                    <div>
                         <div class="text-xs text-gray-500">Alamat Asal</div>
                         <div class="text-sm font-medium text-gray-800 leading-relaxed">
                             {{ $item->alamat_asal ?? '-' }}
@@ -212,10 +256,11 @@
                     <th class="px-4 py-3 text-left font-bold">Pengirim</th>
                     @endif
                     <th class="px-4 py-3 text-left font-bold">Jenis</th>
-                    <th class="px-4 py-3 text-left font-bold">Status</th>
                     <th class="px-4 py-3 text-left font-bold">Penerima</th>
                     <th class="px-4 py-3 text-left font-bold">Alamat</th>
                     <th class="px-4 py-3 text-left font-bold">Tanggal</th>
+                    <th class="px-4 py-3 text-left font-bold">Status</th>
+                    <th class="px-4 py-3 text-left font-bold">Nama Kurir</th>
                     <th class="px-4 py-3 text-left font-bold">Action</th>
                 </tr>
             </thead>
@@ -244,16 +289,17 @@
                     </td>
                     @endif
                     <td class="px-4 py-3">{{ $item->nama_barang }}</td>
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $badge }}">
-                            {{ $item->status }}
-                        </span>
-                    </td>
                     <td class="px-4 py-3">{{ $item->penerima }}</td>
                     <td class="px-4 py-3">{{ $item->alamat_tujuan }}</td>
                     <td class="px-4 py-3">
                         {{ \Carbon\Carbon::parse($item->created_at)->format('d M Y') }}
                     </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $badge }}">
+                            {{ $item->status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">{{ $item->nama_kurir ?: '-' }}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
                             <a href="{{ route('messenger.detail',$item->no_transaksi) }}"
@@ -306,4 +352,63 @@ document.querySelectorAll('.toggleCardHeader').forEach(header => {
     })
 })
 </script>
+
+@if($hasAccessAll)
+{{-- COMBOBOX PENGIRIM: fokus/ketik -> daftar nama muncul & terfilter --}}
+<script>
+(function () {
+    const data = @json(collect($pelangganList)->map(fn ($p) => ['id' => $p->id_pelanggan, 'name' => $p->nama_pelanggan])->values());
+
+    const box  = document.getElementById('pengirimBox');
+    const txt  = document.getElementById('pengirimText');
+    const hid  = document.getElementById('pengirimId');
+    const list = document.getElementById('pengirimList');
+    const form = document.getElementById('filterForm');
+    if (!box || !txt || !hid || !list) return;
+
+    const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function render(q) {
+        const qq = (q || '').trim().toLowerCase();
+        const items = data.filter(p => !qq || String(p.name).toLowerCase().includes(qq));
+        const rows = items.map(p =>
+            `<div data-id="${esc(p.id)}" data-name="${esc(p.name)}"
+                  class="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50">${esc(p.name)}</div>`).join('');
+        list.innerHTML =
+            `<div data-id="all" data-name=""
+                  class="px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50 border-b">Semua Pengirim</div>`
+            + (rows || '<div class="px-3 py-2 text-sm text-gray-400">Nama tidak ditemukan</div>');
+        list.classList.remove('hidden');
+    }
+
+    txt.addEventListener('focus', () => render(''));          // klik kolom -> semua nama muncul
+    txt.addEventListener('input', () => {                     // ketik -> terfilter
+        hid.value = 'all';
+        render(txt.value);
+    });
+
+    list.addEventListener('mousedown', (e) => {
+        const el = e.target.closest('[data-id]');
+        if (!el) return;
+        e.preventDefault();
+        hid.value = el.dataset.id;
+        txt.value = el.dataset.id === 'all' ? '' : el.dataset.name;
+        list.classList.add('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!box.contains(e.target)) list.classList.add('hidden');
+    });
+
+    // Kalau diketik persis sama dengan satu nama lalu Apply, tetap terpilih
+    form?.addEventListener('submit', () => {
+        const v = txt.value.trim().toLowerCase();
+        if (hid.value === 'all' && v) {
+            const hit = data.find(p => String(p.name).toLowerCase() === v);
+            if (hit) hid.value = hit.id;
+        }
+    });
+})();
+</script>
+@endif
 @endsection

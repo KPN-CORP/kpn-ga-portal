@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Models\GaFile;
+use App\Services\FileCacheService;
 
 class FotopdfmailingController extends Controller
 {
@@ -34,6 +36,33 @@ class FotopdfmailingController extends Controller
             'root' => storage_path('app'),
             'throw' => false,
         ]);
+    }
+
+    protected function files(): FileCacheService
+    {
+        return app(FileCacheService::class);
+    }
+
+    /**
+     * Petakan path relatif terhadap storage/app ke [disk, path] sistem penyimpanan GA Portal.
+     * 'public/mailing-foto/x.jpg' -> ['public', 'mailing-foto/x.jpg']
+     */
+    protected function diskKey(string $relPath): ?array
+    {
+        foreach (['public', 'private'] as $d) {
+            if (str_starts_with($relPath, $d . '/')) {
+                return [$d, substr($relPath, strlen($d) + 1)];
+            }
+        }
+
+        return null;
+    }
+
+    protected function registeredFile(string $relPath): ?GaFile
+    {
+        $key = $this->diskKey($relPath);
+
+        return $key ? GaFile::lookup($key[0], $key[1]) : null;
     }
 
     /**
@@ -84,11 +113,19 @@ class FotopdfmailingController extends Controller
 
         $files = [];
         $needCompress = 0;
+        $unregistered = 0;
 
         foreach ($allPaths as $relPath) {
             $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
 
             if (! $this->isAllowedExt($ext)) {
+                continue;
+            }
+
+            // Alat ini dibatasi ke file yang sudah terdaftar di ga_files
+            if (! $this->registeredFile($relPath)) {
+                $unregistered++;
+
                 continue;
             }
 
@@ -116,6 +153,7 @@ class FotopdfmailingController extends Controller
             'files' => $files,
             'totalFiles' => count($files),
             'needCompress' => $needCompress,
+            'unregisteredCount' => $unregistered,
         ]);
     }
 
@@ -205,6 +243,12 @@ class FotopdfmailingController extends Controller
                 continue;
             }
 
+            if (! $this->registeredFile($relPath)) {
+                $results[] = ['name' => $labelName, 'status' => 'failed', 'message' => 'File belum terdaftar di sistem penyimpanan GA Portal (jalankan gafiles:backfill-mailing)'];
+
+                continue;
+            }
+
             $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
             $fullPath = $this->disk()->path($relPath);
             $oldSize = filesize($fullPath);
@@ -234,6 +278,12 @@ class FotopdfmailingController extends Controller
                     $results[] = ['name' => $labelName, 'status' => 'failed', 'message' => 'Gagal dikompres'];
 
                     continue;
+                }
+
+                // Isi file berubah -> versi baru; agent Local akan menyalin ulang
+                $key = $this->diskKey($relPath);
+                if ($key) {
+                    $this->files()->register($key[0], $key[1]);
                 }
 
                 $results[] = [
@@ -282,9 +332,17 @@ class FotopdfmailingController extends Controller
                 continue;
             }
 
+            $gaFile = $this->registeredFile($relPath);
+            if (! $gaFile) {
+                $results[] = ['name' => $labelName, 'status' => 'failed', 'message' => 'File belum terdaftar di sistem penyimpanan GA Portal - tidak dihapus'];
+
+                continue;
+            }
+
             try {
-                $this->disk()->delete($relPath);
-                $results[] = ['name' => $labelName, 'status' => 'success', 'message' => 'Terhapus'];
+                // Hanya hapus salinan Cloud, dan hanya jika Local sudah terverifikasi.
+                [$ok, $msg] = $this->files()->deleteFromCloud($gaFile);
+                $results[] = ['name' => $labelName, 'status' => $ok ? 'success' : 'failed', 'message' => $msg];
             } catch (\Throwable $e) {
                 Log::error('Hapus gagal: '.$relPath.' - '.$e->getMessage());
                 $results[] = ['name' => $labelName, 'status' => 'failed', 'message' => $e->getMessage()];

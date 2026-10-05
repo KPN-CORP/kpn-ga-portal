@@ -15,7 +15,7 @@ class SuppliesApprovalController extends Controller
 
     public function index()
     {
-        $permintaan = SuppliesPermintaan::with('barang', 'bisnisUnit', 'pemohon')->where('status', 'pending')->orderBy('created_at')->get();
+        $permintaan = SuppliesPermintaan::with('barang', 'pemohon')->where('status', 'pending')->orderBy('created_at')->get();
         $pendingCount = $permintaan->count();
         return view('supplies.approval.index', compact('permintaan', 'pendingCount'));
     }
@@ -37,9 +37,7 @@ class SuppliesApprovalController extends Controller
             
             $jumlahSetuju = $request->jumlah_setuju;
             
-            $stok = SuppliesStok::where('id_barang', $permintaan->id_barang)
-                ->where('id_bisnis_unit', $permintaan->id_bisnis_unit)
-                ->first();
+            $stok = SuppliesStok::where('id_barang', $permintaan->id_barang)->first();
                 
             if (!$stok || $stok->jumlah < $jumlahSetuju) {
                 $tersedia = $stok ? $stok->jumlah : 0;
@@ -55,7 +53,6 @@ class SuppliesApprovalController extends Controller
                 'jenis' => 'keluar',
                 'id_barang' => $permintaan->id_barang,
                 'jumlah' => $jumlahSetuju,
-                'id_bisnis_unit' => $permintaan->id_bisnis_unit,
                 'id_permintaan' => $permintaan->id,
                 'no_ref' => 'REQ-' . $permintaan->id,
                 'keterangan' => $keterangan,

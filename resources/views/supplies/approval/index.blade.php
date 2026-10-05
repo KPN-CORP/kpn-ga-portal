@@ -16,7 +16,6 @@
                 <tr>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Pemohon</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Barang</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Unit</th>
                     <th class="px-4 py-3 text-right font-semibold text-gray-600">Jumlah</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Keterangan</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Tgl Pengajuan</th>
@@ -28,10 +27,12 @@
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-4 py-3">{{ $p->pemohon->name }}</td>
                     <td class="px-4 py-3">{{ $p->barang->nama_barang }} ({{ $p->barang->kode_barang }})</td>
-                    <td class="px-4 py-3">{{ $p->bisnisUnit->nama_bisnis_unit ?? '-' }}</td>
                     <td class="px-4 py-3 text-right font-medium">{{ number_format($p->jumlah) }} {{ $p->barang->satuan }}</td>
                     <td class="px-4 py-3">{{ $p->keterangan ?? '-' }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap">{{ $p->created_at->format('d/m/Y H:i') }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {{ $p->created_at->format('d/m/Y H:i') }}
+                        <span class="block text-xs text-gray-400">menunggu {{ $p->lama_proses }}</span>
+                    </td>
                     <td class="px-4 py-3 text-center">
                         <button onclick="showApproveModal({{ $p->id }}, {{ $p->jumlah }}, '{{ $p->barang->satuan }}')" 
                                 class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition mr-1">
@@ -45,7 +46,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="py-10 text-center text-gray-500">
+                    <td colspan="6" class="py-10 text-center text-gray-500">
                         <i class="fas fa-inbox text-3xl mb-2 opacity-40 block"></i>
                         Tidak ada permintaan pending
                     </td>
@@ -67,9 +68,8 @@
                 <span class="text-sm font-medium">{{ number_format($p->jumlah) }} {{ $p->barang->satuan }}</span>
             </div>
             <div class="mt-2 text-sm text-gray-500">
-                <p>Unit: {{ $p->bisnisUnit->nama_bisnis_unit ?? '-' }}</p>
                 <p>Keterangan: {{ $p->keterangan ?? '-' }}</p>
-                <p>Tgl: {{ $p->created_at->format('d/m/Y H:i') }}</p>
+                <p>Diajukan: {{ $p->created_at->format('d/m/Y H:i') }} <span class="text-xs text-gray-400">(menunggu {{ $p->lama_proses }})</span></p>
             </div>
             <div class="mt-3 flex gap-2">
                 <button onclick="showApproveModal({{ $p->id }}, {{ $p->jumlah }}, '{{ $p->barang->satuan }}')" 

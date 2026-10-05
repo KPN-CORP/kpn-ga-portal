@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Supplies\SuppliesTransaksi;
 use App\Models\Supplies\SuppliesBarang;
-use App\Models\BisnisUnit;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Response;
 use Carbon\Carbon;
@@ -24,14 +23,11 @@ class SuppliesLaporanController extends Controller
         $tanggalAkhir = $request->tanggal_akhir ?: Carbon::now()->format('Y-m-d');
 
         $query = SuppliesTransaksi::with([
-                'barang', 'bisnisUnit', 'user',
+                'barang', 'user',
                 'permintaan.pemohon',      // untuk Keterangan Request & User Approve
                 'permintaan.approver'      // User yang menyetujui
             ]);
 
-        if ($request->id_bisnis_unit) {
-            $query->where('id_bisnis_unit', $request->id_bisnis_unit);
-        }
         if ($request->id_barang) {
             $query->where('id_barang', $request->id_barang);
         }
@@ -40,9 +36,8 @@ class SuppliesLaporanController extends Controller
 
         $transaksi = $query->orderBy('tanggal', 'desc')->paginate(20);
         $barang = SuppliesBarang::all();
-        $bisnisUnits = BisnisUnit::all();
 
-        return view('supplies.laporan.index', compact('transaksi', 'barang', 'bisnisUnits', 'tanggalAwal', 'tanggalAkhir'));
+        return view('supplies.laporan.index', compact('transaksi', 'barang', 'tanggalAwal', 'tanggalAkhir'));
     }
 
     public function export(Request $request)
@@ -50,21 +45,17 @@ class SuppliesLaporanController extends Controller
         $request->validate([
             'tanggal_awal' => 'required|date',
             'tanggal_akhir' => 'required|date|after_or_equal:tanggal_awal',
-            'id_bisnis_unit' => 'nullable|exists:tb_bisnis_unit,id_bisnis_unit',
             'id_barang' => 'nullable|exists:supplies_barang,id',
             'format' => 'required|in:pdf,excel'
         ]);
 
         // Gunakan relasi yang sama dengan index
         $query = SuppliesTransaksi::with([
-                'barang', 'bisnisUnit', 'user',
+                'barang', 'user',
                 'permintaan.pemohon',
                 'permintaan.approver'
             ]);
 
-        if ($request->id_bisnis_unit) {
-            $query->where('id_bisnis_unit', $request->id_bisnis_unit);
-        }
         if ($request->id_barang) {
             $query->where('id_barang', $request->id_barang);
         }
@@ -83,7 +74,6 @@ class SuppliesLaporanController extends Controller
             'filter' => [
                 'tanggal_awal' => $request->tanggal_awal,
                 'tanggal_akhir' => $request->tanggal_akhir,
-                'bisnis_unit' => $request->id_bisnis_unit ? BisnisUnit::find($request->id_bisnis_unit)->nama_bisnis_unit : 'Semua Unit',
                 'barang' => $request->id_barang ? SuppliesBarang::find($request->id_barang)->nama_barang : 'Semua Barang',
                 'periode' => Carbon::parse($request->tanggal_awal)->format('d/m/Y') . ' - ' . Carbon::parse($request->tanggal_akhir)->format('d/m/Y'),
             ],
@@ -103,8 +93,8 @@ class SuppliesLaporanController extends Controller
             // Header
             fputcsv($handle, [
                 'No-Request', 'Tanggal', 'Jenis', 'Barang', 'Jumlah', 
-                'Harga (Rp)', 'Total (Rp)', 'Bisnis Unit',
-                'Keperluan', 'Request', 'Noted Approve', 'Approve'
+                'Harga (Rp)', 'Total (Rp)',
+                'Keperluan', 'Request', 'Tgl Diajukan', 'Noted Approve', 'Approve', 'Tgl Approve'
             ]);
 
             foreach ($transaksi as $t) {
@@ -124,19 +114,21 @@ class SuppliesLaporanController extends Controller
                     $jumlahFormatted . ' ' . $t->barang->satuan,
                     $hargaFormatted,
                     $totalFormatted,
-                    $t->bisnisUnit->nama_bisnis_unit ?? '-',
                     $t->permintaan->keterangan ?? '-',
                     $t->permintaan->pemohon->name ?? '-',
+                    $t->tgl_diajukan ?? '-',
                     $t->keterangan ?? '-',
                     $t->permintaan->approver->name ?? '-',
+                    $t->tgl_approve ?? '-',
                 ]);
             }
 
             // Baris total nilai keluar
             $totalNilaiFormatted = number_format($totalNilaiKeluar, 0, ',', ',');
             fputcsv($handle, []);
+            // Total ditaruh di kolom "Total (Rp)" (kolom ke-7).
             fputcsv($handle, [
-                'TOTAL NILAI KELUAR:', '', '', '', '', '', '', $totalNilaiFormatted, '', '', '', '', ''
+                'TOTAL NILAI KELUAR:', '', '', '', '', '', $totalNilaiFormatted
             ]);
 
             rewind($handle);
