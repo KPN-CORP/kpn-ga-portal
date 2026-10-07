@@ -17,7 +17,7 @@
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="bg-gray-50">
-                            <th class="p-3 text-left">Employee</th>
+                            <th class="p-3 text-left">Name</th>
                             <th class="p-3 text-left">Certificate Number</th>
                             <th class="p-3 text-left">Type</th>
                             <th class="p-3 text-left">Area</th>

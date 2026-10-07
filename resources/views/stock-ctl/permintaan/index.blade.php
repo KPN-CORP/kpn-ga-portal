@@ -1,6 +1,7 @@
 @extends('layouts.app_stock_sidebar')
 
 @section('content')
+<style>[x-cloak]{display:none !important}</style>
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="permintaanModal()">
     {{-- HEADER --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-2 sm:px-0">
@@ -24,7 +25,14 @@
         </div>
     </div>
 
-    {{-- TOMBOL FILTER STATUS (hanya 4) --}}
+    @if(session('success'))
+        <div class="px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">{{ session('success') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{{ $errors->first() }}</div>
+    @endif
+
+    {{-- TOMBOL FILTER STATUS --}}
     @php
         // Status aktif: jika tidak ada parameter status, default 'disetujui'
         $activeStatus = request('status', 'disetujui');
@@ -58,6 +66,13 @@
                   {{ $activeStatus == 'ditolak' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
             Ditolak
         </a>
+
+        {{-- Tombol Dibatalkan --}}
+        <a href="{{ route('stock-ctl.permintaan.index', array_merge(request()->except('status'), ['status' => 'dibatalkan'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'dibatalkan' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            Dibatalkan
+        </a>
     </div>
 
     {{-- FILTER LANJUTAN (pencarian, tanggal, dll) --}}
@@ -85,6 +100,7 @@
                     <option value="pending_admin" {{ request('status')=='pending_admin'?'selected':'' }}>Pending Admin</option>
                     <option value="disetujui" {{ request('status')=='disetujui'?'selected':'' }}>Disetujui</option>
                     <option value="ditolak" {{ request('status')=='ditolak'?'selected':'' }}>Ditolak</option>
+                    <option value="dibatalkan" {{ request('status')=='dibatalkan'?'selected':'' }}>Dibatalkan</option>
                 </select>
             </div>
             <div>
@@ -149,13 +165,15 @@
                                 'pending_l1' => 'bg-yellow-100 text-yellow-800',
                                 'pending_admin' => 'bg-orange-100 text-orange-800',
                                 'disetujui' => 'bg-green-100 text-green-800',
-                                'ditolak' => 'bg-red-100 text-red-800'
+                                'ditolak' => 'bg-red-100 text-red-800',
+                                'dibatalkan' => 'bg-gray-200 text-gray-700'
                             ];
                             $statusLabels = [
                                 'pending_l1' => 'Pending L1',
                                 'pending_admin' => 'Pending Admin',
                                 'disetujui' => 'Disetujui',
-                                'ditolak' => 'Ditolak'
+                                'ditolak' => 'Ditolak',
+                                'dibatalkan' => 'Dibatalkan'
                             ];
                         @endphp
                         <span class="px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap {{ $statusColors[$item->status] ?? 'bg-gray-100 text-gray-800' }}">
@@ -167,6 +185,12 @@
                                 class="text-blue-600 font-semibold hover:underline text-xs sm:text-sm">
                             Detail
                         </button>
+                        @if($item->status === 'pending_l1' && $item->id_user_pemohon === auth()->id())
+                            <button type="button" @click="openCancelModal({{ $item->id_permintaan }})"
+                                    class="ml-3 text-red-600 font-semibold hover:underline text-xs sm:text-sm">
+                                Batalkan
+                            </button>
+                        @endif
                     </td>
                 </tr>
                 @empty
@@ -189,11 +213,13 @@
     @endif
 
     {{-- MODAL CREATE --}}
-    <div x-show="createModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+    <div x-show="createModalOpen" style="display:none" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
         <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 class="text-base sm:text-lg font-semibold mb-4">New Request (Max 5 Item)</h3>
-            <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}">
+            <form method="POST" action="{{ route('stock-ctl.permintaan.store') }}"
+                  @submit="if (submitting) { $event.preventDefault(); return; } submitting = true;">
                 @csrf
+                <input type="hidden" name="submission_token" :value="submitToken">
                 <div x-data="{
                     items: [{ id_barang: '', jumlah: 1, keterangan: '' }],
                     maxItems: 5,
@@ -282,14 +308,18 @@
                 
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Ajukan</button>
+                    <button type="submit" :disabled="submitting"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span x-show="!submitting">Ajukan</span>
+                        <span x-show="submitting" style="display:none">Mengirim...</span>
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     {{-- MODAL DETAIL --}}
-    <div x-show="detailModalOpen" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+    <div x-show="detailModalOpen" style="display:none" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
         <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 class="text-base sm:text-lg font-semibold mb-4">Request Details</h3>
             <table class="w-full text-xs sm:text-sm">
@@ -308,12 +338,14 @@
                             'bg-yellow-100 text-yellow-800': detailItem.status == 'pending_l1',
                             'bg-orange-100 text-orange-800': detailItem.status == 'pending_admin',
                             'bg-green-100 text-green-800': detailItem.status == 'disetujui',
-                            'bg-red-100 text-red-800': detailItem.status == 'ditolak'
+                            'bg-red-100 text-red-800': detailItem.status == 'ditolak',
+                            'bg-gray-200 text-gray-700': detailItem.status == 'dibatalkan'
                         }">
                             <span x-show="detailItem.status == 'pending_l1'">Pending L1 (<span x-text="detailItem.approver_name || '-'"></span>)</span>
                             <span x-show="detailItem.status == 'pending_admin'">Pending Admin</span>
                             <span x-show="detailItem.status == 'disetujui'">Disetujui</span>
                             <span x-show="detailItem.status == 'ditolak'">Ditolak</span>
+                            <span x-show="detailItem.status == 'dibatalkan'">Dibatalkan</span>
                         </span>
                     </td>
                 </tr>
@@ -327,9 +359,29 @@
                     <tr><td class="py-2 text-gray-600">Alasan Penolakan</td><td class="py-2 font-medium text-red-600" x-text="detailItem.alasan_tolak ?? '-'"></td></tr>
                 </template>
             </table>
-            <div class="mt-6 flex justify-end">
+            <div class="mt-6 flex justify-end gap-2">
+                <button type="button"
+                        x-show="detailItem.status == 'pending_l1' && detailItem.id_user_pemohon == authId"
+                        @click="detailModalOpen = false; openCancelModal(detailItem.id_permintaan)"
+                        class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Batalkan Permintaan</button>
                 <button type="button" @click="detailModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Tutup</button>
             </div>
+        </div>
+    </div>
+
+    {{-- MODAL KONFIRMASI BATALKAN --}}
+    <div x-show="cancelModalOpen" style="display:none" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4" x-cloak>
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm">
+            <h3 class="text-base sm:text-lg font-semibold mb-2">Batalkan permintaan?</h3>
+            <p class="text-sm text-gray-600">
+                Permintaan <span class="font-mono font-semibold">ATK-SC-<span x-text="cancelId"></span></span>
+                akan dibatalkan dan tidak lagi muncul di daftar approval atasan. Tindakan ini tidak dapat diurungkan.
+            </p>
+            <form method="POST" :action="cancelUrl.replace('__ID__', cancelId)" class="mt-5 flex justify-end gap-2">
+                @csrf
+                <button type="button" @click="cancelModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Kembali</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Ya, Batalkan</button>
+            </form>
         </div>
     </div>
 </div>
@@ -340,7 +392,23 @@ function permintaanModal() {
         createModalOpen: false,
         detailModalOpen: false,
         detailItem: {},
-        openCreateModal() { this.createModalOpen = true; },
+        cancelModalOpen: false,
+        cancelId: null,
+        authId: {{ (int) auth()->id() }},
+        cancelUrl: '{{ url('stock-ctl/permintaan/__ID__/batalkan') }}',
+        openCancelModal(id) { this.cancelId = id; this.cancelModalOpen = true; },
+        submitting: false,
+        submitToken: '',
+        newToken() {
+            return (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                 : Date.now().toString(36) + Math.random().toString(36).slice(2);
+        },
+        init() {
+            this.submitToken = this.newToken();
+            // tombol "Back" browser (bfcache) tidak boleh meninggalkan form dalam keadaan terkunci
+            window.addEventListener('pageshow', () => { this.submitting = false; this.submitToken = this.newToken(); });
+        },
+        openCreateModal() { this.submitting = false; this.createModalOpen = true; },
         openDetailModal(item) { this.detailItem = item; this.detailModalOpen = true; }
     }
 }

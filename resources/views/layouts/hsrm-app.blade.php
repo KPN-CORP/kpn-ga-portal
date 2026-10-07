@@ -173,7 +173,7 @@
 
     <div class="flex min-h-screen">
         <!-- Sidebar -->
-        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar overflow-y-auto overflow-x-visible"
+        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar flex flex-col overflow-hidden"
                x-data="sidebarComponent({{ $openGroupInit ? "'{$openGroupInit}'" : 'null' }})">
 
             <!-- Logo -->
@@ -190,7 +190,7 @@
             </div>
 
             <!-- Navigation -->
-            <nav class="p-3 pb-24">
+            <nav class="flex-1 min-h-0 overflow-y-auto p-3">
                 <p class="mt-1 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
                 <ul class="space-y-1">
                     <li>
@@ -351,7 +351,7 @@
             </nav>
 
             <!-- User Profile + Logout -->
-            <div class="absolute bottom-0 left-0 right-0 p-3 soft-border-top border-t bg-white"
+            <div class="relative shrink-0 p-3 soft-border-top border-t bg-white"
                  x-data="{ openProfile: false }" @click.outside="openProfile = false">
 
                 <div x-show="openProfile" x-transition x-cloak

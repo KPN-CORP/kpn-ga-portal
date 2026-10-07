@@ -10,6 +10,7 @@ use App\Models\StockCtl\UserProfil;
 use App\Models\StockCtl\AreaKerja;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Notifications\PermintaanBaruL1;
 
@@ -169,18 +170,59 @@ class PermintaanController extends Controller
             return back()->withErrors('Profil area kerja tidak sesuai dengan unit bisnis Anda. Silakan hubungi admin.');
         }
 
-        $permintaanIds = [];
-        foreach ($request->items as $item) {
-            $permintaan = Permintaan::create([
-                'id_user_pemohon'    => $user->id,
-                'id_barang'          => $item['id_barang'],
-                'jumlah'             => $item['jumlah'],
-                'keterangan'         => $item['keterangan'] ?? null,
-                'status'             => Permintaan::STATUS_PENDING_L1,
-                'id_area_kerja'      => $profil->id_area_kerja,
-            ]);
-            $permintaanIds[] = $permintaan->id_permintaan;
+        // ========== ANTI PENGAJUAN GANDA ==========
+        // 1) Token sekali pakai per pembukaan form: klik ganda / request ganda dengan token sama ditolak.
+        $tokenKey = null;
+        if ($request->filled('submission_token')) {
+            $tokenKey = 'permintaan_submit:' . $user->id . ':' . $request->submission_token;
+            if (!Cache::add($tokenKey, 1, now()->addMinutes(10))) {
+                return redirect()->route('stock-ctl.permintaan.index', ['status' => 'pending_l1'])
+                    ->with('success', 'Permintaan Anda sudah diajukan sebelumnya.');
+            }
         }
+
+        try {
+            $permintaanIds = DB::transaction(function () use ($request, $user, $profil) {
+                $ids = [];
+                foreach ($request->items as $item) {
+                    // 2) Pengaman tambahan: item identik dari user yang sama dalam 60 detik terakhir
+                    //    (masih pending L1) dianggap duplikat dan dilewati.
+                    $duplikat = Permintaan::where('id_user_pemohon', $user->id)
+                        ->where('status', Permintaan::STATUS_PENDING_L1)
+                        ->where('id_barang', $item['id_barang'])
+                        ->where('jumlah', $item['jumlah'])
+                        ->where('keterangan', $item['keterangan'] ?? null)
+                        ->whereRaw('tanggal_permintaan >= (NOW() - INTERVAL 60 SECOND)')
+                        ->lockForUpdate()
+                        ->exists();
+                    if ($duplikat) {
+                        continue;
+                    }
+
+                    $permintaan = Permintaan::create([
+                        'id_user_pemohon' => $user->id,
+                        'id_barang'       => $item['id_barang'],
+                        'jumlah'          => $item['jumlah'],
+                        'keterangan'      => $item['keterangan'] ?? null,
+                        'status'          => Permintaan::STATUS_PENDING_L1,
+                        'id_area_kerja'   => $profil->id_area_kerja,
+                    ]);
+                    $ids[] = $permintaan->id_permintaan;
+                }
+                return $ids;
+            });
+        } catch (\Throwable $e) {
+            if ($tokenKey) {
+                Cache::forget($tokenKey);   // gagal -> user boleh mencoba lagi dengan form yang sama
+            }
+            throw $e;
+        }
+
+        if (empty($permintaanIds)) {
+            return redirect()->route('stock-ctl.permintaan.index', ['status' => 'pending_l1'])
+                ->with('success', 'Permintaan yang sama baru saja diajukan, tidak dibuat ulang.');
+        }
+        // ==========================================
 
         // Kirim notifikasi ke atasan (L1)
         if ($profil->id_approver) {
@@ -205,6 +247,36 @@ class PermintaanController extends Controller
             ->findOrFail($id);
         $this->authorizeView($permintaan);
         return view('stock-ctl.permintaan.show', compact('permintaan'));
+    }
+
+    /**
+     * Pemohon membatalkan permintaannya sendiri selama masih Pending L1.
+     * Update bersifat atomik: hanya berhasil bila status MASIH pending_l1 dan milik user ini,
+     * sehingga aman jika atasan menyetujui/menolak di saat yang sama.
+     */
+    public function batalkan(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        $affected = Permintaan::where('id_permintaan', $id)
+            ->where('id_user_pemohon', $user->id)
+            ->where('status', Permintaan::STATUS_PENDING_L1)
+            ->update([
+                'status'       => Permintaan::STATUS_CANCELLED,
+                'rejected_at'  => now(),               // dipakai sebagai waktu pembatalan
+                'alasan_tolak' => 'Dibatalkan oleh pemohon',
+            ]);
+
+        if ($affected === 0) {
+            $ada = Permintaan::where('id_permintaan', $id)->where('id_user_pemohon', $user->id)->exists();
+            abort_unless($ada, 403, 'Anda hanya dapat membatalkan permintaan milik sendiri.');
+
+            return back()->withErrors(['msg' => 'Permintaan tidak dapat dibatalkan karena sudah diproses atasan.']);
+        }
+
+        return redirect()
+            ->route('stock-ctl.permintaan.index', ['status' => 'pending_l1'])
+            ->with('success', 'Permintaan ATK-SC-' . $id . ' berhasil dibatalkan.');
     }
 
     /**

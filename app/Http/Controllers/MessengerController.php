@@ -241,14 +241,28 @@ class MessengerController extends Controller
             }
         }
 
+        // SEARCH: cari di semua kolom yang tampil (termasuk nama pengirim & kurir)
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('t.no_transaksi', 'like', "%$search%")
-                  ->orWhere('t.nama_barang', 'like', "%$search%")
-                  ->orWhere('t.penerima', 'like', "%$search%")
-                  ->orWhere('t.deskripsi', 'like', "%$search%")
-                  ->orWhere('p.nama_pelanggan', 'like', "%$search%");
+            $search = trim($request->search);
+            $like   = '%' . $search . '%';
+
+            $query->where(function ($q) use ($like) {
+                $q->where('t.no_transaksi', 'like', $like)
+                  ->orWhere('t.nama_barang', 'like', $like)
+                  ->orWhere('t.deskripsi', 'like', $like)
+                  ->orWhere('t.penerima', 'like', $like)
+                  ->orWhere('t.no_hp_penerima', 'like', $like)
+                  ->orWhere('t.alamat_asal', 'like', $like)
+                  ->orWhere('t.alamat_tujuan', 'like', $like)
+                  ->orWhere('t.status', 'like', $like)
+                  ->orWhere('t.note_penerima', 'like', $like)
+                  ->orWhere('p.nama_pelanggan', 'like', $like)      // nama pengirim
+                  ->orWhere('p.no_hp_pelanggan', 'like', $like)     // hp pengirim
+                  ->orWhereIn('t.kurir', function ($sub) use ($like) { // nama kurir
+                      $sub->select('id_pelanggan')
+                          ->from('tb_pelanggan')
+                          ->where('nama_pelanggan', 'like', $like);
+                  });
             });
         }
 

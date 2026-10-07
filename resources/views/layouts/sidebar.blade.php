@@ -105,10 +105,10 @@
 <!-- ===== SIDEBAR ===== -->
 <aside id="sidebar"
        class="sidebar fixed top-0 left-0 h-screen w-64 bg-white soft-shadow-sidebar z-40
-              -translate-x-full lg:translate-x-0 overflow-y-auto overflow-x-visible flex flex-col">
+              -translate-x-full lg:translate-x-0 overflow-hidden flex flex-col">
 
     <!-- Logo -->
-    <div class="p-5 soft-border-bottom border-b flex items-center gap-2">
+    <div class="p-5 shrink-0 soft-border-bottom border-b flex items-center gap-2">
         <div class="flex items-center space-x-3 min-w-0">
             <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
                 <i class="fas fa-building text-blue-600"></i>
@@ -121,7 +121,7 @@
     </div>
 
     <!-- Menu -->
-    <nav class="p-3 pb-24 flex-1">
+    <nav class="flex-1 min-h-0 overflow-y-auto p-3">
         <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Menu</p>
         <ul class="space-y-1">
             <li>
@@ -176,7 +176,7 @@
     </nav>
 
     <!-- User Profile + Logout -->
-    <div class="p-3 soft-border-top border-t bg-white relative"
+    <div class="p-3 shrink-0 soft-border-top border-t bg-white relative"
          x-data="{ openProfile: false }" @click.outside="openProfile = false">
 
         <div x-show="openProfile" x-transition x-cloak

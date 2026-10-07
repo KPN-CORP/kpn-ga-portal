@@ -15,6 +15,7 @@ class Permintaan extends Model
     const STATUS_PENDING_ADMIN = 'pending_admin';
     const STATUS_APPROVED = 'disetujui';
     const STATUS_REJECTED = 'ditolak';
+    const STATUS_CANCELLED = 'dibatalkan';
 
     protected $fillable = [
         // 'nomor_permintaan' dihapus karena tidak digunakan

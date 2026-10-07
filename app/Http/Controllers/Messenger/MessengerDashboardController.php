@@ -14,8 +14,9 @@ use Carbon\Carbon;
  *  File terpisah dari MessengerController agar controller transaksi
  *  (pengiriman/kurir) tidak tercampur dengan logic dashboard & grafik.
  *
- *  - index()      : dashboard (filter Tampilan/Bulan/Tahun/Status,
- *                   grafik laporan bulanan/harian + total per kurir)
+ *  - index()      : dashboard (filter Tampilan/Bulan/Tahun/Status/Kurir,
+ *                   grafik laporan bulanan/harian + total per kurir;
+ *                   pilih 2-6 kurir = mode PERBANDINGAN)
  *  - dataKurir()  : JSON drilldown saat batang kurir diklik
  *  - dataBulan()  : JSON drilldown saat batang bulan/hari diklik
  *
@@ -72,6 +73,28 @@ class MessengerDashboardController extends Controller
             $status = null;
         }
 
+        // Daftar kurir untuk dropdown (kurir = pelanggan yang pernah tercatat di tb_transaksi.kurir)
+        $kurirList = DB::table('tb_transaksi as tk')
+            ->join('tb_pelanggan as pk', 'pk.id_pelanggan', '=', 'tk.kurir')
+            ->where('tk.kurir', '>', 0)
+            ->select('pk.id_pelanggan', 'pk.nama_pelanggan')
+            ->distinct()
+            ->orderBy('pk.nama_pelanggan')
+            ->get();
+
+        // Filter kurir: boleh BANYAK (kurir[]=1&kurir[]=2). Kosong / 'all' = semua kurir.
+        $kurirReq = $request->input('kurir');
+        $reqIds   = array_map('strval', array_filter(is_array($kurirReq) ? $kurirReq : [$kurirReq], 'is_scalar'));
+        $kurirSel = $kurirList
+            ->filter(fn ($k) => in_array((string) $k->id_pelanggan, $reqIds, true))
+            ->pluck('id_pelanggan')
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
+
+        // Mode perbandingan: 2 s/d 6 kurir dipilih
+        $compare = count($kurirSel) >= 2 && count($kurirSel) <= 6;
+
         // ---------- RENTANG PERIODE ----------
         if ($view === 'year') {
             $start = Carbon::create($year, 1, 1)->startOfDay();
@@ -87,6 +110,7 @@ class MessengerDashboardController extends Controller
         $statusCounts = DB::table('tb_transaksi')
             ->select('status', DB::raw('COUNT(*) as total'))
             ->whereBetween('created_at', [$start, $end])
+            ->when($kurirSel, fn ($q) => $q->whereIn('kurir', $kurirSel))
             ->groupBy('status')
             ->pluck('total', 'status');
 
@@ -103,6 +127,7 @@ class MessengerDashboardController extends Controller
             ->where('t.kurir', '>', 0)
             ->whereBetween('t.created_at', [$start, $end])
             ->when($status, fn ($q) => $q->where('t.status', $status))
+            ->when($kurirSel, fn ($q) => $q->whereIn('t.kurir', $kurirSel))
             ->groupBy('t.kurir', 'p.nama_pelanggan')
             ->orderByDesc('total')
             ->get();
@@ -121,6 +146,7 @@ class MessengerDashboardController extends Controller
                 ->select(DB::raw("DATE_FORMAT(created_at, '%Y-%m') as k"), DB::raw('COUNT(*) as total'))
                 ->whereBetween('created_at', [$start, $end])
                 ->when($status, fn ($q) => $q->where('status', $status))
+                ->when($kurirSel, fn ($q) => $q->whereIn('kurir', $kurirSel))
                 ->groupBy('k')
                 ->pluck('total', 'k');
 
@@ -137,6 +163,7 @@ class MessengerDashboardController extends Controller
                 ->select(DB::raw('DATE(created_at) as k'), DB::raw('COUNT(*) as total'))
                 ->whereBetween('created_at', [$start, $end])
                 ->when($status, fn ($q) => $q->where('status', $status))
+                ->when($kurirSel, fn ($q) => $q->whereIn('kurir', $kurirSel))
                 ->groupBy('k')
                 ->pluck('total', 'k');
 
@@ -149,6 +176,62 @@ class MessengerDashboardController extends Controller
             $timelineTitle = 'Laporan Harian';
         }
 
+        // ---------- MODE PERBANDINGAN KURIR ----------
+        $timelineSeries = [];
+        $compareRows    = [];
+
+        if ($compare) {
+            $nameById = $kurirList->pluck('nama_pelanggan', 'id_pelanggan');
+            $keyExpr  = $view === 'year' ? "DATE_FORMAT(created_at, '%Y-%m')" : 'DATE(created_at)';
+
+            // jumlah per (periode, kurir) -> satu seri per kurir
+            $raw = DB::table('tb_transaksi')
+                ->select(DB::raw($keyExpr . ' as k'), 'kurir', DB::raw('COUNT(*) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->whereIn('kurir', $kurirSel)
+                ->when($status, fn ($q) => $q->where('status', $status))
+                ->groupBy('k', 'kurir')
+                ->get();
+
+            $map = [];
+            foreach ($raw as $r) {
+                $map[(int) $r->kurir][$r->k] = (int) $r->total;
+            }
+            foreach ($kurirSel as $id) {
+                $timelineSeries[] = [
+                    'id'   => $id,
+                    'name' => $nameById[$id] ?? ('Kurir #' . $id),
+                    'data' => array_map(fn ($key) => $map[$id][$key] ?? 0, $timelineKeys),
+                ];
+            }
+
+            // tabel perbandingan: total & rincian per status
+            $cmp = DB::table('tb_transaksi')
+                ->select('kurir', 'status', DB::raw('COUNT(*) as total'))
+                ->whereBetween('created_at', [$start, $end])
+                ->whereIn('kurir', $kurirSel)
+                ->when($status, fn ($q) => $q->where('status', $status))
+                ->groupBy('kurir', 'status')
+                ->get();
+
+            $byKurir = [];
+            foreach ($cmp as $r) {
+                $byKurir[(int) $r->kurir][$r->status] = (int) $r->total;
+            }
+            foreach ($kurirSel as $id) {
+                $st = [];
+                foreach (self::STATUS_LIST as $s) {
+                    $st[$s] = $byKurir[$id][$s] ?? 0;
+                }
+                $compareRows[] = [
+                    'id'       => $id,
+                    'name'     => $nameById[$id] ?? ('Kurir #' . $id),
+                    'total'    => array_sum($st),
+                    'statuses' => $st,
+                ];
+            }
+        }
+
         return view('messenger.dashboard', [
             'view'             => $view,
             'month'            => $month,
@@ -157,6 +240,11 @@ class MessengerDashboardController extends Controller
             'years'            => $years,
             'status'           => $status,
             'statusList'       => self::STATUS_LIST,
+            'kurirList'        => $kurirList,
+            'kurirFilter'      => $kurirSel,
+            'compare'          => $compare,
+            'timelineSeries'   => $timelineSeries,
+            'compareRows'      => $compareRows,
             'periodLabel'      => $periodLabel,
             'periodFrom'       => $start->toDateString(),
             'periodTo'         => $end->toDateString(),
@@ -199,7 +287,7 @@ class MessengerDashboardController extends Controller
 
     /* =====================================================
      |  DRILLDOWN: BATANG BULAN (Y-m) ATAU HARI (Y-m-d) DIKLIK
-     |  query opsional: status
+     |  query opsional: status, kurir
      ===================================================== */
     public function dataBulan(Request $request, $month)
     {
@@ -217,6 +305,7 @@ class MessengerDashboardController extends Controller
 
         $query = $this->baseDrilldownQuery()->whereBetween('t.created_at', [$start, $end]);
         $this->applyStatus($query, $request->input('status'));
+        $this->applyKurir($query, $request->input('kurir'));
 
         $rows = $this->fetchRows($query, 300);
 
@@ -259,6 +348,19 @@ class MessengerDashboardController extends Controller
     {
         if ($status && in_array($status, self::STATUS_LIST, true)) {
             $query->where('t.status', $status);
+        }
+    }
+
+    private function applyKurir($query, $kurir): void
+    {
+        $ids = collect(is_array($kurir) ? $kurir : [$kurir])
+            ->filter(fn ($v) => is_scalar($v) && ctype_digit((string) $v) && (int) $v > 0)
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
+
+        if ($ids) {
+            $query->whereIn('t.kurir', $ids);
         }
     }
 

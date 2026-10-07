@@ -243,6 +243,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth', 'stock.ctl:user'])->prefix('stock-ctl')->name('stock-ctl.')->group(function () {
         Route::get('/dashboard', [StockDashboardController::class, 'index'])->name('dashboard');
         Route::resource('permintaan', PermintaanController::class)->only(['index', 'create', 'store', 'show']);
+        Route::post('/permintaan/{id}/batalkan', [\App\Http\Controllers\StockCtl\PermintaanController::class, 'batalkan'])->name('permintaan.batalkan');
         Route::get('permintaan/{id}/history', [PermintaanController::class, 'history'])->name('permintaan.history');
         Route::get('approval/l1', [ApprovalL1Controller::class, 'index'])->name('approval.l1.index');
         Route::post('approval/l1/{id}/approve', [ApprovalL1Controller::class, 'approve'])->name('approval.l1.approve');
