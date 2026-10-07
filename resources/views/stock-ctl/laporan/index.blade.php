@@ -142,7 +142,7 @@
                     <label class="block text-xs font-medium text-gray-600 mb-1">Status Stok</label>
                     <select x-model="statusStok" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua status</option>
-                        <option value="aman">Aman</option>
+                        <option value="masih">Masih</option>
                         <option value="menipis">Menipis (di bawah / sama dengan minimum)</option>
                         <option value="habis">Habis (stok 0)</option>
                     </select>
@@ -255,7 +255,8 @@
                             <template x-for="(cell, ci) in row" :key="ci">
                                 <td class="px-3 py-2 whitespace-nowrap" :class="alignClass(preview.columns[ci].type)">
                                     <template x-if="preview.columns[ci].type === 'badge' && cell">
-                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium" :class="badgeClass(cell)" x-text="cell"></span>
+                                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                                              :style="badgeStyle(cell)" x-text="cell"></span>
                                     </template>
                                     <template x-if="!(preview.columns[ci].type === 'badge' && cell)">
                                         <span x-text="cell"></span>
@@ -542,17 +543,22 @@ function laporanPage(cfg) {
                  : ['datetime', 'badge'].includes(type) ? 'text-center' : 'text-left';
         },
 
-        badgeClass(text) {
+        // Warna badge pakai inline style (hex sama persis dengan Excel),
+        // jadi tidak bergantung pada Tailwind. [background, teks]
+        badgeStyle(text) {
+            const hijau  = ['#C6EFCE', '#006100'];
+            const merah  = ['#FFC7CE', '#9C0006'];
+            const kuning = ['#FFEB9C', '#9C5700'];
             const map = {
-                'Aman': 'bg-green-100 text-green-800', 'Disetujui': 'bg-green-100 text-green-800',
-                'Aktif': 'bg-green-100 text-green-800', 'Masuk': 'bg-green-100 text-green-800',
-                'Habis': 'bg-red-100 text-red-800', 'Ditolak': 'bg-red-100 text-red-800',
-                'Dibatalkan': 'bg-red-100 text-red-800', 'Keluar': 'bg-red-100 text-red-800',
-                'Menipis': 'bg-amber-100 text-amber-800', 'Menunggu L1': 'bg-amber-100 text-amber-800',
-                'Menunggu Admin': 'bg-amber-100 text-amber-800', 'Koreksi': 'bg-amber-100 text-amber-800',
-                'Transfer': 'bg-blue-100 text-blue-800', 'Opname': 'bg-purple-100 text-purple-800',
+                'Masih': hijau, 'Disetujui': hijau, 'Aktif': hijau, 'Masuk': hijau,
+                'Habis': merah, 'Ditolak': merah, 'Dibatalkan': merah, 'Keluar': merah,
+                'Menipis': kuning, 'Menunggu L1': kuning, 'Menunggu Admin': kuning, 'Koreksi': kuning,
+                'Transfer': ['#DDEBF7', '#1F4E78'],
+                'Opname':   ['#E4DFEC', '#5B3F86'],
             };
-            return map[text] || 'bg-gray-100 text-gray-700';
+            const key = String(text).replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').replace(/\s+/g, ' ').trim();
+            const c = map[key] || ['#F3F4F6', '#374151'];
+            return `background-color:${c[0]};color:${c[1]}`;
         },
     };
 }

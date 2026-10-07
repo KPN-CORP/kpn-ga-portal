@@ -46,7 +46,7 @@ class LaporanController extends Controller
 
     /** Warna badge (dipakai di Excel; preview punya mapping sendiri di blade). [fill, font] */
     private const BADGE_COLORS = [
-        'Aman'            => ['C6EFCE', '006100'],
+        'Masih'            => ['C6EFCE', '006100'],
         'Disetujui'       => ['C6EFCE', '006100'],
         'Aktif'           => ['C6EFCE', '006100'],
         'Masuk'           => ['C6EFCE', '006100'],
@@ -203,7 +203,7 @@ class LaporanController extends Controller
             'jenis_mutasi'      => 'nullable|in:masuk,keluar,transfer,opname',
             'status_transaksi'  => 'nullable|in:aktif,dibatalkan,koreksi',
             'status_permintaan' => 'nullable|in:pending_l1,pending_admin,disetujui,ditolak',
-            'status_stok'       => 'nullable|in:aman,menipis,habis',
+            'status_stok'       => 'nullable|in:masih,menipis,habis',
             'tanggal_awal'      => 'nullable|date',
             'tanggal_akhir'     => 'nullable|date|after_or_equal:tanggal_awal',
         ], [
@@ -358,7 +358,7 @@ class LaporanController extends Controller
             return match ($f['status_stok']) {
                 'habis'   => $s->jumlah <= 0,
                 'menipis' => $s->jumlah > 0 && $s->jumlah <= $s->stok_minimum,
-                'aman'    => $s->jumlah > $s->stok_minimum,
+                'masih'    => $s->jumlah > $s->stok_minimum,
                 default   => true,
             };
         })->sortBy([
@@ -385,7 +385,7 @@ class LaporanController extends Controller
                 $status = 'Menipis';
                 $menipis++;
             } else {
-                $status = 'Aman';
+                $status = 'Masih';
             }
 
             $rows[] = [

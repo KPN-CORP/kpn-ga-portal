@@ -69,9 +69,9 @@
                     <td class="px-4 py-3">{{ number_format($item->stok_minimum) }}</td>
                     <td class="px-4 py-3">
                         @if($item->jumlah <= $item->stok_minimum)
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Habis / Menipis</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Habis</span>
                         @else
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Aman</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Masih</span>
                         @endif
                     </td>
                     <td class="px-4 py-3">{{ $item->last_update ? \Carbon\Carbon::parse($item->last_update)->format('d M Y H:i') : '-' }}</td>
