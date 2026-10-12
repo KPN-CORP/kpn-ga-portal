@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmCertificateType;
 use Illuminate\Http\Request;
 
@@ -13,15 +14,15 @@ class HsrmCertificateTypeController extends Controller
         // PIC boleh melihat daftar (index), tapi hanya admin yang boleh
         // menambah, mengubah, atau menghapus certificate type.
         $this->middleware(function ($request, $next) {
-            if (!in_array(session('hsrm_role'), ['admin', 'pic'])) {
+            if (!in_array(session('hsrm_role'), HsrmRole::ALL, true)) {
                 abort(403, 'Unauthorized.');
             }
             return $next($request);
         });
 
         $this->middleware(function ($request, $next) {
-            if ($request->route()->getName() !== 'hsrm.certificate-types.index' && session('hsrm_role') !== 'admin') {
-                abort(403, 'Only admin can manage certificate types. PIC has view-only access.');
+            if ($request->route()->getName() !== 'hsrm.certificate-types.index' && !HsrmRole::isAdmin()) {
+                abort(403, 'Only admin can manage certificate types. PIC and management have view-only access.');
             }
             return $next($request);
         });

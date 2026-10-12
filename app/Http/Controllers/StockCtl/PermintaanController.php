@@ -276,7 +276,7 @@ class PermintaanController extends Controller
 
         return redirect()
             ->route('stock-ctl.permintaan.index', ['status' => 'pending_l1'])
-            ->with('success', 'Permintaan ATK-SC-' . $id . ' berhasil dibatalkan.');
+            ->with('success', 'Permintaan ' . (optional(Permintaan::find($id))->no_tampil ?: 'ATK-SC-' . $id) . ' berhasil dibatalkan.');
     }
 
     /**

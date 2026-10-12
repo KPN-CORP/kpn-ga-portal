@@ -15,6 +15,7 @@ class HsrmUserRole extends Model
         'area_id',
         'role',
         'can_approve',
+        'email_notif',
         'created_at',
     ];
 
@@ -25,6 +26,7 @@ class HsrmUserRole extends Model
         return $this->belongsTo(User::class);
     }
 
+    // area_id boleh NULL untuk role global (management / superadmin)
     public function area()
     {
         return $this->belongsTo(AreaKerja::class, 'area_id', 'id_area_kerja');

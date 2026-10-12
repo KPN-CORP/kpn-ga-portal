@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmLog;
 
 class HsrmLogController extends Controller
@@ -10,7 +11,7 @@ class HsrmLogController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
 
         $query = HsrmLog::with('user')->orderBy('created_at', 'desc');
 

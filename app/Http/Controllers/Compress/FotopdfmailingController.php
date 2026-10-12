@@ -61,8 +61,18 @@ class FotopdfmailingController extends Controller
     protected function registeredFile(string $relPath): ?GaFile
     {
         $key = $this->diskKey($relPath);
+        if (! $key) {
+            return null;
+        }
 
-        return $key ? GaFile::lookup($key[0], $key[1]) : null;
+        $f = GaFile::lookup($key[0], $key[1]);
+
+        // File private dari backfill lama tercatat dengan disk 'local'
+        if (! $f && $key[0] === 'private') {
+            $f = GaFile::lookup('local', $key[1]);
+        }
+
+        return $f;
     }
 
     /**
@@ -243,7 +253,8 @@ class FotopdfmailingController extends Controller
                 continue;
             }
 
-            if (! $this->registeredFile($relPath)) {
+            $gaFileProses = $this->registeredFile($relPath);
+            if (! $gaFileProses) {
                 $results[] = ['name' => $labelName, 'status' => 'failed', 'message' => 'File belum terdaftar di sistem penyimpanan GA Portal (jalankan gafiles:backfill-mailing)'];
 
                 continue;
@@ -281,10 +292,9 @@ class FotopdfmailingController extends Controller
                 }
 
                 // Isi file berubah -> versi baru; agent Local akan menyalin ulang
-                $key = $this->diskKey($relPath);
-                if ($key) {
-                    $this->files()->register($key[0], $key[1]);
-                }
+                // Pakai disk & path persis seperti yang tercatat di ga_files (mis. 'local'),
+                // supaya tidak membuat baris duplikat berdisk 'private'.
+                $this->files()->register($gaFileProses->disk, $gaFileProses->path);
 
                 $results[] = [
                     'name' => $labelName,

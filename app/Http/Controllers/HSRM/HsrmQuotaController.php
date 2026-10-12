@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\AreaKerja;
 use App\Models\HSRM\HsrmCertificateQuota;
 use App\Models\HSRM\HsrmEquipmentQuota;
@@ -18,28 +19,38 @@ class HsrmQuotaController extends Controller
 {
     public function __construct()
     {
-        // Admin & PIC boleh membuka halaman kuota. PIC hanya melihat
-        // kuota area miliknya sendiri dalam mode read-only (lihat index()).
+        // Superadmin, Admin, Management & PIC boleh membuka halaman kuota.
+        // PIC hanya melihat kuota area miliknya sendiri (read-only), Management
+        // melihat semua area (read-only), Admin/Superadmin bisa mengubah.
         $this->middleware(function ($request, $next) {
-            if (!in_array(session('hsrm_role'), ['admin', 'pic'])) {
+            if (!in_array(session('hsrm_role'), HsrmRole::ALL, true)) {
                 abort(403, 'Unauthorized.');
             }
             return $next($request);
         });
 
-        // Update & export tetap khusus admin.
+        // Update khusus admin / superadmin.
         $this->middleware(function ($request, $next) {
-            if (session('hsrm_role') !== 'admin') {
+            if (!HsrmRole::isAdmin()) {
                 abort(403, 'Only admin can manage quotas.');
             }
             return $next($request);
-        })->only(['update', 'export']);
+        })->only(['update']);
+
+        // Export boleh untuk semua yang bisa melihat seluruh data (admin, superadmin, management).
+        $this->middleware(function ($request, $next) {
+            if (!HsrmRole::canViewAll()) {
+                abort(403, 'Only admin or management can export quotas.');
+            }
+            return $next($request);
+        })->only(['export']);
     }
 
     public function index(Request $request)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
+        $canEdit = HsrmRole::isAdmin();
 
         if ($isAdmin) {
             $areas = AreaKerja::orderBy('nama_area')->get();
@@ -126,7 +137,7 @@ class HsrmQuotaController extends Controller
             }
         }
 
-        return view('hsrm.quotas.index', compact('areas', 'selectedArea', 'certificateData', 'equipmentData', 'isAdmin'));
+        return view('hsrm.quotas.index', compact('areas', 'selectedArea', 'certificateData', 'equipmentData', 'isAdmin', 'canEdit'));
     }
 
     public function update(Request $request)

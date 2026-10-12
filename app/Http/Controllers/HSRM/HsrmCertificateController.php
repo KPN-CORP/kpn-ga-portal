@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmCertificate;
 use App\Models\HSRM\HsrmCertificateQuota;
 use App\Models\HSRM\HsrmCertificateType;
@@ -22,7 +23,7 @@ class HsrmCertificateController extends Controller
     public function index(Request $request, $filter = null)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
         $query = HsrmCertificate::with(['businessUnit', 'area', 'pic', 'creator', 'approver', 'certificateType']);
 
         if (!$isAdmin) {
@@ -119,7 +120,8 @@ class HsrmCertificateController extends Controller
     public function create()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
         $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : $user->hsrmAreas;
         $businessUnits = BisnisUnit::all();
         $pics = User::whereHas('hsrmAreas')->get();
@@ -155,7 +157,8 @@ class HsrmCertificateController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
 
         // Validasi dasar
         // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin PIC diisi
@@ -234,7 +237,7 @@ class HsrmCertificateController extends Controller
         $cert = HsrmCertificate::findOrFail($id);
         $this->authorizeEdit($cert);
 
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::isAdmin();
         $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : auth()->user()->hsrmAreas;
         $businessUnits = BisnisUnit::all();
         $pics = User::whereHas('hsrmAreas')->get();
@@ -266,7 +269,7 @@ class HsrmCertificateController extends Controller
         $this->authorizeEdit($cert);
 
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::isAdmin();
 
         // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin, PIC pindah
         // otomatis ke user yang melakukan update ini (lihat $data['pic_user_id'] di bawah).
@@ -453,7 +456,7 @@ class HsrmCertificateController extends Controller
     public function export()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
         $areaIds = $isAdmin ? [] : $user->hsrmAreas->pluck('id_area_kerja')->toArray();
 
         $filters = [
@@ -474,7 +477,7 @@ class HsrmCertificateController extends Controller
     private function authorizeView($cert)
     {
         $user = auth()->user();
-        if (session('hsrm_role') === 'admin') {
+        if (HsrmRole::canViewAll()) {
             return;
         }
         $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
@@ -486,7 +489,8 @@ class HsrmCertificateController extends Controller
     private function authorizeEdit($cert)
     {
         $user = auth()->user();
-        if (session('hsrm_role') === 'admin') {
+        HsrmRole::abortUnlessCanWrite('You are not authorized to edit this certificate.');
+        if (HsrmRole::isAdmin()) {
             return;
         }
         if (!$user->canEditInArea($cert->area_id)) {
@@ -496,13 +500,17 @@ class HsrmCertificateController extends Controller
 
     private function authorizeDelete($cert)
     {
-        if (session('hsrm_role') !== 'admin') {
+        if (!HsrmRole::isAdmin()) {
             abort(403, 'Only admin can delete a certificate.');
         }
     }
 
     private function authorizeApprove($cert)
     {
+        HsrmRole::abortUnlessCanWrite('You are not authorized to approve this certificate.');
+        if (HsrmRole::isAdmin()) {
+            return;
+        }
         $user = auth()->user();
         if (!$user->canApproveInArea($cert->area_id)) {
             abort(403, 'You are not authorized to approve this certificate.');

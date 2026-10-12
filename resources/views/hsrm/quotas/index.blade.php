@@ -311,7 +311,7 @@
                         @if($isAdmin)
                         <th class="p-3 text-center">Status</th>
                         <th class="p-3 text-center">Budget (Rp)</th>
-                        <th class="p-3 text-center">Action</th>
+                        @if($canEdit)<th class="p-3 text-center">Action</th>@endif
                         <th class="p-3 text-center">Edit</th>
                         @endif
                     </tr>
@@ -385,7 +385,8 @@
                                 <option value="Certification & License Application" {{ $row->application_type == 'Certification & License Application' ? 'selected' : '' }}>Certification & License Application</option>
                             </select>
                         </td>
-                        <td class="p-3 text-center action-cell">
+                        @if($canEdit)
+<td class="p-3 text-center action-cell">
                             <button type="button" class="action-btn btn-edit">Edit</button>
                             <button type="button" class="action-btn btn-save hidden">Save</button>
                             <button type="button" class="action-btn btn-cancel hidden">Cancel</button>
@@ -400,6 +401,7 @@
                                 <input type="hidden" name="application_type" value="{{ $row->application_type ?? '' }}">
                             </form>
                         </td>
+@endif
                         @endif
                     </tr>
                     @endforeach
@@ -426,7 +428,7 @@
                         @if($isAdmin)
                         <th class="p-3 text-center">Status</th>
                         <th class="p-3 text-center">Budget (Rp)</th>
-                        <th class="p-3 text-center">Action</th>
+                        @if($canEdit)<th class="p-3 text-center">Action</th>@endif
                         <th class="p-3 text-center">Edit</th>
                         @endif
                     </tr>
@@ -490,7 +492,8 @@
                                 <option value="Fire extinguisher recharge" {{ $row->application_type == 'Fire extinguisher recharge' ? 'selected' : '' }}>Fire extinguisher recharge</option>
                             </select>
                         </td>
-                        <td class="p-3 text-center action-cell">
+                        @if($canEdit)
+<td class="p-3 text-center action-cell">
                             <button type="button" class="action-btn btn-edit">Edit</button>
                             <button type="button" class="action-btn btn-save hidden">Save</button>
                             <button type="button" class="action-btn btn-cancel hidden">Cancel</button>
@@ -504,6 +507,7 @@
                                 <input type="hidden" name="application_type" value="{{ $row->application_type ?? '' }}">
                             </form>
                         </td>
+@endif
                         @endif
                     </tr>
                     @endforeach
@@ -669,7 +673,7 @@
             });
         }
 
-        @if($isAdmin)
+        @if($canEdit)
         document.querySelectorAll('#certificate-table tbody tr, #equipment-table tbody tr').forEach(function(row) {
             setupRow(row);
         });

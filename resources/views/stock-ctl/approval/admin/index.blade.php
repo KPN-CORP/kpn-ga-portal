@@ -28,7 +28,7 @@
             <tbody class="divide-y">
                 @forelse($permintaan as $item)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-mono text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
+                    <td class="px-4 py-3 font-mono text-sm">{{ $item->no_tampil }}</td>
                     <td class="px-4 py-3">
                         <div class="flex flex-col">
                             <span class="font-medium text-gray-800">{{ $item->pemohon->name ?? '-' }}</span>

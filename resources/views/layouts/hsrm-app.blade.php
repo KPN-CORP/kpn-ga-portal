@@ -153,7 +153,10 @@
     </button>
 
     @php
-        $isAdmin = session('hsrm_role') === 'admin';
+        // $isAdmin     = admin ATAU superadmin (boleh aksi tulis & approve)
+        // $canViewAll  = admin, superadmin, ATAU management (lihat semua area)
+        $isAdmin = \App\Helpers\HsrmRole::isAdmin();
+        $canViewAll = \App\Helpers\HsrmRole::canViewAll();
 
         // Status dropdown "Management" (admin) / "My Quota" (PIC) dihitung di server
         // supaya tidak ada flicker (menu sempat kelihatan terbuka/tertutup) saat refresh.
@@ -167,7 +170,7 @@
         // Nama group yang harus otomatis terbuka saat load, tergantung role
         $openGroupInit = null;
         if ($quotaGroupActive) {
-            $openGroupInit = $isAdmin ? 'management' : 'quota';
+            $openGroupInit = $canViewAll ? 'management' : 'quota';
         }
     @endphp
 
@@ -227,13 +230,13 @@
                     {{-- ============================================================ --}}
                     @php
                         $user = auth()->user();
-                        $canApprove = $isAdmin || $user->hsrmUserRoles()->where('can_approve', true)->exists();
+                        $canApprove = $canViewAll || $user->hsrmUserRoles()->where('can_approve', true)->exists();
 
                         // Hitung pending hanya untuk area yang bisa di-approve (jika bukan admin)
                         $pendingCertQuery = \App\Models\HSRM\HsrmCertificate::where('status_verif', 'pending');
                         $pendingEqQuery   = \App\Models\HSRM\HsrmEquipment::where('status_verif', 'pending');
 
-                        if (!$isAdmin && $canApprove) {
+                        if (!$canViewAll && $canApprove) {
                             $areaIds = $user->hsrmUserRoles()->where('can_approve', true)->pluck('area_id')->toArray();
                             $pendingCertQuery->whereIn('area_id', $areaIds);
                             $pendingEqQuery->whereIn('area_id', $areaIds);
@@ -299,9 +302,9 @@
                 </ul>
 
                 {{-- ============================================================ --}}
-                {{-- MENU MANAGEMENT – hanya untuk admin (system settings) --}}
+                {{-- MENU MANAGEMENT – admin, superadmin, management (management view-only) --}}
                 {{-- ============================================================ --}}
-                @if($isAdmin)
+                @if($canViewAll)
                 <p class="mt-5 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Admin</p>
                 <ul class="space-y-1">
                     <li class="nav-group" :class="{ open: openGroup === 'management' }">
@@ -346,6 +349,17 @@
                             </ul>
                         </div>
                     </li>
+
+                    {{-- Role Access – khusus superadmin --}}
+                    @if(\App\Helpers\HsrmRole::isSuperadmin())
+                    <li>
+                        <a href="{{ route('hsrm.superadmin.access.index') }}" title="Role Access"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('hsrm.superadmin.*') ? 'active' : '' }}">
+                            <i class="fas fa-user-shield w-5 mr-3 text-gray-400"></i>
+                            <span>Role Access</span>
+                        </a>
+                    </li>
+                    @endif
                 </ul>
                 @endif
             </nav>
@@ -377,8 +391,12 @@
                     <div class="min-w-0 text-left flex-1">
                         <h3 class="font-medium text-gray-800 truncate">{{ auth()->user()->name ?? 'User' }}</h3>
                         <p class="text-xs text-gray-500 truncate">
-                            @if(session('hsrm_role') === 'admin')
+                            @if(session('hsrm_role') === 'superadmin')
+                                Superadmin HSRM
+                            @elseif(session('hsrm_role') === 'admin')
                                 Admin HSRM
+                            @elseif(session('hsrm_role') === 'management')
+                                Management
                             @elseif(session('hsrm_role') === 'pic')
                                 PIC
                             @else

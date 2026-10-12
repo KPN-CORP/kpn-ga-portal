@@ -56,6 +56,7 @@
                                        title="View Detail">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    @if(\App\Helpers\HsrmRole::canWrite())
                                     <form action="{{ route('hsrm.certificates.approve', $cert) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
@@ -64,6 +65,7 @@
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -108,6 +110,7 @@
                            class="text-gray-600 hover:text-gray-800 text-sm">
                             <i class="fas fa-eye mr-1"></i> View
                         </a>
+                        @if(\App\Helpers\HsrmRole::canWrite())
                         <form action="{{ route('hsrm.certificates.approve', $cert) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
@@ -116,6 +119,7 @@
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
+                        @endif
                     </div>
                 </div>
                 @empty
@@ -174,6 +178,7 @@
                                        title="View Detail">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    @if(\App\Helpers\HsrmRole::canWrite())
                                     <form action="{{ route('hsrm.equipments.approve', $eq) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
@@ -182,6 +187,7 @@
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -225,6 +231,7 @@
                            class="text-gray-600 hover:text-gray-800 text-sm">
                             <i class="fas fa-eye mr-1"></i> View
                         </a>
+                        @if(\App\Helpers\HsrmRole::canWrite())
                         <form action="{{ route('hsrm.equipments.approve', $eq) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Verif</button>
@@ -233,6 +240,7 @@
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
+                        @endif
                     </div>
                 </div>
                 @empty

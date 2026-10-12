@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Helpers\HsrmRole;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,17 +20,16 @@ class HsrmAccessMiddleware
             return response()->view('no-access', [], 403);
         }
 
-        // Tentukan role dari hsrm_user_roles
-        $role = $user->getHsrmRoleAttribute();
+        // Tentukan role tertinggi dari hsrm_user_roles:
+        // superadmin > admin > management > pic
+        $role = HsrmRole::resolveForUser($user);
 
-        if ($role === 'admin') {
-            session(['hsrm_role' => 'admin']);
-        } elseif ($role === 'pic') {
-            session(['hsrm_role' => 'pic']);
-        } else {
+        if ($role === null) {
             // User tidak punya role di hsrm_user_roles → tolak akses
             return response()->view('no-access', [], 403);
         }
+
+        session(['hsrm_role' => $role]);
 
         return $next($request);
     }

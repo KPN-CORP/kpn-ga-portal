@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmCertificate;
 use App\Models\HSRM\HsrmEquipment;
 
@@ -11,7 +12,7 @@ class HsrmApprovalController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
 
         // Certificates pending - hanya yang bisa dia approve
         $certQuery = HsrmCertificate::where('status_verif', 'pending');

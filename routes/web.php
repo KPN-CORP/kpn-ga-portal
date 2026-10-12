@@ -81,6 +81,7 @@ use App\Http\Controllers\Antaran\AntaranKurirController;
 use App\Http\Controllers\Antaran\AntaranTrackingController;
 use App\Http\Controllers\Compress\FotopdfmailingController;
 use App\Http\Controllers\GaFileStatusController;
+use App\Http\Controllers\HSRM\HsrmAccessController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -801,6 +802,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('admin/quotas', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'index'])->name('admin.quotas.index');
         Route::post('admin/quotas/update', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'update'])->name('admin.quotas.update');
         Route::get('admin/quotas/export', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'export'])->name('admin.quotas.export');
+
+        // === Superadmin: Role Access (BARU) ===
+        // Nama route akhir: hsrm.superadmin.access.index / .store / .destroy
+        Route::prefix('superadmin')->name('superadmin.')->group(function () {
+            Route::get('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'index'])->name('access.index');
+            Route::post('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'store'])->name('access.store');
+            Route::put('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'update'])->name('access.update');
+            Route::delete('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'destroy'])->name('access.destroy');
+        });
     });
 
     Route::get('/no-access', function () {

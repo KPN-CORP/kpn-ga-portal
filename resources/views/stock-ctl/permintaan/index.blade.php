@@ -143,7 +143,7 @@
             <tbody class="divide-y">
                 @forelse($permintaan as $item)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-2 sm:px-4 py-3 font-mono text-xs sm:text-sm">ATK-SC-{{ $item->id_permintaan }}</td>
+                    <td class="px-2 sm:px-4 py-3 font-mono text-xs sm:text-sm">{{ $item->no_tampil }}</td>
                     <td class="px-2 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap">
                         {{ \Carbon\Carbon::parse($item->tanggal_permintaan)->timezone('Asia/Jakarta')->format('d M Y H:i') }}
                     </td>
@@ -186,7 +186,7 @@
                             Detail
                         </button>
                         @if($item->status === 'pending_l1' && $item->id_user_pemohon === auth()->id())
-                            <button type="button" @click="openCancelModal({{ $item->id_permintaan }})"
+                            <button type="button" @click="openCancelModal({{ $item->id_permintaan }}, '{{ $item->no_tampil }}')"
                                     class="ml-3 text-red-600 font-semibold hover:underline text-xs sm:text-sm">
                                 Batalkan
                             </button>
@@ -323,7 +323,7 @@
         <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 class="text-base sm:text-lg font-semibold mb-4">Request Details</h3>
             <table class="w-full text-xs sm:text-sm">
-                <tr><td class="py-2 text-gray-600 w-1/3">No. Permintaan</td><td class="py-2 font-medium">ATK-SC-<span x-text="detailItem.id_permintaan"></span></td></tr>
+                <tr><td class="py-2 text-gray-600 w-1/3">No. Permintaan</td><td class="py-2 font-medium"><span x-text="detailItem.no_tampil"></span></td></tr>
                 <tr><td class="py-2 text-gray-600">Tanggal</td><td class="py-2 font-medium" x-text="detailItem.tanggal_permintaan ? new Date(detailItem.tanggal_permintaan).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-'"></td></tr>
                 <tr><td class="py-2 text-gray-600">Pemohon</td><td class="py-2 font-medium" x-text="detailItem.pemohon?.name ?? '-'"></td></tr>
                 <template x-if="detailItem.pemohon?.profil?.unit">
@@ -362,7 +362,7 @@
             <div class="mt-6 flex justify-end gap-2">
                 <button type="button"
                         x-show="detailItem.status == 'pending_l1' && detailItem.id_user_pemohon == authId"
-                        @click="detailModalOpen = false; openCancelModal(detailItem.id_permintaan)"
+                        @click="detailModalOpen = false; openCancelModal(detailItem.id_permintaan, detailItem.no_tampil)"
                         class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100">Batalkan Permintaan</button>
                 <button type="button" @click="detailModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Tutup</button>
             </div>
@@ -374,7 +374,7 @@
         <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm">
             <h3 class="text-base sm:text-lg font-semibold mb-2">Batalkan permintaan?</h3>
             <p class="text-sm text-gray-600">
-                Permintaan <span class="font-mono font-semibold">ATK-SC-<span x-text="cancelId"></span></span>
+                Permintaan <span class="font-mono font-semibold"><span x-text="cancelNo"></span></span>
                 akan dibatalkan dan tidak lagi muncul di daftar approval atasan. Tindakan ini tidak dapat diurungkan.
             </p>
             <form method="POST" :action="cancelUrl.replace('__ID__', cancelId)" class="mt-5 flex justify-end gap-2">
@@ -394,9 +394,10 @@ function permintaanModal() {
         detailItem: {},
         cancelModalOpen: false,
         cancelId: null,
+        cancelNo: '',
         authId: {{ (int) auth()->id() }},
         cancelUrl: '{{ url('stock-ctl/permintaan/__ID__/batalkan') }}',
-        openCancelModal(id) { this.cancelId = id; this.cancelModalOpen = true; },
+        openCancelModal(id, no) { this.cancelId = id; this.cancelNo = no || ''; this.cancelModalOpen = true; },
         submitting: false,
         submitToken: '',
         newToken() {

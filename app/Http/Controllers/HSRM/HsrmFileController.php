@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmCertificate;
 use App\Models\HSRM\HsrmEquipment;
 use Illuminate\Support\Facades\Storage;
@@ -82,7 +83,7 @@ class HsrmFileController extends Controller
     private function authorizeView($item)
     {
         $user = Auth::user();
-        if (session('hsrm_role') === 'admin') {
+        if (HsrmRole::canViewAll()) {
             return;
         }
         $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();

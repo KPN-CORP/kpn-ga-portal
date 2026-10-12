@@ -6,7 +6,7 @@
 @section('content')
 <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
     <div class="flex gap-2">
-        @if(auth()->user()->hsrmAreas->isNotEmpty() || session('hsrm_role') === 'admin')
+        @if(\App\Helpers\HsrmRole::canWrite() && (auth()->user()->hsrmAreas->isNotEmpty() || \App\Helpers\HsrmRole::isAdmin()))
         <a href="{{ route('hsrm.certificates.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
             <i class="fas fa-plus mr-1"></i> Add Certificate
         </a>
@@ -132,12 +132,12 @@
                     <a href="{{ route('hsrm.certificates.show', $cert) }}" class="text-gray-600 hover:text-gray-800" title="Detail">
                         <i class="fas fa-eye"></i>
                     </a>
-                    @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
+                    @if(\App\Helpers\HsrmRole::canWrite() && (auth()->user()->canEditInArea($cert->area_id) || \App\Helpers\HsrmRole::isAdmin()))
                     <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-edit"></i>
                     </a>
                     @endif
-                    @if(session('hsrm_role') === 'admin')
+                    @if(\App\Helpers\HsrmRole::isAdmin())
                     <form action="{{ route('hsrm.certificates.destroy', $cert) }}" method="POST" class="inline" onsubmit="return confirm('Delete this certificate? This action cannot be undone.');">
                         @csrf
                         @method('DELETE')
@@ -218,12 +218,12 @@
             <a href="{{ route('hsrm.certificates.show', $cert) }}" class="text-gray-600 hover:text-gray-800 text-sm" title="Detail">
                 <i class="fas fa-eye mr-1"></i> Detail
             </a>
-            @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
+            @if(\App\Helpers\HsrmRole::canWrite() && (auth()->user()->canEditInArea($cert->area_id) || \App\Helpers\HsrmRole::isAdmin()))
             <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Edit">
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>
             @endif
-            @if(session('hsrm_role') === 'admin')
+            @if(\App\Helpers\HsrmRole::isAdmin())
             <form action="{{ route('hsrm.certificates.destroy', $cert) }}" method="POST" onsubmit="return confirm('Delete this certificate? This action cannot be undone.');">
                 @csrf
                 @method('DELETE')

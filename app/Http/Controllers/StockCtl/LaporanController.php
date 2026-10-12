@@ -98,8 +98,20 @@ class LaporanController extends Controller
 
         $lockedBu = $isSuper ? null : (int) $access['id_bisnis_unit'];
 
+        // Daftar "Unit" (divisi pemohon) untuk filter Laporan Permintaan.
+        // Nama diambil sebelum " (" supaya sama dengan kolom Unit di laporan.
+        $unitOptions = DB::table('stock_ctl_user_profil')
+            ->whereNotNull('unit')
+            ->where('unit', '<>', '')
+            ->when(!$isSuper, fn ($q) => $q->where('id_bisnis_unit', $access['id_bisnis_unit']))
+            ->get(['unit', 'id_bisnis_unit'])
+            ->map(fn ($r) => ['nama' => trim(explode(' (', $r->unit)[0]), 'bu' => (int) $r->id_bisnis_unit])
+            ->unique(fn ($u) => $u['bu'] . '|' . $u['nama'])
+            ->sortBy('nama', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
         return view('stock-ctl.laporan.index', compact(
-            'bisnisUnits', 'areas', 'barang', 'recentHistory', 'isSuper', 'lockedBu'
+            'bisnisUnits', 'areas', 'barang', 'recentHistory', 'isSuper', 'lockedBu', 'unitOptions'
         ));
     }
 
@@ -203,6 +215,7 @@ class LaporanController extends Controller
             'jenis_mutasi'      => 'nullable|in:masuk,keluar,transfer,opname',
             'status_transaksi'  => 'nullable|in:aktif,dibatalkan,koreksi',
             'status_permintaan' => 'nullable|in:pending_l1,pending_admin,disetujui,ditolak',
+            'unit'              => 'nullable|string|max:150',
             'status_stok'       => 'nullable|in:masih,menipis,habis',
             'tanggal_awal'      => 'nullable|date',
             'tanggal_akhir'     => 'nullable|date|after_or_equal:tanggal_awal',
@@ -271,6 +284,7 @@ class LaporanController extends Controller
             // Default "aktif" supaya transaksi yang dibatalkan/dikoreksi tidak menggelembungkan total.
             'status_transaksi'  => $request->has('status_transaksi') ? ($request->status_transaksi ?: null) : 'aktif',
             'status_permintaan' => $request->filled('status_permintaan') ? $request->status_permintaan : null,
+            'unit'              => $request->filled('unit') ? trim($request->unit) : null,
             'status_stok'       => $request->filled('status_stok') ? $request->status_stok : null,
             'tanggal_awal'      => $request->filled('tanggal_awal') ? $request->tanggal_awal : null,
             'tanggal_akhir'     => $request->filled('tanggal_akhir') ? $request->tanggal_akhir : null,
@@ -297,6 +311,7 @@ class LaporanController extends Controller
         }
         if ($f['jenis'] === 'permintaan') {
             $info[] = ['Status', $f['status_permintaan'] ? $this->getStatusLabel($f['status_permintaan']) : 'Semua Status'];
+            $info[] = ['Unit', $f['unit'] ?: 'Semua Unit'];
         }
         if ($f['jenis'] === 'stok') {
             $info[] = ['Status Stok', $f['status_stok'] ? ucfirst($f['status_stok']) : 'Semua Status'];
@@ -555,6 +570,20 @@ class LaporanController extends Controller
         if ($f['status_permintaan']) {
             $query->where('status', $f['status_permintaan']);
         }
+        if ($f['unit']) {
+            // cocok persis ("GA") atau diikuti keterangan ("GA (....)")
+            $unit = $f['unit'];
+            $like = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $unit) . ' (%';
+            $query->whereExists(function ($q) use ($unit, $like) {
+                $q->select(DB::raw(1))
+                    ->from('stock_ctl_user_profil')
+                    ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
+                    ->where(function ($w) use ($unit, $like) {
+                        $w->where('stock_ctl_user_profil.unit', $unit)
+                          ->orWhere('stock_ctl_user_profil.unit', 'like', $like);
+                    });
+            });
+        }
         if ($f['tanggal_awal']) {
             $query->whereDate('tanggal_permintaan', '>=', $f['tanggal_awal']);
         }
@@ -587,7 +616,7 @@ class LaporanController extends Controller
             }
 
             $rows[] = [
-                'G-SC-' . $p->id_permintaan,
+                $p->no_tampil,
                 $fmtDt($p->tanggal_permintaan),
                 $p->pemohon->name ?? '-',
                 $unitName,

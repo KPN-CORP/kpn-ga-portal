@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmEquipment;
 use App\Models\HSRM\HsrmEquipmentQuota;
 use App\Models\HSRM\HsrmEquipmentType;
@@ -22,7 +23,7 @@ class HsrmEquipmentController extends Controller
     public function index(Request $request, $filter = null)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
         $query = HsrmEquipment::with(['businessUnit', 'area', 'pic', 'creator', 'approver', 'equipmentType']);
 
         if (!$isAdmin) {
@@ -112,7 +113,8 @@ class HsrmEquipmentController extends Controller
     public function create()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
         $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : $user->hsrmAreas;
         $businessUnits = BisnisUnit::all();
         $pics = User::whereHas('hsrmAreas')->get();
@@ -148,7 +150,8 @@ class HsrmEquipmentController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
 
         // Validasi dasar
         // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin PIC diisi
@@ -229,7 +232,7 @@ class HsrmEquipmentController extends Controller
         $equipment = HsrmEquipment::findOrFail($id);
         $this->authorizeEdit($equipment);
 
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::isAdmin();
         $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : auth()->user()->hsrmAreas;
         $businessUnits = BisnisUnit::all();
         $pics = User::whereHas('hsrmAreas')->get();
@@ -255,7 +258,7 @@ class HsrmEquipmentController extends Controller
         $this->authorizeEdit($equipment);
 
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::isAdmin();
 
         // Validasi
         // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin, PIC pindah
@@ -458,7 +461,7 @@ class HsrmEquipmentController extends Controller
     public function export()
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
         $areaIds = $isAdmin ? [] : $user->hsrmAreas->pluck('id_area_kerja')->toArray();
 
         $filters = [
@@ -479,7 +482,7 @@ class HsrmEquipmentController extends Controller
     private function authorizeView($equipment)
     {
         $user = auth()->user();
-        if (session('hsrm_role') === 'admin') {
+        if (HsrmRole::canViewAll()) {
             return;
         }
         $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
@@ -491,7 +494,8 @@ class HsrmEquipmentController extends Controller
     private function authorizeEdit($equipment)
     {
         $user = auth()->user();
-        if (session('hsrm_role') === 'admin') {
+        HsrmRole::abortUnlessCanWrite('You are not authorized to edit this equipment.');
+        if (HsrmRole::isAdmin()) {
             return;
         }
         if (!$user->canEditInArea($equipment->area_id)) {
@@ -501,13 +505,17 @@ class HsrmEquipmentController extends Controller
 
     private function authorizeDelete($equipment)
     {
-        if (session('hsrm_role') !== 'admin') {
+        if (!HsrmRole::isAdmin()) {
             abort(403, 'Only admin can delete an equipment.');
         }
     }
 
     private function authorizeApprove($equipment)
     {
+        HsrmRole::abortUnlessCanWrite('You are not authorized to approve this equipment.');
+        if (HsrmRole::isAdmin()) {
+            return;
+        }
         $user = auth()->user();
         if (!$user->canApproveInArea($equipment->area_id)) {
             abort(403, 'You are not authorized to approve this equipment.');

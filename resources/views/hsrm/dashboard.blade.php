@@ -287,14 +287,14 @@
         <select id="viewFilter" class="border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
             <option value="certificates" {{ $view == 'certificates' ? 'selected' : '' }}>📄 Certificates</option>
             <option value="equipments" {{ $view == 'equipments' ? 'selected' : '' }}>🔧 Equipments</option>
-            @if(session('hsrm_role') === 'admin')
+            @if(\App\Helpers\HsrmRole::canViewAll())
                 <option value="budget" {{ $view == 'budget' ? 'selected' : '' }}>💰 Budget & Quota</option>
             @endif
             <option value="all" {{ $view == 'all' ? 'selected' : '' }}>📊 All</option>
         </select>
 
         {{-- Area filter for admin only --}}
-        @if(session('hsrm_role') === 'admin')
+        @if(\App\Helpers\HsrmRole::canViewAll())
             <form method="GET" action="{{ route('hsrm.dashboard') }}" id="area-filter-form" class="flex items-center gap-2">
                 <input type="hidden" name="view" value="{{ $view }}">
                 <div class="relative">
@@ -340,7 +340,7 @@
 {{-- ============================================================ --}}
 {{-- BUDGET & QUOTA VIEW (Admin only) --}}
 {{-- ============================================================ --}}
-@if(($view == 'budget' || $view == 'all') && session('hsrm_role') === 'admin')
+@if(($view == 'budget' || $view == 'all') && \App\Helpers\HsrmRole::canViewAll())
     <div class="mb-8">
         <div class="flex items-center mb-4">
             <div class="section-divider bg-green-500"></div>
@@ -1055,7 +1055,7 @@
         // ============================================================
         // BUDGET & QUOTA CHARTS (Admin only)
         // ============================================================
-        @if(($view == 'budget' || $view == 'all') && session('hsrm_role') === 'admin')
+        @if(($view == 'budget' || $view == 'all') && \App\Helpers\HsrmRole::canViewAll())
             // --- Grafik Budget ---
             @if(isset($budgetData) && $budgetData->count() > 0)
                 const budgetEl = document.getElementById('budgetAreaChart');

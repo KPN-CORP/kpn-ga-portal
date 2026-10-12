@@ -89,9 +89,9 @@ class ApprovalAdminController extends Controller
                 'id_barang' => $permintaan->id_barang,
                 'jumlah' => $jumlahBaru,
                 'id_area_asal' => $permintaan->id_area_kerja,
-                'keterangan' => 'Dari permintaan #' . $permintaan->id_permintaan . '. Jumlah direvisi admin.' . ($request->catatan ? " Catatan: " . $request->catatan : ''),
+                'keterangan' => 'Dari permintaan ' . $permintaan->no_tampil . '. Jumlah direvisi admin.' . ($request->catatan ? " Catatan: " . $request->catatan : ''),
                 'id_user' => Auth::id(),
-                'no_ref' => 'PR-' . $permintaan->id_permintaan,
+                'no_ref' => $permintaan->no_tampil,
             ]);
 
             // Update permintaan
@@ -119,7 +119,7 @@ class ApprovalAdminController extends Controller
             }
 
             return redirect()->route('stock-ctl.approval.admin.index')
-                ->with('success', "Permintaan #{$permintaan->id_permintaan} disetujui. Jumlah: " . number_format($jumlahBaru) . " $satuan" . ($request->catatan ? ". Catatan: {$request->catatan}" : ""));
+                ->with('success', "Permintaan {$permintaan->no_tampil} disetujui. Jumlah: " . number_format($jumlahBaru) . " $satuan" . ($request->catatan ? ". Catatan: {$request->catatan}" : ""));
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('ApprovalAdmin approve gagal', [

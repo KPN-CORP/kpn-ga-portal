@@ -148,7 +148,7 @@
         <a href="{{ route('hsrm.certificates.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium">
             <i class="fas fa-arrow-left mr-1"></i> Back
         </a>
-        @if(auth()->user()->canEditInArea($cert->area_id) || session('hsrm_role') === 'admin')
+        @if(\App\Helpers\HsrmRole::canWrite() && (auth()->user()->canEditInArea($cert->area_id) || \App\Helpers\HsrmRole::isAdmin()))
             <a href="{{ route('hsrm.certificates.edit', $cert) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
                 <i class="fas fa-edit mr-1"></i> Edit
             </a>

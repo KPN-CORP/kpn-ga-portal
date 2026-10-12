@@ -3,7 +3,7 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans max-w-2xl">
     <div class="flex justify-between items-center">
-        <h2 class="text-xl font-semibold text-gray-800">Detail Permintaan #{{ $permintaan->id_permintaan }}</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Detail Permintaan {{ $permintaan->no_tampil }}</h2>
         <a href="{{ route('stock-ctl.permintaan.index') }}" class="text-blue-600 hover:underline">← Kembali</a>
     </div>
 

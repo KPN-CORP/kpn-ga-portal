@@ -5,6 +5,7 @@
     $laporanCfg = [
         'areas'      => $areas,
         'lockedBu'   => $lockedBu,
+        'units'      => $unitOptions,
         'previewUrl' => route('stock-ctl.laporan.preview'),
         'excelUrl'   => route('stock-ctl.laporan.excel'),
         'csrf'       => csrf_token(),
@@ -133,6 +134,16 @@
                         <option value="disetujui">Disetujui</option>
                         <option value="ditolak">Ditolak</option>
                     </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+                    <select x-model="unit" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Unit</option>
+                        <template x-for="u in unitOptions" :key="u">
+                            <option :value="u" x-text="u"></option>
+                        </template>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1"><span x-text="unitOptions.length"></span> unit tersedia<span x-show="idBu"> pada Bisnis Unit terpilih</span>.</p>
                 </div>
             </div>
 
@@ -348,6 +359,7 @@ function laporanPage(cfg) {
     return {
         areas: cfg.areas,
         lockedBu: cfg.lockedBu,
+        units: cfg.units || [],
 
         jenis: '',
         idBu: cfg.lockedBu !== null ? String(cfg.lockedBu) : '',
@@ -356,6 +368,7 @@ function laporanPage(cfg) {
         jenisMutasi: '',
         statusTransaksi: 'aktif',
         statusPermintaan: '',
+        unit: '',
         statusStok: '',
         tanggalAwal: '',
         tanggalAkhir: '',
@@ -393,6 +406,12 @@ function laporanPage(cfg) {
             return this.idBu ? this.areas.filter(a => String(a.bu) === String(this.idBu)) : this.areas;
         },
 
+        // Unit (divisi pemohon) bergantung pada Bisnis Unit yang dipilih
+        get unitOptions() {
+            const src = this.idBu ? this.units.filter(u => String(u.bu) === String(this.idBu)) : this.units;
+            return [...new Set(src.map(u => u.nama))].sort((a, b) => a.localeCompare(b, 'id'));
+        },
+
         get filteredRows() {
             if (!this.preview) return [];
             const q = this.cari.trim().toLowerCase();
@@ -412,6 +431,9 @@ function laporanPage(cfg) {
             if (this.idArea && !this.areaOptions.some(a => String(a.id) === String(this.idArea))) {
                 this.idArea = '';
             }
+            if (this.unit && !this.unitOptions.includes(this.unit)) {
+                this.unit = '';
+            }
         },
 
         resetFilter() {
@@ -421,6 +443,7 @@ function laporanPage(cfg) {
             this.jenisMutasi = '';
             this.statusTransaksi = 'aktif';
             this.statusPermintaan = '';
+            this.unit = '';
             this.statusStok = '';
             this.tanggalAwal = '';
             this.tanggalAkhir = '';
@@ -474,7 +497,10 @@ function laporanPage(cfg) {
                 fd.append('jenis_mutasi', this.jenisMutasi || '');
                 fd.append('status_transaksi', this.statusTransaksi || '');
             }
-            if (this.jenis === 'permintaan') fd.append('status_permintaan', this.statusPermintaan || '');
+            if (this.jenis === 'permintaan') {
+                fd.append('status_permintaan', this.statusPermintaan || '');
+                fd.append('unit', this.unit || '');
+            }
             if (this.jenis === 'stok') fd.append('status_stok', this.statusStok || '');
             if (this.jenis !== 'stok') {
                 fd.append('tanggal_awal', this.tanggalAwal || '');

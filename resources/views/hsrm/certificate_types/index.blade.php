@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-4">
-    @if(session('hsrm_role') === 'admin')
+    @if(\App\Helpers\HsrmRole::isAdmin())
     <a href="{{ route('hsrm.certificate-types.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
         <i class="fas fa-plus mr-1"></i> Add Type
     </a>
@@ -20,7 +20,7 @@
                 <th class="p-3">No</th>
                 <th class="p-3">Name</th>
                 <th class="p-3">Description</th>
-                @if(session('hsrm_role') === 'admin')
+                @if(\App\Helpers\HsrmRole::isAdmin())
                 <th class="p-3">Actions</th>
                 @endif
             </tr>
@@ -31,7 +31,7 @@
                 <td class="p-3">{{ $loop->iteration }}</td>
                 <td class="p-3">{{ $type->name }}</td>
                 <td class="p-3">{{ $type->description ?? '-' }}</td>
-                @if(session('hsrm_role') === 'admin')
+                @if(\App\Helpers\HsrmRole::isAdmin())
                 <td class="p-3 flex space-x-2">
                     <a href="{{ route('hsrm.certificate-types.edit', $type) }}" class="text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></a>
                     <form action="{{ route('hsrm.certificate-types.destroy', $type) }}" method="POST" onsubmit="return confirm('Delete this type?')" class="inline">
@@ -42,7 +42,7 @@
                 @endif
             </tr>
             @empty
-            <tr><td colspan="{{ session('hsrm_role') === 'admin' ? 4 : 3 }}" class="p-4 text-center text-gray-500">No types defined.</td></tr>
+            <tr><td colspan="{{ \App\Helpers\HsrmRole::isAdmin() ? 4 : 3 }}" class="p-4 text-center text-gray-500">No types defined.</td></tr>
             @endforelse
         </tbody>
     </table>

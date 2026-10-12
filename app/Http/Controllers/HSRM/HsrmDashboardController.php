@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HSRM;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
 use App\Models\HSRM\HsrmCertificate;
 use App\Models\HSRM\HsrmEquipment;
 use App\Models\AreaKerja;
@@ -15,7 +16,7 @@ class HsrmDashboardController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $isAdmin = session('hsrm_role') === 'admin';
+        $isAdmin = HsrmRole::canViewAll();
         $view = $request->input('view', 'certificates');
         $areaId = $request->input('area_id');
         $selectedArea = null;
