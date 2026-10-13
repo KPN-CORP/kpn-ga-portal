@@ -27,6 +27,8 @@ class DriverRequest extends Model
         'completed_at',
         // Di-reset saat dikembalikan ke Pending supaya email "disetujui" terkirim lagi setelah approve ulang
         'email_approved_sent',
+        // Pembatalan oleh pemohon
+        'cancelled_at',
     ];
 
     protected $casts = [
@@ -39,6 +41,7 @@ class DriverRequest extends Model
         'approved_admin_at' => 'datetime',
         'forwarded_at'   => 'datetime',
         'completed_at'   => 'datetime',
+        'cancelled_at'   => 'datetime',
     ];
 
     // Relasi
@@ -119,6 +122,34 @@ class DriverRequest extends Model
     public function swapLogs()
     {
         return $this->hasMany(DriverSwapLog::class, 'request_id')->latest();
+    }
+
+    /**
+     * Lampiran (PDF / gambar) yang diunggah pemohon saat membuat request.
+     */
+    public function attachments()
+    {
+        return $this->hasMany(RequestAttachment::class, 'request_id');
+    }
+
+    /**
+     * Bentuk ringkas lampiran untuk modal detail (Alpine) di halaman pemohon, L1 dan admin.
+     */
+    public function attachmentsForJs(): array
+    {
+        return $this->attachments->map(fn ($a) => [
+            'name'     => $a->original_name ?: basename($a->file_path),
+            'url'      => route('drms.requests.attachments.show', [$this->id, $a->id]),
+            'is_image' => $a->isImage(),
+        ])->values()->all();
+    }
+
+    /**
+     * Pemohon boleh membatalkan selama request belum diproses admin GA.
+     */
+    public function canBeCancelledByRequester(): bool
+    {
+        return in_array($this->status, ['pending_l1', 'approved_l1'], true);
     }
 
     /**

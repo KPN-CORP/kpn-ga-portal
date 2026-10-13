@@ -15,6 +15,7 @@
             'approved_admin' => 'Disetujui GA',
             'rejected_admin' => 'Ditolak GA',
             'completed' => 'Selesai',
+            'cancelled' => 'Dibatalkan'
         ];
         $statusColors = [
             'pending_l1' => 'bg-yellow-100 text-yellow-800',
@@ -23,6 +24,7 @@
             'approved_admin' => 'bg-green-100 text-green-800',
             'rejected_admin' => 'bg-red-100 text-red-800',
             'completed' => 'bg-gray-100 text-gray-800',
+            'cancelled' => 'bg-gray-200 text-gray-600'
         ];
     @endphp
 
@@ -153,6 +155,25 @@
             <dd class="font-medium">{{ $driverRequest->voucher->code }} ({{ ucfirst($driverRequest->voucher->type) }}) - Rp {{ number_format($driverRequest->voucher->nominal,0,',','.') }}</dd>
         </div>
         @endif
+        @if($driverRequest->attachments->count())
+        <div class="col-span-2">
+            <dt class="text-sm text-gray-500">Lampiran</dt>
+            <dd class="space-y-1">
+                @foreach($driverRequest->attachments as $att)
+                    <a href="{{ route('drms.requests.attachments.show', [$driverRequest->id, $att->id]) }}" target="_blank" rel="noopener" class="block text-blue-600 underline">📎 {{ $att->original_name ?: basename($att->file_path) }}</a>
+                @endforeach
+            </dd>
+        </div>
+        @endif
     </dl>
+
+    @if($driverRequest->canBeCancelledByRequester())
+    <form action="{{ route('drms.requests.cancel', $driverRequest->id) }}" method="POST" class="mt-6 flex flex-wrap items-center gap-2 border-t pt-4"
+          onsubmit="return confirm('Batalkan permintaan ini? Tindakan ini tidak dapat diurungkan.')">
+        @csrf
+        <input type="text" name="cancel_reason" maxlength="500" placeholder="Alasan (opsional)" class="border rounded-lg px-3 py-2 text-sm">
+        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold">Batalkan Pengajuan</button>
+    </form>
+    @endif
 </div>
 @endsection

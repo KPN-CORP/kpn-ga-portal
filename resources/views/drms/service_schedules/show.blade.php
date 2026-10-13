@@ -25,5 +25,7 @@
         @endif
         <div class="col-span-2"><dt class="text-sm text-gray-500">Dibuat Oleh</dt><dd class="font-medium">{{ $service->creator->name ?? '-' }}</dd></div>
     </dl>
+
+    @include('drms.partials.service-flow-panel', ['type' => 'service', 'item' => $service])
 </div>
 @endsection

@@ -21,7 +21,8 @@
                 <span class="px-2 py-1 rounded-full text-xs 
                     @if($repair->status == 'open') bg-yellow-100 text-yellow-800
                     @elseif($repair->status == 'progress') bg-blue-100 text-blue-800
-                    @else bg-green-100 text-green-800 @endif">
+                    @elseif($repair->status == 'rejected') bg-red-100 text-red-800
+                                @else bg-green-100 text-green-800 @endif">
                     {{ ucfirst($repair->status) }}
                 </span>
             </dd>
@@ -35,5 +36,7 @@
         <div><dt class="text-sm text-gray-500">Selesai Pada</dt><dd class="font-medium">{{ $repair->completed_at->format('d M Y H:i') }}</dd></div>
         @endif
     </dl>
+
+    @include('drms.partials.service-flow-panel', ['type' => 'repair', 'item' => $repair])
 </div>
 @endsection

@@ -41,12 +41,12 @@ class AppAdminController extends Controller
 
         // ------------------- PENDING REQUESTS -------------------
         if ($user->isDrmsSuperAdmin()) {
-            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit')
+            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit', 'attachments')
                 ->where('status', 'approved_l1')
                 ->latest()
                 ->get();
         } else {
-            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit')
+            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit', 'attachments')
                 ->pendingForAdmin($businessUnitId, $area)
                 ->latest()
                 ->get();
@@ -114,7 +114,7 @@ class AppAdminController extends Controller
         }
 
 
-        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto']);
+        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto', 'attachments']);
 
         if ($user->isDrmsSuperAdmin()) {
             $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);

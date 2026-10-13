@@ -73,6 +73,9 @@ use App\Http\Controllers\Supplies\SuppliesLaporanController;
 use App\Http\Controllers\Drms\DriverTripLogController;
 use App\Http\Controllers\Drms\AdminOperationalController;
 use App\Http\Controllers\Drms\ImageController;
+use App\Http\Controllers\Drms\DriverServiceRequestController;
+use App\Http\Controllers\Drms\RequestAttachmentController;
+use App\Http\Controllers\Drms\ServiceFlowController;
 use App\Http\Controllers\HSRM\HsrmCertificateController;
 use App\Http\Controllers\HSRM\HsrmEquipmentController;
 use App\Http\Controllers\Drms\DriverExpenseReportController;
@@ -303,6 +306,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
         Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
         Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
+        Route::post('requests/{driverRequest}/cancel', [RequestController::class, 'cancel'])->name('requests.cancel');
+        Route::get('requests/{driverRequest}/attachments/{attachment}', [RequestAttachmentController::class, 'show'])->whereNumber('attachment')->name('requests.attachments.show');
 
         // ===== APPROVAL L1 =====
         Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
@@ -331,6 +336,13 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/driver/dashboard', [DriverDashboardController::class, 'index'])->name('driver.dashboard');
             Route::get('/driver/requests/{driverRequest}', [DriverDashboardController::class, 'show'])->name('driver.requests.show');
             Route::post('/driver/requests/{driverRequest}/complete', [DriverDashboardController::class, 'complete'])->name('driver.requests.complete');
+        });
+
+        Route::middleware(['is_driver'])->prefix('driver/service-requests')->name('driver.service.')->group(function () {
+            Route::get('/', [DriverServiceRequestController::class, 'index'])->name('index');
+            Route::get('/create', [DriverServiceRequestController::class, 'create'])->name('create');
+            Route::post('/', [DriverServiceRequestController::class, 'store'])->name('store');
+            Route::get('{type}/{id}', [DriverServiceRequestController::class, 'show'])->where(['type' => 'service|repair', 'id' => '[0-9]+'])->name('show');
         });
 
         Route::get('drivers/dashboard', function () {
@@ -413,6 +425,14 @@ Route::middleware(['auth'])->group(function () {
         // ===== PERBAIKAN =====
         Route::patch('repairs/{id}/status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
         Route::resource('repairs', RepairController::class);
+
+        Route::middleware(['can:isDrmsAdmin'])->prefix('service-flow')->name('service-flow.')
+            ->where(['type' => 'service|repair', 'id' => '[0-9]+'])
+            ->group(function () {
+            Route::post('{type}/{id}/approve', [ServiceFlowController::class, 'approve'])->name('approve');
+            Route::post('{type}/{id}/reject', [ServiceFlowController::class, 'reject'])->name('reject');
+            Route::post('{type}/{id}/complete', [ServiceFlowController::class, 'complete'])->name('complete');
+        });
 
         // ===== BBM =====
         // 'create'/'store'/'edit'/'update' butuh kamera HP (foto struk/odometer BBM),

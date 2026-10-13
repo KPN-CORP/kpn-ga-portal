@@ -28,6 +28,13 @@
         </div>
     </div>
 
+    @if(session('success'))
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{{ session('error') }}</div>
+    @endif
+
     {{-- Filter Section --}}
     <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
         <form method="GET" action="{{ route('drms.requests.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -45,6 +52,7 @@
                     <option value="approved_admin" {{ request('status')=='approved_admin'?'selected':'' }}>Disetujui GA</option>
                     <option value="rejected_admin" {{ request('status')=='rejected_admin'?'selected':'' }}>Ditolak GA</option>
                     <option value="completed" {{ request('status')=='completed'?'selected':'' }}>Selesai</option>
+                    <option value="cancelled" {{ request('status')=='cancelled'?'selected':'' }}>Dibatalkan</option>
                 </select>
             </div>
             <div>
@@ -87,7 +95,8 @@
                         'rejected_l1' => 'bg-red-100 text-red-800',
                         'approved_admin' => 'bg-green-100 text-green-800',
                         'rejected_admin' => 'bg-red-100 text-red-800',
-                        'completed' => 'bg-gray-100 text-gray-800'
+                        'completed' => 'bg-gray-100 text-gray-800',
+                        'cancelled' => 'bg-gray-200 text-gray-600'
                     ];
                     $statusLabels = [
                         'pending_l1' => 'Pending L1',
@@ -95,7 +104,8 @@
                         'rejected_l1' => 'Ditolak Atasan',
                         'approved_admin' => 'Disetujui GA',
                         'rejected_admin' => 'Ditolak GA',
-                        'completed' => 'Selesai'
+                        'completed' => 'Selesai',
+                        'cancelled' => 'Dibatalkan'
                     ];
                     $detailData = [
                         'request_no' => $item->request_no,
@@ -112,6 +122,9 @@
                         'destination' => $item->destination,
                         'destination_maps_link' => $item->destination_maps_link,
                         'purpose' => $item->purpose,
+                        'attachments' => $item->attachmentsForJs(),
+                        'can_cancel' => $item->canBeCancelledByRequester(),
+                        'cancel_url' => route('drms.requests.cancel', $item->id),
                         'status' => $item->status,
                         'approver_l1' => $item->approverL1 ? ['name' => $item->approverL1->name, 'approved_l1_at' => $item->approved_l1_at ? \Carbon\Carbon::parse($item->approved_l1_at)->format('d/m/Y H:i') : null] : null,
                         'admin' => $item->admin ? ['name' => $item->admin->name, 'approved_admin_at' => $item->approved_admin_at ? \Carbon\Carbon::parse($item->approved_admin_at)->format('d/m/Y H:i') : null] : null,
@@ -188,7 +201,8 @@
                         'rejected_l1' => 'Ditolak Atasan',
                         'approved_admin' => 'Disetujui GA',
                         'rejected_admin' => 'Ditolak GA',
-                        'completed' => 'Selesai'
+                        'completed' => 'Selesai',
+                        'cancelled' => 'Dibatalkan'
                     ];
                     $detailData = [
                         'request_no' => $item->request_no,
@@ -205,6 +219,9 @@
                         'destination' => $item->destination,
                         'destination_maps_link' => $item->destination_maps_link,
                         'purpose' => $item->purpose,
+                        'attachments' => $item->attachmentsForJs(),
+                        'can_cancel' => $item->canBeCancelledByRequester(),
+                        'cancel_url' => route('drms.requests.cancel', $item->id),
                         'status' => $item->status,
                         'approver_l1' => $item->approverL1 ? ['name' => $item->approverL1->name, 'approved_l1_at' => $item->approved_l1_at ? \Carbon\Carbon::parse($item->approved_l1_at)->format('d/m/Y H:i') : null] : null,
                         'admin' => $item->admin ? ['name' => $item->admin->name, 'approved_admin_at' => $item->approved_admin_at ? \Carbon\Carbon::parse($item->approved_admin_at)->format('d/m/Y H:i') : null] : null,
@@ -265,7 +282,7 @@
                     </ul>
                 </div>
             @endif
-            <form method="POST" action="{{ route('drms.requests.store') }}">
+            <form method="POST" action="{{ route('drms.requests.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-600 mb-1">Tipe Perjalanan</label>
@@ -364,6 +381,10 @@
                     <label class="block text-sm font-medium text-gray-600 mb-1">Keperluan <span class="text-red-500">*</span></label>
                     <textarea name="purpose" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" required>{{ old('purpose') }}</textarea>
                 </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Lampiran <span class="text-gray-400 font-normal">(opsional - PDF/JPG/PNG, maks 3 file @ 5 MB)</span></label>
+                    <input type="file" name="attachments[]" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="createModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Batal</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Ajukan</button>
@@ -397,6 +418,9 @@
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tujuan</td><td class="py-2" x-text="detailItem.destination"></td></tr>
                     <template x-if="detailItem.destination_maps_link"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Link Maps Tujuan</td><td class="py-2"><a :href="detailItem.destination_maps_link" target="_blank" class="text-blue-600 underline">Buka Maps</a></td></tr></template>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Keperluan</td><td class="py-2" x-text="detailItem.purpose ?? '-'"></td></tr>
+                    <template x-if="detailItem.attachments && detailItem.attachments.length > 0"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium align-top">Lampiran</td><td class="py-2">
+                        <template x-for="a in detailItem.attachments" :key="a.url"><div class="mb-1"><a :href="a.url" target="_blank" rel="noopener" class="text-blue-600 underline" x-text="'📎 ' + a.name"></a></div></template>
+                    </td></tr></template>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Status</td>
                         <td class="py-2">
                             <span class="px-2 py-1 rounded-full text-xs font-semibold" :class="{
@@ -404,14 +428,15 @@
                                 'bg-blue-100 text-blue-800': detailItem.status === 'approved_l1',
                                 'bg-red-100 text-red-800': detailItem.status === 'rejected_l1' || detailItem.status === 'rejected_admin',
                                 'bg-green-100 text-green-800': detailItem.status === 'approved_admin',
-                                'bg-gray-100 text-gray-800': detailItem.status === 'completed'
+                                'bg-gray-100 text-gray-800': detailItem.status === 'completed' || detailItem.status === 'cancelled'
                             }" x-text="{
                                 'pending_l1': 'Pending L1',
                                 'approved_l1': 'Disetujui Atasan',
                                 'rejected_l1': 'Ditolak Atasan',
                                 'approved_admin': 'Disetujui GA',
                                 'rejected_admin': 'Ditolak GA',
-                                'completed': 'Selesai'
+                                'completed': 'Selesai',
+                                'cancelled': 'Dibatalkan'
                             }[detailItem.status] || detailItem.status"></span>
                         </td>
                     </tr>
@@ -431,8 +456,16 @@
                     </td></tr></template>
                 </tbody>
             </table>
-            <div class="mt-6 flex justify-end">
-                <button type="button" @click="detailModalOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg">Tutup</button>
+            <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
+                <template x-if="detailItem.can_cancel">
+                    <form :action="detailItem.cancel_url" method="POST" class="flex flex-wrap items-center gap-2"
+                          onsubmit="return confirm('Batalkan permintaan ini? Tindakan ini tidak dapat diurungkan.')">
+                        @csrf
+                        <input type="text" name="cancel_reason" maxlength="500" placeholder="Alasan (opsional)" class="border rounded-lg px-3 py-2 text-sm">
+                        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold">Batalkan Pengajuan</button>
+                    </form>
+                </template>
+                <button type="button" @click="detailModalOpen = false" class="ml-auto px-4 py-2 bg-gray-200 rounded-lg">Tutup</button>
             </div>
         </div>
     </div>

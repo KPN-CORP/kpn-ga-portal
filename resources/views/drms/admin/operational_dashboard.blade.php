@@ -199,10 +199,11 @@
         </div>
     </div>
 
-    {{-- GRAFIK PER KENDARAAN DENGAN TAB --}}
+    {{-- GRAFIK PER KENDARAAN: BBM/EV, Service Rutin, Perbaikan (dipisah) --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h4 class="font-semibold text-gray-700 mb-2">📊 Grafik Biaya BBM/EV Charging Per Kendaraan</h4>
-        
+        <h4 class="font-semibold text-gray-700 mb-2">⛽ Grafik Biaya BBM/EV Charging Per Kendaraan</h4>
+        <p class="text-xs text-gray-400 mb-2">Hanya biaya pengisian BBM/EV Charging yang sudah terverifikasi. Service Rutin dan Perbaikan ada di grafik terpisah di bawah.</p>
+
         @if(count($vehicleStats) > 0)
         <div class="flex border-b mb-3 flex-wrap">
             <button class="tab-btn active px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" data-tab="cost">💰 Biaya</button>
@@ -212,11 +213,33 @@
         <div class="relative" style="height: 200px; zoom: 1.25;">
             <canvas id="perVehicleChart"></canvas>
         </div>
-        <p class="text-sm text-gray-500 mt-2 text-center" id="chartTotalLabel">Total: Rp {{ number_format($totals['total_operational_cost'] ?? 0, 0, ',', '.') }}</p>
+        <p class="text-sm text-gray-500 mt-2 text-center" id="chartTotalLabel"></p>
         @else
         <p class="text-center text-gray-400 text-sm py-4">Tidak ada data untuk filter yang dipilih</p>
         @endif
     </div>
+
+    @if(count($vehicleStats) > 0)
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {{-- SERVICE RUTIN --}}
+        <div class="bg-white p-4 rounded-lg shadow-sm border">
+            <h4 class="font-semibold text-gray-700 mb-2">🔧 Grafik Biaya Service Rutin Per Kendaraan</h4>
+            <div class="relative" style="height: 200px; zoom: 1.25;">
+                <canvas id="serviceVehicleChart"></canvas>
+            </div>
+            <p class="text-sm text-gray-500 mt-2 text-center" id="serviceTotalLabel"></p>
+        </div>
+
+        {{-- PERBAIKAN --}}
+        <div class="bg-white p-4 rounded-lg shadow-sm border">
+            <h4 class="font-semibold text-gray-700 mb-2">🛠️ Grafik Biaya Perbaikan Per Kendaraan</h4>
+            <div class="relative" style="height: 200px; zoom: 1.25;">
+                <canvas id="repairVehicleChart"></canvas>
+            </div>
+            <p class="text-sm text-gray-500 mt-2 text-center" id="repairTotalLabel"></p>
+        </div>
+    </div>
+    @endif
 
     {{-- TABEL RINGKASAN PER KENDARAAN --}}
     @if(count($vehicleStats) > 0)
@@ -428,48 +451,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ========== CHART PER KENDARAAN ==========
+    // ========== CHART PER KENDARAAN (BBM/EV, Service Rutin, Perbaikan) ==========
+    // Tiga grafik terpisah, masing-masing hanya membaca satu jenis biaya dari vehicleStats:
+    //   BBM/EV  -> fuel_cost   (tab Jarak -> distance)
+    //   Service -> service_cost
+    //   Perbaikan -> repair_cost
     if (vehicleStats.length > 0) {
-        let perVehicleChart = null;
-        const chartDataMap = {
-            cost: {
-                label: 'Total Biaya (Rp)',
-                data: vehicleStats.map(v => Number(v.total_cost)),
-                color: 'rgba(59,130,246,0.7)',
-                borderColor: 'rgba(59,130,246,1)',
-                total: vehicleStats.reduce((a,b) => a + Number(b.total_cost), 0),
-                format: (val) => 'Rp ' + val.toLocaleString()
-            },
-            distance: {
-                label: 'Jarak (km)',
-                data: vehicleStats.map(v => Number(v.distance)),
-                color: 'rgba(16,185,129,0.7)',
-                borderColor: 'rgba(16,185,129,1)',
-                total: vehicleStats.reduce((a,b) => a + Number(b.distance), 0),
-                format: (val) => val.toLocaleString() + ' km'
-            }
-        };
+        const vehicleCharts = {};
 
-        function renderPerVehicleChart(tab) {
-            const ctx = document.getElementById('perVehicleChart').getContext('2d');
-            if (perVehicleChart) perVehicleChart.destroy();
+        const fmtRp = (val) => 'Rp ' + Number(val).toLocaleString();
+        const fmtKm = (val) => Number(val).toLocaleString() + ' km';
 
-            const labels = vehicleStats.map(v => v.plate_number);
-            const data = chartDataMap[tab];
-            const hoverColor = tab === 'distance' ? 'rgba(16,185,129,1)' : 'rgba(59,130,246,1)';
+        // hideZero: untuk Service/Perbaikan, kendaraan tanpa biaya tidak ditampilkan
+        function rowsFor(key, hideZero) {
+            return vehicleStats
+                .map(v => ({ id: v.id, plate: v.plate_number, value: Number(v[key]) || 0 }))
+                .filter(r => !hideZero || r.value > 0)
+                .sort((a, b) => b.value - a.value);
+        }
 
-            perVehicleChart = new Chart(ctx, {
+        function sumRows(rows) {
+            return rows.reduce((acc, r) => acc + r.value, 0);
+        }
+
+        function renderVehicleChart(canvasId, rows, o) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            if (vehicleCharts[canvasId]) vehicleCharts[canvasId].destroy();
+
+            vehicleCharts[canvasId] = new Chart(canvas.getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: rows.map(r => r.plate),
                     datasets: [{
-                        label: data.label,
-                        data: data.data,
-                        backgroundColor: data.color,
-                        borderColor: data.borderColor,
+                        label: o.label,
+                        data: rows.map(r => r.value),
+                        backgroundColor: o.color,
+                        borderColor: o.border,
                         borderWidth: 1,
-                        hoverBackgroundColor: hoverColor,
-                        hoverBorderColor: data.borderColor,
+                        hoverBackgroundColor: o.border,
+                        hoverBorderColor: o.border,
                         hoverBorderWidth: 2,
                         maxBarThickness: 48
                     }]
@@ -477,13 +498,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    // hover/tooltip aktif begitu kursor masuk area kolom (x-axis),
-                    // tidak perlu presisi kena bar-nya
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: { 
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
                         legend: { display: false },
                         datalabels: { display: false },
                         tooltip: {
@@ -491,50 +507,24 @@ document.addEventListener('DOMContentLoaded', function() {
                             intersect: false,
                             displayColors: false,
                             callbacks: {
-                                // judul tooltip = nomor plat kendaraan yang sedang di-hover
-                                title: function(items) {
-                                    return items.length ? items[0].label : '';
-                                },
-                                // isi tooltip = nilai yang sudah diformat sesuai tab aktif
-                                label: function(item) {
-                                    return data.format(item.raw);
-                                }
+                                title: function(items) { return items.length ? items[0].label : ''; },
+                                label: function(item) { return o.format(item.raw); }
                             }
                         }
                     },
                     scales: {
-                        x: {
-                            ticks: {
-                                autoSkip: false,
-                                maxRotation: 45,
-                                minRotation: 0
-                            }
-                        },
+                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } },
                         y: {
                             beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    if (tab === 'distance') return value + ' km';
-                                    return 'Rp ' + value.toLocaleString();
-                                }
-                            }
+                            ticks: { callback: function(value) { return o.format(value); } }
                         }
                     },
-                    // Klik batang kendaraan -> menuju Log Pengisian BBM/EV
-                    // (drms.fuel-logs.index), difilter ke kendaraan + bulan yang sedang
-                    // ditampilkan. Tab "Biaya" DAN tab "Jarak" sama-sama diarahkan ke
-                    // halaman yang sama, karena keduanya sekarang sama-sama bersumber
-                    // dari Log Pengisian BBM/EV Charging (FuelLog) — jarak dihitung dari
-                    // selisih odometer antar pengisian, bukan lagi dari Log Perjalanan.
+                    // Klik batang -> halaman sumber data yang sesuai, difilter ke kendaraan + periode
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
-                        const idx = elements[0].index;
-                        const vehicleId = vehicleStats[idx]?.id;
-                        if (!vehicleId) return;
-                        goToDrilldown(drilldownBaseUrl.fuel, {
-                            vehicle_id: vehicleId,
-                            month: currentPeriod,
-                        });
+                        const row = rows[elements[0].index];
+                        if (!row || !row.id) return;
+                        goToDrilldown(o.url, { vehicle_id: row.id, month: currentPeriod });
                     },
                     onHover: (evt, elements) => {
                         evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
@@ -542,7 +532,58 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            document.getElementById('chartTotalLabel').textContent = 'Total: ' + data.format(data.total);
+            const totalEl = document.getElementById(o.totalId);
+            if (totalEl) totalEl.textContent = 'Total: ' + o.format(sumRows(rows));
+
+            // Fix tooltip/hover salah bar bila lebar container berubah setelah chart digambar
+            if (!canvas.dataset.observed) {
+                canvas.dataset.observed = '1';
+                if (window.ResizeObserver) {
+                    new ResizeObserver(() => {
+                        if (vehicleCharts[canvasId]) vehicleCharts[canvasId].resize();
+                    }).observe(canvas.parentElement);
+                }
+                window.addEventListener('load', function() {
+                    if (vehicleCharts[canvasId]) vehicleCharts[canvasId].resize();
+                });
+            }
+        }
+
+        // Kalau tidak ada biaya sama sekali pada periode ini, tampilkan pesan, bukan grafik kosong
+        function renderOrEmpty(canvasId, rows, o, emptyText) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            if (rows.length === 0) {
+                canvas.parentElement.innerHTML = '<p class="text-center text-gray-400 text-sm py-8">' + emptyText + '</p>';
+                const totalEl = document.getElementById(o.totalId);
+                if (totalEl) totalEl.textContent = '';
+                return;
+            }
+            renderVehicleChart(canvasId, rows, o);
+        }
+
+        // ---- BBM / EV Charging (tab Biaya & Jarak) ----
+        const fuelTabs = {
+            cost: {
+                rows: rowsFor('fuel_cost', false),
+                label: 'Biaya BBM/EV (Rp)',
+                color: 'rgba(59,130,246,0.7)', border: 'rgba(59,130,246,1)',
+                format: fmtRp
+            },
+            distance: {
+                rows: rowsFor('distance', false),
+                label: 'Jarak (km)',
+                color: 'rgba(16,185,129,0.7)', border: 'rgba(16,185,129,1)',
+                format: fmtKm
+            }
+        };
+
+        function renderFuelTab(tab) {
+            const t = fuelTabs[tab];
+            renderVehicleChart('perVehicleChart', t.rows, {
+                label: t.label, color: t.color, border: t.border, format: t.format,
+                url: drilldownBaseUrl.fuel, totalId: 'chartTotalLabel'
+            });
         }
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -553,32 +594,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 this.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
                 this.classList.remove('text-gray-500');
-                renderPerVehicleChart(this.dataset.tab);
+                renderFuelTab(this.dataset.tab);
             });
         });
+        renderFuelTab('cost');
 
-        renderPerVehicleChart('cost');
+        // ---- Service Rutin ----
+        renderOrEmpty('serviceVehicleChart', rowsFor('service_cost', true), {
+            label: 'Biaya Service Rutin (Rp)',
+            color: 'rgba(249,115,22,0.7)', border: 'rgba(249,115,22,1)',
+            format: fmtRp, url: drilldownBaseUrl.service, totalId: 'serviceTotalLabel'
+        }, 'Belum ada biaya service rutin pada periode ini');
 
-        // Fix: kalau canvas ini di-render sebelum lebar containernya "settle"
-        // (misal sidebar/layout belum selesai reflow), Chart.js akan salah
-        // memetakan posisi mouse ke bar (tooltip/hover nunjuk bar yang salah).
-        // ResizeObserver ini memaksa chart resize ulang tiap kali ukuran
-        // container-nya berubah, jadi pemetaan mouse-nya selalu sinkron
-        // dengan yang benar-benar tampil di layar.
-        const chartContainer = document.getElementById('perVehicleChart').parentElement;
-        if (window.ResizeObserver) {
-            const chartResizeObserver = new ResizeObserver(() => {
-                if (perVehicleChart) perVehicleChart.resize();
-            });
-            chartResizeObserver.observe(chartContainer);
-        }
-
-        // Jaga-jaga tambahan: paksa resize sesaat setelah semua asset
-        // (font, gambar, sidebar) selesai load, karena itu momen paling
-        // sering bikin lebar container berubah setelah chart pertama digambar.
-        window.addEventListener('load', function() {
-            if (perVehicleChart) perVehicleChart.resize();
-        });
+        // ---- Perbaikan ----
+        renderOrEmpty('repairVehicleChart', rowsFor('repair_cost', true), {
+            label: 'Biaya Perbaikan (Rp)',
+            color: 'rgba(239,68,68,0.7)', border: 'rgba(239,68,68,1)',
+            format: fmtRp, url: drilldownBaseUrl.repair, totalId: 'repairTotalLabel'
+        }, 'Belum ada biaya perbaikan pada periode ini');
     }
 
     // ========== CHART DISTRIBUSI TRANSPORTASI ==========

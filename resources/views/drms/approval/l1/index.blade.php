@@ -103,6 +103,7 @@
                             'destination' => $req->destination,
                             'destination_maps_link' => $req->destination_maps_link,
                             'purpose' => $req->purpose,
+                            'attachments' => $req->attachmentsForJs(),
                             'status' => $req->status,
                             'rejection_reason' => $req->rejection_reason,
                             'transport_type' => $req->transport_type,
@@ -174,6 +175,7 @@
                             'destination' => $req->destination,
                             'destination_maps_link' => $req->destination_maps_link,
                             'purpose' => $req->purpose,
+                            'attachments' => $req->attachmentsForJs(),
                             'status' => $req->status,
                             'rejection_reason' => $req->rejection_reason,
                             'transport_type' => $req->transport_type,
@@ -262,6 +264,7 @@
                             'destination' => $req->destination,
                             'destination_maps_link' => $req->destination_maps_link,
                             'purpose' => $req->purpose,
+                            'attachments' => $req->attachmentsForJs(),
                             'status' => $req->status,
                             'rejection_reason' => $req->rejection_reason,
                             'transport_type' => $req->transport_type,
@@ -335,6 +338,7 @@
                             'destination' => $req->destination,
                             'destination_maps_link' => $req->destination_maps_link,
                             'purpose' => $req->purpose,
+                            'attachments' => $req->attachmentsForJs(),
                             'status' => $req->status,
                             'rejection_reason' => $req->rejection_reason,
                             'transport_type' => $req->transport_type,
@@ -423,6 +427,9 @@
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Tujuan</td><td class="py-2" x-text="detailItem.destination"></td></tr>
                     <template x-if="detailItem.destination_maps_link"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Link Maps Tujuan</td><td class="py-2"><a :href="detailItem.destination_maps_link" target="_blank" class="text-blue-600 underline">Buka Maps</a></td></tr></template>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Keperluan</td><td class="py-2" x-text="detailItem.purpose ?? '-'"></td></tr>
+                    <template x-if="detailItem.attachments && detailItem.attachments.length > 0"><tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium align-top">Lampiran</td><td class="py-2">
+                        <template x-for="a in detailItem.attachments" :key="a.url"><div class="mb-1"><a :href="a.url" target="_blank" rel="noopener" class="text-blue-600 underline" x-text="'📎 ' + a.name"></a></div></template>
+                    </td></tr></template>
                     <tr class="border-b border-gray-100"><td class="py-2 text-gray-500 font-medium">Status</td>
                         <td class="py-2">
                             <span class="px-2 py-1 rounded-full text-xs font-semibold" :class="{

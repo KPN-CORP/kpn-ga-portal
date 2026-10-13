@@ -69,11 +69,20 @@
                 <input type="date" name="date_to" value="{{ request('date_to') }}" 
                        class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
             </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
+                <select name="status" class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua</option>
+                    @foreach(['open' => 'Menunggu Approval', 'progress' => 'Dalam Proses', 'done' => 'Selesai', 'rejected' => 'Ditolak'] as $v => $l)
+                        <option value="{{ $v }}" {{ request('status') == $v ? 'selected' : '' }}>{{ $l }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="flex gap-2 sm:col-span-2 lg:col-span-5">
                 <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
+                @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
                     <a href="{{ route('drms.service-schedules.index') }}" class="flex-1 sm:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -124,6 +133,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Biaya</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Servis Berikutnya</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                     </tr>
                 </thead>
@@ -160,6 +170,15 @@
                                 <span class="text-gray-400 text-sm">-</span>
                             @endif
                         </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                @if($service->status == 'open') bg-yellow-100 text-yellow-800
+                                @elseif($service->status == 'progress') bg-blue-100 text-blue-800
+                                @elseif($service->status == 'rejected') bg-red-100 text-red-800
+                                @else bg-green-100 text-green-800 @endif">
+                                {{ ['open' => 'Menunggu Approval', 'progress' => 'Dalam Proses', 'done' => 'Selesai', 'rejected' => 'Ditolak'][$service->status] ?? $service->status }}
+                            </span>
+                        </td>
                         <td class="px-6 py-4 space-x-2">
                             <a href="{{ route('drms.service-schedules.show', $service->id) }}" class="text-blue-600 hover:text-blue-800 text-sm">Detail</a>
                             <a href="{{ route('drms.service-schedules.edit', $service->id) }}" class="text-green-600 hover:text-green-800 text-sm">Edit</a>
@@ -171,10 +190,10 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">🔧</div>
                             <p>Belum ada data servis.</p>
-                            @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'date_from', 'date_to']))
+                            @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'status', 'date_from', 'date_to']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif
                             <a href="{{ route('drms.service-schedules.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Servis</a>

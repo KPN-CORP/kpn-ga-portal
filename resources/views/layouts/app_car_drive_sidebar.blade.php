@@ -170,6 +170,14 @@
                             <span>Laporan Pengeluaran</span>
                         </a>
                     </li>
+                    {{-- Pengajuan Servis Rutin & Perbaikan oleh driver --}}
+                    <li>
+                        <a href="{{ route('drms.driver.service.index') }}" title="Servis & Perbaikan"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('drms.driver.service.*') ? 'active' : '' }}">
+                            <i class="fas fa-screwdriver-wrench w-5 mr-3 text-gray-400"></i>
+                            <span>Servis & Perbaikan</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 

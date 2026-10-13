@@ -15,14 +15,14 @@ class AppL1Controller extends Controller
     public function index(Request $request)
     {
         // Pending requests (tidak perlu filter, hanya tampilkan semua pending milik approver)
-        $pendingRequests = DriverRequest::with('requester')
+        $pendingRequests = DriverRequest::with('requester', 'attachments')
             ->where('approver_l1_id', Auth::id())
             ->where('status', 'pending_l1')
             ->latest()
             ->get();
 
         // History requests dengan filter search dan status
-        $historyQuery = DriverRequest::with('requester')
+        $historyQuery = DriverRequest::with('requester', 'attachments')
             ->where('approver_l1_id', Auth::id())
             ->whereIn('status', ['approved_l1', 'rejected_l1', 'approved_admin', 'rejected_admin']);
 

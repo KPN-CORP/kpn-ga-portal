@@ -52,6 +52,11 @@ class ServiceScheduleController extends Controller
             $query->whereJsonContains('service_type', $request->service_type);
         }
 
+        // Filter status pengajuan (open / progress / done / rejected)
+        if ($request->filled('status') && in_array($request->status, ['open', 'progress', 'done', 'rejected'], true)) {
+            $query->where('status', $request->status);
+        }
+
         // Filter kendaraan
         if ($request->filled('vehicle_id')) {
             $query->where('vehicle_id', $request->vehicle_id);

@@ -139,7 +139,7 @@ class RepairController extends Controller
             'parts_replaced' => 'nullable|string',
             'labor_cost' => 'nullable|numeric|min:0',
             'parts_cost' => 'nullable|numeric|min:0',
-            'status' => 'required|in:open,progress,done',
+            'status' => 'required|in:open,progress,done,rejected',
             'invoice_file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:5120',
             'notes' => 'nullable|string',
         ]);

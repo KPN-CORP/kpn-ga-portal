@@ -63,6 +63,7 @@
                 <option value="open" {{ old('status', $repair->status) == 'open' ? 'selected' : '' }}>Open</option>
                 <option value="progress" {{ old('status', $repair->status) == 'progress' ? 'selected' : '' }}>Progress</option>
                 <option value="done" {{ old('status', $repair->status) == 'done' ? 'selected' : '' }}>Selesai</option>
+                <option value="rejected" {{ old('status', $repair->status) == 'rejected' ? 'selected' : '' }}>Rejected</option>
             </select>
         </div>
 
