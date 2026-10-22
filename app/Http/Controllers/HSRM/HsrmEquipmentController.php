@@ -81,6 +81,16 @@ class HsrmEquipmentController extends Controller
             $query->where('equipment_type_id', request('equipment_type_id'));
         }
 
+        // 🔽 FILTER LOCATION (teks bebas, cocok sebagian: "Lantai 2" juga menemukan "Gedung A/Lantai 2/Lobby")
+        if (request()->filled('location')) {
+            $query->where('location', 'like', '%' . trim(request('location')) . '%');
+        }
+
+        // 🔽 FILTER CAPACITY (cocok persis dengan salah satu nilai yang ada, mis. "6kg")
+        if (request()->filled('capacity')) {
+            $query->where('capacity', request('capacity'));
+        }
+
         // 🔽 TAMBAHAN: Filter Recommendation
         if (request('rekomendasi')) {
             $query->rekomendasi(request('rekomendasi'));
@@ -107,7 +117,21 @@ class HsrmEquipmentController extends Controller
         $areas = AreaKerja::all();
         $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
 
-        return view('hsrm.equipments.index', compact('equipments', 'areas', 'equipmentTypes'));
+        // Pilihan Location & Capacity diambil dari data yang boleh dilihat user (sesuai area aksesnya)
+        $optionsQuery = HsrmEquipment::query();
+        if (!$isAdmin) {
+            $optionsQuery->whereIn('area_id', $user->hsrmAreas->pluck('id_area_kerja'));
+        }
+        $locations = (clone $optionsQuery)
+            ->whereNotNull('location')->where('location', '!=', '')
+            ->distinct()->pluck('location')
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)->values();
+        $capacities = (clone $optionsQuery)
+            ->whereNotNull('capacity')->where('capacity', '!=', '')
+            ->distinct()->pluck('capacity')
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)->values();
+
+        return view('hsrm.equipments.index', compact('equipments', 'areas', 'equipmentTypes', 'locations', 'capacities'));
     }
 
     public function create()
@@ -470,6 +494,8 @@ class HsrmEquipmentController extends Controller
             'expired_from' => request('expired_from'),
             'expired_to' => request('expired_to'),
             'equipment_type_id' => request('equipment_type_id'), // tambahkan untuk export
+            'location' => request('location'),
+            'capacity' => request('capacity'),
         ];
 
         return Excel::download(

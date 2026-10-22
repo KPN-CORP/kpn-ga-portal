@@ -1,6 +1,11 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
+@php
+    // Filter dianggap aktif hanya jika nilainya terisi (bukan sekadar ada di URL)
+    $activeCount = collect(['start_date', 'end_date', 'search'])->filter(fn ($k) => request()->filled($k))->count();
+    $hasFilter   = $activeCount > 0;
+@endphp
 <div class="space-y-6 text-sm text-gray-800">
 
 {{-- ================= HEADER ================= --}}
@@ -19,73 +24,58 @@
         @endif
     </div>
     <div class="flex gap-2">
-        <button id="toggleFilterBtn"
-                class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold">
+        <button id="toggleFilterBtn" type="button"
+                aria-controls="filterSection" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition
+                       {{ $hasFilter ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-100 hover:bg-gray-200 border-transparent' }}">
+            <i class="fas fa-sliders-h"></i>
             Filter
+            @if($activeCount > 0)
+            <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-blue-600 text-white text-[10px] leading-none">{{ $activeCount }}</span>
+            @endif
+            <i id="filterChevron" class="fas fa-chevron-down text-xs transition-transform {{ $hasFilter ? 'rotate-180' : '' }}"></i>
         </button>
     </div>
 </div>
 
 {{-- ================= FILTER ================= --}}
-<div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
-    <form method="GET" class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<div id="filterSection" class="bg-white border rounded-xl p-4 {{ $hasFilter ? '' : 'hidden' }}">
+    <form method="GET" action="{{ route('mailing.index') }}" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tanggal Mulai</label>
-                <input type="date" name="start_date" value="{{ request('start_date') }}" 
+                <label for="f_start_date" class="block text-xs font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+                <input id="f_start_date" type="date" name="start_date" value="{{ request('start_date') }}"
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tanggal Akhir</label>
-                <input type="date" name="end_date" value="{{ request('end_date') }}" 
+                <label for="f_end_date" class="block text-xs font-medium text-gray-700 mb-1">Tanggal Akhir</label>
+                <input id="f_end_date" type="date" name="end_date" value="{{ request('end_date') }}"
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Cari Resi</label>
-                <input type="text" name="search" value="{{ request('search') }}"
-                       placeholder="Cari nomor resi"
+            <div class="sm:col-span-2">
+                <label for="f_search" class="block text-xs font-medium text-gray-700 mb-1">Pencarian</label>
+                <input id="f_search" type="text" name="search" value="{{ request('search') }}"
+                       placeholder="Resi, pengirim, penerima, ekspedisi..."
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
         </div>
-        <div class="flex gap-2">
-            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
-                Terapkan Filter
-            </button>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t">
             <a href="{{ route('mailing.index') }}"
-               class="bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold">
+               class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200">
                 Reset
             </a>
+            <button type="submit"
+                    class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
+                Terapkan Filter
+            </button>
         </div>
     </form>
 </div>
 
-@if(request()->hasAny(['start_date', 'end_date', 'search']))
-<div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
-    <div class="flex items-start">
-        <i class="fas fa-filter text-blue-500 mt-0.5 mr-3"></i>
-        <div>
-            <p class="text-sm font-medium text-blue-800 mb-2">Filter Aktif</p>
-            <div class="flex flex-wrap gap-2">
-                @if(request('start_date'))
-                <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                    Mulai: {{ request('start_date') }}
-                </span>
-                @endif
-                @if(request('end_date'))
-                <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                    Akhir: {{ request('end_date') }}
-                </span>
-                @endif
-                @if(request('search'))
-                <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                    Resi: "{{ request('search') }}"
-                </span>
-                @endif
-            </div>
-        </div>
-    </div>
-</div>
-@endif
+@include('mailing.partials.filter-chips', [
+    'route'   => 'mailing.index',
+    'filters' => ['start_date' => 'Mulai', 'end_date' => 'Akhir', 'search' => 'Cari'],
+])
 
 {{-- ================= MOBILE ================= --}}
 <div class="block sm:hidden space-y-3">
@@ -217,7 +207,7 @@
         <i class="fas fa-inbox text-4xl text-gray-400 mb-3"></i>
         <p class="font-semibold text-gray-600">Tidak ada data mailing selesai</p>
         <p class="text-sm text-gray-500 mt-1">
-            @if(request()->hasAny(['start_date', 'end_date', 'search']))
+            @if($hasFilter)
             Coba ubah filter pencarian
             @else
             Belum ada mailing yang diselesaikan
@@ -406,7 +396,7 @@
                     <i class="fas fa-inbox text-3xl text-gray-400 mb-3"></i>
                     <p class="font-semibold text-gray-600">Tidak ada data mailing selesai</p>
                     <p class="text-sm text-gray-500 mt-1">
-                        @if(request()->hasAny(['start_date', 'end_date', 'search']))
+                        @if($hasFilter)
                         Coba ubah filter pencarian
                         @else
                         Belum ada mailing yang diselesaikan
@@ -455,19 +445,17 @@
 <script src="{{ asset('js/ga-file-loader.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Toggle filter section
+    // ================= FILTER TOGGLE =================
+    // Status buka/tutup awal sudah ditentukan server (terbuka jika ada filter aktif)
     const toggleFilterBtn = document.getElementById('toggleFilterBtn');
-    const filterSection = document.getElementById('filterSection');
-    
+    const filterSection   = document.getElementById('filterSection');
+    const filterChevron   = document.getElementById('filterChevron');
+
     if (toggleFilterBtn && filterSection) {
         toggleFilterBtn.addEventListener('click', function() {
-            filterSection.classList.toggle('hidden');
-            const icon = this.querySelector('i') || this;
-            if (filterSection.classList.contains('hidden')) {
-                icon.innerHTML = '<i class="fas fa-chevron-down mr-1"></i> Filter';
-            } else {
-                icon.innerHTML = '<i class="fas fa-chevron-up mr-1"></i> Filter';
-            }
+            const isHidden = filterSection.classList.toggle('hidden');
+            toggleFilterBtn.setAttribute('aria-expanded', String(!isHidden));
+            if (filterChevron) filterChevron.classList.toggle('rotate-180', !isHidden);
         });
     }
 

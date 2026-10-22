@@ -279,6 +279,9 @@
                             {{ $voucher->code }}
                             - {{ ucfirst($voucher->type) }}
                             (Rp {{ number_format($voucher->nominal,0,',','.') }})
+                            @if($voucher->area)
+                                - Area {{ $voucher->area }}
+                            @endif
                             @if($voucher->businessUnit)
                                 - {{ $voucher->businessUnit->nama_bisnis_unit }}
                                 @if($voucher->inputBusinessUnit)

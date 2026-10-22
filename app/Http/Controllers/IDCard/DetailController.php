@@ -31,6 +31,8 @@ class DetailController extends IDCardBaseController
 
         $bisnisUnit = DB::table('tb_bisnis_unit')->where('id_bisnis_unit', $data->bisnis_unit_id)->first();
         $data->bisnis_unit_nama = $bisnisUnit->nama_bisnis_unit ?? '-';
+        // $data berasal dari DB::table() (stdClass), jadi accessor model tidak ada -> isi manual
+        $data->kategori_label = $this->kategoriLabels[$data->kategori] ?? $data->kategori;
 
         $logs = DB::table('request_idcard_logs')
             ->select('request_idcard_logs.*', 'users.name as action_by_name')
@@ -41,8 +43,10 @@ class DetailController extends IDCardBaseController
 
         $canProses = $this->canProses();
         $isPending = ($data->status == 'pending');
+        // tombol nonaktifkan/aktifkan di halaman detail (aturan sama dengan NonaktifController)
+        $canToggleAktif = $canProses && $data->status === 'approved';
 
-        return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending'));
+        return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending', 'canToggleAktif'));
     }
 
     public function edit($id)

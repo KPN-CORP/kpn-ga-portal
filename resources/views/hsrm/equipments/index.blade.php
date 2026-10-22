@@ -48,6 +48,24 @@
             @endforeach
         </select>
 
+        {{-- 🔽 FILTER LOCATION --}}
+        <input type="text" name="location" list="location-datalist-eq" autocomplete="off"
+               placeholder="Location..." value="{{ request('location') }}"
+               class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-36">
+        <datalist id="location-datalist-eq">
+            @foreach($locations as $loc)
+                <option value="{{ $loc }}"></option>
+            @endforeach
+        </datalist>
+
+        {{-- 🔽 FILTER CAPACITY --}}
+        <select name="capacity" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="">All Capacity</option>
+            @foreach($capacities as $cap)
+                <option value="{{ $cap }}" {{ (string) request('capacity') === (string) $cap ? 'selected' : '' }}>{{ $cap }}</option>
+            @endforeach
+        </select>
+
         <input type="date" name="expired_from" value="{{ request('expired_from') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired From">
         <input type="date" name="expired_to" value="{{ request('expired_to') }}" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Expired To">
 

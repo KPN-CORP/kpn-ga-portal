@@ -76,6 +76,8 @@
                 <p class="text-xs text-gray-500 mb-4">Voucher akan otomatis tercatat untuk business unit Anda.</p>
             @endif
 
+            @include('drms.vouchers._area_field')
+
             <div class="mb-4">
                 <label for="file" class="block text-sm font-medium text-gray-700 mb-1">File Excel</label>
                 <input type="file" name="file" id="file" accept=".xlsx,.xls,.csv" required

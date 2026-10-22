@@ -17,12 +17,9 @@
                 <label class="block text-sm font-medium mb-1">Kategori *</label>
                 <select name="kategori" id="kategori" class="w-full border p-2 rounded" required>
                     <option value="">Pilih Kategori</option>
-                    <option value="karyawan_baru" {{ $data->kategori=='karyawan_baru'?'selected':'' }}>Karyawan Baru</option>
-                    <option value="karyawan_mutasi" {{ $data->kategori=='karyawan_mutasi'?'selected':'' }}>Karyawan Mutasi</option>
-                    <option value="ganti_kartu" {{ $data->kategori=='ganti_kartu'?'selected':'' }}>Ganti Kartu</option>
-                    <option value="magang" {{ $data->kategori=='magang'?'selected':'' }}>Magang</option>
-                    <option value="magang_extend" {{ $data->kategori=='magang_extend'?'selected':'' }}>Magang Extend</option>
-                    <option value="perubahan_lantai" {{ $data->kategori=='perubahan_lantai'?'selected':'' }}>Perubahan Lantai</option>
+                    @foreach(\App\Models\IDCard\RequestIdCard::KATEGORI_LABELS as $value => $label)
+                        <option value="{{ $value }}" {{ old('kategori', $data->kategori) === $value ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
                 </select>
             </div>
             <div>
@@ -38,7 +35,7 @@
                 <select name="bisnis_unit_id" class="w-full border p-2 rounded" required>
                     <option value="">Pilih</option>
                     @foreach($bisnisUnits as $unit)
-                        <option value="{{ $unit->id_bisnis_unit }}" {{ $data->bisnis_unit_id == $unit->id_bisnis_unit ? 'selected' : '' }}>{{ $unit->nama_bisnis_unit }}</option>
+                        <option value="{{ $unit->id_bisnis_unit }}" {{ old('bisnis_unit_id', $data->bisnis_unit_id) == $unit->id_bisnis_unit ? 'selected' : '' }}>{{ $unit->nama_bisnis_unit }}</option>
                     @endforeach
                 </select>
             </div>
@@ -117,5 +114,18 @@
 
     kategoriSelect.addEventListener('change', renderFields);
     renderFields();
+
+    // cegah submit ganda
+    const editForm = document.querySelector('form[method="POST"]');
+    editForm.addEventListener('submit', function () {
+        const b = editForm.querySelector('button[type="submit"]');
+        b.disabled = true;
+        b.textContent = 'Menyimpan...';
+    });
+    window.addEventListener('pageshow', function () {
+        const b = editForm.querySelector('button[type="submit"]');
+        b.disabled = false;
+        b.textContent = 'Simpan Perubahan';
+    });
 </script>
 @endsection

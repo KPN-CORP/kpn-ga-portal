@@ -18,7 +18,7 @@ class ReportController extends IDCardBaseController
 
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
 
-        $query = RequestIdCard::orderBy('created_at', 'desc');
+        $query = RequestIdCard::orderBy('created_at', 'desc')->orderByDesc('id');
         $query = $this->applyAccessFilter($query);
 
         if ($request->bisnis_unit_id && $request->bisnis_unit_id != 'all') {
@@ -54,7 +54,7 @@ class ReportController extends IDCardBaseController
             return redirect()->route('no-access')->with('error', 'Anda tidak memiliki akses untuk mendownload report.');
         }
 
-        $query = RequestIdCard::orderBy('created_at', 'desc');
+        $query = RequestIdCard::orderBy('created_at', 'desc')->orderByDesc('id');
         $query = $this->applyAccessFilter($query);
 
         if ($request->bisnis_unit_id && $request->bisnis_unit_id != 'all') {

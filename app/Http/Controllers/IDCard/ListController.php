@@ -11,7 +11,7 @@ class ListController extends IDCardBaseController
     // ===================== SEMUA REQUEST =====================
     public function index(Request $request)
     {
-        $query = RequestIdCard::orderBy('created_at', 'desc');
+        $query = RequestIdCard::orderBy('created_at', 'desc')->orderByDesc('id');
         $query = $this->applyAccessFilter($query);
 
         // Filter
@@ -82,7 +82,8 @@ class ListController extends IDCardBaseController
     // ===================== AKTIF (is_active = 1) =====================
     public function aktif(Request $request)
     {
-        $query = RequestIdCard::orderBy('created_at', 'desc')
+        $query = RequestIdCard::orderBy('created_at', 'desc')->orderByDesc('id')
+            ->where('status', 'approved')   // pending/rejected tidak boleh tampil sebagai kartu aktif
             ->where('is_active', 1);
         $query = $this->applyAccessFilter($query);
 
@@ -146,7 +147,8 @@ class ListController extends IDCardBaseController
     // ===================== INAKTIF (is_active = 0) =====================
     public function inaktif(Request $request)
     {
-        $query = RequestIdCard::orderBy('created_at', 'desc')
+        $query = RequestIdCard::orderBy('created_at', 'desc')->orderByDesc('id')
+            ->where('status', 'approved')
             ->where('is_active', 0);
         $query = $this->applyAccessFilter($query);
 
@@ -201,6 +203,9 @@ class ListController extends IDCardBaseController
             }
         }
 
-        return view('idcard.inaktif', compact('data', 'bisnisUnits'));
+        // Sebelumnya variabel ini tidak dikirim, sehingga tombol "Aktifkan" tidak pernah muncul
+        $canNonaktifkan = $this->isSuperAdmin() || !empty($this->getAdminBUAccess());
+
+        return view('idcard.inaktif', compact('data', 'bisnisUnits', 'canNonaktifkan'));
     }
 }

@@ -172,7 +172,7 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Jarak (km)</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ $vehicleDetail['fuel_unit_label'] }} Diisi</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Biaya</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Efisiensi</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Parameter</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Deviasi</th>
                     </tr>
                 </thead>

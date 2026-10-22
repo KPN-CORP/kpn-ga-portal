@@ -8,7 +8,7 @@ use App\Models\BisnisUnit;
 class Voucher extends Model
 {
     protected $table = 'drms_vouchers'; // perbaiki jika masih 'vouchers'
-    protected $fillable = ['code', 'nominal', 'type', 'status', 'expired_at', 'business_unit_id', 'input_business_unit_id'];
+    protected $fillable = ['code', 'nominal', 'type', 'status', 'expired_at', 'business_unit_id', 'area', 'input_business_unit_id'];
 
     protected $casts = [
         'type' => 'string',
@@ -25,6 +25,79 @@ class Voucher extends Model
     public function getIsExpiredAttribute(): bool
     {
         return $this->expired_at !== null && $this->expired_at->copy()->endOfDay()->isPast();
+    }
+
+
+    /**
+     * Cakupan voucher yang boleh DILIHAT/DIKELOLA oleh admin (list, edit, hapus).
+     * - Superadmin           : semua BU, semua area.
+     * - Admin tanpa area     : semua area di dalam BU-nya (lintas area).
+     * - Admin 1..n area      : hanya area-area yang dipegangnya (drms_admin_areas) di dalam BU-nya.
+     */
+    public function scopeManageableBy($query, $user)
+    {
+        if ($user->isDrmsSuperAdmin()) {
+            return $query;
+        }
+        $profile = $user->drmsProfile;
+        $query->where('business_unit_id', $profile->business_unit_id ?? 0);
+        $areas = $profile ? $profile->adminAreaList() : [];
+        if (!empty($areas)) {
+            $query->whereIn('area', $areas);
+        }
+        return $query;
+    }
+
+    /**
+     * Cakupan voucher yang boleh DIBERIKAN ke sebuah request.
+     * Voucher harus satu area dengan pemohon, supaya area A tidak memberi voucher area B
+     * walaupun admin-nya lintas area.
+     * - Request hasil forward (current_business_unit_id terisi): area pemohon milik BU lain,
+     *   jadi yang dipakai adalah cakupan area admin penerima.
+     * - Request biasa: voucher.area harus sama dengan area pemohon (pemohon tanpa area
+     *   -> hanya voucher tanpa area).
+     */
+    public function scopeAssignableTo($query, DriverRequest $driverRequest, $user, bool $showAllBu = false)
+    {
+        if ($user->isDrmsSuperAdmin()) {
+            return $query;
+        }
+
+        $requesterProfile = $driverRequest->requester->drmsProfile ?? null;
+        $isForwarded = !empty($driverRequest->current_business_unit_id);
+
+        if (!$showAllBu) {
+            $buId = $driverRequest->current_business_unit_id ?? ($requesterProfile->business_unit_id ?? 0);
+            $query->where('business_unit_id', $buId);
+        }
+
+        if ($isForwarded) {
+            $adminAreas = $user->drmsProfile ? $user->drmsProfile->adminAreaList() : [];
+            if (!empty($adminAreas)) {
+                $query->whereIn('area', $adminAreas);
+            }
+            return $query;
+        }
+
+        $area = $requesterProfile->area ?? null;
+        if ($area) {
+            $query->where('area', $area);
+        } else {
+            $query->where(fn ($q) => $q->whereNull('area')->orWhere('area', ''));
+        }
+        return $query;
+    }
+
+    public function canBeManagedBy($user): bool
+    {
+        if ($user->isDrmsSuperAdmin()) {
+            return true;
+        }
+        $profile = $user->drmsProfile;
+        if (!$profile || (int) $this->business_unit_id !== (int) $profile->business_unit_id) {
+            return false;
+        }
+        return $profile->holdsArea($this->area);
     }
 
     public function businessUnit()

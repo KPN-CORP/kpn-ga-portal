@@ -3,8 +3,8 @@
 @section('content')
 @php
     // ---------- helper tampilan ----------
-    $lbl = 'block mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide';
-    $ctl = 'w-full h-10 px-3 text-sm bg-white border border-gray-300 rounded-lg
+    $lbl = 'block mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide';
+    $ctl = 'w-full h-9 px-3 text-sm bg-white border border-gray-300 rounded-lg
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
 
     $kurirList   = $kurirList ?? [];
@@ -29,12 +29,12 @@
     ];
 @endphp
 
-<div class="space-y-5 text-sm text-gray-800 font-sans min-w-0">
+<div class="space-y-3 text-sm text-gray-800 font-sans min-w-0">
 
     {{-- ================= HEADER ================= --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h2 class="text-xl font-semibold text-gray-800">Dashboard Messenger</h2>
+            <h2 class="text-lg font-semibold text-gray-800">Dashboard Messenger</h2>
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold">
                     <i class="far fa-calendar-alt"></i> {{ $periodLabel }}
@@ -59,7 +59,7 @@
         </div>
 
         <a href="{{ route('messenger.index') }}"
-           class="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-gray-700
+           class="inline-flex items-center justify-center gap-2 h-9 px-3 text-sm font-semibold text-gray-700
                   bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
             <i class="fas fa-list text-gray-400"></i> Daftar Pengiriman
         </a>
@@ -67,13 +67,13 @@
 
     {{-- ================= FILTER ================= --}}
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
-        <div class="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+        <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-100">
             <i class="fas fa-sliders-h text-gray-400"></i>
             <h3 class="text-sm font-semibold text-gray-700">Filter Dashboard</h3>
         </div>
 
         <form method="GET" action="{{ route('messenger.dashboard') }}">
-            <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
                 {{-- TAMPILAN --}}
                 <div>
@@ -156,15 +156,15 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between gap-3 px-5 py-3 bg-gray-50 border-t border-gray-100 rounded-b-xl">
+            <div class="flex items-center justify-between gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100 rounded-b-xl">
                 <div class="flex items-center gap-2 w-full sm:w-auto">
                     <a href="{{ route('messenger.dashboard') }}"
-                       class="flex-1 sm:flex-none inline-flex items-center justify-center h-10 px-5 text-sm font-medium
+                       class="flex-1 sm:flex-none inline-flex items-center justify-center h-9 px-4 text-sm font-medium
                               text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">
                         Reset
                     </a>
                     <button type="submit"
-                            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-10 px-6 text-sm
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-9 px-5 text-sm
                                    font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
                         <i class="fas fa-filter text-xs"></i> Tampilkan
                     </button>
@@ -178,17 +178,17 @@
     </div>
 
     {{-- ================= KARTU RINGKASAN ================= --}}
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         @foreach($cards as $c)
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-3">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-medium text-gray-500">{{ $c['label'] }}</span>
-                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg {{ $c['bg'] }} {{ $c['fg'] }}">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg {{ $c['bg'] }} {{ $c['fg'] }}">
                         <i class="fas {{ $c['icon'] }} text-sm"></i>
                     </span>
                 </div>
-                <div class="mt-2 text-2xl font-bold {{ $c['fg'] }}">{{ number_format($c['value']) }}</div>
-                <div class="mt-0.5 text-[11px] text-gray-400">
+                <div class="mt-1 text-xl font-bold {{ $c['fg'] }}">{{ number_format($c['value']) }}</div>
+                <div class="text-[11px] leading-tight text-gray-400">
                     @if(!is_null($c['pct'])) {{ $c['pct'] }}% dari total @else &nbsp; @endif
                 </div>
             </div>
@@ -196,18 +196,24 @@
     </div>
 
     {{-- ================= GRAFIK: TREN + STATUS ================= --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
         {{-- TREN BULANAN / HARIAN --}}
-        <div class="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm p-5 min-w-0">
+        <div class="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm p-4 min-w-0">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h3 class="font-semibold text-gray-800">{{ $timelineTitle }}</h3>
+                    <h3 class="font-semibold text-gray-800">
+                        {{ $timelineTitle }}
+                        @php $tlTag = $view === 'year' ? (string) $year : (string) $periodLabel; @endphp
+                        @unless(str_contains((string) $timelineTitle, $tlTag))
+                            <span class="font-normal text-gray-500">({{ $tlTag }})</span>
+                        @endunless
+                    </h3>
                     <p class="text-xs text-gray-500 mt-0.5">
                         @if($compare)
-                            Perbandingan messenger &middot; klik nama di bawah untuk sembunyikan/tampilkan &middot; klik batang untuk detail
+                            Perbandingan messenger &middot; klik nama di bawah untuk sembunyikan/tampilkan &middot; klik batang untuk detail &amp; grafik messenger
                         @else
-                            Klik batang untuk melihat detail transaksi
+                            Klik batang untuk melihat detail &amp; grafik messenger pada periode itu &middot; klik lagi untuk batal
                         @endif
                     </p>
                 </div>
@@ -220,7 +226,7 @@
         </div>
 
         {{-- KOMPOSISI STATUS --}}
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 min-w-0">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 min-w-0">
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="font-semibold text-gray-800">Komposisi Status</h3>
@@ -228,7 +234,7 @@
                 </div>
                 <i class="fas fa-chart-pie text-gray-300 text-lg"></i>
             </div>
-            <div id="chartStatus" class="mt-4"></div>
+            <div id="chartStatus" class="mt-2"></div>
         </div>
     </div>
 
@@ -236,7 +242,7 @@
     @if($compare && count($compareRows))
         @php $maxCmp = max(1, collect($compareRows)->max('total')); @endphp
         <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
-            <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
+            <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-gray-100">
                 <div>
                     <h3 class="font-semibold text-gray-800">Perbandingan Messenger</h3>
                     <p class="text-xs text-gray-500">{{ $periodLabel }} &middot; rincian jumlah transaksi per status</p>
@@ -247,14 +253,14 @@
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-gray-600">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Messenger</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide w-56">Total</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">Belum Terkirim</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">Proses</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">Dok. Belum Ada</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">Terkirim</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">Batal</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">% Terkirim</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Messenger</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide w-56">Total</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">Belum Terkirim</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">Proses</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">Dok. Belum Ada</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">Terkirim</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">Batal</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">% Terkirim</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -265,10 +271,10 @@
                                 $done = $row['total'] > 0 ? round(($st['Terkirim'] / $row['total']) * 100) : 0;
                             @endphp
                             <tr class="hover:bg-gray-50 transition">
-                                <td class="px-4 py-3 font-medium whitespace-nowrap">
+                                <td class="px-3 py-2 font-medium whitespace-nowrap">
                                     <span class="inline-block w-2.5 h-2.5 rounded-full mr-2" style="background:{{ $col }}"></span>{{ $row['name'] }}
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-3 py-2">
                                     <div class="flex items-center gap-2">
                                         <span class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                                             <span class="block h-full rounded-full" style="width:{{ ($row['total'] / $maxCmp) * 100 }}%;background:{{ $col }}"></span>
@@ -276,12 +282,12 @@
                                         <span class="w-10 text-right font-semibold">{{ number_format($row['total']) }}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-right">{{ $st['Belum Terkirim'] }}</td>
-                                <td class="px-4 py-3 text-right">{{ $st['Proses Pengiriman'] }}</td>
-                                <td class="px-4 py-3 text-right">{{ $st['Dokumen Belum Tersedia'] }}</td>
-                                <td class="px-4 py-3 text-right text-green-700 font-semibold">{{ $st['Terkirim'] }}</td>
-                                <td class="px-4 py-3 text-right text-red-600">{{ $st['Ditolak'] + $st['Batal'] }}</td>
-                                <td class="px-4 py-3 text-right font-semibold">{{ $done }}%</td>
+                                <td class="px-3 py-2 text-right">{{ $st['Belum Terkirim'] }}</td>
+                                <td class="px-3 py-2 text-right">{{ $st['Proses Pengiriman'] }}</td>
+                                <td class="px-3 py-2 text-right">{{ $st['Dokumen Belum Tersedia'] }}</td>
+                                <td class="px-3 py-2 text-right text-green-700 font-semibold">{{ $st['Terkirim'] }}</td>
+                                <td class="px-3 py-2 text-right text-red-600">{{ $st['Ditolak'] + $st['Batal'] }}</td>
+                                <td class="px-3 py-2 text-right font-semibold">{{ $done }}%</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -290,71 +296,84 @@
         </div>
     @endif
 
-    {{-- ================= GRAFIK: PER KURIR ================= --}}
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div>
-                <h3 class="font-semibold text-gray-800">Total Diambil per Messenger</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Diurutkan dari yang terbanyak &middot; klik baris untuk melihat detail</p>
+    {{-- ================= PER MESSENGER + DETAIL (berdampingan) ================= --}}
+    {{-- kolom kedua (detail) baru muncul setelah baris/batang diklik: class lg:grid-cols-2 di-toggle lewat JS (showPanel) --}}
+    <div id="kurirWrap" class="grid grid-cols-1 gap-3 items-start min-w-0">
+
+        {{-- GRAFIK: PER KURIR --}}
+        <div id="kurirCard" class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 min-w-0">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                    <h3 class="font-semibold text-gray-800">
+                        Total Diambil per Messenger
+                        <span id="kurirPeriodTag" class="font-normal text-gray-500">({{ $periodLabel }})</span>
+                    </h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Diurutkan dari yang terbanyak &middot; klik baris untuk melihat detail</p>
+                    <button id="kurirResetPeriod" type="button"
+                            class="hidden mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200
+                                   text-xs text-blue-700 hover:bg-blue-100 transition">
+                        <i class="fas fa-times text-[10px]"></i> Tampilkan seluruh {{ strtolower($periodLabel) }}
+                    </button>
+                </div>
+
+                @if(count($kurirLabels))
+                    <div class="relative w-full sm:w-64">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <input id="searchKurir" type="text" placeholder="Cari messenger..." autocomplete="off"
+                               class="w-full h-9 pl-9 pr-3 text-sm bg-white border border-gray-300 rounded-lg
+                                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                @endif
             </div>
 
             @if(count($kurirLabels))
-                <div class="relative w-full sm:w-64">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                    <input id="searchKurir" type="text" placeholder="Cari messenger..." autocomplete="off"
-                           class="w-full h-10 pl-9 pr-3 text-sm bg-white border border-gray-300 rounded-lg
-                                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div id="chartKurir" class="mt-2 divide-y divide-gray-50"></div>
+                <div id="pagerKurir" class="mt-3"></div>
+            @else
+                <div class="py-12 text-center text-gray-400">
+                    <i class="fas fa-inbox text-3xl mb-2"></i>
+                    <p class="text-sm">Belum ada transaksi yang diambil messenger pada periode ini.</p>
                 </div>
             @endif
         </div>
 
-        @if(count($kurirLabels))
-            <div id="chartKurir" class="mt-4 divide-y divide-gray-50"></div>
-            <div id="pagerKurir" class="mt-3"></div>
-        @else
-            <div class="py-12 text-center text-gray-400">
-                <i class="fas fa-inbox text-3xl mb-2"></i>
-                <p class="text-sm">Belum ada transaksi yang diambil messenger pada periode ini.</p>
+        {{-- DETAIL (DRILLDOWN) — di samping kartu messenger (layar lg ke atas), menempel saat scroll --}}
+        <div id="drilldownPanel"
+             class="bg-white border border-gray-200 rounded-xl shadow-sm hidden min-w-0 lg:sticky lg:top-4">
+            <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-gray-100">
+                <div class="min-w-0">
+                    <h3 id="drilldownTitle" class="font-semibold text-gray-800 truncate">-</h3>
+                    <p id="drilldownCount" class="text-xs text-gray-500"></p>
+                </div>
+                <button id="drilldownClose" type="button" title="Tutup"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400
+                               hover:text-gray-700 hover:bg-gray-100 transition shrink-0">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-        @endif
-    </div>
 
-    {{-- ================= DETAIL (DRILLDOWN) ================= --}}
-    <div id="drilldownPanel" class="bg-white border border-gray-200 rounded-xl shadow-sm hidden">
-        <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100">
-            <div>
-                <h3 id="drilldownTitle" class="font-semibold text-gray-800">-</h3>
-                <p id="drilldownCount" class="text-xs text-gray-500"></p>
+            <div id="drilldownLoading" class="hidden py-10 text-center text-gray-400 text-sm">
+                <i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...
             </div>
-            <button id="drilldownClose" type="button" title="Tutup"
-                    class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400
-                           hover:text-gray-700 hover:bg-gray-100 transition">
-                <i class="fas fa-times"></i>
-            </button>
+
+            <div class="overflow-x-auto max-h-[28rem] lg:max-h-[34rem] overflow-y-auto">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide">Transaksi</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide">Pengirim &rarr; Penerima</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide">Jenis</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide">Status</th>
+                            <th class="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="drilldownBody" class="divide-y divide-gray-100"></tbody>
+                </table>
+                <p id="drilldownEmpty" class="hidden text-center text-gray-400 text-sm py-8">Tidak ada data.</p>
+            </div>
+            <div id="drilldownPager" class="px-4 py-2 border-t border-gray-100"></div>
         </div>
 
-        <div id="drilldownLoading" class="hidden py-10 text-center text-gray-400 text-sm">
-            <i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...
-        </div>
-
-        <div class="overflow-x-auto max-h-[28rem] overflow-y-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600 sticky top-0 z-10">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">No. Transaksi</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Pengirim</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Jenis</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Penerima</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Tanggal</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="drilldownBody" class="divide-y divide-gray-100"></tbody>
-            </table>
-            <p id="drilldownEmpty" class="hidden text-center text-gray-400 text-sm py-8">Tidak ada data.</p>
-        </div>
-        <div id="drilldownPager" class="px-5 py-3 border-t border-gray-100"></div>
     </div>
 
 </div>
@@ -363,9 +382,13 @@
 <script>
 (function () {
     /* ---------- DATA DARI CONTROLLER ---------- */
-    const kurirLabels = @json($kurirLabels);
-    const kurirIds    = @json($kurirIds);
-    const kurirData   = @json($kurirData);
+    // let: diganti saat sebuah batang bulan/hari dipilih, dikembalikan saat batal
+    let kurirLabels = @json($kurirLabels);
+    let kurirIds    = @json($kurirIds);
+    let kurirData   = @json($kurirData);
+    const kurirBase = { labels: kurirLabels.slice(), ids: kurirIds.slice(), data: kurirData.slice() };
+    const kurirByPeriod   = @json($kurirByPeriod ?? new stdClass);   // { 'Y-m' | 'Y-m-d': [{id, name, total}] }
+    const periodLabelInit = @json($periodLabel);
 
     const tlLabels = @json($timelineLabels);
     const tlKeys   = @json($timelineKeys);
@@ -491,9 +514,10 @@
     }
 
     /* =====================================================
-     |  DRILLDOWN
+     |  DRILLDOWN (tampil di samping kartu messenger)
      ===================================================== */
     const panel     = document.getElementById('drilldownPanel');
+    const kurirWrap = document.getElementById('kurirWrap');
     const titleEl   = document.getElementById('drilldownTitle');
     const countEl   = document.getElementById('drilldownCount');
     const bodyEl    = document.getElementById('drilldownBody');
@@ -501,7 +525,13 @@
     const emptyEl   = document.getElementById('drilldownEmpty');
     const ddPagerEl = document.getElementById('drilldownPager');
 
-    const PAGE_SIZE = 20;
+    // buka/tutup panel detail; saat terbuka, layar lg ke atas dibagi 2 kolom (kartu messenger | detail)
+    function showPanel(open) {
+        panel.classList.toggle('hidden', !open);
+        kurirWrap?.classList.toggle('lg:grid-cols-2', open);
+    }
+
+    const PAGE_SIZE = 10;
     let ddRows = [], ddPage = 1;
 
     function renderDrilldown() {
@@ -517,15 +547,19 @@
             emptyEl.classList.add('hidden');
             bodyEl.innerHTML = slice.map(r => `
                 <tr class="hover:bg-gray-50 transition">
-                    <td class="px-4 py-3 font-medium whitespace-nowrap">${esc(r.no_transaksi)}</td>
-                    <td class="px-4 py-3">${esc(r.nama_pengirim)}</td>
-                    <td class="px-4 py-3">${esc(r.nama_barang)}</td>
-                    <td class="px-4 py-3">${esc(r.penerima)}</td>
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${badgeClass(r.status)}">${esc(r.status)}</span>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <div class="font-medium text-gray-800">${esc(r.no_transaksi)}</div>
+                        <div class="text-[11px] text-gray-400">${esc(r.tanggal)}</div>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap">${esc(r.tanggal)}</td>
-                    <td class="px-4 py-3">
+                    <td class="px-3 py-2">
+                        <div class="truncate max-w-[10rem]" title="${esc(r.nama_pengirim)}">${esc(r.nama_pengirim)}</div>
+                        <div class="truncate max-w-[10rem] text-[11px] text-gray-400" title="${esc(r.penerima)}">&rarr; ${esc(r.penerima)}</div>
+                    </td>
+                    <td class="px-3 py-2"><span class="block truncate max-w-[7rem]" title="${esc(r.nama_barang)}">${esc(r.nama_barang)}</span></td>
+                    <td class="px-3 py-2">
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${badgeClass(r.status)}">${esc(r.status)}</span>
+                    </td>
+                    <td class="px-3 py-2">
                         <a href="{{ url('messenger') }}/${encodeURIComponent(r.no_transaksi)}" class="text-blue-600 font-semibold hover:underline">Detail</a>
                     </td>
                 </tr>`).join('');
@@ -533,13 +567,16 @@
         mountPager(ddPagerEl, ddPage, pages, ddRows.length, 'transaksi', (p) => { ddPage = p; renderDrilldown(); });
     }
 
-    async function loadDrilldown(url) {
-        panel.classList.remove('hidden');
+    async function loadDrilldown(url, opts) {
+        showPanel(true);
         bodyEl.innerHTML = '';
         emptyEl.classList.add('hidden');
         ddPagerEl.innerHTML = '';
         loadingEl.classList.remove('hidden');
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // di layar lebar panel sudah terlihat di samping; scroll hanya perlu di layar kecil (panel di bawah)
+        if ((!opts || opts.scroll !== false) && !window.matchMedia('(min-width:1024px)').matches) {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
         try {
             const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
@@ -559,7 +596,7 @@
             loadingEl.classList.add('hidden');
         }
     }
-    document.getElementById('drilldownClose')?.addEventListener('click', () => panel.classList.add('hidden'));
+    document.getElementById('drilldownClose')?.addEventListener('click', () => showPanel(false));
 
     // parameter filter yang ikut dikirim ke endpoint detail (kurir = daftar id, boleh banyak)
     const withFilters = (params, kurirIds) => {
@@ -572,6 +609,57 @@
     /* =====================================================
      |  GRAFIK 1: BATANG TREN (bulanan / harian) + PERBANDINGAN KURIR
      ===================================================== */
+    /* ---------- PILIH PERIODE (klik batang) -> grafik "Total Diambil per Messenger" ikut berubah ---------- */
+    let selectedKey = null;                       // 'Y-m' / 'Y-m-d' / null = seluruh periode
+    let activeFrom = periodFrom, activeTo = periodTo;
+    let kurirCtl = null;
+
+    function periodRange(key) {
+        if (key.length === 7) {
+            const [y, m] = key.split('-').map(Number);
+            const last = new Date(y, m, 0).getDate();
+            return { from: key + '-01', to: key + '-' + String(last).padStart(2, '0') };
+        }
+        return { from: key, to: key };
+    }
+    function periodText(key) {
+        const p = key.split('-').map(Number);
+        const d = new Date(p[0], p[1] - 1, p[2] || 1);
+        return key.length === 7
+            ? d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+            : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function applyKurirPeriod(key) {
+        selectedKey = key;
+        const tag   = document.getElementById('kurirPeriodTag');
+        const reset = document.getElementById('kurirResetPeriod');
+
+        if (key) {
+            const rows = (kurirByPeriod[key] || []).slice().sort((a, b) => b.total - a.total);
+            kurirLabels = rows.map(r => r.name);
+            kurirIds    = rows.map(r => r.id);
+            kurirData   = rows.map(r => r.total);
+            const r = periodRange(key);
+            activeFrom = r.from; activeTo = r.to;
+            if (tag) tag.textContent = '(' + periodText(key) + ')';
+        } else {
+            kurirLabels = kurirBase.labels.slice();
+            kurirIds    = kurirBase.ids.slice();
+            kurirData   = kurirBase.data.slice();
+            activeFrom = periodFrom; activeTo = periodTo;
+            if (tag) tag.textContent = '(' + periodLabelInit + ')';
+        }
+        if (reset) reset.classList.toggle('hidden', !key);
+        if (kurirCtl) kurirCtl.refresh();
+        drawTimeline();                           // sorot batang yang dipilih
+    }
+
+    document.getElementById('kurirResetPeriod')?.addEventListener('click', () => {
+        applyKurirPeriod(null);
+        showPanel(false);
+    });
+
     const elTimeline = document.getElementById('chartTimeline');
     const elStats    = document.getElementById('tlStats');
     const elLegend   = document.getElementById('tlLegend');
@@ -618,7 +706,7 @@
         }
 
         const single = !compareMode;
-        const W = Math.max(320, elTimeline.clientWidth || 720), H = 290;
+        const W = Math.max(320, elTimeline.clientWidth || 720), H = 240;
         const pad = { l: 38, r: 12, t: 18, b: 30 };
         const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
         const maxVal = niceMaxOf(vis.flatMap(i => series[i].data));
@@ -653,13 +741,13 @@
                 const x = gx + k * (barW + gap), y = pad.t + ch - bh;
                 const isPeak = single && i === peakI && tlLabels.length > 1;
                 const fill = single ? `url(#${isPeak ? 'gPeak' : 'gBar'})` : series[si].color;
-                bars += `<rect class="bar-rect" data-s="${si}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3" fill="${fill}" fill-opacity="0.9"/>`;
+                bars += `<rect class="bar-rect" data-s="${si}" x="${x}" y="${y}" width="${barW}" height="${bh}" rx="3" fill="${fill}" fill-opacity="${selectedKey && tlKeys[i] !== selectedKey ? 0.35 : 0.9}"/>`;
                 if ((single && slot >= 22) || (!single && barW >= 14)) {
                     bars += `<text x="${x + barW / 2}" y="${y - 4}" font-size="10" font-weight="600" fill="#334155" text-anchor="middle" pointer-events="none">${v}</text>`;
                 }
             });
             svg += `<g class="tl-slot" data-idx="${i}" style="cursor:pointer">
-                <rect x="${pad.l + i * slot}" y="${pad.t}" width="${slot}" height="${ch}" fill="transparent"/>
+                <rect x="${pad.l + i * slot}" y="${pad.t}" width="${slot}" height="${ch}" fill="${selectedKey && tlKeys[i] === selectedKey ? '#eff6ff' : 'transparent'}"/>
                 ${bars}
                 ${i % labelEvery === 0 ? `<text x="${pad.l + i * slot + slot / 2}" y="${H - pad.b + 16}" font-size="10.5" fill="#64748b" text-anchor="middle">${esc(shorten(lb, slot < 34 ? 4 : 9))}</text>` : ''}
             </g>`;
@@ -684,6 +772,15 @@
             g.addEventListener('mouseleave', hideTip);
             g.addEventListener('click', (e) => {
                 hideTip();
+                const key = tlKeys[i];
+
+                // klik batang yang sama (mode biasa) = batalkan pilihan, grafik messenger kembali ke seluruh periode
+                if (!compareMode && selectedKey === key) {
+                    applyKurirPeriod(null);
+                    showPanel(false);
+                    return;
+                }
+
                 let ids = kurirSelIds;
                 if (compareMode) {
                     const s = e.target.dataset ? e.target.dataset.s : undefined;
@@ -691,7 +788,10 @@
                         ? [series[parseInt(s, 10)].id]          // klik batang 1 kurir
                         : vis.map(si => series[si].id);         // klik area kosong: kurir yang tampil
                 }
-                loadDrilldown("{{ url('messenger/dashboard/data/bulan') }}/" + tlKeys[i] + withFilters(new URLSearchParams(), ids));
+
+                applyKurirPeriod(key);                           // grafik "Total Diambil per Messenger" ikut periode ini
+                loadDrilldown("{{ url('messenger/dashboard/data/bulan') }}/" + key + withFilters(new URLSearchParams(), ids), { scroll: false });
+                document.getElementById('kurirCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             });
         });
 
@@ -749,7 +849,7 @@
 
         el.innerHTML = `
             <div class="flex justify-center">
-                <svg viewBox="0 0 140 140" class="w-40 h-40">
+                <svg viewBox="0 0 140 140" class="w-32 h-32">
                     ${ring}
                     <text x="70" y="68" text-anchor="middle" font-size="20" font-weight="700" fill="#1e293b">${num(total)}</text>
                     <text x="70" y="84" text-anchor="middle" font-size="9" fill="#94a3b8">TRANSAKSI</text>
@@ -767,10 +867,10 @@
         const pagerEl  = document.getElementById('pagerKurir');
         const searchEl = document.getElementById('searchKurir');
         const pageSize = 15;
-        const maxAll   = Math.max(1, ...kurirData);
         let page = 1, query = '';
 
         const render = () => {
+            const maxAll = Math.max(1, ...kurirData);   // dihitung ulang: data berganti saat periode dipilih
             const all = kurirLabels.map((_, i) => i)
                 .filter(i => !query || String(kurirLabels[i]).toLowerCase().includes(query))
                 .sort((a, b) => (kurirData[b] || 0) - (kurirData[a] || 0));
@@ -780,14 +880,15 @@
             const slice = all.slice((page - 1) * pageSize, page * pageSize);
 
             if (!all.length) {
-                el.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Messenger tidak ditemukan.</p>';
+                el.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">' +
+                    (kurirLabels.length ? 'Messenger tidak ditemukan.' : 'Belum ada transaksi yang diambil messenger pada periode ini.') + '</p>';
             } else {
                 el.innerHTML = slice.map((idx, n) => {
                     const v = kurirData[idx] || 0;
                     const w = Math.max(v > 0 ? 2 : 0, (v / maxAll) * 100);
                     const rank = (page - 1) * pageSize + n + 1;
                     const medal = rank <= 3 && !query ? ['#f59e0b', '#94a3b8', '#c2410c'][rank - 1] : null;
-                    return `<button type="button" data-idx="${idx}" class="kurir-row group w-full flex items-center gap-3 py-2 px-1 text-left rounded-lg hover:bg-gray-50 transition">
+                    return `<button type="button" data-idx="${idx}" class="kurir-row group w-full flex items-center gap-3 py-1.5 px-1 text-left rounded-lg hover:bg-gray-50 transition">
                         <span class="w-6 text-center text-xs font-semibold" style="color:${medal || '#94a3b8'}">${rank}</span>
                         <span class="w-36 sm:w-52 truncate text-sm text-gray-700 group-hover:text-gray-900" title="${esc(kurirLabels[idx])}">${esc(kurirLabels[idx])}</span>
                         <span class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -801,7 +902,7 @@
                     row.addEventListener('click', () => {
                         const idx = parseInt(row.dataset.idx, 10);
                         loadDrilldown("{{ url('messenger/dashboard/data/kurir') }}/" + kurirIds[idx]
-                            + withFilters(new URLSearchParams({ from: periodFrom, to: periodTo }), []));
+                            + withFilters(new URLSearchParams({ from: activeFrom, to: activeTo }), []));
                     });
                 });
             }
@@ -814,13 +915,15 @@
             render();
         });
         render();
+
+        return { refresh() { page = 1; render(); } };
     }
 
     /* ---------- JALANKAN ---------- */
     renderLegend();
     drawTimeline();
     drawStatus();
-    setupKurir();
+    kurirCtl = setupKurir();
 
     // otomatis menyesuaikan lebar (zoom, resize, buka/tutup sidebar)
     if (elTimeline) {

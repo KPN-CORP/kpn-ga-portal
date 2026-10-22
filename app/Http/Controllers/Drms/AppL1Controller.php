@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Drms;
 
 use App\Http\Controllers\Controller;
 use App\Models\Drms\DriverRequest;
+use App\Models\Drms\DrmsAdminArea;
 use App\Models\User;
 use App\Notifications\RequestApprovedL1Notification;
 use Illuminate\Http\Request;
@@ -66,12 +67,16 @@ class AppL1Controller extends Controller
         $businessUnitId = $profile->business_unit_id;
         $area = $profile->area;
 
-        $admins = User::whereHas('drmsProfile', function ($q) use ($businessUnitId, $area) {
+        // Admin di BU yang sama. Kalau pemohon punya area: admin yang memegang area itu
+        // (drms_admin_areas) + admin lintas area (tidak punya baris area).
+        $admins = User::whereHas('drmsProfile', function ($q) use ($businessUnitId) {
             $q->where('is_drms_admin', true)
               ->where('business_unit_id', $businessUnitId);
-            if ($area) {
-                $q->where('area', $area);
-            }
+        })->when($area, function ($q) use ($area) {
+            $q->where(function ($sub) use ($area) {
+                $sub->whereNotIn('id', DrmsAdminArea::select('user_id'))
+                    ->orWhereIn('id', DrmsAdminArea::where('area', $area)->select('user_id'));
+            });
         })->get();
 
         Notification::send($admins, new RequestApprovedL1Notification($driverRequest));

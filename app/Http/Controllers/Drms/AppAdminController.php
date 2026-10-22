@@ -37,7 +37,7 @@ class AppAdminController extends Controller
         }
 
         $businessUnitId = $profile->business_unit_id ?? null;
-        $area = $profile->area ?? null;
+        $area = $profile ? $profile->adminAreaList() : []; // [] = lintas area di BU-nya
 
         // ------------------- PENDING REQUESTS -------------------
         if ($user->isDrmsSuperAdmin()) {
@@ -348,9 +348,17 @@ class AppAdminController extends Controller
                     $q->orWhereIn('id', $attachedVoucherIds);
                 }
             });
-        if (!$showAllBu) {
-            $vouchersQuery->where('business_unit_id', $businessUnitId);
-        }
+        // BU + AREA: voucher harus satu area dengan pemohon (lihat Voucher::scopeAssignableTo).
+        // Superadmin tetap melihat semua. Voucher yang sudah terpasang di request ini
+        // tetap ikut tampil lewat $attachedVoucherIds di atas.
+        $vouchersQuery->where(function ($outer) use ($driverRequest, $user, $showAllBu, $attachedVoucherIds) {
+            $outer->where(function ($q) use ($driverRequest, $user, $showAllBu) {
+                $q->assignableTo($driverRequest, $user, $showAllBu);
+            });
+            if (!empty($attachedVoucherIds)) {
+                $outer->orWhereIn('id', $attachedVoucherIds);
+            }
+        });
         $vouchers = $vouchersQuery->get();
 
         $allBusinessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
@@ -412,6 +420,22 @@ class AppAdminController extends Controller
         // kalau transport_type = voucher.
         if ($data['transport_type'] === 'voucher' && empty($data['voucher_ids'])) {
             return back()->withErrors('Pilih minimal 1 voucher.')->withInput();
+        }
+
+        // Validasi BU + AREA di server: voucher baru yang dipilih harus milik BU dan area yang
+        // sama dengan pemohon (bukan cuma lolos dari dropdown). Voucher yang MEMANG sudah
+        // terpasang di request ini tidak dicek ulang.
+        if ($data['transport_type'] === 'voucher' && !empty($data['voucher_ids'])) {
+            $alreadyAttached = $driverRequest->vouchers()->pluck('drms_vouchers.id')->toArray();
+            $newIds = array_values(array_diff(array_unique($data['voucher_ids']), $alreadyAttached));
+            if (!empty($newIds)) {
+                $allowedCount = Voucher::whereIn('id', $newIds)
+                    ->assignableTo($driverRequest, $user, $user->hasDrmsAllBuAccess())
+                    ->count();
+                if ($allowedCount !== count($newIds)) {
+                    return back()->withErrors('Ada voucher yang bukan milik BU/area pemohon ini.')->withInput();
+                }
+            }
         }
 
         // Validasi ulang di server: voucher yang sudah expired tidak boleh diberikan,
@@ -1028,6 +1052,16 @@ class AppAdminController extends Controller
 
         if ($adminProfile->business_unit_id != $currentBu) {
             abort(403, 'Anda tidak memiliki akses ke permintaan ini.');
+        }
+
+        // Admin ber-area hanya boleh memproses request dari area-area yang dipegangnya
+        // (drms_admin_areas); admin tanpa area = lintas area dalam BU-nya. Request hasil forward
+        // (current_business_unit_id terisi) tidak dicek area, sama seperti scope pendingForAdmin.
+        if (!empty($adminProfile->adminAreaList()) && empty($driverRequest->current_business_unit_id)) {
+            $requesterArea = $driverRequest->requester->drmsProfile->area ?? null;
+            if (!$adminProfile->holdsArea($requesterArea)) {
+                abort(403, 'Permintaan ini milik area lain.');
+            }
         }
     }
 }

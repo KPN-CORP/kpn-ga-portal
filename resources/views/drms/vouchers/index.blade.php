@@ -48,6 +48,17 @@
                 </select>
             </div>
             @endif
+            @if(!($isAreaLocked ?? false) && ($areaFilterOptions ?? collect())->isNotEmpty())
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📍 Area</label>
+                <select name="area" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua Area</option>
+                    @foreach($areaFilterOptions as $a)
+                        <option value="{{ $a }}" {{ request('area') === $a ? 'selected' : '' }}>{{ $a }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             @if($isSpecialBu ?? false)
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Dibebankan ke BU</label>
@@ -107,7 +118,7 @@
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'input_business_unit_id']) || $month !== now()->format('Y-m'))
+                @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'area', 'input_business_unit_id']) || $month !== now()->format('Y-m'))
                     <a href="{{ route('drms.vouchers.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -149,6 +160,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Business Unit</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Area</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expired</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Digunakan Oleh</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diberikan Pada</th>
@@ -186,6 +198,7 @@
                                 </span>
                             @endif
                         </td>
+                        <td class="px-6 py-4 text-sm text-gray-700">{{ $v->area ?: '-' }}</td>
                         <td class="px-6 py-4">
                             @if($v->expired_at)
                                 <span class="text-sm {{ $v->is_expired ? 'text-red-600 font-semibold' : 'text-gray-700' }}">
@@ -218,10 +231,10 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="{{ ($isSpecialBu ?? false) ? 8 : 7 }}" class="px-6 py-10 text-center text-gray-500">
+                        <td colspan="{{ ($isSpecialBu ?? false) ? 9 : 8 }}" class="px-6 py-10 text-center text-gray-500">
                             <div class="text-4xl mb-2">🎫</div>
                             <p>Belum ada voucher.</p>
-                            @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'input_business_unit_id']))
+                            @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'area', 'input_business_unit_id']))
                                 <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
                             @endif
                             <a href="{{ route('drms.vouchers.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Voucher</a>

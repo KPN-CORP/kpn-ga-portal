@@ -14,19 +14,11 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            @if($isAllMonths ?? false)
-                {{-- Export CSV masih per-bulan (belum mendukung "Semua Bulan") --}}
-                <span title="Pilih bulan tertentu dulu untuk export CSV" class="bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-not-allowed">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Export CSV
-                </span>
-            @else
-                <a href="{{ route('drms.admin.operational.export', array_merge(request()->query(), ['month' => $month, 'year' => $year])) }}" 
+                <a href="{{ route('drms.admin.operational.export', array_merge(request()->query(), ['period' => $period, 'month' => $month, 'year' => $year])) }}" 
                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     Export CSV
                 </a>
-            @endif
             <a href="{{ route('drms.admin.monitoring.logs') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                 📋 Log Driver
             </a>
@@ -79,15 +71,22 @@
                 </select>
             </div>
             <div>
+                <label class="block text-xs font-medium text-gray-600">Periode</label>
+                <select name="period" id="filter_period" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="all" {{ ($period ?? 'year') === 'all' ? 'selected' : '' }}>Semua</option>
+                    <option value="year" {{ ($period ?? 'year') === 'year' ? 'selected' : '' }}>Tahun</option>
+                    <option value="month" {{ ($period ?? 'year') === 'month' ? 'selected' : '' }}>Bulan</option>
+                </select>
+            </div>
+            <div id="wrap_month">
                 <label class="block text-xs font-medium text-gray-600">Bulan</label>
                 <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all" {{ ($monthSelect ?? $month) === 'all' ? 'selected' : '' }}>Semua Bulan</option>
                     @foreach($months as $key => $label)
-                        <option value="{{ $key }}" {{ ($monthSelect ?? $month) == $key ? 'selected' : '' }}>{{ $label }}</option>
+                        <option value="{{ $key }}" {{ ($month ?? now()->month) == $key ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div id="wrap_year">
                 <label class="block text-xs font-medium text-gray-600">Tahun</label>
                 <select name="year" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     @foreach($years as $y)
@@ -103,6 +102,25 @@
             </a>
         </form>
     </div>
+
+    {{-- Filter periode: Semua / Tahun / Bulan -> tampilkan hanya pilihan yang relevan --}}
+    <script>
+    (function () {
+        var p = document.getElementById('filter_period');
+        var wm = document.getElementById('wrap_month');
+        var wy = document.getElementById('wrap_year');
+        if (!p || !wm || !wy) return;
+        function sync() {
+            var v = p.value;
+            wm.style.display = (v === 'month') ? '' : 'none';
+            wy.style.display = (v === 'all') ? 'none' : '';
+            wm.querySelector('select').disabled = (v !== 'month');
+            wy.querySelector('select').disabled = (v === 'all');
+        }
+        p.addEventListener('change', sync);
+        sync();
+    })();
+    </script>
 
     {{-- Cascade filter: pilihan Kendaraan & Driver menyesuaikan Business Unit yang dipilih (superadmin) --}}
     <script>
@@ -189,7 +207,7 @@
 
     {{-- GRAFIK BIAYA PER BULAN --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h3 class="font-semibold text-gray-700 mb-3">📈 Biaya Operasional per Bulan (12 bulan terakhir)</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">📈 Biaya Operasional {{ ($period ?? 'year') === 'all' ? 'per Tahun (Semua Periode)' : (($period ?? 'year') === 'year' ? 'per Bulan (Tahun ' . $year . ')' : 'per Hari (' . $periodLabel . ')') }}</h3>
         {{-- zoom:1.25 membatalkan efek "html { zoom:0.8 }" di layout khusus untuk kotak chart ini
              (0.8 * 1.25 = 1.0), supaya Chart.js membaca posisi mouse dengan benar.
              height dikecilkan jadi 200px (250*0.8) supaya ukuran tampilannya di layar tetap
@@ -201,7 +219,7 @@
 
     {{-- GRAFIK PER KENDARAAN: BBM/EV, Service Rutin, Perbaikan (dipisah) --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h4 class="font-semibold text-gray-700 mb-2">⛽ Grafik Biaya BBM/EV Charging Per Kendaraan</h4>
+        <h4 class="font-semibold text-gray-700 mb-2">⛽ Grafik Biaya BBM/EV Charging Per Kendaraan ({{ $periodLabel }})</h4>
         <p class="text-xs text-gray-400 mb-2">Hanya biaya pengisian BBM/EV Charging yang sudah terverifikasi. Service Rutin dan Perbaikan ada di grafik terpisah di bawah.</p>
 
         @if(count($vehicleStats) > 0)
@@ -223,7 +241,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {{-- SERVICE RUTIN --}}
         <div class="bg-white p-4 rounded-lg shadow-sm border">
-            <h4 class="font-semibold text-gray-700 mb-2">🔧 Grafik Biaya Service Rutin Per Kendaraan</h4>
+            <h4 class="font-semibold text-gray-700 mb-2">🔧 Grafik Biaya Service Rutin Per Kendaraan ({{ $periodLabel }})</h4>
             <div class="relative" style="height: 200px; zoom: 1.25;">
                 <canvas id="serviceVehicleChart"></canvas>
             </div>
@@ -232,7 +250,7 @@
 
         {{-- PERBAIKAN --}}
         <div class="bg-white p-4 rounded-lg shadow-sm border">
-            <h4 class="font-semibold text-gray-700 mb-2">🛠️ Grafik Biaya Perbaikan Per Kendaraan</h4>
+            <h4 class="font-semibold text-gray-700 mb-2">🛠️ Grafik Biaya Perbaikan Per Kendaraan ({{ $periodLabel }})</h4>
             <div class="relative" style="height: 200px; zoom: 1.25;">
                 <canvas id="repairVehicleChart"></canvas>
             </div>
@@ -244,7 +262,7 @@
     {{-- TABEL RINGKASAN PER KENDARAAN --}}
     @if(count($vehicleStats) > 0)
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan ({{ ($isAllMonths ?? false) ? 'Tahun ' . $year : 'Bulan ' . date('F Y', mktime(0,0,0,$month,1,$year)) }})</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan ({{ $periodLabel }})</h3>
         <p class="text-xs text-gray-400 mb-2">Kolom Jarak &amp; Liter/kWh dihitung dari Log Pengisian BBM/EV Charging (selisih odometer antar pengisian), sama seperti di <a href="{{ route('drms.fuel-logs.analytics') }}" class="underline">Analisis Konsumsi</a>.</p>
         <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
@@ -288,7 +306,7 @@
 
     {{-- GRAFIK DISTRIBUSI TRANSPORTASI --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ ($isAllMonths ?? false) ? 'Tahun ' . $year : date('F Y', mktime(0, 0, 0, $month, 1, $year)) }})</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">🚗 Distribusi Transportasi ({{ $periodLabel }})</h3>
         <div class="relative" style="height: 250px; max-width: 400px; margin: 0 auto;">
             <canvas id="transportChart"></canvas>
         </div>
@@ -300,7 +318,7 @@
     {{-- TABEL LOG TERBARU --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-gray-700">📋 Log Terbaru</h3>
+            <h3 class="font-semibold text-gray-700">📋 Log Terbaru <span class="text-xs font-normal text-gray-400">(5 log terakhir, tidak terpengaruh filter periode)</span></h3>
             <a href="{{ route('drms.admin.monitoring.logs') }}" class="text-blue-600 hover:underline text-sm">Lihat semua →</a>
         </div>
         <div class="overflow-x-auto">
@@ -354,6 +372,8 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.register(ChartDataLabels);
 
     const monthlyData = @json($chartData);
+    // Format angka Indonesia: desimal hanya tampil jika memang ada (maks 2 digit)
+    const fmtNum = (v) => Number(v).toLocaleString('id-ID', { maximumFractionDigits: 2 });
     const transportData = @json($transportDistribution);
     const vehicleStats = @json($vehicleStats);
 
@@ -370,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentVehicleFilter = @json($filterVehicleId ?? null);
     // Bulan+tahun yang sedang aktif di dashboard, dalam format "YYYY-MM" (dipakai grafik
     // per-kendaraan, yang cuma menampilkan 1 bulan, beda dengan grafik bulanan yang 12 bulan).
-    const currentPeriod = @json(($isAllMonths ?? false) ? ((string) $year) : sprintf('%04d-%02d', $year, $month));
+    const currentPeriod = @json(($period ?? 'year') === 'all' ? 'all' : (($period ?? 'year') === 'year' ? (string) $year : sprintf('%04d-%02d', $year, $month)));
 
     // Business Unit yang sedang dipilih (superadmin); ikut dibawa ke halaman tujuan.
     const currentBuFilter = @json($filterBusinessUnitId ?? null);
@@ -389,11 +409,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ========== CHART BIAYA PER BULAN ==========
+    // Label sumbu X: tanggal (mode Bulan) cukup angka harinya; bulan/tahun apa adanya.
+    const monthlyLabel = (m) => (m && m.length === 10) ? String(parseInt(m.slice(8), 10)) : m;
     const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
     new Chart(ctxMonthly, {
         type: 'bar',
         data: {
-            labels: monthlyData.map(d => d.month),
+            labels: monthlyData.map(d => monthlyLabel(d.month)),
             datasets: [
                 {
                     label: 'BBM/Charge',
@@ -423,12 +445,13 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: false,
             plugins: { 
                 legend: { position: 'top' },
-                datalabels: { display: false } // matikan datalabels di grafik ini
+                datalabels: { display: false }, // matikan datalabels di grafik ini
+                tooltip: { callbacks: { title: function(items) { return items.length ? monthlyData[items[0].dataIndex].month : ''; } } }
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: function(value) { return 'Rp ' + value.toLocaleString(); } }
+                    ticks: { callback: function(value) { return 'Rp ' + fmtNum(value); } }
                 }
             },
             // Klik salah satu batang (BBM/Service/Perbaikan) -> menuju halaman sumber
@@ -439,7 +462,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const datasetKeys = ['fuel', 'service', 'repair'];
                 const key = datasetKeys[el.datasetIndex];
                 if (!key) return;
-                const monthValue = monthlyData[el.index]?.month; // format "YYYY-MM"
+                const rawLabel = monthlyData[el.index]?.month; // 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'
+                const monthValue = (rawLabel && rawLabel.length === 10) ? rawLabel.slice(0, 7) : rawLabel;
                 goToDrilldown(drilldownBaseUrl[key], {
                     month: monthValue,
                     vehicle_id: currentVehicleFilter,
@@ -459,8 +483,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (vehicleStats.length > 0) {
         const vehicleCharts = {};
 
-        const fmtRp = (val) => 'Rp ' + Number(val).toLocaleString();
-        const fmtKm = (val) => Number(val).toLocaleString() + ' km';
+        const fmtRp = (val) => 'Rp ' + fmtNum(val);
+        const fmtKm = (val) => fmtNum(val) + ' km';
 
         // hideZero: untuk Service/Perbaikan, kendaraan tanpa biaya tidak ditampilkan
         function rowsFor(key, hideZero) {

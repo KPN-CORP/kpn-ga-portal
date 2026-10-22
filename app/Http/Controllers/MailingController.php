@@ -190,7 +190,8 @@ class MailingController extends Controller
             $query->whereDate('mailing_tanggal_selesai', '<=', request('end_date'));
         }
 
-        $mailings = $query->orderBy('mailing_tanggal_selesai', 'desc')->paginate(50);
+        // withQueryString(): link halaman berikutnya membawa semua filter (search, start_date, end_date)
+        $mailings = $query->orderBy('mailing_tanggal_selesai', 'desc')->paginate(50)->withQueryString();
         return view('mailing.index', compact('mailings', 'canViewAll', 'pelangganId'));
     }
 
@@ -203,8 +204,9 @@ class MailingController extends Controller
         $canViewAll = $accessMenu && isset($accessMenu->mailing_proses) && $accessMenu->mailing_proses == 1;
         $pelangganId = $this->getPelangganId();
 
-        $startDate = request('start_date', $today);
-        $endDate = request('end_date', $today);
+        // filled(): jika input tanggal dikosongkan, tetap pakai default hari ini (bukan null)
+        $startDate = request()->filled('start_date') ? request('start_date') : $today;
+        $endDate = request()->filled('end_date') ? request('end_date') : $today;
         $query->whereDate('mailing_tanggal_input', '>=', $startDate)
               ->whereDate('mailing_tanggal_input', '<=', $endDate);
 

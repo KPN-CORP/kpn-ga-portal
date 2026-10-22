@@ -85,6 +85,8 @@ use App\Http\Controllers\Antaran\AntaranTrackingController;
 use App\Http\Controllers\Compress\FotopdfmailingController;
 use App\Http\Controllers\GaFileStatusController;
 use App\Http\Controllers\HSRM\HsrmAccessController;
+use App\Http\Controllers\FinGrabc\FinGrabController;
+use App\Http\Controllers\FinGrabc\FinGrabUploadController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -434,11 +436,6 @@ Route::middleware(['auth'])->group(function () {
             Route::post('{type}/{id}/complete', [ServiceFlowController::class, 'complete'])->name('complete');
         });
 
-        // ===== BBM =====
-        // 'create'/'store'/'edit'/'update' butuh kamera HP (foto struk/odometer BBM),
-        // jadi dikunci khusus HP lewat middleware MobileOnly (alias: mobile.only).
-        // 'index'/'show'/'destroy'/'analytics'/'verify' tetap bisa diakses dari desktop
-        // karena itu halaman review/verifikasi yang biasa dipakai admin dari laptop.
         Route::get('fuel-logs/analytics', [FuelLogController::class, 'analytics'])->name('fuel-logs.analytics');
         Route::patch('fuel-logs/{id}/verify', [FuelLogController::class, 'verify'])->name('fuel-logs.verify');
 
@@ -831,6 +828,16 @@ Route::middleware(['auth'])->group(function () {
             Route::put('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'update'])->name('access.update');
             Route::delete('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'destroy'])->name('access.destroy');
         });
+    });
+    
+    Route::middleware(['auth'])->prefix('fingrab')->name('fingrab.')->group(function () {
+        Route::get('/', [FinGrabController::class, 'index'])->name('index');
+        Route::get('/dashboard', [FinGrabController::class, 'dashboard'])->name('dashboard');
+        Route::get('/karyawan-unit', [FinGrabController::class, 'karyawan'])->name('karyawan');
+        Route::get('/kecocokan', [FinGrabController::class, 'kecocokan'])->name('kecocokan');
+        Route::post('/kecocokan/fix', [FinGrabController::class, 'fixId'])->name('kecocokan.fix');
+        Route::get('/upload', [FinGrabUploadController::class, 'form'])->name('upload');
+        Route::post('/upload', [FinGrabUploadController::class, 'store'])->name('upload.store');
     });
 
     Route::get('/no-access', function () {

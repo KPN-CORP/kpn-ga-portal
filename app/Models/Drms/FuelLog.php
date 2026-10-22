@@ -11,7 +11,7 @@ class FuelLog extends Model
 
     protected $fillable = [
         'vehicle_id', 'driver_id', 'user_id', 'filling_date',
-        'odometer_start', 'fuel_liters', 'fuel_price_per_liter',
+        'odometer_start', 'fuel_liters', 'fuel_price_per_liter', 'total_cost',
         'receipt_file', 'is_verified', 'verified_by', 'verified_at', 'notes'
     ];
 
@@ -20,6 +20,7 @@ class FuelLog extends Model
         'odometer_start' => 'integer',
         'fuel_liters' => 'decimal:2',
         'fuel_price_per_liter' => 'decimal:2',
+        'total_cost' => 'decimal:2',
         'is_verified' => 'boolean',
         'verified_at' => 'datetime',
     ];

@@ -27,11 +27,13 @@ class AdminOperationalController extends Controller
         $user = Auth::user();
         // Superadmin boleh memilih Business Unit lewat filter; admin biasa tetap terkunci ke BU-nya.
         $businessUnitId = $this->resolveBusinessUnitId($user, $request);
-        // Pilih "Semua Bulan" (month=all) untuk melihat data satu tahun penuh.
-        $monthParam = $request->get('month', now()->month);
-        $isAllMonths = ($monthParam === 'all');
-        $month = $isAllMonths ? null : (int) $monthParam;
-        $year = $request->get('year', now()->year);
+        // Filter periode: all (semua data) | year (1 tahun, DEFAULT = tahun berjalan) | month (1 bulan).
+        ['period' => $period, 'year' => $year, 'month' => $month,
+         'periodStart' => $periodStart, 'periodEnd' => $periodEnd, 'periodLabel' => $periodLabel] = $this->resolvePeriod($request);
+        // Dipakai view: true kalau BUKAN satu bulan (Semua / Tahun)
+        $isAllMonths = ($period !== 'month');
+        // Tahun yang dipakai untuk filter query; null = semua tahun
+        $yearFilter = ($period === 'all') ? null : $year;
         $filterVehicleId = $request->get('vehicle_id');
         $filterDriverId = $request->get('driver_id');
 
@@ -40,13 +42,6 @@ class AdminOperationalController extends Controller
         // rentang bebas (API operational-summary). Dashboard web tetap filter
         // per bulan seperti biasa, cuma dikonversi ke rentang 1 bulan penuh
         // (atau 1 tahun penuh kalau "Semua Bulan" dipilih).
-        $periodStart = $isAllMonths
-            ? \Carbon\Carbon::create($year, 1, 1)->startOfYear()->toDateString()
-            : \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-        $periodEnd = $isAllMonths
-            ? \Carbon\Carbon::create($year, 12, 1)->endOfYear()->format('Y-m-d 23:59:59')
-            : \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
-
         // Dropdown filter
         $vehicles = Vehicle::when($businessUnitId, function ($q) use ($businessUnitId) {
             return $q->where('business_unit_id', $businessUnitId);
@@ -74,7 +69,7 @@ class AdminOperationalController extends Controller
 
         // Statistik
         $stats = $this->getOperationalStats($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
-        $chartData = $this->getMonthlyChartData($businessUnitId, $filterVehicleId, $filterDriverId);
+        $chartData = $this->getMonthlyChartData($businessUnitId, $filterVehicleId, $filterDriverId, $period, $year, $month);
         $efficiencyData = $this->getEfficiencyData($businessUnitId, $filterVehicleId, $filterDriverId);
         $transportDistribution = $this->getTransportDistribution($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
         $recentLogs = $this->getRecentLogs($businessUnitId, 5, $filterVehicleId, $filterDriverId);
@@ -91,7 +86,7 @@ class AdminOperationalController extends Controller
             $driverVehicleIds = DriverRequest::where('driver_id', $filterDriverId)
                 ->whereIn('status', ['approved_admin', 'completed'])
                 ->when($month, fn($q) => $q->whereMonth('usage_date', $month))
-                ->whereYear('usage_date', $year)
+                ->when($yearFilter, fn($q) => $q->whereYear('usage_date', $yearFilter))
                 ->pluck('vehicle_id')
                 ->unique()
                 ->toArray();
@@ -107,20 +102,20 @@ class AdminOperationalController extends Controller
             $fuelQuery = FuelLog::where('vehicle_id', $vehicle->id)
                 ->where('is_verified', 1)
                 ->when($month, fn($q) => $q->whereMonth('filling_date', $month))
-                ->whereYear('filling_date', $year);
+                ->when($yearFilter, fn($q) => $q->whereYear('filling_date', $yearFilter));
             if ($filterDriverId) $fuelQuery->where('driver_id', $filterDriverId);
-            $fuelCost = $fuelQuery->sum(DB::raw('fuel_liters * fuel_price_per_liter'));
+            $fuelCost = $fuelQuery->sum('total_cost');
 
             // Service cost
             $serviceCost = ServiceSchedule::where('vehicle_id', $vehicle->id)
                 ->when($month, fn($q) => $q->whereMonth('service_date', $month))
-                ->whereYear('service_date', $year)
+                ->when($yearFilter, fn($q) => $q->whereYear('service_date', $yearFilter))
                 ->sum('cost');
 
             // Repair cost
             $repairCost = Repair::where('vehicle_id', $vehicle->id)
                 ->when($month, fn($q) => $q->whereMonth('report_date', $month))
-                ->whereYear('report_date', $year)
+                ->when($yearFilter, fn($q) => $q->whereYear('report_date', $yearFilter))
                 ->sum('total_cost');
 
             // Jarak & Liter/kWh — sekarang sumbernya Log Pengisian BBM/EV Charging
@@ -129,7 +124,7 @@ class AdminOperationalController extends Controller
             // ini, persis skema yang dipakai di FuelLogController::analytics(),
             // supaya "Rincian per Kendaraan" di dashboard konsisten dengan angka
             // yang ditampilkan di /drms/fuel-logs/analytics.
-            $fuelLogStats = $this->getVehicleFuelLogStats($vehicle->id, $month, $year, $filterDriverId);
+            $fuelLogStats = $this->getVehicleFuelLogStats($vehicle->id, $month, $yearFilter, $filterDriverId);
             $totalDistance = $fuelLogStats['distance'];
             $fuelLiters = $fuelLogStats['fuel_liters'];
 
@@ -164,16 +159,16 @@ class AdminOperationalController extends Controller
         for ($i = 1; $i <= 12; $i++) {
             $months[$i] = date('F', mktime(0, 0, 0, $i, 1));
         }
-        $years = range(now()->year - 2, now()->year);
+        $years = $this->availableYears($businessUnitId, $year);
 
         $isSuperAdmin = $user->isDrmsSuperAdmin();
         // Nilai untuk pre-select <option> bulan di view: 'all' atau angka bulan.
-        $monthSelect = $isAllMonths ? 'all' : $month;
+        $monthSelect = $month;
 
         return view('drms.admin.operational_dashboard', compact(
             'stats', 'chartData', 'efficiencyData',
             'transportDistribution', 'months', 'years', 'month', 'year',
-            'recentLogs', 'isSuperAdmin', 'isAllMonths', 'monthSelect',
+            'recentLogs', 'isSuperAdmin', 'isAllMonths', 'monthSelect', 'period', 'periodLabel',
             'vehicleStats', 'totals',
             'vehicles', 'drivers', 'filterVehicleId', 'filterDriverId',
             'businessUnits', 'filterBusinessUnitId'
@@ -187,13 +182,10 @@ class AdminOperationalController extends Controller
     {
         $user = Auth::user();
         $businessUnitId = $this->resolveBusinessUnitId($user, $request);
-        $month = $request->get('month', now()->month);
-        $year = $request->get('year', now()->year);
+        ['period' => $period, 'year' => $year, 'month' => $month,
+         'periodStart' => $periodStart, 'periodEnd' => $periodEnd, 'periodLabel' => $periodLabel] = $this->resolvePeriod($request);
         $filterVehicleId = $request->get('vehicle_id');
         $filterDriverId = $request->get('driver_id');
-
-        $periodStart = \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-        $periodEnd = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
 
         // Data statistik
         $stats = $this->getOperationalStats($businessUnitId, $periodStart, $periodEnd, $filterVehicleId, $filterDriverId);
@@ -203,9 +195,8 @@ class AdminOperationalController extends Controller
         // Detail logs
         $tripLogs = TripLog::with(['request.vehicle', 'request.driver', 'request'])
             ->where('is_verified', 1)
-            ->whereHas('request', function ($q) use ($month, $year, $filterVehicleId, $filterDriverId, $businessUnitId) {
-                $q->whereYear('usage_date', $year)
-                  ->whereMonth('usage_date', $month);
+            ->whereHas('request', function ($q) use ($periodStart, $periodEnd, $filterVehicleId, $filterDriverId, $businessUnitId) {
+                $q->whereBetween('usage_date', [$periodStart, $periodEnd]);
                 if ($filterVehicleId) $q->where('vehicle_id', $filterVehicleId);
                 if ($filterDriverId) $q->where('driver_id', $filterDriverId);
                 if ($businessUnitId) $this->applyBusinessUnitFilter($q, $businessUnitId);
@@ -214,36 +205,33 @@ class AdminOperationalController extends Controller
 
         $fuelLogs = FuelLog::with(['vehicle', 'driver'])
             ->where('is_verified', 1)
-            ->whereMonth('filling_date', $month)
-            ->whereYear('filling_date', $year)
+            ->whereBetween('filling_date', [$periodStart, $periodEnd])
             ->when($businessUnitId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $businessUnitId)))
             ->when($filterVehicleId, fn($q) => $q->where('vehicle_id', $filterVehicleId))
             ->when($filterDriverId, fn($q) => $q->where('driver_id', $filterDriverId))
             ->get();
 
         $serviceSchedules = ServiceSchedule::with('vehicle')
-            ->whereMonth('service_date', $month)
-            ->whereYear('service_date', $year)
+            ->whereBetween('service_date', [$periodStart, $periodEnd])
             ->when($businessUnitId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $businessUnitId)))
             ->when($filterVehicleId, fn($q) => $q->where('vehicle_id', $filterVehicleId))
             ->get();
 
         $repairs = Repair::with('vehicle')
-            ->whereMonth('report_date', $month)
-            ->whereYear('report_date', $year)
+            ->whereBetween('report_date', [$periodStart, $periodEnd])
             ->when($businessUnitId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $businessUnitId)))
             ->when($filterVehicleId, fn($q) => $q->where('vehicle_id', $filterVehicleId))
             ->get();
 
         // Generate CSV
-        $filename = 'laporan_operasional_' . $year . '_' . str_pad($month, 2, '0', STR_PAD_LEFT) . '.csv';
+        $filename = 'laporan_operasional_' . ($period === 'all' ? 'semua' : ($period === 'year' ? $year : $year . '_' . str_pad($month, 2, '0', STR_PAD_LEFT))) . '.csv';
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         $handle = fopen('php://output', 'w');
 
         // Header
         fputcsv($handle, ['LAPORAN OPERASIONAL DRMS']);
-        fputcsv($handle, ['Periode: ' . date('F Y', mktime(0, 0, 0, $month, 1, $year))]);
+        fputcsv($handle, ['Periode: ' . $periodLabel]);
         if ($businessUnitId) {
             $buName = \App\Models\BisnisUnit::find($businessUnitId)->nama_bisnis_unit ?? 'Unit';
             fputcsv($handle, ['Business Unit: ' . $buName]);
@@ -549,43 +537,156 @@ class AdminOperationalController extends Controller
         }
     }
 
-    private function getMonthlyChartData($buId, $vehicleId = null, $driverId = null)
+    /**
+     * Tahun data paling awal (BBM/EV, service, perbaikan) untuk Business Unit tersebut.
+     * Tidak ada data sama sekali -> tahun berjalan.
+     */
+    private function firstDataYear($buId = null): int
     {
-        $months = collect();
-        // PENTING: anchor ke tanggal 1 (startOfMonth) SEBELUM subMonths().
-        // Kalau langsung now()->subMonths($i) pas tanggal hari ini 29/30/31,
-        // Carbon bisa "meluber" ke bulan berikutnya untuk bulan yang harinya
-        // lebih pendek (Feb/Apr/Jun/Sep/Nov) — bikin bulan itu hilang & bulan
-        // lain ke-duplikat di chart.
-        $anchor = now()->startOfMonth();
-        for ($i = 11; $i >= 0; $i--) {
-            $months->push($anchor->copy()->subMonths($i)->format('Y-m'));
+        $byBu = fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId));
+        $dates = array_filter([
+            FuelLog::when($buId, $byBu)->min('filling_date'),
+            ServiceSchedule::when($buId, $byBu)->min('service_date'),
+            Repair::when($buId, $byBu)->min('report_date'),
+        ]);
+        return !empty($dates) ? (int) \Carbon\Carbon::parse(min($dates))->year : (int) now()->year;
+    }
+
+    /**
+     * Pilihan tahun untuk dropdown filter: dari tahun data pertama s.d. tahun ini.
+     * Tahun yang sedang dipilih (mis. dari URL) tetap dimasukkan supaya dropdown tidak janggal.
+     */
+    private function availableYears($buId = null, $selectedYear = null): array
+    {
+        $first = $this->firstDataYear($buId);
+        $last = (int) now()->year;
+        if ($selectedYear) {
+            $first = min($first, (int) $selectedYear);
+            $last = max($last, (int) $selectedYear);
+        }
+        return range($first, $last);
+    }
+
+    /**
+     * Tentukan periode dari request: all | year | month.
+     * DEFAULT (tanpa parameter) = tahun berjalan. URL lama dengan month=1..12 tetap = bulan,
+     * month=all tetap = tahun.
+     */
+    private function resolvePeriod(Request $request): array
+    {
+        $monthParam = $request->get('month', now()->month);
+        $period = $request->get('period');
+        if (!in_array($period, ['all', 'year', 'month'], true)) {
+            $period = $request->has('month')
+                ? (($monthParam === 'all') ? 'year' : 'month')
+                : 'year';
+        }
+        $year = (int) $request->get('year', now()->year);
+        $month = null;
+        if ($period === 'month') {
+            $month = (is_numeric($monthParam) && $monthParam >= 1 && $monthParam <= 12)
+                ? (int) $monthParam
+                : (int) now()->month;
         }
 
+        if ($period === 'all') {
+            // Rentang sangat lebar supaya trait yang pakai date_from/date_to tetap bekerja.
+            $periodStart = '2000-01-01';
+            $periodEnd = '2100-12-31 23:59:59';
+            $periodLabel = 'Semua Periode';
+        } elseif ($period === 'year') {
+            $periodStart = \Carbon\Carbon::create($year, 1, 1)->startOfYear()->toDateString();
+            $periodEnd = \Carbon\Carbon::create($year, 12, 1)->endOfYear()->format('Y-m-d 23:59:59');
+            $periodLabel = 'Tahun ' . $year;
+        } else {
+            $periodStart = \Carbon\Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+            $periodEnd = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d 23:59:59');
+            $periodLabel = date('F Y', mktime(0, 0, 0, $month, 1, $year));
+        }
+
+        return compact('period', 'year', 'month', 'periodStart', 'periodEnd', 'periodLabel');
+    }
+
+    /**
+     * Data grafik biaya. Granularitas mengikuti periode:
+     * - 'all'   : per TAHUN (dari tahun data paling awal s.d. tahun ini)
+     * - 'year'  : per BULAN (Jan-Des pada $periodYear)
+     * - 'month' : per HARI pada bulan $periodMonth / $periodYear
+     * - null    : perilaku lama, 12 bulan terakhir dari hari ini
+     * Key 'month' pada tiap baris berformat 'YYYY', 'YYYY-MM', atau 'YYYY-MM-DD'.
+     */
+    private function getMonthlyChartData($buId, $vehicleId = null, $driverId = null, $period = null, $periodYear = null, $periodMonth = null)
+    {
+        $labels = collect();
+        $fmt = '%Y-%m';
+        $from = null;
+        $to = null;
+
+        if ($period === 'all') {
+            $startYear = $this->firstDataYear($buId);
+            for ($y = $startYear; $y <= now()->year; $y++) {
+                $labels->push((string) $y);
+            }
+            $fmt = '%Y';
+            $from = $startYear . '-01-01';
+        } elseif ($period === 'month' && $periodYear && $periodMonth) {
+            $first = \Carbon\Carbon::create($periodYear, $periodMonth, 1);
+            for ($d = 1; $d <= $first->daysInMonth; $d++) {
+                $labels->push(sprintf('%04d-%02d-%02d', $periodYear, $periodMonth, $d));
+            }
+            $fmt = '%Y-%m-%d';
+            $from = $first->toDateString();
+            $to = $first->copy()->endOfMonth()->toDateString();
+        } elseif ($period === 'year' && $periodYear) {
+            for ($m = 1; $m <= 12; $m++) {
+                $labels->push(sprintf('%04d-%02d', $periodYear, $m));
+            }
+            $from = $periodYear . '-01-01';
+            $to = $periodYear . '-12-31';
+        } else {
+            // PENTING: anchor ke tanggal 1 (startOfMonth) SEBELUM subMonths(), supaya bulan
+            // pendek (Feb/Apr/Jun/Sep/Nov) tidak "meluber" ke bulan berikutnya.
+            $anchor = now()->startOfMonth();
+            for ($i = 11; $i >= 0; $i--) {
+                $labels->push($anchor->copy()->subMonths($i)->format('Y-m'));
+            }
+            $from = $labels->first() . '-01';
+            $to = \Carbon\Carbon::parse($labels->last() . '-01')->endOfMonth()->toDateString();
+        }
+
+        // Satu query per jenis biaya, dikelompokkan sesuai granularitas (bukan 1 query per label).
+        $grouped = function ($query, $dateCol, $sumCol) use ($fmt, $from, $to) {
+            if ($from) $query->whereDate($dateCol, '>=', $from);
+            if ($to) $query->whereDate($dateCol, '<=', $to);
+            return $query
+                ->selectRaw("DATE_FORMAT($dateCol, '$fmt') as k, SUM($sumCol) as t")
+                ->groupBy('k')
+                ->pluck('t', 'k');
+        };
+
+        $fuelQuery = FuelLog::where('is_verified', 1);
+        if ($buId) $fuelQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
+        if ($vehicleId) $fuelQuery->where('vehicle_id', $vehicleId);
+        if ($driverId) $fuelQuery->where('driver_id', $driverId);
+        $fuelMap = $grouped($fuelQuery, 'filling_date', 'total_cost');
+
+        $serviceQuery = ServiceSchedule::query();
+        if ($buId) $serviceQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
+        if ($vehicleId) $serviceQuery->where('vehicle_id', $vehicleId);
+        $serviceMap = $grouped($serviceQuery, 'service_date', 'cost');
+
+        $repairQuery = Repair::query();
+        if ($buId) $repairQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
+        if ($vehicleId) $repairQuery->where('vehicle_id', $vehicleId);
+        $repairMap = $grouped($repairQuery, 'report_date', 'total_cost');
+
         $data = [];
-        foreach ($months as $month) {
-            [$year, $monthNum] = explode('-', $month);
-
-            $fuelQuery = FuelLog::where('is_verified', 1)
-                ->whereYear('filling_date', $year)
-                ->whereMonth('filling_date', $monthNum);
-            if ($buId) $fuelQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-            if ($vehicleId) $fuelQuery->where('vehicle_id', $vehicleId);
-            if ($driverId) $fuelQuery->where('driver_id', $driverId);
-            $fuel = $fuelQuery->sum(DB::raw('fuel_liters * fuel_price_per_liter'));
-
-            $serviceQuery = ServiceSchedule::whereYear('service_date', $year)->whereMonth('service_date', $monthNum);
-            if ($buId) $serviceQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-            if ($vehicleId) $serviceQuery->where('vehicle_id', $vehicleId);
-            $service = $serviceQuery->sum('cost');
-
-            $repairQuery = Repair::whereYear('report_date', $year)->whereMonth('report_date', $monthNum);
-            if ($buId) $repairQuery->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-            if ($vehicleId) $repairQuery->where('vehicle_id', $vehicleId);
-            $repair = $repairQuery->sum('total_cost');
-
+        foreach ($labels as $label) {
+            $fuel = (float) ($fuelMap[$label] ?? 0);
+            $service = (float) ($serviceMap[$label] ?? 0);
+            $repair = (float) ($repairMap[$label] ?? 0);
             $data[] = [
-                'month'   => $month,
+                'month'   => $label,
                 'fuel'    => $fuel,
                 'service' => $service,
                 'repair'  => $repair,
@@ -609,7 +710,7 @@ class AdminOperationalController extends Controller
         $query = FuelLog::where('vehicle_id', $vehicleId)
             ->where('is_verified', 1)
             ->when($month, fn($q) => $q->whereMonth('filling_date', $month))
-            ->whereYear('filling_date', $year);
+            ->when($year, fn($q) => $q->whereYear('filling_date', $year));
         if ($filterDriverId) $query->where('driver_id', $filterDriverId);
 
         $items = $query->orderBy('filling_date')->orderBy('odometer_start')->get();

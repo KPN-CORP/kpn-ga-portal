@@ -28,6 +28,42 @@ class DrmsUserProfile extends Model
         'is_drms_superadmin' => 'boolean',
     ];
 
+    /** @var array<int,string>|null cache per instance */
+    protected ?array $adminAreaCache = null;
+
+    /**
+     * Daftar area yang dipegang admin ini (tabel drms_admin_areas).
+     * Kosong = lintas semua area di BU-nya (superadmin ditangani terpisah).
+     */
+    public function adminAreaList(): array
+    {
+        if ($this->adminAreaCache === null) {
+            $this->adminAreaCache = DrmsAdminArea::where('user_id', $this->user_id)
+                ->pluck('area')
+                ->map(fn ($a) => trim((string) $a))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+        return $this->adminAreaCache;
+    }
+
+    public function holdsArea(?string $area): bool
+    {
+        $list = $this->adminAreaList();
+        if (empty($list)) {
+            return true; // lintas area
+        }
+        $area = strtolower(trim((string) $area));
+        foreach ($list as $a) {
+            if (strtolower($a) === $area) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

@@ -79,6 +79,8 @@
         </div>
         @endif
 
+        @include('drms.vouchers._area_field')
+
         {{-- This field remains optional --}}
         @if($isSpecialBu ?? false)
         <div class="mb-4">

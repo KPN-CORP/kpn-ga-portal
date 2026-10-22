@@ -2,6 +2,11 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
+@php
+    // Filter dianggap aktif hanya jika nilainya terisi (bukan sekadar ada di URL)
+    $activeCount = collect(['start_date', 'end_date', 'search', 'status', 'lantai'])->filter(fn ($k) => request()->filled($k))->count();
+    $hasFilter   = $activeCount > 0;
+@endphp
 <div class="p-4 md:p-6 space-y-4 md:space-y-6">
     {{-- HEADER --}}
     <div class="flex justify-between items-center">
@@ -34,105 +39,76 @@
                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
                 + Input Mailing
             </a>
-            <button id="toggleFilterBtn"
-                    type="button"
-                    class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold border border-transparent transition-all duration-200">
-                <i class="fas fa-chevron-down mr-1"></i>Filter
-            </button>
+            <button id="toggleFilterBtn" type="button"
+                aria-controls="filterSection" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition
+                       {{ $hasFilter ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-100 hover:bg-gray-200 border-transparent' }}">
+            <i class="fas fa-sliders-h"></i>
+            Filter
+            @if($activeCount > 0)
+            <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-blue-600 text-white text-[10px] leading-none">{{ $activeCount }}</span>
+            @endif
+            <i id="filterChevron" class="fas fa-chevron-down text-xs transition-transform {{ $hasFilter ? 'rotate-180' : '' }}"></i>
+        </button>
         </div>
     </div>
 
     {{-- ================= FILTER ================= --}}
-    <div id="filterSection" class="bg-white border rounded-xl p-4 hidden">
-        <form method="GET" action="{{ route('mailing.proses') }}" class="space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <div id="filterSection" class="bg-white border rounded-xl p-4 {{ $hasFilter ? '' : 'hidden' }}">
+        <form method="GET" action="{{ route('mailing.proses') }}" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Tanggal Mulai</label>
-                    <input type="date" name="start_date" value="{{ request('start_date') ?? $today }}" 
+                    <label for="f_start_date" class="block text-xs font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+                    <input id="f_start_date" type="date" name="start_date" value="{{ request('start_date') ?? $today }}"
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Tanggal Akhir</label>
-                    <input type="date" name="end_date" value="{{ request('end_date') ?? $today }}" 
+                    <label for="f_end_date" class="block text-xs font-medium text-gray-700 mb-1">Tanggal Akhir</label>
+                    <input id="f_end_date" type="date" name="end_date" value="{{ request('end_date') ?? $today }}"
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Lantai Tujuan</label>
-                    <select name="lantai" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <label for="f_lantai" class="block text-xs font-medium text-gray-700 mb-1">Lantai Tujuan</label>
+                    <select id="f_lantai" name="lantai" class="w-full border rounded-lg px-3 py-2 text-sm">
                         <option value="">Semua Lantai</option>
-                        <option value="41" {{ request('lantai') == '41' ? 'selected' : '' }}>Lantai 41</option>
-                        <option value="42" {{ request('lantai') == '42' ? 'selected' : '' }}>Lantai 42</option>
-                        <option value="43" {{ request('lantai') == '43' ? 'selected' : '' }}>Lantai 43</option>
-                        <option value="45" {{ request('lantai') == '45' ? 'selected' : '' }}>Lantai 45</option>
-                        <option value="46" {{ request('lantai') == '46' ? 'selected' : '' }}>Lantai 46</option>
-                        <option value="47" {{ request('lantai') == '47' ? 'selected' : '' }}>Lantai 47</option>
+                        @foreach([41, 42, 43, 45, 46, 47] as $lt)
+                        <option value="{{ $lt }}" {{ (string) request('lantai') === (string) $lt ? 'selected' : '' }}>Lantai {{ $lt }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Status Proses</label>
-                    <select name="status" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <label for="f_status" class="block text-xs font-medium text-gray-700 mb-1">Status Proses</label>
+                    <select id="f_status" name="status" class="w-full border rounded-lg px-3 py-2 text-sm">
                         <option value="">Semua Status</option>
-                        <option value="Mailing Room" {{ request('status') == 'Mailing Room' ? 'selected' : '' }}>Mailing Room</option>
-                        <option value="Lantai 47" {{ request('status') == 'Lantai 47' ? 'selected' : '' }}>Lantai 47</option>
+                        @foreach(['Mailing Room', 'Lantai 47'] as $st)
+                        <option value="{{ $st }}" {{ request('status') === $st ? 'selected' : '' }}>{{ $st }}</option>
+                        @endforeach
                     </select>
                 </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Cari Semua Data</label>
-                    <input type="text" name="search" value="{{ request('search') }}"
-                        placeholder="Cari resi, nama pengirim, penerima, ekspedisi, lantai..."
-                        class="w-full border rounded-lg px-3 py-2 text-sm">
+                <div class="sm:col-span-2 lg:col-span-4">
+                    <label for="f_search" class="block text-xs font-medium text-gray-700 mb-1">Pencarian</label>
+                    <input id="f_search" type="text" name="search" value="{{ request('search') }}"
+                           placeholder="Resi, pengirim, penerima, ekspedisi, lantai..."
+                           class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
-            <div class="flex gap-2 pt-2">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">
-                    Terapkan Filter
-                </button>
+            <div class="flex items-center justify-end gap-2 pt-3 border-t">
                 <a href="{{ route('mailing.proses') }}"
-                   class="bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">
+                   class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200">
                     Reset
                 </a>
+                <button type="submit"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700">
+                    Terapkan Filter
+                </button>
             </div>
         </form>
     </div>
 
-    {{-- FILTER AKTIF --}}
-    @if(request()->hasAny(['start_date', 'end_date', 'search', 'status', 'lantai']))
-    <div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
-        <div class="flex items-start">
-            <i class="fas fa-filter text-blue-500 mt-0.5 mr-3"></i>
-            <div>
-                <p class="text-sm font-medium text-blue-800 mb-2">Filter Aktif</p>
-                <div class="flex flex-wrap gap-2">
-                    @if(request('start_date'))
-                    <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                        Mulai: {{ request('start_date') }}
-                    </span>
-                    @endif
-                    @if(request('end_date'))
-                    <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                        Akhir: {{ request('end_date') }}
-                    </span>
-                    @endif
-                    @if(request('lantai'))
-                    <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                        Lantai: {{ request('lantai') }}
-                    </span>
-                    @endif
-                    @if(request('status'))
-                    <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                        Status: {{ request('status') }}
-                    </span>
-                    @endif
-                    @if(request('search'))
-                    <span class="px-2 py-1 bg-white text-blue-700 text-xs rounded border border-blue-200">
-                        Pencarian: "{{ request('search') }}"
-                    </span>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
+    @include('mailing.partials.filter-chips', [
+        'route'   => 'mailing.proses',
+        'filters' => ['start_date' => 'Mulai', 'end_date' => 'Akhir', 'lantai' => 'Lantai', 'status' => 'Status', 'search' => 'Cari'],
+    ])
 
     {{-- BULK ACTIONS --}}
     <div id="bulkActions" class="hidden bg-white border border-gray-200 rounded-xl p-4">
@@ -245,7 +221,7 @@
             <i class="fas fa-inbox text-4xl text-gray-400 mb-3"></i>
             <p class="font-semibold text-gray-600">Tidak ada data mailing</p>
             <p class="text-sm text-gray-500 mt-1">
-                @if(request()->hasAny(['start_date', 'end_date', 'search', 'status', 'lantai']))
+                @if($hasFilter)
                 Coba ubah filter pencarian
                 @else
                 Semua mailing sudah diproses
@@ -489,41 +465,20 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ================= FILTER TOGGLE FIX =================
+    // ================= FILTER TOGGLE =================
+    // Status buka/tutup awal sudah ditentukan server (terbuka jika ada filter aktif)
     const toggleFilterBtn = document.getElementById('toggleFilterBtn');
-    const filterSection = document.getElementById('filterSection');
-    
+    const filterSection   = document.getElementById('filterSection');
+    const filterChevron   = document.getElementById('filterChevron');
+
     if (toggleFilterBtn && filterSection) {
-        // Toggle filter visibility
         toggleFilterBtn.addEventListener('click', function() {
-            filterSection.classList.toggle('hidden');
-            
-            // Update icon
-            const icon = this.querySelector('i');
-            if (filterSection.classList.contains('hidden')) {
-                icon.className = 'fas fa-chevron-down mr-1';
-                this.classList.remove('bg-blue-100', 'border-blue-300');
-            } else {
-                icon.className = 'fas fa-chevron-up mr-1';
-                this.classList.add('bg-blue-100', 'border-blue-300');
-            }
+            const isHidden = filterSection.classList.toggle('hidden');
+            toggleFilterBtn.setAttribute('aria-expanded', String(!isHidden));
+            if (filterChevron) filterChevron.classList.toggle('rotate-180', !isHidden);
         });
-        
-        // Auto-show filter if there are active filters
-        const hasActiveFilters = window.location.search.includes('start_date=') || 
-                               window.location.search.includes('end_date=') || 
-                               window.location.search.includes('search=') || 
-                               window.location.search.includes('status=') || 
-                               window.location.search.includes('lantai=');
-        
-        if (hasActiveFilters) {
-            filterSection.classList.remove('hidden');
-            const icon = toggleFilterBtn.querySelector('i');
-            icon.className = 'fas fa-chevron-up mr-1';
-            toggleFilterBtn.classList.add('bg-blue-100', 'border-blue-300');
-        }
     }
-    
+
     // ================= DATE VALIDATION =================
     document.querySelectorAll('input[type="date"]').forEach(input => {
         input.addEventListener('change', function() {
@@ -536,19 +491,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    
-    // ================= FILTER FORM SUBMIT =================
-    const filterForm = document.querySelector('form[method="GET"]');
-    if (filterForm) {
-        // Reset button functionality
-        const resetBtn = filterForm.querySelector('a[href*="mailing.proses"]');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                window.location.href = "{{ route('mailing.proses') }}";
-            });
-        }
-    }
     
     // ================= BULK SELECTION LOGIC =================
     let selectedMailings = new Set();

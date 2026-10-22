@@ -2,14 +2,11 @@
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
 
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h2 class="text-xl font-semibold text-gray-800">Kartu Aktif</h2>
-            <p class="text-xs text-gray-500">Kartu yang saat ini aktif (tidak dinonaktifkan manual)</p>
-        </div>
+    <div>
+        <h2 class="text-xl font-semibold text-gray-800">Kartu Aktif</h2>
+        <p class="text-xs text-gray-500">Kartu yang sudah disetujui dan belum dinonaktifkan manual</p>
     </div>
 
-    <!-- Filter (selalu terlihat) -->
     <div class="bg-white border rounded-xl p-4">
         <form method="GET" action="{{ route('idcard.aktif') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -19,13 +16,16 @@
             <div>
                 <label class="text-sm font-medium text-gray-600">Kategori</label>
                 <select name="kategori" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all">Semua</option>
-                    <option value="karyawan_baru" {{ request('kategori')=='karyawan_baru'?'selected':'' }}>Karyawan Baru</option>
-                    <option value="karyawan_mutasi" {{ request('kategori')=='karyawan_mutasi'?'selected':'' }}>Karyawan Mutasi</option>
-                    <option value="ganti_kartu" {{ request('kategori')=='ganti_kartu'?'selected':'' }}>Ganti Kartu</option>
-                    <option value="magang" {{ request('kategori')=='magang'?'selected':'' }}>Magang</option>
-                    <option value="magang_extend" {{ request('kategori')=='magang_extend'?'selected':'' }}>Magang Extend</option>
-                    <option value="perubahan_lantai" {{ request('kategori')=='perubahan_lantai'?'selected':'' }}>Perubahan Lantai</option>
+                    @include('idcard.partials.kategori-options', ['selected' => request('kategori'), 'allLabel' => 'Semua'])
+                </select>
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-600">Periode</label>
+                <select name="periode" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="all">Semua Periode</option>
+                    <option value="masa_aktif" {{ request('periode')=='masa_aktif'?'selected':'' }}>Masa Aktif</option>
+                    <option value="masa_tidak_aktif" {{ request('periode')=='masa_tidak_aktif'?'selected':'' }}>Masa Tidak Aktif</option>
+                    <option value="masa_habis_segera" {{ request('periode')=='masa_habis_segera'?'selected':'' }}>Habis dalam 30 Hari</option>
                 </select>
             </div>
             <div>
@@ -43,7 +43,7 @@
                 </select>
             </div>
             @endif
-            <div class="lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
+            <div class="sm:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2 justify-end">
                 <button class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">Terapkan</button>
                 <a href="{{ route('idcard.aktif') }}" class="px-4 py-2 bg-gray-200 rounded-lg text-sm font-semibold text-center">Reset</a>
             </div>
@@ -57,6 +57,14 @@
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">{{ session('error') }}</div>
     @endif
 
+    <p class="text-xs text-gray-500">
+        @if($data->total() > 0)
+            Menampilkan {{ $data->firstItem() }}-{{ $data->lastItem() }} dari {{ $data->total() }} kartu
+        @else
+            Tidak ada data
+        @endif
+    </p>
+
     <div class="bg-white border rounded-xl overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
@@ -65,36 +73,39 @@
                     <th class="px-4 py-3 text-left hidden sm:table-cell">NIK</th>
                     <th class="px-4 py-3 text-left hidden md:table-cell">No. Kartu</th>
                     <th class="px-4 py-3 text-left hidden lg:table-cell">Bisnis Unit</th>
-                    <th class="px-4 py-3 text-left">Status</th>
-                    <th class="px-4 py-3 text-left">Action</th>
+                    <th class="px-4 py-3 text-left hidden lg:table-cell">Kategori</th>
+                    <th class="px-4 py-3 text-left">Periode</th>
+                    <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 @forelse($data as $item)
-                <tr>
-                    <td class="px-4 py-3 font-medium">{{ $item->nama }}</td>
-                    <td class="px-4 py-3 hidden sm:table-cell">{{ $item->nik ?? '-' }}</td>
-                    <td class="px-4 py-3 hidden md:table-cell"><span class="font-mono">{{ $item->nomor_kartu ?? '-' }}</span></td>
-                    <td class="px-4 py-3 hidden lg:table-cell">{{ optional($bisnisUnits->firstWhere('id_bisnis_unit',$item->bisnis_unit_id))->nama_bisnis_unit ?? '-' }}</td>
+                <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">
-                        @if($item->is_active)
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Aktif</span>
-                        @else
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">Tidak Aktif</span>
-                        @endif
-                        @if($item->status == 'pending')
-                            <span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Pending</span>
+                        <div class="font-medium">{{ $item->nama }}</div>
+                        <div class="sm:hidden text-xs text-gray-500">NIK: {{ $item->nik ?? '-' }}</div>
+                        @if($item->nomor_kartu)
+                            <div class="md:hidden text-xs text-gray-500 font-mono">{{ $item->nomor_kartu }}</div>
                         @endif
                     </td>
-                    <td class="px-4 py-3 flex flex-wrap gap-2">
-                        <a href="{{ route('idcard.detail', $item->id) }}" class="text-blue-600 hover:underline">Detail</a>
-                        @if(isset($canNonaktifkan) && $canNonaktifkan && $item->status == 'approved' && $item->is_active == 1)
-                        <button onclick="openNonaktifModal({{ $item->id }}, '{{ $item->nama }}', '{{ $item->nomor_kartu }}')" class="text-red-600 hover:underline">Nonaktifkan</button>
-                        @endif
+                    <td class="px-4 py-3 hidden sm:table-cell">{{ $item->nik ?? '-' }}</td>
+                    <td class="px-4 py-3 hidden md:table-cell"><span class="font-mono">{{ $item->nomor_kartu ?? '-' }}</span></td>
+                    <td class="px-4 py-3 hidden lg:table-cell">{{ optional($bisnisUnits->firstWhere('id_bisnis_unit', $item->bisnis_unit_id))->nama_bisnis_unit ?? '-' }}</td>
+                    <td class="px-4 py-3 hidden lg:table-cell">{{ $item->kategori_text }}</td>
+                    <td class="px-4 py-3">@include('idcard.partials.periode', ['item' => $item])</td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-3">
+                            <a href="{{ route('idcard.detail', $item->id) }}" class="text-blue-600 hover:underline">Detail</a>
+                            @if(!empty($canNonaktifkan))
+                                <button type="button" data-toggle-card="nonaktif"
+                                        data-id="{{ $item->id }}" data-nama="{{ $item->nama }}" data-nomor="{{ $item->nomor_kartu }}"
+                                        class="text-red-600 hover:underline">Nonaktifkan</button>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="py-10 text-center text-gray-500">Tidak ada kartu aktif</td></tr>
+                <tr><td colspan="7" class="py-10 text-center text-gray-500">Tidak ada kartu aktif</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -105,45 +116,5 @@
     @endif
 </div>
 
-<!-- Modal Nonaktifkan -->
-<div id="nonaktifModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Nonaktifkan Kartu</h3>
-        <form id="nonaktifForm" method="POST">
-            @csrf
-            <p class="text-sm text-gray-600 mb-2">Nonaktifkan kartu untuk: <span id="nonaktifNama" class="font-semibold"></span></p>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Kartu (Opsional)</label>
-                <input type="text" name="nomor_kartu" id="nonaktifNomorKartu" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Ubah nomor kartu jika perlu">
-                <p class="text-xs text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah</p>
-            </div>
-            <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">Nonaktifkan</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    function openNonaktifModal(id, nama, nomorKartu) {
-        const modal = document.getElementById('nonaktifModal');
-        const form = document.getElementById('nonaktifForm');
-        const namaSpan = document.getElementById('nonaktifNama');
-        const nomorInput = document.getElementById('nonaktifNomorKartu');
-
-        namaSpan.textContent = nama;
-        nomorInput.value = nomorKartu || '';
-        form.action = "{{ url('/idcard') }}/" + id + "/nonaktifkan";
-        modal.classList.remove('hidden');
-    }
-
-    function closeModal() {
-        document.getElementById('nonaktifModal').classList.add('hidden');
-    }
-
-    document.getElementById('nonaktifModal').addEventListener('click', function(e) {
-        if (e.target === this) closeModal();
-    });
-</script>
+@include('idcard.partials.toggle-modal')
 @endsection

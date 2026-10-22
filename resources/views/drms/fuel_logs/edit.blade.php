@@ -51,7 +51,7 @@
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700">Harga Total <span class="text-red-500">*</span></label>
-                <input type="number" name="fuel_total_price" value="{{ old('fuel_total_price', $log->fuel_liters * $log->fuel_price_per_liter) }}" class="w-full border rounded px-3 py-2" min="0" step="0.01" required>
+                <input type="number" name="fuel_total_price" value="{{ old('fuel_total_price', $log->total_cost) }}" class="w-full border rounded px-3 py-2" min="0" step="0.01" required>
             </div>
         </div>
 

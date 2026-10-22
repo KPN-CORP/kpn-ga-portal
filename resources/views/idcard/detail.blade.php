@@ -1,5 +1,25 @@
 @extends('layouts.app-sidebar-card')
 @section('content')
+@php
+    // Gambar pengganti lokal (tidak bergantung layanan eksternal)
+    $imgFallback = 'data:image/svg+xml;charset=UTF-8,' . rawurlencode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="100%" height="100%" fill="#f3f4f6"/>'
+        . '<text x="50%" y="50%" fill="#9ca3af" font-family="Arial" font-size="20" text-anchor="middle">File tidak ditemukan</text></svg>'
+    );
+    $fmt = fn ($v, $time = false) => $v ? \Carbon\Carbon::parse($v)->format($time ? 'd-m-Y H:i' : 'd-m-Y') : '-';
+
+    // Label dan ikon Activity Log (class ditulis lengkap agar terbaca oleh Tailwind)
+    $logMeta = [
+        'created'          => ['Request dibuat',      'bg-blue-100',   'text-blue-600',   'M12 6v6m0 0v6m0-6h6m-6 0H6'],
+        'updated'          => ['Data diubah',         'bg-yellow-100', 'text-yellow-600', 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z'],
+        'approved'         => ['Disetujui',           'bg-green-100',  'text-green-600',  'M5 13l4 4L19 7'],
+        'rejected'         => ['Ditolak',             'bg-red-100',    'text-red-600',    'M6 18L18 6M6 6l12 12'],
+        'printed'          => ['Kartu dicetak',       'bg-gray-100',   'text-gray-600',   'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z'],
+        'nonaktifkan_satu' => ['Kartu dinonaktifkan', 'bg-red-100',    'text-red-600',    'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'],
+        'aktifkan_satu'    => ['Kartu diaktifkan',    'bg-green-100',  'text-green-600',  'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+    ];
+    $isMagang = in_array($data->kategori, ['magang', 'magang_extend']);
+@endphp
 <div class="bg-white shadow rounded-lg p-6">
     <h2 class="text-2xl font-semibold mb-4 text-left">Detail Request ID Card</h2>
 
@@ -9,15 +29,20 @@
     @if(session('error'))
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{{ session('error') }}</div>
     @endif
+    @if ($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+    @endif
 
     <div class="flex flex-col md:flex-row gap-8">
         <div class="md:w-1/3 flex flex-col items-center space-y-6">
-            @if ($data->foto && !in_array($data->kategori, ['magang', 'magang_extend']))
+            @if ($data->foto && !$isMagang)
                 <div class="w-full">
                     <p class="text-sm font-medium text-gray-600 mb-3">Foto</p>
                     <div class="bg-gray-100 rounded-lg p-3 shadow-inner">
                         <div class="relative w-full" style="padding-bottom: 150%;">
-                            <img src="{{ route('idcard.photo', $data->foto) }}" class="absolute inset-0 w-full h-full object-contain rounded-md shadow" alt="Foto ID Card" onerror="this.onerror=null; this.src='https://via.placeholder.com/400x600?text=Foto+Tidak+Ditemukan';">
+                            <img src="{{ route('idcard.photo', $data->foto) }}" class="absolute inset-0 w-full h-full object-contain rounded-md shadow" alt="Foto ID Card" onerror="this.onerror=null; this.src='{{ $imgFallback }}';">
                         </div>
                         <div class="mt-3 text-center">
                             <a href="{{ route('idcard.photo', $data->foto) }}" download class="text-blue-600 hover:text-blue-800 text-sm font-medium">Download Foto</a>
@@ -31,14 +56,14 @@
                     <p class="text-sm font-medium text-gray-600 mb-3">Bukti Bayar</p>
                     <div class="bg-gray-100 rounded-lg p-3 shadow-inner">
                         <div class="relative w-full" style="padding-bottom: 150%;">
-                            @php $isPdf = pathinfo($data->bukti_bayar, PATHINFO_EXTENSION) == 'pdf'; @endphp
+                            @php $isPdf = strtolower(pathinfo($data->bukti_bayar, PATHINFO_EXTENSION)) == 'pdf'; @endphp
                             @if($isPdf)
                                 <div class="absolute inset-0 flex flex-col items-center justify-center bg-white rounded-md">
                                     <svg class="w-16 h-16 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>
                                     <p class="text-sm font-medium text-gray-700">File PDF</p>
                                 </div>
                             @else
-                                <img src="{{ route('idcard.photo', $data->bukti_bayar) }}" class="absolute inset-0 w-full h-full object-contain rounded-md shadow" alt="Bukti Bayar" onerror="this.onerror=null; this.src='https://via.placeholder.com/400x600?text=File+Tidak+Ditemukan';">
+                                <img src="{{ route('idcard.photo', $data->bukti_bayar) }}" class="absolute inset-0 w-full h-full object-contain rounded-md shadow" alt="Bukti Bayar" onerror="this.onerror=null; this.src='{{ $imgFallback }}';">
                             @endif
                         </div>
                         <div class="mt-3 text-center">
@@ -55,30 +80,39 @@
                 <div><p class="text-sm text-gray-500">Nama</p><p class="font-medium uppercase">{{ $data->nama }}</p></div>
                 <div><p class="text-sm text-gray-500">Bisnis Unit</p><p class="font-medium">{{ $data->bisnis_unit_nama }}</p></div>
                 <div><p class="text-sm text-gray-500">Kategori</p><p class="font-medium">{{ $data->kategori_label ?? $data->kategori }}</p></div>
-                <div><p class="text-sm text-gray-500">Status</p>
-                    <span class="inline-block px-3 py-1 text-xs font-semibold rounded-full {{ $data->status=='pending'?'bg-yellow-100 text-yellow-800':($data->status=='approved'?'bg-green-100 text-green-800':'bg-red-100 text-red-800') }}">
-                        {{ ucfirst($data->status) }}
-                    </span>
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Status Request</p>
+                    @include('idcard.partials.status-badge', ['status' => $data->status])
                 </div>
-                @if(in_array($data->kategori, ['magang','magang_extend']))
-                    <div><p class="text-sm text-gray-500">Nomor Kartu</p><p class="font-medium font-mono">{{ $data->nomor_kartu ?? '-' }}</p></div>
-                    <div><p class="text-sm text-gray-500">Masa Berlaku</p><p class="font-medium">{{ $data->masa_berlaku ? date('d-m-Y', strtotime($data->masa_berlaku)) : '-' }}</p></div>
-                    <div><p class="text-sm text-gray-500">Sampai Tanggal</p><p class="font-medium">{{ $data->sampai_tanggal ? date('d-m-Y', strtotime($data->sampai_tanggal)) : '-' }}</p></div>
-                @elseif(!empty($data->tanggal_join))
-                    <div><p class="text-sm text-gray-500">Tanggal Join</p><p class="font-medium">{{ date('d-m-Y', strtotime($data->tanggal_join)) }}</p></div>
+                @if($data->status === 'approved')
+                    <div>
+                        <p class="text-sm text-gray-500 mb-1">Status Kartu</p>
+                        @if($data->is_active)
+                            <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Aktif</span>
+                        @else
+                            <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">Nonaktif</span>
+                        @endif
+                    </div>
                 @endif
-                <div><p class="text-sm text-gray-500">Tanggal Request</p><p class="font-medium">{{ date('d-m-Y H:i', strtotime($data->created_at)) }}</p></div>
+                @if($isMagang)
+                    <div><p class="text-sm text-gray-500">Nomor Kartu</p><p class="font-medium font-mono">{{ $data->nomor_kartu ?? '-' }}</p></div>
+                    <div><p class="text-sm text-gray-500">Masa Berlaku</p><p class="font-medium">{{ $fmt($data->masa_berlaku) }}</p></div>
+                    <div><p class="text-sm text-gray-500">Sampai Tanggal</p><p class="font-medium">{{ $fmt($data->sampai_tanggal) }}</p></div>
+                @elseif(!empty($data->tanggal_join))
+                    <div><p class="text-sm text-gray-500">Tanggal Join</p><p class="font-medium">{{ $fmt($data->tanggal_join) }}</p></div>
+                @endif
+                <div><p class="text-sm text-gray-500">Tanggal Request</p><p class="font-medium">{{ $fmt($data->created_at, true) }}</p></div>
                 @if(!empty($data->user_name))
                     <div><p class="text-sm text-gray-500">Diajukan Oleh</p><p class="font-medium">{{ $data->user_name }}</p></div>
                 @endif
                 @if(!empty($data->approved_by_name))
-                    <div><p class="text-sm text-gray-500">Disetujui Oleh</p><p class="font-medium">{{ $data->approved_by_name }}</p><p class="text-xs text-gray-500">{{ date('d-m-Y H:i', strtotime($data->approved_at)) }}</p></div>
+                    <div><p class="text-sm text-gray-500">Disetujui Oleh</p><p class="font-medium">{{ $data->approved_by_name }}</p><p class="text-xs text-gray-500">{{ $fmt($data->approved_at, true) }}</p></div>
                 @endif
                 @if($data->status == 'rejected' && !empty($data->rejected_by_name))
                     <div class="md:col-span-2">
                         <p class="text-sm text-gray-500">Ditolak Oleh</p>
                         <p class="font-medium">{{ $data->rejected_by_name }}</p>
-                        <p class="text-xs text-gray-500">{{ $data->rejected_at ? date('d-m-Y H:i', strtotime($data->rejected_at)) : '' }}</p>
+                        <p class="text-xs text-gray-500">{{ $fmt($data->rejected_at, true) }}</p>
                         @if(!empty($data->rejection_reason))
                             <div class="mt-2 bg-red-50 border border-red-200 rounded p-3"><p class="text-sm text-red-800">{{ $data->rejection_reason }}</p></div>
                         @endif
@@ -96,18 +130,18 @@
 
     @if($isPending && $canProses)
     <div class="mt-8 pt-6 border-t border-gray-200">
-        <h3 class="text-lg font-medium text-gray-800 mb-4">Action</h3>
+        <h3 class="text-lg font-medium text-gray-800 mb-4">Aksi</h3>
         <div class="bg-gray-50 rounded-lg p-6">
             <div class="mb-4">
                 <a href="{{ route('idcard.edit', $data->id) }}" class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition">Edit Data</a>
             </div>
             <form action="{{ route('idcard.approve', $data->id) }}" method="POST" class="mb-6" id="approveForm">
                 @csrf
-                @if(in_array($data->kategori, ['magang','magang_extend']))
+                @if($isMagang)
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Kartu *</label>
-                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="Contoh: MAG20240115001" required>
+                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="Contoh: MAG20240115001" maxlength="50" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Sampai Tanggal (Opsional)</label>
@@ -115,48 +149,142 @@
                     </div>
                 </div>
                 @endif
-                <button type="button" onclick="if(confirm('Setujui request ini?')) document.getElementById('approveForm').submit();" class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700">Approve</button>
+                <button type="button" data-confirm-form="approveForm"
+                        data-confirm-title="Setujui request ini?"
+                        data-confirm-text="Request atas nama {{ $data->nama }} akan disetujui."
+                        data-confirm-label="Setujui"
+                        data-confirm-class="bg-green-600 hover:bg-green-700"
+                        class="inline-flex items-center px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">Approve</button>
             </form>
 
             <form action="{{ route('idcard.reject', $data->id) }}" method="POST" id="rejectForm">
                 @csrf
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Alasan Penolakan *</label>
-                    <textarea name="rejection_reason" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Masukkan alasan penolakan (minimal 5 karakter)" required></textarea>
+                    <textarea name="rejection_reason" rows="3" minlength="5" maxlength="500" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Masukkan alasan penolakan (minimal 5 karakter)" required></textarea>
                 </div>
-                <button type="button" onclick="if(confirm('Tolak request ini?')) document.getElementById('rejectForm').submit();" class="inline-flex items-center px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700">Reject</button>
+                <button type="button" data-confirm-form="rejectForm"
+                        data-confirm-title="Tolak request ini?"
+                        data-confirm-text="Request atas nama {{ $data->nama }} akan ditolak dan alasan penolakan akan tercatat."
+                        data-confirm-label="Tolak"
+                        data-confirm-class="bg-red-600 hover:bg-red-700"
+                        class="inline-flex items-center px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50">Reject</button>
             </form>
         </div>
     </div>
     @endif
 
+    @if(!empty($canToggleAktif))
     <div class="mt-8 pt-6 border-t border-gray-200">
-        <h3 class="text-lg font-medium text-gray-800 mb-4">Activity Logs</h3>
+        <h3 class="text-lg font-medium text-gray-800 mb-4">Kelola Kartu</h3>
+        <div class="bg-gray-50 rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p class="text-sm text-gray-600">
+                Kartu ini saat ini <strong>{{ $data->is_active ? 'aktif' : 'nonaktif' }}</strong>.
+            </p>
+            @if($data->is_active)
+                <button type="button" data-toggle-card="nonaktif" data-id="{{ $data->id }}" data-nama="{{ $data->nama }}" data-nomor="{{ $data->nomor_kartu }}"
+                        class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700">Nonaktifkan Kartu</button>
+            @else
+                <button type="button" data-toggle-card="aktif" data-id="{{ $data->id }}" data-nama="{{ $data->nama }}" data-nomor="{{ $data->nomor_kartu }}"
+                        class="inline-flex items-center justify-center px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700">Aktifkan Kartu</button>
+            @endif
+        </div>
+    </div>
+    @endif
+
+    <div class="mt-8 pt-6 border-t border-gray-200">
+        <h3 class="text-lg font-medium text-gray-800 mb-4">Riwayat Aktivitas</h3>
         <div class="bg-gray-50 rounded-lg p-4">
             @forelse($logs as $log)
+            @php $meta = $logMeta[$log->action] ?? [ucfirst(str_replace('_', ' ', $log->action)), 'bg-gray-100', 'text-gray-600', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z']; @endphp
             <div class="flex items-start gap-3 p-3 bg-white rounded border mb-2">
                 <div class="flex-shrink-0">
-                    @switch($log->action)
-                        @case('created') <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg></div> @break
-                        @case('approved') <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center"><svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></div> @break
-                        @case('rejected') <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center"><svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div> @break
-                        @default <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-                    @endswitch
+                    <div class="w-8 h-8 rounded-full {{ $meta[1] }} flex items-center justify-center">
+                        <svg class="w-4 h-4 {{ $meta[2] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $meta[3] }}"/></svg>
+                    </div>
                 </div>
                 <div>
-                    <p class="font-medium text-gray-800 capitalize">{{ $log->action }}</p>
-                    <p class="text-sm text-gray-600">{{ $log->notes }}</p>
-                    <p class="text-xs text-gray-500">by {{ $log->action_by_name ?? 'System' }} • {{ date('d-m-Y H:i', strtotime($log->created_at)) }}</p>
+                    <p class="font-medium text-gray-800">{{ $meta[0] }}</p>
+                    @if($log->notes)<p class="text-sm text-gray-600">{{ $log->notes }}</p>@endif
+                    <p class="text-xs text-gray-500">oleh {{ $log->action_by_name ?? 'Sistem' }} &bull; {{ $fmt($log->created_at, true) }}</p>
                 </div>
             </div>
             @empty
-            <p class="text-gray-500 text-center py-4">Tidak ada aktivitas</p>
+            <p class="text-gray-500 text-center py-4">Belum ada aktivitas</p>
             @endforelse
         </div>
     </div>
 
     <div class="mt-6 pt-4 border-t">
-        <a href="{{ route('idcard.index') }}" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">← Kembali ke List</a>
+        <a href="{{ route('idcard.index') }}" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">&larr; Kembali ke Daftar</a>
     </div>
 </div>
+
+{{-- Modal konfirmasi Approve / Reject --}}
+<div id="confirmModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full">
+        <h3 id="confirmTitle" class="text-lg font-semibold text-gray-800 mb-2"></h3>
+        <p id="confirmText" class="text-sm text-gray-600 mb-6"></p>
+        <div class="flex justify-end gap-3">
+            <button type="button" id="confirmCancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400">Batal</button>
+            <button type="button" id="confirmOk" class="px-4 py-2 text-white rounded-lg text-sm"></button>
+        </div>
+    </div>
+</div>
+
+@if(!empty($canToggleAktif))
+    @include('idcard.partials.toggle-modal')
+@endif
+
+<script>
+(function () {
+    const modal  = document.getElementById('confirmModal');
+    const okBtn  = document.getElementById('confirmOk');
+    const colors = ['bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'hover:bg-red-700'];
+    let pendingForm = null;
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        pendingForm = null;
+    }
+
+    document.querySelectorAll('[data-confirm-form]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const form = document.getElementById(btn.dataset.confirmForm);
+            // form.submit() biasa melewati validasi HTML5 (required/minlength), jadi dicek dulu di sini
+            if (!form.reportValidity()) return;
+
+            pendingForm = form;
+            document.getElementById('confirmTitle').textContent = btn.dataset.confirmTitle;
+            document.getElementById('confirmText').textContent  = btn.dataset.confirmText;
+            okBtn.textContent = btn.dataset.confirmLabel;
+            colors.forEach(c => okBtn.classList.remove(c));
+            btn.dataset.confirmClass.split(' ').forEach(c => okBtn.classList.add(c));
+            okBtn.disabled = false;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+    });
+
+    okBtn.addEventListener('click', function () {
+        if (!pendingForm) return;
+        okBtn.disabled = true;
+        okBtn.textContent = 'Memproses...';
+        // cegah klik ganda pada tombol Approve/Reject
+        document.querySelectorAll('[data-confirm-form]').forEach(b => b.disabled = true);
+        pendingForm.submit();
+    });
+
+    document.getElementById('confirmCancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // tombol kembali (bfcache) tidak boleh meninggalkan tombol dalam keadaan nonaktif
+    window.addEventListener('pageshow', function () {
+        document.querySelectorAll('[data-confirm-form]').forEach(b => b.disabled = false);
+        closeModal();
+    });
+})();
+</script>
 @endsection

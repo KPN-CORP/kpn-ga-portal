@@ -136,6 +136,29 @@ class MessengerDashboardController extends Controller
         $kurirIds    = $kurirRows->pluck('kurir_id')->values()->toArray();
         $kurirData   = $kurirRows->pluck('total')->map(fn ($v) => (int) $v)->values()->toArray();
 
+        // ---------- TOTAL PER KURIR PER PERIODE (bulan / hari) ----------
+        // Dipakai grafik "Total Diambil per Messenger" saat sebuah batang bulan/hari diklik,
+        // sehingga grafik bisa berganti tanpa request tambahan ke server.
+        // Format: ['2026-03' => [['id' => 5, 'name' => 'Budi', 'total' => 12], ...], ...]
+        $periodExpr = $view === 'year' ? "DATE_FORMAT(t.created_at, '%Y-%m')" : 'DATE(t.created_at)';
+        $kurirByPeriod = [];
+        DB::table('tb_transaksi as t')
+            ->join('tb_pelanggan as p', 'p.id_pelanggan', '=', 't.kurir')
+            ->select(DB::raw($periodExpr . ' as k'), 't.kurir as kurir_id', 'p.nama_pelanggan as nama_kurir', DB::raw('COUNT(*) as total'))
+            ->where('t.kurir', '>', 0)
+            ->whereBetween('t.created_at', [$start, $end])
+            ->when($status, fn ($q) => $q->where('t.status', $status))
+            ->when($kurirSel, fn ($q) => $q->whereIn('t.kurir', $kurirSel))
+            ->groupBy('k', 't.kurir', 'p.nama_pelanggan')
+            ->get()
+            ->each(function ($r) use (&$kurirByPeriod) {
+                $kurirByPeriod[$r->k][] = [
+                    'id'    => (int) $r->kurir_id,
+                    'name'  => $r->nama_kurir,
+                    'total' => (int) $r->total,
+                ];
+            });
+
         // ---------- GRAFIK: LAPORAN BULANAN (tahun) / HARIAN (bulan) ----------
         $timelineLabels = [];
         $timelineKeys   = [];
@@ -253,6 +276,7 @@ class MessengerDashboardController extends Controller
             'kurirLabels'      => $kurirLabels,
             'kurirIds'         => $kurirIds,
             'kurirData'        => $kurirData,
+            'kurirByPeriod'    => (object) $kurirByPeriod,
             'timelineTitle'    => $timelineTitle,
             'timelineLabels'   => $timelineLabels,
             'timelineKeys'     => $timelineKeys,

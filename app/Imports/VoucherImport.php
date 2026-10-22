@@ -33,12 +33,16 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
      *                           (kolom "Business Unit" di file diabaikan, demi keamanan akses).
      * @param bool $isSpecialBu User dari BU khusus (KPN Corporation) — kolom "Dibebankan ke BU"
      *                          cuma berlaku untuk user ini, selain itu selalu diabaikan/null.
+     * @param string|null $area Area untuk SEMUA voucher dalam file ini. Sudah divalidasi oleh
+     *                          VoucherController (admin ber-area: otomatis area-nya sendiri;
+     *                          admin lintas area/superadmin: area yang dipilih di form).
      */
     public function __construct(
         protected $defaultBusinessUnitId,
         protected $defaultExpiredAt = null,
         protected bool $isSuperAdmin = false,
-        protected bool $isSpecialBu = false
+        protected bool $isSpecialBu = false,
+        protected ?string $area = null
     ) {
     }
 
@@ -135,6 +139,13 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             return;
         }
 
+        // Area wajib: voucher tanpa area tidak akan terlihat oleh admin ber-area.
+        if ($this->area === null || trim($this->area) === '') {
+            $this->errors[] = "Baris {$rowNum}: Area belum ditentukan untuk kode {$code}, voucher dilewati.";
+            $this->skipped++;
+            return;
+        }
+
         // Dibebankan ke BU (input_business_unit_id): cuma berlaku untuk user BU khusus (KPN Corporation).
         $inputBusinessUnitId = null;
         if ($this->isSpecialBu) {
@@ -156,6 +167,7 @@ class VoucherImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             'type'                   => $type,
             'status'                 => $status,
             'business_unit_id'       => $businessUnitId,
+            'area'                   => trim($this->area),
             'input_business_unit_id' => $inputBusinessUnitId,
             'expired_at'             => $expiredAt,
         ]);

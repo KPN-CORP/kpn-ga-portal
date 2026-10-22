@@ -82,6 +82,8 @@
             </div>
         @endif
 
+        @include('drms.vouchers._area_field', ['selectedArea' => $voucher->area])
+
         @if($isSpecialBu ?? false)
         <div class="mb-4">
             <label for="input_business_unit_id" class="block text-sm font-medium text-gray-700 mb-1">Dibebankan ke BU</label>

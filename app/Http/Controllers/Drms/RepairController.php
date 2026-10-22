@@ -65,20 +65,46 @@ class RepairController extends Controller
             $query->where('vehicle_id', $request->vehicle_id);
         }
 
-        // Filter Bulan (default: bulan sekarang), kecuali user sudah memakai filter tanggal manual.
-        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
-        $month = $request->get('month', now()->format('Y-m'));
-        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
-            [$year, $monthNum] = explode('-', $month);
-            $query->whereYear('report_date', $year)->whereMonth('report_date', $monthNum);
+        // Filter Periode (DEFAULT: tahun berjalan), kecuali user sudah memakai filter tanggal manual.
+        // Nilai month: 'all' = semua | 'YYYY' = 1 tahun | 'YYYY-MM' = 1 bulan.
+        $month = $request->get('month', now()->format('Y'));
+        if (!$request->filled('date_from') && !$request->filled('date_to')) {
+            if (preg_match('/^\d{4}$/', $month)) {
+                $query->whereYear('report_date', $month);
+            } elseif (preg_match('/^\d{4}-\d{2}$/', $month)) {
+                [$year, $monthNum] = explode('-', $month);
+                $query->whereYear('report_date', $year)->whereMonth('report_date', $monthNum);
+            }
         }
+
+        // Statistik dihitung dari SEMUA data hasil filter (bukan cuma 20 baris di halaman ini).
+        $stats = [
+            'open'       => (clone $query)->where('status', 'open')->count(),
+            'progress'   => (clone $query)->where('status', 'progress')->count(),
+            'done'       => (clone $query)->where('status', 'done')->count(),
+            'total_cost' => (clone $query)->sum('total_cost'),
+        ];
 
         $repairs = $query->latest()->paginate(20)->appends($request->query());
 
         // Data untuk dropdown filter
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
 
-        return view('drms.repairs.index', compact('repairs', 'vehicles', 'month'));
+        // Pilihan dropdown periode: tahun & bulan dari data paling awal s.d. sekarang (terbaru di atas).
+        $firstDate = Repair::when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))->min('report_date');
+        $first = $firstDate ? \Carbon\Carbon::parse($firstDate)->startOfMonth() : now()->startOfMonth();
+        // Periode yang sedang dipilih (mis. dari link dashboard) tetap masuk dropdown walau lebih lama dari data.
+        if (preg_match('/^(\d{4})(?:-(0[1-9]|1[0-2]))?$/', $month, $mm)) {
+            $selected = \Carbon\Carbon::create((int) $mm[1], isset($mm[2]) ? (int) $mm[2] : 1, 1)->startOfMonth();
+            if ($selected->lt($first)) $first = $selected;
+        }
+        $yearOptions = range((int) now()->year, (int) $first->year);
+        $monthOptions = [];
+        for ($d = now()->startOfMonth(); $d->gte($first); $d = $d->copy()->subMonth()) {
+            $monthOptions[] = $d->format('Y-m');
+        }
+
+        return view('drms.repairs.index', compact('repairs', 'vehicles', 'month', 'stats', 'yearOptions', 'monthOptions'));
     }
 
     public function create()

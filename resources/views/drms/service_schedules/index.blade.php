@@ -48,14 +48,21 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">📅 Periode</label>
                 <select name="month" class="w-full border rounded-lg px-3 py-2.5 text-base sm:text-sm focus:ring-2 focus:ring-blue-500">
-                    <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
-                    @foreach(collect(range(0, 11))->map(fn($i) => now()->subMonths($i)->format('Y-m')) as $opt)
-                        <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
-                            {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
-                        </option>
-                    @endforeach
+                    <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua</option>
+                    <optgroup label="Per Tahun">
+                        @foreach($yearOptions as $y)
+                            <option value="{{ $y }}" {{ (string) $month === (string) $y ? 'selected' : '' }}>Tahun {{ $y }}</option>
+                        @endforeach
+                    </optgroup>
+                    <optgroup label="Per Bulan">
+                        @foreach($monthOptions as $opt)
+                            <option value="{{ $opt }}" {{ $month === $opt ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::createFromFormat('Y-m', $opt)->translatedFormat('F Y') }}
+                            </option>
+                        @endforeach
+                    </optgroup>
                 </select>
                 <p class="text-xs text-gray-400 mt-1">Diabaikan jika "Dari/Sampai Tanggal" diisi.</p>
             </div>
@@ -82,7 +89,7 @@
                 <button type="submit" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y-m'))
+                @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'status', 'date_from', 'date_to']) || $month !== now()->format('Y'))
                     <a href="{{ route('drms.service-schedules.index') }}" class="flex-1 sm:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
@@ -94,10 +101,10 @@
     {{-- QUICK STATS --}}
     @php
         $total = $services->total();
-        $totalCost = $services->sum('cost');
-        $totalOilChange = $services->filter(fn($s) => in_array('oil_change', $s->service_type ?? []))->count();
-        $totalGeneral = $services->filter(fn($s) => in_array('general', $s->service_type ?? []))->count();
-        $uniqueVehicles = $services->pluck('vehicle_id')->unique()->count();
+        $totalCost = $stats['total_cost'];
+        $totalOilChange = $stats['oil_change'];
+        $totalGeneral = $stats['general'];
+        $uniqueVehicles = $stats['unique_vehicles'];
     @endphp
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">

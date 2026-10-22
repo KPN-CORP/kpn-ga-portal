@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>GA Portal - E-FinGrab</title>
+    <link rel="shortcut icon" href="{{ asset('KPN123.png') }}" type="image/x-icon">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <style>
+        :root{ --accent: 59 130 246; --accent-dark: 37 99 235; --ink: 30 41 59; }
+        html { zoom: 0.8; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f8fa; color: rgb(var(--ink)); }
+        [x-cloak]{ display:none !important; }
+
+        .soft-border { border-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-bottom { border-bottom-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-top { border-top-color: rgba(226,232,240,0.7) !important; }
+        .soft-shadow { box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04); }
+        .soft-shadow-sidebar { box-shadow: 1px 0 0 rgba(15,23,42,0.04), 6px 0 24px rgba(15,23,42,0.03); }
+
+        .sidebar { transition: transform .3s cubic-bezier(.4,0,.2,1); border-right: 1px solid rgba(226,232,240,0.7); }
+        @media (max-width: 768px) { .sidebar { transform: translateX(-100%); z-index: 60; width: 16rem !important; } .sidebar.active { transform: translateX(0); } }
+
+        .brand-badge{ background: linear-gradient(135deg, rgba(var(--accent)/0.12), rgba(var(--accent)/0.04)); border: 1px solid rgba(var(--accent)/0.15); }
+        .nav-label{ letter-spacing:.08em; white-space:nowrap; }
+        .sidebar-link{ position: relative; min-height: 2.75rem; transition: background-color .2s ease, color .2s ease, transform .2s ease; }
+        .sidebar-link:hover{ background-color: rgba(248,250,252,0.9); transform: translateX(2px); }
+        .sidebar-link.active{ background: linear-gradient(90deg, rgba(var(--accent)/0.10), rgba(var(--accent)/0.02)); color: rgb(var(--accent-dark)); font-weight: 600; }
+        .sidebar-link.active::before{ content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:4px; background: rgb(var(--accent-dark)); }
+        .sidebar-link.active i{ color: rgb(var(--accent-dark)); }
+
+        .overlay{ display:none; position:fixed; inset:0; background: rgba(15,23,42,.25); backdrop-filter: blur(1px); z-index:50; }
+        .overlay.active{ display:block; }
+        .avatar-ring{ background: linear-gradient(135deg, rgba(var(--accent)/0.14), rgba(var(--accent)/0.05)); border: 1px solid rgba(var(--accent)/0.18); }
+        .mobile-toggle{ position: fixed; top: 1rem; left: 1rem; z-index: 55; width: 2.75rem; height: 2.75rem; border-radius: .75rem; background: #fff; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 8px rgba(15,23,42,.12); }
+        @media (min-width: 769px){ .mobile-toggle{ display:none; } }
+        .profile-menu{ position:absolute; left: .75rem; right: .75rem; bottom: calc(100% + .5rem); transition: opacity .18s ease, transform .18s ease; }
+        ::-webkit-scrollbar{ width:6px; }
+        ::-webkit-scrollbar-thumb{ background: rgba(148,163,184,.4); border-radius: 999px; }
+    </style>
+
+    @yield('head')
+    @stack('styles')
+</head>
+<body>
+    <div id="overlay" class="overlay"></div>
+
+    <button id="sidebar-toggle" class="mobile-toggle text-gray-600"><i class="fas fa-bars text-lg"></i></button>
+
+    @php
+        $fgUser = auth()->user();
+        $fgScope = \App\Support\FinGrabAccess::scope($fgUser);
+    @endphp
+
+    <div class="flex min-h-screen">
+        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar flex flex-col overflow-hidden">
+
+            <div class="p-5 shrink-0 soft-border-bottom border-b flex items-center gap-2">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6">
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
+                        <p class="text-xs text-gray-500 tracking-wide">E-FinGrab</p>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="flex-1 min-h-0 overflow-y-auto p-3">
+                <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="{{ route('dashboard') }}" title="GA Portal" class="sidebar-link flex items-center p-3 rounded-lg text-gray-700">
+                            <i class="fas fa-home w-5 mr-3 text-gray-400"></i><span>GA Portal</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('fingrab.dashboard') }}" title="Dashboard"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('fingrab.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i><span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('fingrab.karyawan') }}" title="Karyawan dan unit"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('fingrab.karyawan') ? 'active' : '' }}">
+                            <i class="fas fa-users w-5 mr-3 text-gray-400"></i><span>Karyawan dan unit</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('fingrab.kecocokan') }}" title="Kecocokan data"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('fingrab.kecocokan') ? 'active' : '' }}">
+                            <i class="fas fa-link w-5 mr-3 text-gray-400"></i><span>Kecocokan data</span>
+                        </a>
+                    </li>
+                    @if($fgScope['all'])
+                    <li>
+                        <a href="{{ route('fingrab.upload') }}" title="Upload BCR"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('fingrab.upload*') ? 'active' : '' }}">
+                            <i class="fas fa-file-upload w-5 mr-3 text-gray-400"></i><span>Upload BCR</span>
+                        </a>
+                    </li>
+                    @endif
+                </ul>
+            </nav>
+
+            <div class="relative shrink-0 p-3 soft-border-top border-t bg-white" x-data="{ openProfile: false }" @click.outside="openProfile = false">
+                <div x-show="openProfile" x-transition x-cloak class="profile-menu bg-white soft-shadow rounded-lg soft-border border py-2 z-50">
+                    <div class="px-4 py-2 text-sm text-gray-500 soft-border-bottom border-b">
+                        <p class="font-medium text-gray-700">{{ $fgUser->username ?? '-' }}</p>
+                        <p class="text-xs">{{ $fgScope['label'] ?: ($fgUser->role ?? '-') }}</p>
+                    </div>
+                    <a href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form-profile').submit();"
+                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition">
+                        <i class="fas fa-sign-out-alt mr-3 text-gray-500"></i>Keluar
+                    </a>
+                    <form id="logout-form-profile" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
+                </div>
+                <button @click="openProfile = !openProfile" class="w-full flex items-center space-x-3 p-1 rounded-lg hover:bg-gray-50 transition">
+                    <div class="avatar-ring w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                        <span class="font-semibold text-blue-600 text-sm">{{ strtoupper(substr($fgUser->username ?? 'AD', 0, 2)) }}</span>
+                    </div>
+                    <div class="min-w-0 text-left flex-1">
+                        <h3 class="font-medium text-gray-800 truncate">{{ $fgUser->username ?? 'User' }}</h3>
+                        <p class="text-xs text-gray-500 truncate">{{ $fgUser->role ?? 'Online' }}</p>
+                    </div>
+                    <i class="fas fa-ellipsis-vertical text-gray-400 text-sm"></i>
+                </button>
+            </div>
+        </aside>
+
+        <div class="flex-1 ml-0 md:ml-64 transition-all duration-300 min-w-0">
+            <main class="p-6 pt-20 md:pt-6">
+                @yield('content')
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const sidebarEl = document.querySelector('.sidebar');
+        const overlayEl = document.getElementById('overlay');
+        document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+            sidebarEl.classList.toggle('active');
+            overlayEl.classList.toggle('active');
+            document.body.style.overflow = sidebarEl.classList.contains('active') ? 'hidden' : '';
+        });
+        overlayEl.addEventListener('click', () => {
+            sidebarEl.classList.remove('active');
+            overlayEl.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) {
+                sidebarEl.classList.remove('active');
+                overlayEl.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    </script>
+
+    @stack('scripts')
+</body>
+</html>

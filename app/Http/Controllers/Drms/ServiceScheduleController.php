@@ -62,20 +62,47 @@ class ServiceScheduleController extends Controller
             $query->where('vehicle_id', $request->vehicle_id);
         }
 
-        // Filter Bulan (default: bulan sekarang), kecuali user sudah memakai filter tanggal manual.
-        // Pilih "Semua Bulan" (month=all) untuk menonaktifkan filter ini.
-        $month = $request->get('month', now()->format('Y-m'));
-        if (!$request->filled('date_from') && !$request->filled('date_to') && $month !== 'all' && preg_match('/^\d{4}-\d{2}$/', $month)) {
-            [$year, $monthNum] = explode('-', $month);
-            $query->whereYear('service_date', $year)->whereMonth('service_date', $monthNum);
+        // Filter Periode (DEFAULT: tahun berjalan), kecuali user sudah memakai filter tanggal manual.
+        // Nilai month: 'all' = semua | 'YYYY' = 1 tahun | 'YYYY-MM' = 1 bulan.
+        $month = $request->get('month', now()->format('Y'));
+        if (!$request->filled('date_from') && !$request->filled('date_to')) {
+            if (preg_match('/^\d{4}$/', $month)) {
+                $query->whereYear('service_date', $month);
+            } elseif (preg_match('/^\d{4}-\d{2}$/', $month)) {
+                [$year, $monthNum] = explode('-', $month);
+                $query->whereYear('service_date', $year)->whereMonth('service_date', $monthNum);
+            }
         }
+
+        // Statistik dihitung dari SEMUA data hasil filter (bukan cuma 20 baris di halaman ini).
+        $statRows = (clone $query)->setEagerLoads([])->get(['vehicle_id', 'cost', 'service_type']);
+        $stats = [
+            'total_cost'     => $statRows->sum('cost'),
+            'oil_change'     => $statRows->filter(fn($s) => in_array('oil_change', $s->service_type ?? []))->count(),
+            'general'        => $statRows->filter(fn($s) => in_array('general', $s->service_type ?? []))->count(),
+            'unique_vehicles'=> $statRows->pluck('vehicle_id')->unique()->count(),
+        ];
 
         $services = $query->latest()->paginate(20)->appends($request->query());
 
         // Data untuk dropdown filter
         $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
 
-        return view('drms.service_schedules.index', compact('services', 'vehicles', 'month'));
+        // Pilihan dropdown periode: tahun & bulan dari data paling awal s.d. sekarang (terbaru di atas).
+        $firstDate = ServiceSchedule::when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)))->min('service_date');
+        $first = $firstDate ? \Carbon\Carbon::parse($firstDate)->startOfMonth() : now()->startOfMonth();
+        // Periode yang sedang dipilih (mis. dari link dashboard) tetap masuk dropdown walau lebih lama dari data.
+        if (preg_match('/^(\d{4})(?:-(0[1-9]|1[0-2]))?$/', $month, $mm)) {
+            $selected = \Carbon\Carbon::create((int) $mm[1], isset($mm[2]) ? (int) $mm[2] : 1, 1)->startOfMonth();
+            if ($selected->lt($first)) $first = $selected;
+        }
+        $yearOptions = range((int) now()->year, (int) $first->year);
+        $monthOptions = [];
+        for ($d = now()->startOfMonth(); $d->gte($first); $d = $d->copy()->subMonth()) {
+            $monthOptions[] = $d->format('Y-m');
+        }
+
+        return view('drms.service_schedules.index', compact('services', 'vehicles', 'month', 'stats', 'yearOptions', 'monthOptions'));
     }
 
     public function create()

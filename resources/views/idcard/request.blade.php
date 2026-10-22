@@ -24,17 +24,14 @@
                     <label class="block text-sm font-medium mb-1">Kategori *</label>
                     <select name="kategori" id="kategori" class="w-full border border-gray-300 p-2 rounded text-sm" required>
                         <option value="">Pilih Kategori</option>
-                        <option value="karyawan_baru">Karyawan Baru</option>
-                        <option value="karyawan_mutasi">Karyawan Mutasi</option>
-                        <option value="ganti_kartu">Ganti Kartu</option>
-                        <option value="magang">Magang</option>
-                        <option value="magang_extend">Magang Extend</option>
-                        <option value="perubahan_lantai">Perubahan Lantai</option>
+                        @foreach(\App\Models\IDCard\RequestIdCard::KATEGORI_LABELS as $value => $label)
+                            <option value="{{ $value }}" {{ old('kategori') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Nama *</label>
-                    <input type="text" name="nama" id="nama" class="w-full border border-gray-300 p-2 rounded text-sm" required>
+                    <input type="text" name="nama" id="nama" value="{{ old('nama') }}" maxlength="100" class="w-full border border-gray-300 p-2 rounded text-sm" required>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">NIK *</label>
@@ -45,7 +42,7 @@
                     <select name="bisnis_unit_id" id="bisnis_unit_id" class="w-full border border-gray-300 p-2 rounded text-sm" required>
                         <option value="">Pilih Bisnis Unit</option>
                         @foreach($bisnisUnits as $unit)
-                            <option value="{{ $unit->id_bisnis_unit }}">{{ $unit->nama_bisnis_unit }}</option>
+                            <option value="{{ $unit->id_bisnis_unit }}" {{ old('bisnis_unit_id') == $unit->id_bisnis_unit ? 'selected' : '' }}>{{ $unit->nama_bisnis_unit }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -54,12 +51,14 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div id="tanggalJoinContainer">
                     <label class="block text-sm font-medium mb-1">Tanggal Join *</label>
-                    <input type="date" name="tanggal_join" id="tanggal_join" class="w-full border border-gray-300 p-2 rounded text-sm" required>
+                    <input type="date" name="tanggal_join" id="tanggal_join" value="{{ old('tanggal_join') }}" class="w-full border border-gray-300 p-2 rounded text-sm" required>
                 </div>
                 <div id="fotoContainer">
                     <label class="block text-sm font-medium mb-1">Foto * <span class="text-red-500">(Maks: 10MB)</span></label>
                     <input type="file" name="foto" id="foto" class="w-full border border-gray-300 p-2 rounded text-sm" accept=".jpg,.jpeg,.png" required>
                     <p class="text-xs text-gray-500 mt-1">Format: jpg, jpeg, png (maksimal: 10MB)</p>
+                    <p id="fotoError" class="hidden text-xs text-red-600 mt-1"></p>
+                    <img id="fotoPreview" src="" alt="Preview foto" class="hidden mt-2 h-40 w-auto rounded border object-contain bg-gray-50">
                 </div>
                 <div id="kategoriExtra">
                     <!-- Dynamic fields akan muncul di sini -->
@@ -68,7 +67,7 @@
 
             <div>
                 <label class="block text-sm font-medium mb-1">Lantai Kerja / Keterangan *</label>
-                <input type="text" name="keterangan" id="keterangan" class="w-full border border-gray-300 p-2 rounded text-sm" placeholder="Contoh: Lantai 42" required>
+                <input type="text" name="keterangan" id="keterangan" value="{{ old('keterangan') }}" maxlength="255" class="w-full border border-gray-300 p-2 rounded text-sm" placeholder="Contoh: Lantai 42" required>
             </div>
         </div>
 
@@ -124,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fotoContainer.style.display = 'none';
             fotoInput.required = false;
             fotoInput.value = '';
+            resetFotoPreview();
 
             let nomorKartu = '';
             if (kategori === 'magang') {
@@ -167,6 +167,43 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset
         }
     }
+
+    // ---- Preview foto + cek ukuran di browser (maks 10MB) ----
+    const fotoPreview = document.getElementById('fotoPreview');
+    const fotoError   = document.getElementById('fotoError');
+
+    function resetFotoPreview() {
+        if (fotoPreview.src.startsWith('blob:')) URL.revokeObjectURL(fotoPreview.src);
+        fotoPreview.removeAttribute('src');
+        fotoPreview.classList.add('hidden');
+        fotoError.classList.add('hidden');
+    }
+
+    fotoInput.addEventListener('change', function () {
+        resetFotoPreview();
+        const file = fotoInput.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+            fotoError.textContent = 'Ukuran file terlalu besar (maksimal 10MB).';
+            fotoError.classList.remove('hidden');
+            fotoInput.value = '';
+            return;
+        }
+        fotoPreview.src = URL.createObjectURL(file);
+        fotoPreview.classList.remove('hidden');
+    });
+
+    // ---- Cegah submit ganda ----
+    const idcardForm = document.getElementById('idcardForm');
+    const submitBtn  = idcardForm.querySelector('button[type="submit"]');
+    idcardForm.addEventListener('submit', function () {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Menyimpan...';
+    });
+    window.addEventListener('pageshow', function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Simpan Request';
+    });
 
     kategoriSelect.addEventListener('change', handleKategoriChange);
     handleKategoriChange();

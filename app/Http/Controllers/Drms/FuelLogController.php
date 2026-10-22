@@ -143,8 +143,11 @@ class FuelLogController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
+        // Harga per liter hanya info turunan, tidak dipakai untuk menghitung biaya.
+        $validated['total_cost'] = $validated['fuel_total_price'];
         $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
-            ? $validated['fuel_total_price'] / $validated['fuel_liters']
+            ? round($validated['fuel_total_price'] / $validated['fuel_liters'], 2)
             : 0;
         unset($validated['fuel_total_price']);
 
@@ -200,8 +203,11 @@ class FuelLogController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
+        // Harga per liter hanya info turunan, tidak dipakai untuk menghitung biaya.
+        $validated['total_cost'] = $validated['fuel_total_price'];
         $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
-            ? $validated['fuel_total_price'] / $validated['fuel_liters']
+            ? round($validated['fuel_total_price'] / $validated['fuel_liters'], 2)
             : 0;
         unset($validated['fuel_total_price']);
 

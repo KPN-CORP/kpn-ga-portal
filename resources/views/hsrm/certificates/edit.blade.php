@@ -76,7 +76,7 @@
 
             {{-- NIK --}}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">NIK <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Certificate Number <span class="text-red-500">*</span></label>
                 <input type="text" name="nik" value="{{ old('nik', $cert->nik) }}" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
                 @error('nik') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
             </div>

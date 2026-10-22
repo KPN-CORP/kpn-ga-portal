@@ -192,6 +192,11 @@ class DriverRequest extends Model
      */
     public function scopePendingForAdmin($query, $businessUnitId, $area = null)
     {
+        // $area boleh berupa string (versi lama), array area (admin multi-area), atau kosong
+        // (admin lintas area = semua area di BU-nya).
+        $areas = array_values(array_filter(array_map('trim', (array) $area), fn ($a) => $a !== ''));
+        $area  = $areas;
+
         $query->where('status', 'approved_l1')
               ->where(function ($q) use ($businessUnitId, $area) {
                   // 1. Jika current_business_unit_id terisi, gunakan itu
@@ -201,8 +206,8 @@ class DriverRequest extends Model
                         $sub->whereNull('current_business_unit_id')
                             ->whereHas('requester.drmsProfile', function ($q2) use ($businessUnitId, $area) {
                                 $q2->where('business_unit_id', $businessUnitId);
-                                if ($area) {
-                                    $q2->where('area', $area);
+                                if (!empty($area)) {
+                                    $q2->whereIn('area', $area);
                                 }
                             });
                     });
