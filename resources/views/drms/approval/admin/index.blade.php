@@ -7,11 +7,73 @@
 @endsection
 
 @section('content')
-{{-- Cadangan: taruh style x-cloak inline di sini juga (bukan cuma di @section('styles')).
-     Kalau layout menaruh @yield('styles') telat atau Alpine sempat render duluan,
-     rule ini tetap kebaca browser SEBELUM elemen x-cloak di bawahnya sempat kerender
-     tanpa disembunyikan -- jadi gak ada kedip "kedua tab kelihatan sebentar". --}}
 <style>[x-cloak] { display: none !important; }</style>
+@php
+    // Tab Dipantau (request BU sendiri yang di-forward ke BU lain) dipilih lewat ?tab=monitor,
+    // tab status lainnya lewat ?status=...
+    $isMonitor = request('tab') === 'monitor' && (($forwardedSummary['total'] ?? 0) > 0);
+
+    $statusLabels = [
+        'pending_l1'     => 'Pending L1',
+        'approved_l1'    => 'Pending Admin',
+        'approved_admin' => 'Disetujui',
+        'completed'      => 'Selesai',
+        'rejected_l1'    => 'Ditolak L1',
+        'rejected_admin' => 'Ditolak Admin',
+        'cancelled'      => 'Dibatalkan',
+    ];
+    $statusColors = [
+        'pending_l1'     => 'bg-yellow-100 text-yellow-800',
+        'approved_l1'    => 'bg-blue-100 text-blue-800',
+        'approved_admin' => 'bg-green-100 text-green-800',
+        'completed'      => 'bg-gray-100 text-gray-800',
+        'rejected_l1'    => 'bg-red-100 text-red-800',
+        'rejected_admin' => 'bg-red-100 text-red-800',
+        'cancelled'      => 'bg-gray-200 text-gray-600',
+    ];
+    $tabHints = [
+        'pending_l1'    => 'Menunggu persetujuan atasan (L1). Hanya bisa dilihat, belum perlu tindakan admin.',
+        'pending_admin' => 'Menunggu tindakan admin GA: Proses, Tolak, atau Forward.',
+        'disetujui'     => 'Sudah disetujui admin dan belum selesai. Bisa Selesaikan, Ganti Driver, atau kembalikan ke Pending.',
+        'selesai'       => 'Perjalanan yang sudah diselesaikan.',
+        'ditolak'       => 'Ditolak oleh atasan (L1) atau admin GA. Hanya bisa dilihat.',
+        'dibatalkan'    => 'Dibatalkan oleh pemohon. Hanya bisa dilihat.',
+    ];
+
+    // Data untuk modal Detail (dipakai semua baris, satu definisi saja).
+    $buildDetail = function ($req) {
+        $fmtDate = fn ($d) => $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : null;
+        $fmtDateTime = fn ($d) => $d ? \Carbon\Carbon::parse($d)->format('d/m/Y H:i') : null;
+        return [
+            'request_no' => $req->request_no,
+            'requester' => ['name' => optional($req->requester)->name],
+            'created_at' => $fmtDateTime($req->created_at),
+            'trip_type' => $req->trip_type,
+            'distance_type' => $req->distance_type,
+            'usage_date' => $fmtDate($req->usage_date),
+            'start_time' => $req->start_time,
+            'return_date' => $fmtDate($req->return_date),
+            'end_time' => $req->end_time,
+            'pickup_location' => $req->pickup_location,
+            'pickup_maps_link' => $req->pickup_maps_link,
+            'destination' => $req->destination,
+            'destination_maps_link' => $req->destination_maps_link,
+            'purpose' => $req->purpose,
+            'attachments' => $req->attachmentsForJs(),
+            'status' => $req->status,
+            'approver_l1' => $req->approverL1 ? ['name' => $req->approverL1->name, 'approved_l1_at' => $fmtDateTime($req->approved_l1_at)] : null,
+            'admin' => $req->admin ? ['name' => $req->admin->name, 'approved_admin_at' => $fmtDateTime($req->approved_admin_at)] : null,
+            'rejection_reason' => $req->rejection_reason,
+            'transport_type' => $req->transport_type,
+            'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
+            'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
+            'vouchers' => $req->vouchers->map(fn ($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => optional($v->inputBusinessUnit)->nama_bisnis_unit])->values(),
+            'merged_into' => $req->merged_into_id ? ['request_no' => optional($req->mergedInto)->request_no] : null,
+            'completed_at' => $fmtDateTime($req->completed_at),
+        ];
+    };
+@endphp
+
 <div class="space-y-6 text-sm text-gray-800 font-sans" x-data="approvalAdminModal()">
     {{-- Notifikasi hasil aksi (Tolak / Forward / Ganti Driver / Selesaikan) --}}
     @if(session('success'))
@@ -34,38 +96,33 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Approval Admin</h1>
             <span class="inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                Persetujuan GA
+                Persetujuan GA{{ $isSuper ? ' · Superadmin (semua BU)' : '' }}
             </span>
         </div>
         <div class="flex gap-2 w-full sm:w-auto">
-            <a href="{{ route('drms.approval.admin.export', request()->query()) }}" 
+            @if($canExport && !$isMonitor)
+            <a href="{{ route('drms.approval.admin.export', request()->query()) }}"
                class="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition text-center">
-                📥 Export CSV
+                📥 Export Excel
             </a>
-            <button type="button" @click="filterOpen = !filterOpen" x-show="activeTab === 'history'" class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
-                Filters <span class="font-normal text-xs">(History)</span>
+            @endif
+            @unless($isMonitor)
+            <button type="button" @click="filterOpen = !filterOpen" class="flex-1 sm:flex-none px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition">
+                Filters
             </button>
+            @endunless
         </div>
     </div>
 
-    {{-- Filter Section --}}
-    <div id="filterSection" x-show="activeTab === 'history' && filterOpen" x-cloak class="bg-white border rounded-xl p-4">
-        <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {{-- Filter ini hanya berlaku untuk History Approval, jadi saat di-apply
-                 halaman harus tetap di tab history (bukan balik ke tab Pending). --}}
-            <input type="hidden" name="tab" value="history">
+    {{-- Filter Section (berlaku untuk semua tab status) --}}
+    @unless($isMonitor)
+    <div id="filterSection" x-show="filterOpen" x-cloak class="bg-white border rounded-xl p-4">
+        <form method="GET" action="{{ route('drms.approval.admin.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {{-- Tab status yang sedang dibuka ikut terbawa saat filter di-apply. --}}
+            <input type="hidden" name="status" value="{{ $activeStatus }}">
             <div>
                 <label class="text-sm font-medium text-gray-600">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari no. request / pemohon / tujuan" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-600">Status History</label>
-                <select name="status" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
-                    <option value="">Semua Status</option>
-                    <option value="approved_admin" {{ request('status')=='approved_admin' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="rejected_admin" {{ request('status')=='rejected_admin' ? 'selected' : '' }}>Ditolak</option>
-                    <option value="completed" {{ request('status')=='completed' ? 'selected' : '' }}>Selesai</option>
-                </select>
             </div>
             <div>
                 <label class="text-sm font-medium text-gray-600">Tanggal Dari</label>
@@ -75,274 +132,83 @@
                 <label class="text-sm font-medium text-gray-600">Tanggal Sampai</label>
                 <input type="date" name="date_to" value="{{ request('date_to') }}" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
             </div>
-            <div class="lg:col-span-4 flex flex-col sm:flex-row gap-2 justify-end">
+            @if($isSuper)
+            {{-- Filter BU hanya untuk superadmin (di server, parameter bu dari admin biasa diabaikan). --}}
+            <div>
+                <label class="text-sm font-medium text-gray-600">Business Unit</label>
+                <select name="bu" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Semua BU</option>
+                    @foreach($businessUnits as $bu)
+                        <option value="{{ $bu->id_bisnis_unit }}" {{ (string) request('bu') === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>{{ $bu->nama_bisnis_unit }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+            <div class="sm:col-span-2 lg:col-span-4 flex flex-col sm:flex-row gap-2 justify-end">
                 <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Apply</button>
-                <a href="{{ route('drms.approval.admin.index', ['tab' => 'history']) }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 text-center">Reset</a>
+                <a href="{{ route('drms.approval.admin.index', ['status' => $activeStatus]) }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-300 text-center">Reset</a>
             </div>
         </form>
     </div>
+    @endunless
 
-    {{-- TAB SWITCHER --}}
-    <div class="flex gap-2 border-b border-gray-200">
-        <button type="button" @click="setTab('pending')"
-                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
-                :class="activeTab === 'pending' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
-            Menunggu Persetujuan
-            <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ $pendingRequests->count() > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-500' }}">{{ $pendingRequests->count() }}</span>
-        </button>
-        <button type="button" @click="setTab('history')"
-                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
-                :class="activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
-            History Approval
-            <span class="ml-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ $historyRequests->total() }}</span>
-        </button>
+    {{-- TAB STATUS (link biasa, server-side, filter ikut terbawa) --}}
+    <div class="flex gap-1 border-b border-gray-200 overflow-x-auto whitespace-nowrap">
+        @foreach($statusTabs as $key => $tab)
+            @php $isActive = !$isMonitor && $activeStatus === $key; @endphp
+            <a href="{{ route('drms.approval.admin.index', array_merge(request()->except(['status', 'page', 'tab', 'monitor_page']), ['status' => $key])) }}"
+               class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px {{ $isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                {{ $tab['label'] }}
+                <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ ($key === 'pending_admin' && $tabCounts[$key] > 0) ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600' }}">{{ $tabCounts[$key] }}</span>
+            </a>
+        @endforeach
         @if(($forwardedSummary['total'] ?? 0) > 0)
-        <button type="button" @click="setTab('monitor')"
-                class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px"
-                :class="activeTab === 'monitor' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
-            🔀 Dipantau (Dialihkan ke BU Lain)
-            <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ ($forwardedSummary['stale'] ?? 0) > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }}">{{ $forwardedSummary['active'] ?? 0 }}</span>
-        </button>
+            <a href="{{ route('drms.approval.admin.index', ['tab' => 'monitor']) }}"
+               class="px-4 py-2.5 text-sm font-semibold border-b-2 transition -mb-px {{ $isMonitor ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                🔀 Dipantau (Dialihkan ke BU Lain)
+                <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ ($forwardedSummary['stale'] ?? 0) > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600' }}">{{ $forwardedSummary['active'] ?? 0 }}</span>
+            </a>
         @endif
     </div>
 
-
-    {{-- ==================== PENDING REQUESTS ==================== --}}
-    <div x-show="activeTab === 'pending'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm">
+    {{-- ==================== DAFTAR REQUEST PER STATUS ==================== --}}
+    @unless($isMonitor)
+    <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div class="bg-gray-50 px-6 py-3 border-b">
-            <h2 class="font-semibold text-gray-700">Permintaan Menunggu Persetujuan</h2>
+            <h2 class="font-semibold text-gray-700">{{ $statusTabs[$activeStatus]['label'] }}</h2>
+            <p class="text-xs text-gray-400 mt-0.5">{{ $tabHints[$activeStatus] ?? '' }}</p>
         </div>
 
-        {{-- Desktop Table --}}
-        <div class="hidden md:block overflow-x-auto">
+        <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr>
                         <th class="px-4 py-3 text-left">No. Request</th>
                         <th class="px-4 py-3 text-left">Pemohon</th>
+                        <th class="px-4 py-3 text-left hidden md:table-cell">BU</th>
                         <th class="px-4 py-3 text-left">Tanggal</th>
-                        <th class="px-4 py-3 text-left">Perjalanan</th>
-                        <th class="px-4 py-3 text-left">Request BU</th>
-                        <th class="px-4 py-3 text-left">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($pendingRequests as $req)
-                    @php
-                        $startDateTime = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
-                        $endTime = $req->end_time;
-                        $returnDate = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : null;
-                        $tujuanFull = $req->pickup_location . ' → ' . $req->destination;
-                        $currentBuName = $req->currentBusinessUnit->nama_bisnis_unit ?? ($req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-');
-                        $detailData = [
-                            'request_no' => $req->request_no,
-                            'requester' => ['name' => $req->requester->name],
-                            'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
-                            'trip_type' => $req->trip_type,
-                            'distance_type' => $req->distance_type,
-                            'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
-                            'start_time' => $req->start_time,
-                            'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
-                            'end_time' => $req->end_time,
-                            'pickup_location' => $req->pickup_location,
-                            'pickup_maps_link' => $req->pickup_maps_link,
-                            'destination' => $req->destination,
-                            'destination_maps_link' => $req->destination_maps_link,
-                            'purpose' => $req->purpose,
-                            'attachments' => $req->attachmentsForJs(),
-                            'status' => $req->status,
-                            'approver_l1' => $req->approverL1 ? ['name' => $req->approverL1->name, 'approved_l1_at' => $req->approved_l1_at ? \Carbon\Carbon::parse($req->approved_l1_at)->format('d/m/Y H:i') : null] : null,
-                            'admin' => $req->admin ? ['name' => $req->admin->name, 'approved_admin_at' => $req->approved_admin_at ? \Carbon\Carbon::parse($req->approved_admin_at)->format('d/m/Y H:i') : null] : null,
-                            'rejection_reason' => $req->rejection_reason,
-                            'transport_type' => $req->transport_type,
-                            'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
-                            'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
-                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
-                        ];
-                    @endphp
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 font-mono">{{ $req->request_no }}</td>
-                        <td class="px-4 py-3">{{ $req->requester->name }}</td>
-                        <td class="px-4 py-3">
-                            @if($req->trip_type === 'round_trip')
-                                {{ $startDateTime }}
-                                @if($returnDate)
-                                    <br><span class="text-xs text-gray-500">kembali: {{ $returnDate }}</span>
-                                @endif
-                            @else
-                                {{ $startDateTime . ' - ' . $endTime }}
-                            @endif
-                        </td>
-                        <td class="px-4 py-3">{{ $tujuanFull }}</td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                                {{ $currentBuName }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 space-x-2 whitespace-nowrap">
-                            <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Proses</a>
-                            <button @click="openRejectModal({{ $req->id }})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold">Tolak</button>
-                            <button @click="openForwardModal({{ $req->id }})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-semibold">Forward</button>
-                        </td>
-                    </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-gray-500">Tidak ada permintaan yang perlu diproses.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- Mobile/Tablet Table --}}
-        <div class="block md:hidden overflow-hidden">
-            <table class="w-full text-xs border-collapse">
-                <thead class="bg-gray-50 text-gray-600">
-                    <tr>
-                        <th class="px-3 py-2 text-left">No. Request</th>
-                        <th class="px-3 py-2 text-left">Tanggal</th>
-                        <th class="px-3 py-2 text-left">Tujuan</th>
-                        <th class="px-3 py-2 text-left">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($pendingRequests as $index => $req)
-                    @php
-                        $start = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
-                        $end = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : $req->end_time;
-                        $detailData = [
-                            'request_no' => $req->request_no,
-                            'requester' => ['name' => $req->requester->name],
-                            'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
-                            'trip_type' => $req->trip_type,
-                            'distance_type' => $req->distance_type,
-                            'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
-                            'start_time' => $req->start_time,
-                            'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
-                            'end_time' => $req->end_time,
-                            'pickup_location' => $req->pickup_location,
-                            'pickup_maps_link' => $req->pickup_maps_link,
-                            'destination' => $req->destination,
-                            'destination_maps_link' => $req->destination_maps_link,
-                            'purpose' => $req->purpose,
-                            'attachments' => $req->attachmentsForJs(),
-                            'status' => $req->status,
-                            'approver_l1' => $req->approverL1 ? ['name' => $req->approverL1->name, 'approved_l1_at' => $req->approved_l1_at ? \Carbon\Carbon::parse($req->approved_l1_at)->format('d/m/Y H:i') : null] : null,
-                            'admin' => $req->admin ? ['name' => $req->admin->name, 'approved_admin_at' => $req->approved_admin_at ? \Carbon\Carbon::parse($req->approved_admin_at)->format('d/m/Y H:i') : null] : null,
-                            'rejection_reason' => $req->rejection_reason,
-                            'transport_type' => $req->transport_type,
-                            'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
-                            'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
-                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
-                        ];
-                    @endphp
-                    <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
-                        <td class="px-3 pt-3 pb-1 font-mono font-semibold">{{ $req->request_no }}</td>
-                        <td class="px-3 pt-3 pb-1">{{ $start }}</td>
-                        <td class="px-3 pt-3 pb-1">{{ $req->pickup_location }}</td>
-                        <td class="px-3 pt-3 pb-1 text-right">
-                            <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 text-white px-2 py-1 rounded text-xs">Proses</a>
-                            <button @click="openRejectModal({{ $req->id }})" class="bg-red-500 text-white px-2 py-1 rounded text-xs">Tolak</button>
-                            <button @click="openForwardModal({{ $req->id }})" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Forward</button>
-                        </td>
-                    </tr>
-                    <tr class="bg-gray-50 border-b">
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $req->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan' }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $end ?? '-' }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $req->destination }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-right">
-                            <span class="text-[11px] font-semibold text-yellow-600">Pending GA</span>
-                        </td>
-                    </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="py-6 text-center text-gray-500">Tidak ada permintaan pending</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {{-- ==================== HISTORY REQUESTS ==================== --}}
-    <div x-show="activeTab === 'history'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <div class="bg-gray-50 px-6 py-3 border-b">
-            <h2 class="font-semibold text-gray-700">History Approval</h2>
-        </div>
-
-        {{-- Desktop Table --}}
-        <div class="hidden md:block overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-100 text-gray-600">
-                    <tr>
-                        <th class="px-4 py-3 text-left">No. Request</th>
-                        <th class="px-4 py-3 text-left">Pemohon</th>
-                        <th class="px-4 py-3 text-left">BU Pemohon</th> <!-- Added column -->
-                        <th class="px-4 py-3 text-left">Tanggal</th>
-                        <th class="px-4 py-3 text-left">Perjalanan</th>
-                        <th class="px-4 py-3 text-left">Jenis</th>
+                        <th class="px-4 py-3 text-left hidden lg:table-cell">Perjalanan</th>
+                        <th class="px-4 py-3 text-left hidden lg:table-cell">Jenis</th>
                         <th class="px-4 py-3 text-left">Status</th>
                         <th class="px-4 py-3 text-left">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
-                    @forelse($historyRequests as $req)
+                    @forelse($requests as $req)
                     @php
+                        $detailData = $buildDetail($req);
                         $startDateTime = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
-                        $endTime = $req->end_time;
                         $returnDate = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : null;
-                        $tujuanFull = $req->pickup_location . ' → ' . $req->destination;
-                        $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
-                        $statusLabels = [
-                            'approved_admin' => 'Disetujui',
-                            'rejected_admin' => 'Ditolak',
-                            'completed' => 'Selesai'
-                        ];
-                        $statusColors = [
-                            'approved_admin' => 'bg-green-100 text-green-800',
-                            'rejected_admin' => 'bg-red-100 text-red-800',
-                            'completed' => 'bg-blue-100 text-blue-800'
-                        ];
-                        $detailData = [
-                            'request_no' => $req->request_no,
-                            'requester' => ['name' => $req->requester->name],
-                            'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
-                            'trip_type' => $req->trip_type,
-                            'distance_type' => $req->distance_type,
-                            'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
-                            'start_time' => $req->start_time,
-                            'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
-                            'end_time' => $req->end_time,
-                            'pickup_location' => $req->pickup_location,
-                            'pickup_maps_link' => $req->pickup_maps_link,
-                            'destination' => $req->destination,
-                            'destination_maps_link' => $req->destination_maps_link,
-                            'purpose' => $req->purpose,
-                            'attachments' => $req->attachmentsForJs(),
-                            'status' => $req->status,
-                            'approver_l1' => $req->approverL1 ? ['name' => $req->approverL1->name, 'approved_l1_at' => $req->approved_l1_at ? \Carbon\Carbon::parse($req->approved_l1_at)->format('d/m/Y H:i') : null] : null,
-                            'admin' => $req->admin ? ['name' => $req->admin->name, 'approved_admin_at' => $req->approved_admin_at ? \Carbon\Carbon::parse($req->approved_admin_at)->format('d/m/Y H:i') : null] : null,
-                            'rejection_reason' => $req->rejection_reason,
-                            'transport_type' => $req->transport_type,
-                            'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
-                            'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
-                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
-                            'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
-                        ];
+                        $buName = optional($req->currentBusinessUnit)->nama_bisnis_unit
+                            ?? optional(optional(optional($req->requester)->drmsProfile)->businessUnit)->nama_bisnis_unit
+                            ?? '-';
                     @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 font-mono">{{ $req->request_no }}</td>
-                        <td class="px-4 py-3">{{ $req->requester->name }}</td>
-                        <td class="px-4 py-3">{{ $buPemohon }}</td> <!-- Cell added -->
+                        <td class="px-4 py-3">{{ optional($req->requester)->name ?? '-' }}</td>
+                        <td class="px-4 py-3 hidden md:table-cell">
+                            <span class="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">{{ $buName }}</span>
+                        </td>
                         <td class="px-4 py-3">
                             @if($req->trip_type === 'round_trip')
                                 {{ $startDateTime }}
@@ -350,14 +216,14 @@
                                     <br><span class="text-xs text-gray-500">kembali: {{ $returnDate }}</span>
                                 @endif
                             @else
-                                {{ $startDateTime . ' - ' . $endTime }}
+                                {{ $startDateTime . ' - ' . $req->end_time }}
                             @endif
                         </td>
-                        <td class="px-4 py-3">{{ $tujuanFull }}</td>
-                        <td class="px-4 py-3">
-                            {{ $req->transport_type ? ucfirst(str_replace('_',' ',$req->transport_type)) : '-' }}
+                        <td class="px-4 py-3 hidden lg:table-cell">{{ $req->pickup_location }} → {{ $req->destination }}</td>
+                        <td class="px-4 py-3 hidden lg:table-cell">
+                            {{ $req->transport_type ? ucfirst(str_replace('_', ' ', $req->transport_type)) : '-' }}
                             @if($req->merged_into_id)
-                                <span class="block text-xs text-purple-600 font-semibold mt-0.5">🔗 Gabung ke {{ $req->mergedInto->request_no ?? ('#'.$req->merged_into_id) }}</span>
+                                <span class="block text-xs text-purple-600 font-semibold mt-0.5">🔗 Gabung ke {{ optional($req->mergedInto)->request_no ?? ('#'.$req->merged_into_id) }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
@@ -370,7 +236,16 @@
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap items-center gap-1">
-                                <button @click="openDetailModal({{ json_encode($detailData) }})" title="Lihat detail permintaan" class="text-blue-600 font-semibold hover:underline text-xs px-1">Detail</button>
+                                <button type="button" @click="openDetailModal({{ json_encode($detailData) }})" title="Lihat detail permintaan" class="text-blue-600 font-semibold hover:underline text-xs px-1">Detail</button>
+
+                                {{-- Pending Admin: Proses / Tolak / Forward --}}
+                                @if($req->status === 'approved_l1')
+                                    <a href="{{ route('drms.approval.admin.edit', $req->id) }}" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Proses</a>
+                                    <button type="button" @click="openRejectModal({{ $req->id }})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold">Tolak</button>
+                                    <button type="button" @click="openForwardModal({{ $req->id }})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-semibold">Forward</button>
+                                @endif
+
+                                {{-- Disetujui: Selesai / Ganti Driver / Pending --}}
                                 @if($req->status === 'approved_admin')
                                     @if($req->canComplete)
                                         <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" onsubmit="return confirm('Tandai perjalanan ini selesai?')">
@@ -395,140 +270,25 @@
                         </td>
                     </tr>
                     @empty
-                        <tr>
-                            <td colspan="8" class="px-4 py-10 text-center text-gray-500">Belum ada history.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- Mobile/Tablet Table --}}
-        <div class="block md:hidden overflow-hidden">
-            <table class="w-full text-xs border-collapse">
-                <thead class="bg-gray-50 text-gray-600">
                     <tr>
-                        <th class="px-3 py-2 text-left">No. Request</th>
-                        <th class="px-3 py-2 text-left">Tanggal</th>
-                        <th class="px-3 py-2 text-left">Tujuan</th>
-                        <th class="px-3 py-2 text-left">Aksi</th>
+                        <td colspan="8" class="px-4 py-10 text-center text-gray-500">Tidak ada permintaan pada tab ini.</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @forelse($historyRequests as $index => $req)
-                    @php
-                        $start = \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y') . ' ' . $req->start_time;
-                        $end = $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') . ' ' . $req->end_time : $req->end_time;
-                        $buPemohon = $req->requester->drmsProfile->businessUnit->nama_bisnis_unit ?? '-';
-                        $statusLabels = [
-                            'approved_admin' => 'Disetujui',
-                            'rejected_admin' => 'Ditolak',
-                            'completed' => 'Selesai'
-                        ];
-                        $statusColors = [
-                            'approved_admin' => 'bg-green-100 text-green-800',
-                            'rejected_admin' => 'bg-red-100 text-red-800',
-                            'completed' => 'bg-blue-100 text-blue-800'
-                        ];
-                        $detailData = [
-                            'request_no' => $req->request_no,
-                            'requester' => ['name' => $req->requester->name],
-                            'created_at' => $req->created_at ? \Carbon\Carbon::parse($req->created_at)->format('d/m/Y H:i') : null,
-                            'trip_type' => $req->trip_type,
-                            'distance_type' => $req->distance_type,
-                            'usage_date' => \Carbon\Carbon::parse($req->usage_date)->format('d/m/Y'),
-                            'start_time' => $req->start_time,
-                            'return_date' => $req->return_date ? \Carbon\Carbon::parse($req->return_date)->format('d/m/Y') : null,
-                            'end_time' => $req->end_time,
-                            'pickup_location' => $req->pickup_location,
-                            'pickup_maps_link' => $req->pickup_maps_link,
-                            'destination' => $req->destination,
-                            'destination_maps_link' => $req->destination_maps_link,
-                            'purpose' => $req->purpose,
-                            'attachments' => $req->attachmentsForJs(),
-                            'status' => $req->status,
-                            'approver_l1' => $req->approverL1 ? ['name' => $req->approverL1->name, 'approved_l1_at' => $req->approved_l1_at ? \Carbon\Carbon::parse($req->approved_l1_at)->format('d/m/Y H:i') : null] : null,
-                            'admin' => $req->admin ? ['name' => $req->admin->name, 'approved_admin_at' => $req->approved_admin_at ? \Carbon\Carbon::parse($req->approved_admin_at)->format('d/m/Y H:i') : null] : null,
-                            'rejection_reason' => $req->rejection_reason,
-                            'transport_type' => $req->transport_type,
-                            'driver' => $req->driver ? ['name' => $req->driver->name, 'phone' => $req->driver->phone] : null,
-                            'vehicle' => $req->vehicle ? ['type' => $req->vehicle->type, 'plate_number' => $req->vehicle->plate_number] : null,
-                            'vouchers' => $req->vouchers->map(fn($v) => ['code' => $v->code, 'type' => $v->type, 'nominal' => $v->nominal, 'beban_bu' => $v->inputBusinessUnit->nama_bisnis_unit ?? null])->values(),
-                            'merged_into' => $req->merged_into_id ? ['request_no' => $req->mergedInto->request_no ?? null] : null,
-                            'completed_at' => $req->completed_at ? \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') : null,
-                        ];
-                    @endphp
-                    <tr class="border-t {{ $loop->first ? '' : 'border-t-2 border-gray-300' }}">
-                        <td class="px-3 pt-3 pb-1 font-mono font-semibold">{{ $req->request_no }}</td>
-                        <td class="px-3 pt-3 pb-1">{{ $start }}</td>
-                        <td class="px-3 pt-3 pb-1">{{ $req->pickup_location }}</td>
-                        <td class="px-3 pt-3 pb-1 text-right">
-                            <button @click="openDetailModal({{ json_encode($detailData) }})" title="Lihat detail permintaan" class="text-blue-600 font-semibold">Detail</button>
-                            @if($req->status === 'approved_admin')
-                                @if($req->canComplete)
-                                    <form action="{{ route('drms.approval.admin.complete', $req->id) }}" method="POST" class="inline ml-1" onsubmit="return confirm('Tandai selesai?')">
-                                        @csrf
-                                        <button type="submit" title="Tandai perjalanan ini selesai" class="bg-green-500 text-white px-2 py-1 rounded text-xs">✅</button>
-                                    </form>
-                                @else
-                                    <span class="text-[11px] text-gray-400" title="{{ $req->completeBlockReason }}">🔒</span>
-                                @endif
-                                @if($req->driver_id && !$req->merged_into_id)
-                                    <button type="button"
-                                            @click="openSwapModal({{ $req->id }}, @js($req->driver->name ?? '-'), @js($req->vehicle ? ($req->vehicle->type.' - '.$req->vehicle->plate_number) : '-'))"
-                                            title="Ganti driver dan/atau kendaraan" class="bg-orange-500 text-white px-2 py-1 rounded text-xs">🔄</button>
-                                @endif
-                                @if($req->canReturnToPending)
-                                    <button type="button" @click="openReturnModal({{ $req->id }}, @js($req->request_no))"
-                                            title="Kembalikan ke Pending Admin (hanya sebelum jam perjalanan berakhir)" class="bg-gray-600 text-white px-2 py-1 rounded text-xs">↩</button>
-                                @endif
-                            @endif
-                        </td>
-                    </tr>
-                    <tr class="bg-gray-50 border-b">
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $req->trip_type === 'round_trip' ? 'Pulang Pergi' : 'Sekali Jalan' }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $end ?? '-' }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            {{ $req->destination }}
-                        </td>
-                        <td class="px-3 pb-3 pt-0 text-right">
-                            <span class="text-[11px] font-semibold {{ $statusColors[$req->status] ?? 'bg-gray-100 text-gray-800' }} px-2 py-1 rounded-full">
-                                {{ $statusLabels[$req->status] ?? $req->status }}
-                            </span>
-                            @if($req->status === 'completed' && $req->completed_at)
-                                <div class="text-[10px] text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($req->completed_at)->format('d/m/Y H:i') }}</div>
-                            @endif
-                        </td>
-                    </tr>
-                    <!-- Additional row for BU Pemohon on mobile -->
-                    <tr class="bg-gray-50 border-b">
-                        <td colspan="4" class="px-3 pb-3 pt-0 text-gray-500 text-[11px]">
-                            <span class="font-medium">BU Pemohon:</span> {{ $buPemohon }}
-                        </td>
-                    </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="py-6 text-center text-gray-500">Belum ada history</td>
-                        </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
 
-        @if($historyRequests->hasPages())
+        @if($requests->hasPages())
         <div class="px-6 py-3 border-t">
-            {{ $historyRequests->appends(array_merge(request()->query(), ['tab' => 'history']))->links() }}
+            {{ $requests->links() }}
         </div>
         @endif
     </div>
+    @endunless
 
     {{-- ==================== DIPANTAU: REQUEST BU SENDIRI YANG DI-FORWARD KE BU LAIN (READ-ONLY) ==================== --}}
-    @if(($forwardedSummary['total'] ?? 0) > 0)
-    <div x-show="activeTab === 'monitor'" x-cloak class="bg-white border rounded-xl overflow-hidden shadow-sm" x-data="{ showResolved: {{ request('monitor_page') ? 'true' : 'false' }} }">
+    @if($isMonitor)
+    <div class="bg-white border rounded-xl overflow-hidden shadow-sm" x-data="{ showResolved: {{ request('monitor_page') ? 'true' : 'false' }} }">
         <div class="bg-gray-50 px-6 py-3 border-b">
             <h2 class="font-semibold text-gray-700">🔀 Request BU Anda yang Dialihkan ke BU Lain</h2>
             <p class="text-xs text-gray-400 mt-0.5">Ini permintaan dari user BU Anda yang admin-nya alihkan ke Business Unit lain (karena BU sendiri gak ada mobil, dsb). Read-only — cuma buat pantau statusnya, aksi (setujui/tolak/dsb) tetap di tangan BU yang menangani.</p>
@@ -832,14 +592,16 @@
                                 'bg-blue-100 text-blue-800': detailItem.status === 'approved_l1',
                                 'bg-red-100 text-red-800': detailItem.status === 'rejected_l1' || detailItem.status === 'rejected_admin',
                                 'bg-green-100 text-green-800': detailItem.status === 'approved_admin',
-                                'bg-gray-100 text-gray-800': detailItem.status === 'completed'
+                                'bg-gray-100 text-gray-800': detailItem.status === 'completed',
+                                'bg-gray-200 text-gray-600': detailItem.status === 'cancelled'
                             }" x-text="{
                                 'pending_l1': 'Pending L1',
                                 'approved_l1': 'Disetujui Atasan',
                                 'rejected_l1': 'Ditolak Atasan',
                                 'approved_admin': 'Disetujui GA',
                                 'rejected_admin': 'Ditolak GA',
-                                'completed': 'Selesai'
+                                'completed': 'Selesai',
+                                'cancelled': 'Dibatalkan'
                             }[detailItem.status] || detailItem.status"></span>
                         </td>
                     </tr>
@@ -881,13 +643,9 @@ function validateSwapForm(form) {
 
 function approvalAdminModal() {
     return {
-        activeTab: (function() {
-            const t = new URLSearchParams(window.location.search).get('tab');
-            return (t === 'history' || t === 'monitor') ? t : 'pending';
-        })(),
         filterOpen: (function() {
             const p = new URLSearchParams(window.location.search);
-            return p.has('search') || p.has('status') || p.has('date_from') || p.has('date_to');
+            return p.has('search') || p.has('date_from') || p.has('date_to') || p.has('bu');
         })(),
         rejectModalOpen: false,
         rejectRequestId: null,
@@ -902,17 +660,6 @@ function approvalAdminModal() {
         swapCurrentVehicle: '-',
         detailModalOpen: false,
         detailItem: {},
-        setTab(tab) {
-            this.activeTab = tab;
-            const url = new URL(window.location.href);
-            if (tab === 'history' || tab === 'monitor') {
-                url.searchParams.set('tab', tab);
-            } else {
-                url.searchParams.delete('tab');
-                url.searchParams.delete('page');
-            }
-            window.history.replaceState({}, '', url);
-        },
         openRejectModal(id) {
             this.rejectRequestId = id;
             this.rejectModalOpen = true;

@@ -215,6 +215,34 @@ class DriverRequest extends Model
     }
 
     /**
+     * Batasi request ke cakupan seorang admin: BU-nya (dan area-areanya kalau ia memegang area),
+     * TANPA membatasi status. Dipakai semua tab di Approval Admin dan Laporan Pengeluaran admin.
+     *
+     * Logikanya sama dengan scopePendingForAdmin:
+     *  - kalau request pernah di-forward, yang dipakai current_business_unit_id (area tidak dicek);
+     *  - kalau belum, yang dipakai BU (dan area) pemohon di drms_user_profiles.
+     *
+     * $area: array area admin (kosong = lintas area dalam BU). Untuk superadmin jangan panggil scope ini.
+     */
+    public function scopeInAdminScope($query, $businessUnitId, $area = [])
+    {
+        $areas = array_values(array_filter(array_map('trim', (array) $area), fn ($a) => $a !== ''));
+
+        return $query->where(function ($q) use ($businessUnitId, $areas) {
+            $q->where('current_business_unit_id', $businessUnitId)
+              ->orWhere(function ($sub) use ($businessUnitId, $areas) {
+                  $sub->whereNull('current_business_unit_id')
+                      ->whereHas('requester.drmsProfile', function ($q2) use ($businessUnitId, $areas) {
+                          $q2->where('business_unit_id', $businessUnitId);
+                          if (!empty($areas)) {
+                              $q2->whereIn('area', $areas);
+                          }
+                      });
+              });
+        });
+    }
+
+    /**
      * Scope untuk menampilkan request yang menunggu approval admin
      * (versi lama, hanya berdasarkan BU requester). Masih dipertahankan untuk kompatibilitas.
      */

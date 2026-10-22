@@ -24,33 +24,150 @@ use App\Exports\OperationalReportExport;
 class AppAdminController extends Controller
 {
     /**
-     * Menampilkan halaman approval admin dengan filter pencarian, status, dan tanggal.
+     * Tab status di halaman Approval Admin. Key = nilai ?status= di URL,
+     * 'statuses' = status request di DB yang masuk ke tab itu.
+     */
+    private const STATUS_TABS = [
+        'pending_l1'    => ['label' => 'Pending L1',    'statuses' => ['pending_l1']],
+        'pending_admin' => ['label' => 'Pending Admin', 'statuses' => ['approved_l1']],
+        'disetujui'     => ['label' => 'Disetujui',     'statuses' => ['approved_admin']],
+        'selesai'       => ['label' => 'Selesai',       'statuses' => ['completed']],
+        'ditolak'       => ['label' => 'Ditolak',       'statuses' => ['rejected_l1', 'rejected_admin']],
+        'dibatalkan'    => ['label' => 'Dibatalkan',    'statuses' => ['cancelled']],
+    ];
+
+    /**
+     * Query dasar untuk semua tab: cakupan BU/area + filter (search, tanggal, BU).
+     * TIDAK membatasi status dan TIDAK lagi membatasi admin_id (admin melihat semua request di cakupannya).
+     *  - Superadmin: semua BU; filter BU (?bu=) hanya berlaku untuk superadmin.
+     *  - Admin biasa: BU-nya, dan area-areanya kalau ia memegang area (drms_admin_areas).
+     *    Parameter ?bu= dari URL diabaikan untuk admin biasa.
+     */
+    private function baseQuery(Request $request, $user)
+    {
+        $profile = $user->drmsProfile;
+        $query = DriverRequest::query();
+
+        if ($user->isDrmsSuperAdmin()) {
+            if ($request->filled('bu')) {
+                $query->inAdminScope($request->bu, []);
+            }
+        } else {
+            $query->inAdminScope($profile->business_unit_id ?? null, $profile ? $profile->adminAreaList() : []);
+        }
+
+        // Filter pencarian (request_no, pemohon, lokasi, tujuan, keperluan)
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('request_no', 'LIKE', $searchTerm)
+                  ->orWhere('pickup_location', 'LIKE', $searchTerm)
+                  ->orWhere('destination', 'LIKE', $searchTerm)
+                  ->orWhere('purpose', 'LIKE', $searchTerm)
+                  ->orWhereHas('requester', function ($q2) use ($searchTerm) {
+                      $q2->where('name', 'LIKE', $searchTerm);
+                  });
+            });
+        }
+
+        // Filter rentang tanggal (usage_date)
+        if ($request->filled('date_from')) {
+            $query->whereDate('usage_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('usage_date', '<=', $request->date_to);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Halaman approval admin: tab status (Pending L1, Pending Admin, Disetujui, Selesai, Ditolak,
+     * Dibatalkan) + tab Dipantau. Aksi (Proses/Tolak/Forward/Selesai/Ganti Driver/Pending)
+     * tetap hanya muncul di tab yang relevan; tab lain read-only.
      */
     public function index(Request $request)
     {
         $user = Auth::user();
         $profile = $user->drmsProfile;
+        $isSuper = $user->isDrmsSuperAdmin();
 
         // Superadmin bisa akses semua tanpa profil DRMS
-        if (!$user->isDrmsSuperAdmin() && !$profile) {
+        if (!$isSuper && !$profile) {
             abort(403, 'Profil DRMS tidak ditemukan.');
         }
 
         $businessUnitId = $profile->business_unit_id ?? null;
-        $area = $profile ? $profile->adminAreaList() : []; // [] = lintas area di BU-nya
 
-        // ------------------- PENDING REQUESTS -------------------
-        if ($user->isDrmsSuperAdmin()) {
-            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit', 'attachments')
-                ->where('status', 'approved_l1')
-                ->latest()
-                ->get();
-        } else {
-            $pendingRequests = DriverRequest::with('requester', 'currentBusinessUnit', 'attachments')
-                ->pendingForAdmin($businessUnitId, $area)
-                ->latest()
-                ->get();
+        // ------------------- TAB STATUS -------------------
+        $statusTabs = self::STATUS_TABS;
+        $activeStatus = $request->query('status');
+        // Kompatibilitas link lama (?status=approved_admin / rejected_admin / completed)
+        $legacy = ['approved_admin' => 'disetujui', 'rejected_admin' => 'ditolak', 'completed' => 'selesai'];
+        $activeStatus = $legacy[$activeStatus] ?? $activeStatus;
+        if (!is_string($activeStatus) || !array_key_exists($activeStatus, $statusTabs)) {
+            $activeStatus = 'pending_admin';
         }
+
+        // Jumlah per tab (ikut filter search/tanggal/BU yang aktif), cukup 1 query.
+        $rawCounts = $this->baseQuery($request, $user)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $tabCounts = [];
+        foreach ($statusTabs as $key => $tab) {
+            $tabCounts[$key] = (int) collect($tab['statuses'])->sum(fn ($st) => (int) ($rawCounts[$st] ?? 0));
+        }
+
+        $requests = $this->baseQuery($request, $user)
+            ->with([
+                'requester.drmsProfile.businessUnit', 'currentBusinessUnit', 'approverL1', 'admin',
+                'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto', 'attachments',
+            ])
+            ->whereIn('status', $statusTabs[$activeStatus]['statuses'])
+            ->latest()
+            ->paginate(15)
+            ->appends($request->query());
+
+        // Tombol "Selesaikan" / "Pending" hanya relevan untuk request approved_admin.
+        // Log perjalanan di-load sekali untuk semua baris (bukan 1 query per baris).
+        $approvedIds = $requests->getCollection()->where('status', 'approved_admin')->pluck('id');
+        $tripLogs = $approvedIds->isNotEmpty()
+            ? \App\Models\Drms\TripLog::whereIn('request_id', $approvedIds)->get()->keyBy('request_id')
+            : collect();
+
+        foreach ($requests as $req) {
+            $req->canComplete = false;
+            $req->canReturnToPending = false;
+            $req->completeBlockReason = null;
+
+            if ($req->status !== 'approved_admin') {
+                continue;
+            }
+
+            // Boleh dikembalikan ke Pending hanya selama jam perjalanan belum berakhir,
+            // dan bukan request voucher (voucher tidak bisa dikembalikan).
+            $req->canReturnToPending = !$req->hasEnded()
+                && $req->transport_type !== 'voucher'
+                && $req->vouchers->isEmpty();
+
+            $log = $tripLogs->get($req->id);
+            $logOk = $log && $log->is_submitted && $log->odometer_start !== null && $log->odometer_finish !== null;
+            $usageDate = $req->usage_date instanceof \Carbon\Carbon
+                ? $req->usage_date->copy()->startOfDay()
+                : \Carbon\Carbon::parse($req->usage_date)->startOfDay();
+            $dateOk = now()->startOfDay()->gte($usageDate);
+            $req->canComplete = $logOk && $dateOk;
+            $req->completeBlockReason = !$logOk
+                ? 'Log Perjalanan belum diisi/disubmit driver'
+                : (!$dateOk ? 'Belum tanggal jadwal (' . $usageDate->format('d M Y') . ')' : null);
+        }
+
+        // Export hanya tersedia untuk tab yang berisi status history (disetujui/selesai/ditolak).
+        $canExport = (bool) array_intersect(
+            $statusTabs[$activeStatus]['statuses'],
+            ['approved_admin', 'rejected_admin', 'completed']
+        );
 
         // ------------------- DIPANTAU: request BU SENDIRI yang di-forward ke BU LAIN -------------------
         // Begitu di-forward, request ini hilang dari $pendingRequests BU asal (karena scope
@@ -114,69 +231,6 @@ class AppAdminController extends Controller
         }
 
 
-        $historyQuery = DriverRequest::with(['requester', 'approverL1', 'admin', 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto', 'attachments']);
-
-        if ($user->isDrmsSuperAdmin()) {
-            $historyQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
-        } else {
-            $historyQuery->where('admin_id', $user->id)
-                ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
-        }
-
-        // Filter status
-        if ($request->filled('status') && in_array($request->status, ['approved_admin', 'rejected_admin', 'completed'])) {
-            $historyQuery->where('status', $request->status);
-        }
-
-        // Filter pencarian (request_no, pemohon, lokasi, tujuan, keperluan)
-        if ($request->filled('search')) {
-            $searchTerm = '%' . $request->search . '%';
-            $historyQuery->where(function ($q) use ($searchTerm) {
-                $q->where('request_no', 'LIKE', $searchTerm)
-                  ->orWhere('pickup_location', 'LIKE', $searchTerm)
-                  ->orWhere('destination', 'LIKE', $searchTerm)
-                  ->orWhere('purpose', 'LIKE', $searchTerm)
-                  ->orWhereHas('requester', function ($q2) use ($searchTerm) {
-                      $q2->where('name', 'LIKE', $searchTerm);
-                  });
-            });
-        }
-
-        // Filter rentang tanggal (usage_date)
-        if ($request->filled('date_from')) {
-            $historyQuery->whereDate('usage_date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $historyQuery->whereDate('usage_date', '<=', $request->date_to);
-        }
-
-        $historyRequests = $historyQuery->latest()->paginate(10)->appends($request->query());
-
-        // Untuk request berstatus approved_admin, tentukan apakah tombol "Selesaikan" boleh aktif:
-        // log perjalanan sudah disubmit driver DAN tanggal jadwalnya (usage_date) sudah tiba.
-        foreach ($historyRequests as $req) {
-            if ($req->status !== 'approved_admin') {
-                $req->canComplete = false;
-                $req->canReturnToPending = false;
-                continue;
-            }
-            // Boleh dikembalikan ke Pending hanya selama jam perjalanan belum berakhir,
-            // dan bukan request voucher (voucher tidak bisa dikembalikan).
-            $req->canReturnToPending = !$req->hasEnded()
-                && $req->transport_type !== 'voucher'
-                && $req->vouchers->isEmpty();
-            $log = \App\Models\Drms\TripLog::where('request_id', $req->id)->first();
-            $logOk = $log && $log->is_submitted && $log->odometer_start !== null && $log->odometer_finish !== null;
-            $usageDate = $req->usage_date instanceof \Carbon\Carbon
-                ? $req->usage_date->copy()->startOfDay()
-                : \Carbon\Carbon::parse($req->usage_date)->startOfDay();
-            $dateOk = now()->startOfDay()->gte($usageDate);
-            $req->canComplete = $logOk && $dateOk;
-            $req->completeBlockReason = !$logOk
-                ? 'Log Perjalanan belum diisi/disubmit driver'
-                : (!$dateOk ? 'Belum tanggal jadwal (' . $usageDate->format('d M Y') . ')' : null);
-        }
-
         // Ambil semua business unit untuk dropdown forward modal
         $businessUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
 
@@ -196,63 +250,52 @@ class AppAdminController extends Controller
         }
         $availableVehicles = $availableVehiclesQuery->orderBy('plate_number')->get();
 
-        return view('drms.approval.admin.index', compact('pendingRequests', 'historyRequests', 'businessUnits', 'availableDrivers', 'availableVehicles', 'forwardedAwayRequests', 'forwardedResolvedRequests', 'forwardedSummary'));
+        return view('drms.approval.admin.index', compact(
+            'requests', 'statusTabs', 'activeStatus', 'tabCounts', 'canExport', 'isSuper',
+            'businessUnits', 'availableDrivers', 'availableVehicles',
+            'forwardedAwayRequests', 'forwardedResolvedRequests', 'forwardedSummary'
+        ));
     }
 
     /**
      * Export data history ke Excel (.xlsx) hanya jika ada filter yang aktif.
+     * Cakupan data sama dengan halaman index (BU/area admin; superadmin semua / filter BU).
+     * Hanya status history (disetujui, ditolak oleh admin, selesai) yang bisa diexport.
      */
     public function export(Request $request)
     {
         $user = Auth::user();
-        $profile = $user->drmsProfile;
+
+        if (!$user->isDrmsSuperAdmin() && !$user->drmsProfile) {
+            abort(403, 'Profil DRMS tidak ditemukan.');
+        }
 
         // Cek apakah ada filter yang aktif
-        $hasFilter = $request->filled('search') 
-            || $request->filled('status') 
-            || $request->filled('date_from') 
-            || $request->filled('date_to');
+        $hasFilter = $request->filled('search')
+            || $request->filled('status')
+            || $request->filled('date_from')
+            || $request->filled('date_to')
+            || $request->filled('bu');
 
         if (!$hasFilter) {
             return redirect()->back()->withErrors('Harap terapkan filter terlebih dahulu sebelum download laporan.');
         }
 
-        // Bangun query export sama seperti di index
-        $exportQuery = DriverRequest::with(['requester.drmsProfile', 'approverL1', 'admin', 'forwardedBy', 'driver', 'vehicle', 'voucher', 'vouchers']);
+        $exportable = ['approved_admin', 'rejected_admin', 'completed'];
+        $tabKey = $request->query('status');
+        $legacy = ['approved_admin' => 'disetujui', 'rejected_admin' => 'ditolak', 'completed' => 'selesai'];
+        $tabKey = $legacy[$tabKey] ?? $tabKey;
+        $statuses = (is_string($tabKey) && isset(self::STATUS_TABS[$tabKey]))
+            ? array_values(array_intersect(self::STATUS_TABS[$tabKey]['statuses'], $exportable))
+            : $exportable;
 
-        if ($user->isDrmsSuperAdmin()) {
-            $exportQuery->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
-        } else {
-            $exportQuery->where('admin_id', $user->id)
-                ->whereIn('status', ['approved_admin', 'rejected_admin', 'completed']);
-        }
-
-        // Filter status
-        if ($request->filled('status') && in_array($request->status, ['approved_admin', 'rejected_admin', 'completed'])) {
-            $exportQuery->where('status', $request->status);
+        if (empty($statuses)) {
+            return redirect()->back()->withErrors('Tab ini tidak bisa diexport. Pilih tab Disetujui, Selesai, atau Ditolak.');
         }
 
-        // Filter pencarian
-        if ($request->filled('search')) {
-            $searchTerm = '%' . $request->search . '%';
-            $exportQuery->where(function ($q) use ($searchTerm) {
-                $q->where('request_no', 'LIKE', $searchTerm)
-                  ->orWhere('pickup_location', 'LIKE', $searchTerm)
-                  ->orWhere('destination', 'LIKE', $searchTerm)
-                  ->orWhere('purpose', 'LIKE', $searchTerm)
-                  ->orWhereHas('requester', function ($q2) use ($searchTerm) {
-                      $q2->where('name', 'LIKE', $searchTerm);
-                  });
-            });
-        }
-
-        // Filter tanggal
-        if ($request->filled('date_from')) {
-            $exportQuery->whereDate('usage_date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $exportQuery->whereDate('usage_date', '<=', $request->date_to);
-        }
+        $exportQuery = $this->baseQuery($request, $user)
+            ->with(['requester.drmsProfile', 'approverL1', 'admin', 'forwardedBy', 'driver', 'vehicle', 'voucher', 'vouchers'])
+            ->whereIn('status', $statuses);
 
         // Export ke Excel
         $filename = 'laporan_approval_admin_' . date('Ymd_His') . '.xlsx';
@@ -721,7 +764,7 @@ class AppAdminController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('drms.approval.admin.index', ['tab' => 'history'])
+            return redirect()->route('drms.approval.admin.index', ['status' => 'selesai'])
                 ->with('success', 'Permintaan berhasil diselesaikan.' . ($passengers->count() ? " ({$passengers->count()} request yang menumpang ikut diselesaikan.)" : ''));
         } catch (\Exception $e) {
             DB::rollBack();

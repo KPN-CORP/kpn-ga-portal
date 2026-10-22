@@ -53,6 +53,7 @@ use App\Http\Controllers\Drms\VehicleDocumentController;
 use App\Http\Controllers\Drms\ServiceScheduleController;
 use App\Http\Controllers\Drms\RepairController;
 use App\Http\Controllers\Drms\FuelLogController;
+use App\Http\Controllers\Drms\AdminExpenseReportController;
 use App\Http\Controllers\Work\WorkReportController;
 use App\Http\Controllers\Work\WorkReportCategoryController;
 use App\Http\Controllers\Memos\MemosController;
@@ -402,6 +403,15 @@ Route::middleware(['auth'])->group(function () {
                 ->name('driver.expenses.update');
             Route::delete('/expenses/{expense}', [DriverExpenseReportController::class, 'destroy'])
                 ->name('driver.expenses.destroy');
+        });
+
+        // ===== LAPORAN PENGELUARAN DRIVER (ADMIN & SUPERADMIN, READ-ONLY) =====
+        Route::middleware(['can:isDrmsAdmin'])->prefix('admin/expenses')->name('admin.expenses.')->group(function () {
+            Route::get('/', [AdminExpenseReportController::class, 'index'])->name('index');
+            Route::get('{driverRequest}', [AdminExpenseReportController::class, 'detail'])
+                ->whereNumber('driverRequest')->name('detail');
+            Route::get('{driverRequest}/pdf', [AdminExpenseReportController::class, 'pdf'])
+                ->whereNumber('driverRequest')->name('pdf');
         });
 
         // ===== ADMIN OPERATIONAL =====

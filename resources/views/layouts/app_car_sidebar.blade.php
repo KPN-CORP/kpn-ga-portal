@@ -345,6 +345,13 @@
                                         <span>Insight Pengisian</span>
                                     </a>
                                 </li>
+                                <li>
+                                    <a href="{{ route('drms.admin.expenses.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('drms.admin.expenses.*') ? 'active' : '' }}">
+                                        <i class="fas fa-receipt w-4 mr-3"></i>
+                                        <span>Laporan Driver PDF</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </li>
@@ -444,6 +451,7 @@
                             ];
                             const operasionalPaths = [
                                 '/drms/admin/operational-dashboard', '/drms/admin/monitoring-logs', '/drms/fuel-logs',
+                                '/drms/admin/expenses',
                             ];
 
                             if (masterPaths.some(p => path.startsWith(p))) {
