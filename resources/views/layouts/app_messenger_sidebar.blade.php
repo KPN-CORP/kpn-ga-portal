@@ -115,7 +115,7 @@
                         <a href="{{ route('dashboard') }}" title="Dashboard Utama"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-home w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard</span>
+                            <span>GA Portal</span>
                         </a>
                     </li>
                 </ul>

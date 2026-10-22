@@ -17,7 +17,7 @@ use App\Notifications\PermintaanBaruL1;
 class PermintaanController extends Controller
 {
     /**
-     * Menampilkan daftar permintaan user dengan filter.
+     * Menampilkan daftar permintaan milik user yang login, dengan filter.
      * Default status = 'disetujui' jika tidak ada parameter status.
      */
     public function index(Request $request)
@@ -35,23 +35,9 @@ class PermintaanController extends Controller
             ->leftJoin('users as admin', 'admin.id', '=', 'stock_ctl_permintaan.approved_admin_by')
             ->with('barang', 'pemohon.profil');
 
-        // Filter berdasarkan role
-        if ($access['is_super']) {
-            // superadmin – semua data
-        } elseif ($access['is_admin']) {
-            // admin – lihat permintaan dari unit yang sama atau miliknya sendiri
-            $query->where(function($q) use ($user, $access) {
-                $q->whereExists(function ($sub) use ($access) {
-                    $sub->select(DB::raw(1))
-                        ->from('stock_ctl_user_profil')
-                        ->whereColumn('stock_ctl_user_profil.id_user', 'stock_ctl_permintaan.id_user_pemohon')
-                        ->where('stock_ctl_user_profil.id_bisnis_unit', $access['id_bisnis_unit']);
-                })->orWhere('id_user_pemohon', $user->id);
-            });
-        } else {
-            // user biasa – hanya permintaan sendiri
-            $query->where('id_user_pemohon', $user->id);
-        }
+        // Menu Permintaan = permintaan MILIK SENDIRI saja (semua role, termasuk admin & superadmin).
+        // Untuk melihat permintaan orang lain, admin memakai menu Approval Admin.
+        $query->where('stock_ctl_permintaan.id_user_pemohon', $user->id);
 
         // ========== DEFAULT STATUS = 'disetujui' ==========
         // Jika tidak ada parameter status, set default ke 'disetujui'
@@ -61,17 +47,12 @@ class PermintaanController extends Controller
         }
         // ==================================================
 
-        // Filter berdasarkan request (search, pemohon, tanggal)
+        // Filter berdasarkan request (search, tanggal)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('barang', function($q) use ($search) {
                 $q->where('nama_barang', 'like', "%{$search}%")
                   ->orWhere('kode_barang', 'like', "%{$search}%");
-            });
-        }
-        if ($request->filled('pemohon')) {
-            $query->whereHas('pemohon', function($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->pemohon . '%');
             });
         }
         if ($request->filled('dari')) {

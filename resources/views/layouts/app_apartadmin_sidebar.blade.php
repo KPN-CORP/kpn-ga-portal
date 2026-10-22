@@ -128,7 +128,7 @@
                         <a href="{{ route('dashboard') }}" title="Dashboard"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard</span>
+                            <span>GA Portal</span>
                         </a>
                     </li>
                     @endif
@@ -141,7 +141,7 @@
                         <a href="{{ route('apartemen.admin.dashboard') }}" title="Dashboard Admin"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard Admin</span>
+                            <span>Dashboard</span>
                         </a>
                     </li>
 

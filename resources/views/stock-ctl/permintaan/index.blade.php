@@ -86,12 +86,6 @@
                        class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
-                <label class="text-xs sm:text-sm font-medium text-gray-600">Nama Pemohon</label>
-                <input type="text" name="pemohon" value="{{ request('pemohon') }}"
-                       placeholder="Cari nama pemohon"
-                       class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
                 <label class="text-xs sm:text-sm font-medium text-gray-600">Status</label>
                 <select name="status"
                         class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
@@ -133,7 +127,6 @@
                 <tr>
                     <th class="px-2 sm:px-4 py-3 text-left">No.</th>
                     <th class="px-2 sm:px-4 py-3 text-left">Tanggal</th>
-                    <th class="px-2 sm:px-4 py-3 text-left">Pemohon</th>
                     <th class="px-2 sm:px-4 py-3 text-left">Barang</th>
                     <th class="px-2 sm:px-4 py-3 text-left hidden sm:table-cell">Jumlah</th>
                     <th class="px-2 sm:px-4 py-3 text-left">Status</th>
@@ -146,9 +139,6 @@
                     <td class="px-2 sm:px-4 py-3 font-mono text-xs sm:text-sm">{{ $item->no_tampil }}</td>
                     <td class="px-2 sm:px-4 py-3 text-xs sm:text-sm whitespace-nowrap">
                         {{ \Carbon\Carbon::parse($item->tanggal_permintaan)->timezone('Asia/Jakarta')->format('d M Y H:i') }}
-                    </td>
-                    <td class="px-2 sm:px-4 py-3 text-xs sm:text-sm truncate max-w-[100px] sm:max-w-none">
-                        {{ $item->pemohon->name ?? '-' }}
                     </td>
                     <td class="px-2 sm:px-4 py-3">
                         <div class="font-medium text-xs sm:text-sm">{{ $item->barang->nama_barang ?? '-' }}</div>
@@ -195,8 +185,8 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="py-10 text-center text-gray-500 text-sm">
-                        @if(request()->hasAny(['search', 'status', 'dari', 'sampai', 'pemohon']))
+                    <td colspan="6" class="py-10 text-center text-gray-500 text-sm">
+                        @if(request()->hasAny(['search', 'status', 'dari', 'sampai']))
                             Data tidak ditemukan
                         @else
                             Belum ada permintaan
