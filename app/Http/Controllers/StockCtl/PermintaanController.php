@@ -275,22 +275,31 @@ class PermintaanController extends Controller
 
     /**
      * Otorisasi akses ke detail permintaan.
+     * - Pemilik permintaan: boleh.
+     * - Atasan L1 pemohon: boleh (link dari notifikasi approval).
+     * - Superadmin: boleh semua.
+     * - Admin: boleh untuk permintaan di unit bisnisnya.
+     * Daftar menu Permintaan tetap hanya menampilkan permintaan milik sendiri (lihat index()).
      */
     private function authorizeView($permintaan)
     {
-        $access = session('stock_ctl_access');
         $user = Auth::user();
-
-        if ($access['is_super']) return;
-
-        if ($access['is_admin']) {
-            $unitPemohon = DB::table('stock_ctl_user_profil')
-                ->where('id_user', $permintaan->id_user_pemohon)
-                ->value('id_bisnis_unit');
-            if ($unitPemohon == $access['id_bisnis_unit']) return;
-        }
+        $access = session('stock_ctl_access');
 
         if ($permintaan->id_user_pemohon == $user->id) return;
+
+        if (!empty($access['is_super'])) return;
+
+        $profilPemohon = DB::table('stock_ctl_user_profil')
+            ->where('id_user', $permintaan->id_user_pemohon)
+            ->first();
+
+        if (!empty($access['is_admin']) && $profilPemohon
+            && $profilPemohon->id_bisnis_unit == ($access['id_bisnis_unit'] ?? null)) {
+            return;
+        }
+
+        if ($profilPemohon && $profilPemohon->id_approver && $profilPemohon->id_approver == $user->id) return;
 
         abort(403, 'Anda tidak berhak mengakses permintaan ini.');
     }

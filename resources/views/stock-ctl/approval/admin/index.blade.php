@@ -1,7 +1,7 @@
 @extends('layouts.app_stock_sidebar')
 
 @section('content')
-<div class="space-y-6 text-sm text-gray-800 font-sans">
+<div class="space-y-6 text-sm text-gray-800 font-sans" x-data="adminDetail()">
     {{-- HEADER --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -114,7 +114,7 @@
         $fmt = fn($d) => $d ? \Carbon\Carbon::parse($d)->timezone('Asia/Jakarta')->format('d M Y H:i') : null;
         $bolehAksi = $status === 'pending_admin';
         $judulProses = [
-            'pending_l1'    => 'Menunggu Atasan (L1)',
+            'pending_l1'    => 'Menunggu (L1)',
             'pending_admin' => 'Approval L1',
             'disetujui'     => 'Riwayat Approval',
             'ditolak'       => 'Penolakan',
@@ -132,9 +132,7 @@
                     <th class="px-4 py-3 text-left">Jumlah</th>
                     <th class="px-4 py-3 text-left">Keterangan</th>
                     <th class="px-4 py-3 text-left">{{ $judulProses }}</th>
-                    @if($bolehAksi)
-                        <th class="px-4 py-3 text-left">Aksi</th>
-                    @endif
+                    <th class="px-4 py-3 text-left">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
@@ -215,9 +213,13 @@
                         @endswitch
                     </td>
 
-                    @if($bolehAksi)
                     <td class="px-4 py-3">
                         <div class="flex gap-2">
+                            <button type="button" @click="openDetail({{ $item->toJson() }})"
+                                    class="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
+                                Detail
+                            </button>
+                            @if($bolehAksi)
                             <button onclick="showApproveModal({{ $item->id_permintaan }}, {{ $item->jumlah }}, '{{ addslashes($item->barang->satuan ?? '') }}')"
                                     class="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
                                 Setujui
@@ -226,13 +228,13 @@
                                     class="px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700">
                                 Tolak
                             </button>
+                            @endif
                         </div>
                     </td>
-                    @endif
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ $bolehAksi ? 8 : 7 }}" class="py-10 text-center text-gray-500">
+                    <td colspan="8" class="py-10 text-center text-gray-500">
                         @if($adaFilter)
                             Data tidak ditemukan
                         @else
@@ -248,6 +250,62 @@
     @if($permintaan->hasPages())
         <div class="mt-4">{{ $permintaan->links() }}</div>
     @endif
+
+    {{-- MODAL DETAIL --}}
+    <div x-show="detailOpen" style="display:none" x-cloak
+         class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4"
+         @keydown.escape.window="detailOpen = false" @click.self="detailOpen = false">
+        <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 class="text-base sm:text-lg font-semibold mb-4">Detail Permintaan</h3>
+            <table class="w-full text-sm">
+                <tr><td class="py-2 text-gray-600 w-1/3">No. Permintaan</td><td class="py-2 font-medium font-mono" x-text="d.no_tampil"></td></tr>
+                <tr><td class="py-2 text-gray-600">Tanggal</td><td class="py-2 font-medium" x-text="fmt(d.tanggal_permintaan)"></td></tr>
+                <tr><td class="py-2 text-gray-600">Pemohon</td><td class="py-2 font-medium" x-text="d.pemohon?.name ?? '-'"></td></tr>
+                <tr><td class="py-2 text-gray-600">Area Kerja</td><td class="py-2 font-medium" x-text="(d.area_kerja?.nama_area ?? '-') + (d.area_kerja?.bisnis_unit ? ' (' + d.area_kerja.bisnis_unit.nama_bisnis_unit + ')' : '')"></td></tr>
+                <tr>
+                    <td class="py-2 text-gray-600" x-text="d.status == 'pending_l1' ? 'Menunggu Approval Atasan' : 'Atasan (L1)'"></td>
+                    <td class="py-2 font-medium" x-text="d.pemohon?.profil?.approver?.name ?? '-'"></td>
+                </tr>
+                <tr><td class="py-2 text-gray-600">Barang</td><td class="py-2 font-medium" x-text="(d.barang?.nama_barang ?? '-') + ' (' + (d.barang?.kode_barang ?? '-') + ')'"></td></tr>
+                <tr><td class="py-2 text-gray-600">Jumlah</td><td class="py-2 font-medium" x-text="(d.jumlah ?? '') + ' ' + (d.barang?.satuan ?? '')"></td></tr>
+                <tr><td class="py-2 text-gray-600">Alasan</td><td class="py-2 font-medium" x-text="d.keterangan ?? '-'"></td></tr>
+                <tr>
+                    <td class="py-2 text-gray-600">Status</td>
+                    <td class="py-2">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold"
+                              :class="{
+                                'bg-yellow-100 text-yellow-800': d.status == 'pending_l1',
+                                'bg-orange-100 text-orange-800': d.status == 'pending_admin',
+                                'bg-green-100 text-green-800': d.status == 'disetujui',
+                                'bg-red-100 text-red-800': d.status == 'ditolak',
+                                'bg-gray-200 text-gray-700': d.status == 'dibatalkan'
+                              }" x-text="statusLabel[d.status] ?? d.status"></span>
+                    </td>
+                </tr>
+                <template x-if="d.approved_l1_by">
+                    <tr><td class="py-2 text-gray-600">Approval L1</td>
+                        <td class="py-2 font-medium"><span x-text="d.approver_l1?.name ?? ('User ' + d.approved_l1_by)"></span>
+                            <span class="text-gray-500 text-xs" x-show="d.approved_l1_at" x-text="'(' + fmt(d.approved_l1_at) + ')'"></span></td></tr>
+                </template>
+                <template x-if="d.approved_admin_by">
+                    <tr><td class="py-2 text-gray-600">Approval Admin</td>
+                        <td class="py-2 font-medium"><span x-text="d.approver_admin?.name ?? ('User ' + d.approved_admin_by)"></span>
+                            <span class="text-gray-500 text-xs" x-show="d.approved_admin_at" x-text="'(' + fmt(d.approved_admin_at) + ')'"></span></td></tr>
+                </template>
+                <template x-if="d.catatan_admin">
+                    <tr><td class="py-2 text-gray-600">Catatan Admin</td><td class="py-2 font-medium" x-text="d.catatan_admin"></td></tr>
+                </template>
+                <template x-if="d.status == 'ditolak' || d.status == 'dibatalkan'">
+                    <tr><td class="py-2 text-gray-600" x-text="d.status == 'ditolak' ? 'Alasan Penolakan' : 'Pembatalan'"></td>
+                        <td class="py-2 font-medium text-red-600"><span x-text="d.alasan_tolak ?? '-'"></span>
+                            <span class="text-gray-500 text-xs" x-show="d.rejected_at" x-text="'(' + fmt(d.rejected_at) + ')'"></span></td></tr>
+                </template>
+            </table>
+            <div class="mt-6 flex justify-end">
+                <button type="button" @click="detailOpen = false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm">Tutup</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 {{-- Modal Approve (AJAX version) --}}
@@ -296,6 +354,18 @@
 </div>
 
 <script>
+function adminDetail() {
+    return {
+        detailOpen: false,
+        d: {},
+        statusLabel: {pending_l1:'Pending L1', pending_admin:'Pending Admin', disetujui:'Disetujui', ditolak:'Ditolak', dibatalkan:'Dibatalkan'},
+        openDetail(item) { this.d = item; this.detailOpen = true; },
+        fmt(v) {
+            return v ? new Date(v).toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '-';
+        }
+    };
+}
+
 function showApproveModal(id, originalJumlah, satuan) {
     const form = document.getElementById('approveForm');
     form.action = "{{ url('stock-ctl/approval/admin') }}/" + id + "/approve";

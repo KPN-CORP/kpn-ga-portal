@@ -339,6 +339,9 @@
                         </span>
                     </td>
                 </tr>
+                <template x-if="detailItem.status == 'pending_l1'">
+                    <tr><td class="py-2 text-gray-600">Menunggu Approval Atasan</td><td class="py-2 font-medium" x-text="detailItem.approver_name || '-'"></td></tr>
+                </template>
                 <template x-if="detailItem.approved_l1_by">
                     <tr><td class="py-2 text-gray-600">Approval L1</td><td class="py-2 font-medium"><span x-text="detailItem.approver_l1_name || 'User ' + detailItem.approved_l1_by"></span><span x-show="detailItem.approved_l1_at" class="text-gray-500 text-xs ml-1">(<span x-text="new Date(detailItem.approved_l1_at).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})"></span>)</span></td></tr>
                 </template>
