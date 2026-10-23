@@ -126,7 +126,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/access-data', [DashboardController::class, 'getAccessData'])->name('api.access.data');
 
-        Route::prefix('messenger')->middleware('auth')->group(function () {
+    Route::prefix('messenger')->middleware('auth')->group(function () {
         Route::middleware('messenger.access:status_messenger')->get('/', [App\Http\Controllers\MessengerController::class, 'index'])->name('messenger.index');
         Route::middleware('messenger.access:request_messenger')->get('/request', [App\Http\Controllers\MessengerController::class, 'request'])->name('messenger.request');
         Route::middleware('messenger.access:request_messenger')->post('/', [App\Http\Controllers\MessengerController::class, 'store'])->name('messenger.store');

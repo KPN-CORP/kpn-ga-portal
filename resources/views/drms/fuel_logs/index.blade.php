@@ -1,13 +1,13 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- Header --}}
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">⛽ Log Pengisian</h1>
-        <div class="space-x-2">
-            <a href="{{ route('drms.fuel-logs.analytics') }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg">📊 Analisis</a>
-            <a href="{{ route('drms.fuel-logs.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg">+ Tambah</a>
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
+        <h1 class="text-xl sm:text-2xl font-bold">⛽ Log Pengisian</h1>
+        <div class="flex gap-2 w-full sm:w-auto">
+            <a href="{{ route('drms.fuel-logs.analytics') }}" class="flex-1 sm:flex-none text-center bg-purple-600 text-white px-4 py-2 rounded-lg">📊 Analisis</a>
+            <a href="{{ route('drms.fuel-logs.create') }}" class="flex-1 sm:flex-none text-center bg-blue-600 text-white px-4 py-2 rounded-lg">+ Tambah</a>
         </div>
     </div>
 
@@ -84,12 +84,12 @@
                 <input type="date" name="date_to" value="{{ request('date_to') }}" 
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="flex gap-2 items-end">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <div class="flex gap-2 items-end md:col-span-2 lg:col-span-1">
+                <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Filter
                 </button>
                 @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'status', 'date_from', 'date_to']))
-                    <a href="{{ route('drms.fuel-logs.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <a href="{{ route('drms.fuel-logs.index') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif
@@ -101,34 +101,35 @@
     {{-- PENTING: total, verified, pending, dan total pengisian di bawah ini dihitung di
          controller dari QUERY PENUH (sesuai filter yang aktif), BUKAN dari $logs
          (yang cuma berisi 20 data di halaman yang sedang tampil). --}}
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Total Log</p>
-            <p class="text-2xl font-bold">{{ $totalLogs }}</p>
+            <p class="text-xl md:text-2xl font-bold">{{ $totalLogs }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-green-500">
             <p class="text-xs text-gray-500 uppercase">Terverifikasi</p>
-            <p class="text-2xl font-bold text-green-600">{{ $verifiedCount }}</p>
+            <p class="text-xl md:text-2xl font-bold text-green-600">{{ $verifiedCount }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500 uppercase">Pending</p>
-            <p class="text-2xl font-bold text-yellow-600">{{ $pendingCount }}</p>
+            <p class="text-xl md:text-2xl font-bold text-yellow-600">{{ $pendingCount }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-purple-500">
             <p class="text-xs text-gray-500 uppercase">Total BBM (Liter)</p>
-            <p class="text-2xl font-bold text-purple-600">{{ number_format($totalLiters, 2, ',', '.') }} L</p>
+            <p class="text-xl md:text-2xl font-bold text-purple-600">{{ number_format($totalLiters, 2, ',', '.') }} L</p>
             <p class="text-xs text-gray-500">Rp {{ number_format($totalCostBbm, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-4 border-l-4 border-indigo-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-indigo-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">Total Listrik (kWh)</p>
-            <p class="text-2xl font-bold text-indigo-600">{{ number_format($totalKwh, 2, ',', '.') }} kWh</p>
+            <p class="text-xl md:text-2xl font-bold text-indigo-600">{{ number_format($totalKwh, 2, ',', '.') }} kWh</p>
             <p class="text-xs text-gray-500">Rp {{ number_format($totalCostListrik, 0, ',', '.') }}</p>
         </div>
     </div>
 
     {{-- Tabel --}}
     <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
+        {{-- DESKTOP / TABLET: TABEL --}}
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -193,7 +194,61 @@
                 </tbody>
             </table>
         </div>
-        <div class="px-6 py-3 border-t">
+
+        {{-- HP: KARTU PER LOG (tanpa geser samping) --}}
+        <div class="md:hidden divide-y divide-gray-200">
+            @forelse($logs as $log)
+            <div class="p-4 space-y-2 break-words min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="font-semibold text-gray-800">{{ $log->vehicle->plate_number }}</p>
+                        <p class="text-xs text-gray-500">{{ $log->vehicle->type }}</p>
+                    </div>
+                    @if($log->is_verified)
+                        <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">✅ Terverifikasi</span>
+                    @else
+                        <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">⏳ Pending</span>
+                    @endif
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-gray-600">
+                    <span>📅 {{ $log->filling_date->format('d M Y') }}</span>
+                    <span>👤 {{ $log->driver->name ?? '-' }}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                    <span>Odometer</span>
+                    <span class="text-right">{{ number_format($log->odometer_start, 0, ',', '.') }} km</span>
+                    <span>{{ $log->vehicle->fuel_type == 'Listrik' ? 'kWh' : 'Liter' }}</span>
+                    <span class="text-right">{{ number_format($log->fuel_liters, 2, ',', '.') }}</span>
+                    <span class="font-semibold text-gray-800">Total</span>
+                    <span class="text-right font-semibold text-gray-800">Rp {{ number_format($log->total_cost, 0, ',', '.') }}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <a href="{{ route('drms.fuel-logs.show', $log->id) }}" class="text-center bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded text-xs font-semibold">Detail</a>
+                    <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-center bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-xs font-semibold">Edit</a>
+                    @if(!$log->is_verified && auth()->user()->isDrmsAdmin())
+                        <form action="{{ route('drms.fuel-logs.verify', $log->id) }}" method="POST">
+                            @csrf @method('PATCH')
+                            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold">Verifikasi</button>
+                        </form>
+                    @endif
+                    <form action="{{ route('drms.fuel-logs.destroy', $log->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-xs font-semibold">Hapus</button>
+                    </form>
+                </div>
+            </div>
+            @empty
+            <div class="px-4 py-10 text-center text-gray-500">
+                <div class="text-4xl mb-2">⛽</div>
+                <p>Belum ada log.</p>
+                @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                    <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
+                @endif
+            </div>
+            @endforelse
+        </div>
+
+        <div class="px-4 sm:px-6 py-3 border-t">
             {{ $logs->links() }}
         </div>
     </div>

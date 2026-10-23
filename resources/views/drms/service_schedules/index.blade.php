@@ -1,11 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
-        <h1 class="text-2xl font-bold">🔧 Servis Rutin</h1>
-        <a href="{{ route('drms.service-schedules.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+        <h1 class="text-xl sm:text-2xl font-bold">🔧 Servis Rutin</h1>
+        <a href="{{ route('drms.service-schedules.create') }}" class="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
             <span>+</span> Tambah Servis
         </a>
     </div>
@@ -105,33 +105,54 @@
         $totalOilChange = $stats['oil_change'];
         $totalGeneral = $stats['general'];
         $uniqueVehicles = $stats['unique_vehicles'];
+
+        // Warna & label (dipakai tabel desktop dan kartu HP)
+        $typeClass = function ($type) {
+            return match ($type) {
+                'oil_change'    => 'bg-blue-100 text-blue-800',
+                'filter_change' => 'bg-yellow-100 text-yellow-800',
+                'tune_up'       => 'bg-purple-100 text-purple-800',
+                'spooring'      => 'bg-green-100 text-green-800',
+                'balancing'     => 'bg-pink-100 text-pink-800',
+                default         => 'bg-gray-100 text-gray-800',
+            };
+        };
+        $statusClass = function ($status) {
+            return match ($status) {
+                'open'     => 'bg-yellow-100 text-yellow-800',
+                'progress' => 'bg-blue-100 text-blue-800',
+                'rejected' => 'bg-red-100 text-red-800',
+                default    => 'bg-green-100 text-green-800',
+            };
+        };
+        $statusLabels = ['open' => 'Menunggu Approval', 'progress' => 'Dalam Proses', 'done' => 'Selesai', 'rejected' => 'Ditolak'];
     @endphp
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Total Servis</p>
-            <p class="text-2xl font-bold">{{ $total }}</p>
+            <p class="text-xl md:text-2xl font-bold">{{ $total }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-green-500">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>
-            <p class="text-2xl font-bold text-green-600">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-2xl font-bold text-green-600 break-words">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500 uppercase">Ganti Oli</p>
-            <p class="text-2xl font-bold text-yellow-600">{{ $totalOilChange }}</p>
+            <p class="text-xl md:text-2xl font-bold text-yellow-600">{{ $totalOilChange }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
             <p class="text-xs text-gray-500 uppercase">General</p>
-            <p class="text-2xl font-bold text-purple-600">{{ $totalGeneral }}</p>
+            <p class="text-xl md:text-2xl font-bold text-purple-600">{{ $totalGeneral }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-indigo-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">Kendaraan</p>
-            <p class="text-2xl font-bold text-indigo-600">{{ $uniqueVehicles }}</p>
+            <p class="text-xl md:text-2xl font-bold text-indigo-600">{{ $uniqueVehicles }}</p>
         </div>
     </div>
 
-    {{-- TABEL --}}
     <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div class="overflow-x-auto">
+        {{-- DESKTOP / TABLET: TABEL --}}
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -155,13 +176,7 @@
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 @foreach(($service->service_type ?? []) as $type)
-                                    <span class="px-2 py-1 rounded-full text-xs
-                                        @if($type == 'oil_change') bg-blue-100 text-blue-800
-                                        @elseif($type == 'filter_change') bg-yellow-100 text-yellow-800
-                                        @elseif($type == 'tune_up') bg-purple-100 text-purple-800
-                                        @elseif($type == 'spooring') bg-green-100 text-green-800
-                                        @elseif($type == 'balancing') bg-pink-100 text-pink-800
-                                        @else bg-gray-100 text-gray-800 @endif">
+                                    <span class="px-2 py-1 rounded-full text-xs {{ $typeClass($type) }}">
                                         {{ ucfirst(str_replace('_', ' ', $type)) }}
                                     </span>
                                 @endforeach
@@ -178,21 +193,19 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold
-                                @if($service->status == 'open') bg-yellow-100 text-yellow-800
-                                @elseif($service->status == 'progress') bg-blue-100 text-blue-800
-                                @elseif($service->status == 'rejected') bg-red-100 text-red-800
-                                @else bg-green-100 text-green-800 @endif">
-                                {{ ['open' => 'Menunggu Approval', 'progress' => 'Dalam Proses', 'done' => 'Selesai', 'rejected' => 'Ditolak'][$service->status] ?? $service->status }}
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $statusClass($service->status) }}">
+                                {{ $statusLabels[$service->status] ?? $service->status }}
                             </span>
                         </td>
                         <td class="px-6 py-4 space-x-2">
                             <a href="{{ route('drms.service-schedules.show', $service->id) }}" class="text-blue-600 hover:text-blue-800 text-sm">Detail</a>
                             <a href="{{ route('drms.service-schedules.edit', $service->id) }}" class="text-green-600 hover:text-green-800 text-sm">Edit</a>
+                            {{-- Tombol Hapus disembunyikan
                             <form action="{{ route('drms.service-schedules.destroy', $service->id) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Hapus</button>
                             </form>
+                            --}}
                         </td>
                     </tr>
                     @empty
@@ -210,8 +223,66 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- HP: KARTU PER SERVIS (tanpa geser samping) --}}
+        <div class="md:hidden divide-y divide-gray-200">
+            @forelse($services as $service)
+            <div class="p-4 space-y-2 break-words min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="font-semibold text-gray-800">{{ $service->vehicle->plate_number }}</p>
+                        <p class="text-xs text-gray-400">{{ $service->vehicle->type }}</p>
+                    </div>
+                    <span class="shrink-0 px-2 py-1 rounded-full text-xs font-semibold {{ $statusClass($service->status) }}">
+                        {{ $statusLabels[$service->status] ?? $service->status }}
+                    </span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                    @foreach(($service->service_type ?? []) as $type)
+                        <span class="px-2 py-1 rounded-full text-xs {{ $typeClass($type) }}">
+                            {{ ucfirst(str_replace('_', ' ', $type)) }}
+                        </span>
+                    @endforeach
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-gray-600">
+                    <span>📅 {{ $service->service_date->format('d M Y') }}</span>
+                    <span class="font-semibold text-red-600 text-sm">Rp {{ number_format($service->cost, 0, ',', '.') }}</span>
+                </div>
+                <div class="text-xs text-gray-600">
+                    ⏭️ Servis berikutnya:
+                    @if($service->next_service_date)
+                        {{ $service->next_service_date->format('d M Y') }}
+                    @elseif($service->next_service_odometer)
+                        {{ $service->next_service_odometer }} km
+                    @else
+                        <span class="text-gray-400">-</span>
+                    @endif
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <a href="{{ route('drms.service-schedules.show', $service->id) }}" class="flex-1 text-center bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded text-xs font-semibold">Detail</a>
+                    <a href="{{ route('drms.service-schedules.edit', $service->id) }}" class="flex-1 text-center bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-xs font-semibold">Edit</a>
+                    {{-- Tombol Hapus disembunyikan
+                    <form action="{{ route('drms.service-schedules.destroy', $service->id) }}" method="POST" class="flex-1" onsubmit="return confirm('Yakin ingin menghapus?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-xs font-semibold">Hapus</button>
+                    </form>
+                    --}}
+                </div>
+            </div>
+            @empty
+            <div class="px-4 py-10 text-center text-gray-500">
+                <div class="text-4xl mb-2">🔧</div>
+                <p>Belum ada data servis.</p>
+                @if(request()->anyFilled(['search', 'vehicle_id', 'service_type', 'status', 'date_from', 'date_to']))
+                    <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
+                @endif
+                <a href="{{ route('drms.service-schedules.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Servis</a>
+            </div>
+            @endforelse
+        </div>
+
         @if($services->hasPages())
-        <div class="px-6 py-3 border-t">
+        <div class="px-4 sm:px-6 py-3 border-t">
             {{ $services->links() }}
         </div>
         @endif

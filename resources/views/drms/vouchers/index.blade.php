@@ -1,15 +1,15 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
-        <h1 class="text-2xl font-bold">🎫 Daftar Voucher</h1>
-        <div class="flex gap-2">
-            <a href="{{ route('drms.vouchers.upload.form') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+        <h1 class="text-xl sm:text-2xl font-bold">🎫 Daftar Voucher</h1>
+        <div class="flex gap-2 w-full sm:w-auto">
+            <a href="{{ route('drms.vouchers.upload.form') }}" class="flex-1 sm:flex-none justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                 <span>⬆️</span> Upload Voucher
             </a>
-            <a href="{{ route('drms.vouchers.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+            <a href="{{ route('drms.vouchers.create') }}" class="flex-1 sm:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                 <span>+</span> Tambah Voucher
             </a>
         </div>
@@ -32,13 +32,13 @@
         </div>
     @endif
 
-    {{-- FILTER --}}
+    {{-- FILTER: HP satu kolom, tablet dua kolom, desktop sebaris --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" action="{{ route('drms.vouchers.index') }}" class="flex flex-wrap gap-3 items-end">
+        <form method="GET" action="{{ route('drms.vouchers.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:items-end">
             @if(auth()->user()->isDrmsSuperAdmin())
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
-                <select name="business_unit_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="business_unit_id" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua BU</option>
                     @foreach($businessUnits as $bu)
                         <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -49,9 +49,9 @@
             </div>
             @endif
             @if(!($isAreaLocked ?? false) && ($areaFilterOptions ?? collect())->isNotEmpty())
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">📍 Area</label>
-                <select name="area" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="area" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Area</option>
                     @foreach($areaFilterOptions as $a)
                         <option value="{{ $a }}" {{ request('area') === $a ? 'selected' : '' }}>{{ $a }}</option>
@@ -60,9 +60,9 @@
             </div>
             @endif
             @if($isSpecialBu ?? false)
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Dibebankan ke BU</label>
-                <select name="input_business_unit_id" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="input_business_unit_id" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
                     @foreach($businessUnits as $bu)
                         <option value="{{ $bu->id_bisnis_unit }}" {{ request('input_business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -72,26 +72,26 @@
                 </select>
             </div>
             @endif
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
-                <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="status" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
                     <option value="available" {{ request('status') == 'available' ? 'selected' : '' }}>✅ Available</option>
                     <option value="used" {{ request('status') == 'used' ? 'selected' : '' }}>🔒 Used</option>
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🚗 Tipe</label>
-                <select name="type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="type" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua</option>
                     <option value="grab" {{ request('type') == 'grab' ? 'selected' : '' }}>Grab</option>
                     <option value="gojek" {{ request('type') == 'gojek' ? 'selected' : '' }}>Gojek</option>
                     <option value="taxi" {{ request('type') == 'taxi' ? 'selected' : '' }}>Bluebird</option>
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
-                <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="month" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ $month === 'all' ? 'selected' : '' }}>Semua Bulan</option>
                     @php
                         $monthOptions = [];
@@ -108,18 +108,18 @@
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div class="w-full sm:col-span-2 lg:col-span-1 lg:w-48">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari</label>
-                <input type="text" name="search" value="{{ request('search') }}" 
-                       placeholder="Cari kode voucher..." 
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
+                <input type="text" name="search" value="{{ request('search') }}"
+                       placeholder="Cari kode voucher..."
+                       class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <div class="flex gap-2 sm:col-span-2 lg:col-span-1">
+                <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
                 @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'area', 'input_business_unit_id']) || $month !== now()->format('Y-m'))
-                    <a href="{{ route('drms.vouchers.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <a href="{{ route('drms.vouchers.index') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif
@@ -133,25 +133,35 @@
         $total = $vouchers->total();
         $available = $vouchers->where('status', 'available')->count();
         $used = $vouchers->where('status', 'used')->count();
+
+        // Info pemakaian dihitung SEKALI per voucher (dipakai tabel desktop dan kartu HP).
+        $usages = $vouchers->mapWithKeys(fn ($v) => [$v->id => $v->usage_info]);
+
+        $typeClass = function ($type) {
+            if ($type == 'grab') return 'bg-green-100 text-green-800';
+            if ($type == 'gojek') return 'bg-blue-100 text-blue-800';
+            return 'bg-yellow-100 text-yellow-800';
+        };
+        $showForeignBadge = fn ($v) => !auth()->user()->isDrmsSuperAdmin() && ($businessUnitId ?? null) && $v->business_unit_id != $businessUnitId;
     @endphp
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
-            <p class="text-xs text-gray-500 uppercase">Total Voucher</p>
-            <p class="text-2xl font-bold">{{ $total }}</p>
+    <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+        <div class="bg-white p-3 sm:p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+            <p class="text-[10px] sm:text-xs text-gray-500 uppercase">Total Voucher</p>
+            <p class="text-xl sm:text-2xl font-bold">{{ $total }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-            <p class="text-xs text-gray-500 uppercase">Available</p>
-            <p class="text-2xl font-bold text-green-600">{{ $available }}</p>
+        <div class="bg-white p-3 sm:p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+            <p class="text-[10px] sm:text-xs text-gray-500 uppercase">Available</p>
+            <p class="text-xl sm:text-2xl font-bold text-green-600">{{ $available }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-500">
-            <p class="text-xs text-gray-500 uppercase">Used</p>
-            <p class="text-2xl font-bold text-gray-600">{{ $used }}</p>
+        <div class="bg-white p-3 sm:p-4 rounded-lg shadow-sm border-l-4 border-gray-500">
+            <p class="text-[10px] sm:text-xs text-gray-500 uppercase">Used</p>
+            <p class="text-xl sm:text-2xl font-bold text-gray-600">{{ $used }}</p>
         </div>
     </div>
 
-    {{-- TABEL --}}
     <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div class="overflow-x-auto">
+        {{-- DESKTOP / TABLET: TABEL --}}
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -171,15 +181,12 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($vouchers as $v)
-                    @php($usage = $v->usage_info)
+                    @php $usage = $usages[$v->id] ?? null; @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 font-mono text-sm">{{ $v->code }}</td>
                         {{-- Kolom Nominal disembunyikan sesuai permintaan --}}
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs 
-                                @if($v->type == 'grab') bg-green-100 text-green-800
-                                @elseif($v->type == 'gojek') bg-blue-100 text-blue-800
-                                @else bg-yellow-100 text-yellow-800 @endif">
+                            <span class="px-2 py-1 rounded-full text-xs {{ $typeClass($v->type) }}">
                                 {{ ucfirst($v->type) }}
                             </span>
                         </td>
@@ -192,7 +199,7 @@
                         </td>
                         <td class="px-6 py-4">
                             {{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}
-                            @if(!auth()->user()->isDrmsSuperAdmin() && ($businessUnitId ?? null) && $v->business_unit_id != $businessUnitId)
+                            @if($showForeignBadge($v))
                                 <span class="block mt-0.5 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium w-fit" title="Voucher ini milik Business Unit lain, ditampilkan karena dipakai oleh user dari BU Anda (mis. request yang di-forward)">
                                     🔗 Dipakai user BU Anda
                                 </span>
@@ -244,8 +251,69 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- HP: KARTU PER VOUCHER (tanpa geser samping) --}}
+        <div class="md:hidden divide-y divide-gray-200">
+            @forelse($vouchers as $v)
+            @php $usage = $usages[$v->id] ?? null; @endphp
+            <div class="p-4 space-y-2 break-words min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <span class="font-mono text-sm font-semibold text-gray-800 break-all">{{ $v->code }}</span>
+                    <span class="shrink-0 px-2 py-1 rounded-full text-xs {{ $v->status == 'available' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                        {{ $v->status == 'available' ? '✅ Available' : '🔒 Used' }}
+                    </span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="px-2 py-1 rounded-full {{ $typeClass($v->type) }}">{{ ucfirst($v->type) }}</span>
+                    @if($v->area)
+                        <span class="text-gray-600">📍 {{ $v->area }}</span>
+                    @endif
+                </div>
+                <div class="text-xs text-gray-600">
+                    🏢 {{ $v->businessUnit->nama_bisnis_unit ?? $v->business_unit_id ?? '-' }}
+                    @if($showForeignBadge($v))
+                        <span class="inline-block ml-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium" title="Voucher ini milik Business Unit lain, ditampilkan karena dipakai oleh user dari BU Anda (mis. request yang di-forward)">
+                            🔗 Dipakai user BU Anda
+                        </span>
+                    @endif
+                </div>
+                @if($isSpecialBu ?? false)
+                    <div class="text-xs text-gray-600">💼 Dibebankan ke: {{ $v->inputBusinessUnit->nama_bisnis_unit ?? '-' }}</div>
+                @endif
+                <div class="text-xs">
+                    ⏳ Expired:
+                    @if($v->expired_at)
+                        <span class="{{ $v->is_expired ? 'text-red-600 font-semibold' : 'text-gray-700' }}">{{ $v->expired_at->format('d M Y') }}</span>
+                        @if($v->is_expired)
+                            <span class="text-red-500">⚠️ Kadaluarsa</span>
+                        @endif
+                    @else
+                        <span class="text-gray-400">-</span>
+                    @endif
+                </div>
+                @if($usage)
+                    <div class="text-xs text-gray-700">
+                        👤 {{ $usage['requester_name'] }}
+                        @if($usage['given_at'])
+                            <span class="text-gray-500">&middot; {{ $usage['given_at']->format('d M Y H:i') }}</span>
+                        @endif
+                    </div>
+                @endif
+            </div>
+            @empty
+            <div class="px-4 py-10 text-center text-gray-500">
+                <div class="text-4xl mb-2">🎫</div>
+                <p>Belum ada voucher.</p>
+                @if(request()->anyFilled(['search', 'status', 'type', 'business_unit_id', 'area', 'input_business_unit_id']))
+                    <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
+                @endif
+                <a href="{{ route('drms.vouchers.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Voucher</a>
+            </div>
+            @endforelse
+        </div>
+
         @if($vouchers->hasPages())
-        <div class="px-6 py-3 border-t">
+        <div class="px-4 sm:px-6 py-3 border-t">
             {{ $vouchers->links() }}
         </div>
         @endif

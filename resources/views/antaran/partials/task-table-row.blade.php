@@ -3,7 +3,7 @@
   $sedangDiantar = $item->status === 'Proses Pengiriman';
   $isPdf = $item->foto_barang_url && str_ends_with(strtolower($item->foto_barang_url), '.pdf');
 @endphp
-<tr class="border-b last:border-0 align-top">
+<tr class="border-b last:border-0 align-top"@if ($sedangDiantar) style="background:#eff6ff" @endif>
   <td class="py-2 pr-3">
     @if ($item->foto_barang_url)
       <a href="{{ $item->foto_barang_url }}" target="_blank">
@@ -16,7 +16,7 @@
             </svg>
           </span>
         @else
-          <img src="{{ $item->foto_barang_url }}" alt="Foto barang" class="w-10 h-10 rounded-lg object-cover border">
+          <img src="{{ $item->foto_barang_url }}" alt="Foto barang" class="w-10 h-10 rounded-lg object-cover border" loading="lazy">
         @endif
       </a>
     @endif
@@ -47,27 +47,18 @@
   </td>
   <td class="py-2 pr-3">
     @if (!$sudahDiambil)
-      <form action="{{ route('antaran.antar', $item->no_transaksi) }}" method="POST">
-        @csrf
-        <button class="jne-orange text-white rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">Ambil & mulai tracking</button>
-      </form>
-    @elseif ($sedangDiantar)
       <div class="flex flex-col gap-1.5">
-        <button type="button" onclick="document.getElementById('selesai-tbl-{{ $item->no_transaksi }}').classList.toggle('hidden')"
-          class="border rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">Selesaikan</button>
+        <button type="button" data-aksi="ambil" data-no="{{ $item->no_transaksi }}" onclick="fotoBuka(this)"
+          class="jne-orange text-white rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">Ambil & mulai tracking</button>
         <form action="{{ route('antaran.kembalikan', $item->no_transaksi) }}" method="POST"
           onsubmit="return confirm('Dokumen belum tersedia dari pengirim?')">
           @csrf
           <button class="w-full border border-amber-300 text-amber-700 rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">Dok. belum ada</button>
         </form>
       </div>
+    @elseif ($sedangDiantar)
+      <button type="button" data-aksi="selesai" data-no="{{ $item->no_transaksi }}" onclick="fotoBuka(this)"
+        class="border rounded-lg px-3 py-1.5 text-xs whitespace-nowrap">Selesaikan</button>
     @endif
   </td>
 </tr>
-@if ($sudahDiambil && $sedangDiantar)
-  <tr id="selesai-tbl-{{ $item->no_transaksi }}" class="hidden border-b last:border-0">
-    <td colspan="9" class="pb-3">
-      @include('antaran.partials.form-selesaikan', ['item' => $item])
-    </td>
-  </tr>
-@endif

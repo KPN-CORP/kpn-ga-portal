@@ -110,8 +110,25 @@ class AppAdminController extends Controller
         }
 
         // Jumlah per tab (ikut filter search/tanggal/BU yang aktif), cukup 1 query.
+        // Antrean aktif (Pending L1 & Pending Admin) selalu dihitung total semua.
+        // Tab lain (Disetujui, Selesai, Ditolak, Dibatalkan) default-nya BULAN BERJALAN
+        // (berdasarkan usage_date), kecuali admin mengisi filter Tanggal Dari/Sampai.
+        $queueStatuses = ['pending_l1', 'approved_l1'];
+        $useDefaultMonth = !$request->filled('date_from') && !$request->filled('date_to');
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd = now()->endOfMonth()->toDateString();
+
         $rawCounts = $this->baseQuery($request, $user)
             ->select('status', DB::raw('COUNT(*) as total'))
+            ->when($useDefaultMonth, function ($q) use ($queueStatuses, $monthStart, $monthEnd) {
+                $q->where(function ($w) use ($queueStatuses, $monthStart, $monthEnd) {
+                    $w->whereIn('status', $queueStatuses)
+                      ->orWhere(function ($m) use ($monthStart, $monthEnd) {
+                          $m->whereDate('usage_date', '>=', $monthStart)
+                            ->whereDate('usage_date', '<=', $monthEnd);
+                      });
+                });
+            })
             ->groupBy('status')
             ->pluck('total', 'status');
         $tabCounts = [];
@@ -119,7 +136,13 @@ class AppAdminController extends Controller
             $tabCounts[$key] = (int) collect($tab['statuses'])->sum(fn ($st) => (int) ($rawCounts[$st] ?? 0));
         }
 
+        $isQueueTab = in_array($activeStatus, ['pending_l1', 'pending_admin'], true);
+        $monthScopeLabel = (!$isQueueTab && $useDefaultMonth) ? now()->translatedFormat('F Y') : null;
+
         $requests = $this->baseQuery($request, $user)
+            ->when($monthScopeLabel, function ($q) use ($monthStart, $monthEnd) {
+                $q->whereDate('usage_date', '>=', $monthStart)->whereDate('usage_date', '<=', $monthEnd);
+            })
             ->with([
                 'requester.drmsProfile.businessUnit', 'currentBusinessUnit', 'approverL1', 'admin',
                 'driver', 'vehicle', 'voucher', 'vouchers.inputBusinessUnit', 'mergedInto', 'attachments',
@@ -251,7 +274,7 @@ class AppAdminController extends Controller
         $availableVehicles = $availableVehiclesQuery->orderBy('plate_number')->get();
 
         return view('drms.approval.admin.index', compact(
-            'requests', 'statusTabs', 'activeStatus', 'tabCounts', 'canExport', 'isSuper',
+            'requests', 'statusTabs', 'activeStatus', 'tabCounts', 'canExport', 'isSuper', 'monthScopeLabel',
             'businessUnits', 'availableDrivers', 'availableVehicles',
             'forwardedAwayRequests', 'forwardedResolvedRequests', 'forwardedSummary'
         ));
@@ -295,7 +318,11 @@ class AppAdminController extends Controller
 
         $exportQuery = $this->baseQuery($request, $user)
             ->with(['requester.drmsProfile', 'approverL1', 'admin', 'forwardedBy', 'driver', 'vehicle', 'voucher', 'vouchers'])
-            ->whereIn('status', $statuses);
+            ->whereIn('status', $statuses)
+            ->when(!$request->filled('date_from') && !$request->filled('date_to'), function ($q) {
+                $q->whereDate('usage_date', '>=', now()->startOfMonth()->toDateString())
+                  ->whereDate('usage_date', '<=', now()->endOfMonth()->toDateString());
+            });
 
         // Export ke Excel
         $filename = 'laporan_approval_admin_' . date('Ymd_His') . '.xlsx';

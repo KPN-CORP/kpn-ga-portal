@@ -431,6 +431,43 @@
                                 @endif
                             </div>
                             
+                            <!-- Foto Ambil (oleh kurir) -->
+                            @if($transaksi->gambar_awal)
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-500 mb-1">Foto Ambil (Kurir)</label>
+                                <div class="relative group image-container">
+                                    <span class="image-badge">
+                                        <span class="inline-flex items-center px-2 py-0.5 sm:px-2 sm:py-1 rounded-md text-xs font-semibold bg-orange-500 text-white">
+                                            <i class="fas fa-hand-holding-box mr-1 text-xs"></i> Diambil
+                                        </span>
+                                    </span>
+                                    @if($transaksi->gambar_awal_url)
+                                        <img src="{{ $transaksi->gambar_awal_url }}"
+                                             alt="Foto Ambil Kurir"
+                                             class="w-full h-32 sm:h-48 object-cover rounded-lg border border-gray-300"
+                                             onerror="this.onerror=null; this.src='https://via.placeholder.com/400x300?text=Foto+Tidak+Tersedia';">
+                                        <a href="{{ $transaksi->gambar_awal_url }}"
+                                           target="_blank"
+                                           class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <span class="bg-white px-2 sm:px-4 py-1 sm:py-2 rounded-lg font-medium text-gray-900 shadow-lg text-xs sm:text-sm">
+                                                <i class="fas fa-expand mr-1 sm:mr-2 text-xs"></i> Preview
+                                            </span>
+                                        </a>
+                                    @endif
+                                </div>
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between mt-1 sm:mt-2 gap-1 sm:gap-0">
+                                    <p class="text-xs text-gray-500">Foto barang saat diambil kurir</p>
+                                    @if($transaksi->gambar_awal_url)
+                                        <a href="{{ $transaksi->gambar_awal_url }}"
+                                           target="_blank"
+                                           class="inline-flex items-center text-xs font-medium text-orange-600 hover:text-orange-700">
+                                            <i class="fas fa-external-link-alt mr-1 text-xs"></i> Buka
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+
                             <!-- Foto Barang Akhir -->
                             @if($transaksi->gambar_akhir)
                             <div>

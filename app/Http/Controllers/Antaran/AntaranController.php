@@ -307,6 +307,7 @@ class AntaranController extends Controller
 
         // sama seperti Messenger: URL file dibuat lewat route messenger.file, bukan disimpan di DB
         $trx->foto_barang_url = $this->getFileUrl($trx->foto_barang ?? null, 'foto_barang');
+        $trx->gambar_awal_url = $this->getFileUrl($trx->gambar_awal ?? null, 'gambar_awal');
         $trx->gambar_akhir_url = $this->getFileUrl($trx->gambar_akhir ?? null, 'gambar_akhir');
 
         $titikLokasi = DB::table('tb_lokasi_kurir')

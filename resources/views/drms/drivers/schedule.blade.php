@@ -1,20 +1,20 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
-        <h1 class="text-2xl font-bold">📅 Jadwal Driver</h1>
+        <h1 class="text-xl sm:text-2xl font-bold">📅 Jadwal Driver</h1>
         <span class="text-sm text-gray-500">{{ $monthStart->translatedFormat('F Y') }}</span>
     </div>
 
     {{-- FILTER --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" id="scheduleFilterForm" action="{{ route('drms.drivers.schedule') }}" class="flex flex-wrap gap-3 items-end">
-            <div>
+        <form method="GET" id="scheduleFilterForm" action="{{ route('drms.drivers.schedule') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:items-end">
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
                 @if(auth()->user()->isDrmsSuperAdmin())
-                    <select name="business_unit_id" id="filter_bu" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <select name="business_unit_id" id="filter_bu" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua BU</option>
                         @foreach($businessUnits as $bu)
                             <option value="{{ $bu->id_bisnis_unit }}" {{ request('business_unit_id') == $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -24,14 +24,14 @@
                     </select>
                 @else
                     {{-- Admin biasa: terkunci ke BU sendiri --}}
-                    <select id="filter_bu" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                    <select id="filter_bu" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
                         <option selected>{{ $user->drmsProfile->businessUnit->nama_bisnis_unit ?? '-' }}</option>
                     </select>
                 @endif
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">👤 Driver</label>
-                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-52">
+                <select name="driver_id" id="filter_driver" class="w-full lg:w-52 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Driver</option>
                     @foreach($driverOptions as $opt)
                         <option value="{{ $opt->id }}" data-bu="{{ $opt->business_unit_id }}" {{ (string) ($driverIdFilter ?? '') === (string) $opt->id ? 'selected' : '' }}>
@@ -40,32 +40,32 @@
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">📌 Status</label>
-                <select name="status" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="status" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ ($statusFilter ?? 'all') == 'all' ? 'selected' : '' }}>Semua</option>
                     <option value="scheduled" {{ ($statusFilter ?? '') == 'scheduled' ? 'selected' : '' }}>⏳ Terjadwal</option>
                     <option value="on_trip" {{ ($statusFilter ?? '') == 'on_trip' ? 'selected' : '' }}>🚗 Dalam Perjalanan</option>
                     <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>✅ Selesai</option>
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">🔍 Cari Driver</label>
                 <input type="text" name="search" value="{{ $searchDriver ?? '' }}"
                        placeholder="Ketik nama driver..."
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-48">
+                       class="w-full lg:w-48 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Bulan</label>
                 <input type="month" name="month" value="{{ $month }}"
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                       class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <div class="flex gap-2 sm:col-span-2 lg:col-span-1">
+                <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
                 @if(request()->anyFilled(['month', 'search', 'status', 'business_unit_id', 'driver_id']))
-                    <a href="{{ route('drms.drivers.schedule') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <a href="{{ route('drms.drivers.schedule') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif
@@ -122,6 +122,22 @@
             return $now->between($start, $end);
         })->count();
         $completed = $allRequests->where('status', 'completed')->count();
+
+        // Warna & label satu jadwal (untuk kartu HP). Logikanya sama dengan warna bar di tabel Gantt.
+        $tripMeta = function ($req) use ($now) {
+            $start = \Carbon\Carbon::parse($req->usage_date->format('Y-m-d') . ' ' . $req->start_time);
+            $endDate = ($req->trip_type === 'round_trip' && $req->return_date) ? $req->return_date : $req->usage_date;
+            $end = $req->end_time ? \Carbon\Carbon::parse($endDate->format('Y-m-d') . ' ' . $req->end_time) : null;
+            if ($req->status == 'completed') {
+                return ['bg-gray-100 text-gray-700 border-gray-300', 'Selesai', $now->lessThan($start)];
+            }
+            if ($req->status == 'approved_admin') {
+                if ($now->lessThan($start)) return ['bg-blue-100 text-blue-700 border-blue-300', 'Terjadwal', false];
+                if ($end && $now->between($start, $end)) return ['bg-green-100 text-green-700 border-green-300', 'Dalam Perjalanan', false];
+                return ['bg-yellow-100 text-yellow-700 border-yellow-300', 'Belum diselesaikan', false];
+            }
+            return ['bg-gray-100 text-gray-700 border-gray-300', ucfirst(str_replace('_', ' ', $req->status)), false];
+        };
     @endphp
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500">
@@ -140,7 +156,7 @@
             <p class="text-xs text-gray-500 uppercase">🚗 On Trip</p>
             <p class="text-xl font-bold text-green-600">{{ $onTrip }}</p>
         </div>
-        <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-gray-500">
+        <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 border-gray-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">✅ Selesai</p>
             <p class="text-xl font-bold text-gray-600">{{ $completed }}</p>
         </div>
@@ -148,7 +164,7 @@
 
     {{-- TABEL JADWAL BULANAN (Gantt-style: bar membentang sesuai rentang tanggal request) --}}
     @if($drivers->isNotEmpty())
-        <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div class="hidden md:block bg-white rounded-lg shadow-sm border overflow-hidden">
             {{-- max-h + overflow-y-auto: biar header tanggal "freeze" (nempel di atas) waktu discroll ke bawah,
                  mirip freeze panes di Excel. sticky top-0 pada thead nempel relatif ke div scroll ini. --}}
             <div class="overflow-auto max-h-[75vh]">
@@ -242,6 +258,64 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        {{-- HP: daftar jadwal per driver (Gantt bulanan terlalu lebar untuk layar kecil) --}}
+        <div class="md:hidden space-y-3">
+            @foreach($drivers as $driver)
+                @php
+                    $driverTrips = collect($driverLanes[$driver->id] ?? [])
+                        ->flatten(1)
+                        ->filter(fn ($cell) => ($cell['type'] ?? null) !== 'gap' && isset($cell['request']))
+                        ->map(fn ($cell) => $cell['request'])
+                        ->unique('id')
+                        ->sortBy(fn ($r) => $r->usage_date->format('Y-m-d') . ' ' . $r->start_time)
+                        ->values();
+                @endphp
+                <div class="bg-white rounded-lg shadow-sm border p-4 min-w-0">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <p class="font-semibold text-gray-800">{{ $driver->name }}</p>
+                            <p class="text-xs text-gray-400">{{ $driver->phone ?? '-' }}</p>
+                        </div>
+                        <span class="shrink-0 px-2 py-0.5 rounded-full text-[10px]
+                            @if($driver->status == 'available') bg-green-100 text-green-800
+                            @elseif($driver->status == 'on_trip') bg-yellow-100 text-yellow-800
+                            @else bg-gray-100 text-gray-800 @endif">
+                            {{ ucfirst(str_replace('_', ' ', $driver->status)) }}
+                        </span>
+                    </div>
+
+                    <div class="mt-3 space-y-2">
+                        @forelse($driverTrips as $req)
+                            @php
+                                [$tripColor, $tripLabel, $tooEarly] = $tripMeta($req);
+                                $startTime = \Carbon\Carbon::parse($req->usage_date->format('Y-m-d') . ' ' . $req->start_time)->format('H:i');
+                                $isRound = $req->trip_type === 'round_trip' && $req->return_date;
+                            @endphp
+                            <div class="rounded border px-3 py-2 text-xs break-words {{ $tripColor }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <span class="font-semibold">
+                                        {{ $req->usage_date->format('d M') }}{{ $isRound ? ' - ' . $req->return_date->format('d M') : '' }}
+                                        &middot; {{ $startTime }}{{ $req->end_time ? '-' . \Carbon\Carbon::parse($req->end_time)->format('H:i') : '' }}
+                                        @if($isRound)
+                                            <span class="font-normal">(PP)</span>
+                                        @endif
+                                    </span>
+                                    <span class="shrink-0 font-semibold">{{ $tripLabel }}</span>
+                                </div>
+                                <div class="mt-0.5">📍 {{ $req->destination }}</div>
+                                <div class="text-gray-600">👤 {{ $req->requester->name ?? '-' }}</div>
+                                @if($tooEarly)
+                                    <div class="text-red-600">⚠️ terlalu awal</div>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="text-xs text-gray-400">Tidak ada jadwal pada bulan ini.</p>
+                        @endforelse
+                    </div>
+                </div>
+            @endforeach
         </div>
 
         @if($totalRequests === 0)

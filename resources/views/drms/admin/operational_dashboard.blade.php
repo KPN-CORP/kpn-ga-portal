@@ -1,11 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">📊 Dashboard Operasional</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">📊 Dashboard Operasional</h1>
             <p class="text-sm text-gray-500">
                 Ringkasan biaya, efisiensi, dan aktivitas kendaraan
                 @if($isSuperAdmin ?? false)
@@ -13,13 +13,13 @@
                 @endif
             </p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
                 <a href="{{ route('drms.admin.operational.export', array_merge(request()->query(), ['period' => $period, 'month' => $month, 'year' => $year])) }}" 
-                   class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                   class="flex-1 sm:flex-none justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     Export CSV
                 </a>
-            <a href="{{ route('drms.admin.monitoring.logs') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+            <a href="{{ route('drms.admin.monitoring.logs') }}" class="flex-1 sm:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
                 📋 Log Driver
             </a>
         </div>
@@ -27,11 +27,11 @@
 
     {{-- FILTER: urutan Business Unit → Kendaraan → Driver → Bulan → Tahun --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <form method="GET" id="dashboardFilterForm" action="{{ route('drms.admin.operational.dashboard') }}" class="flex flex-wrap gap-3 items-end">
-            <div>
+        <form method="GET" id="dashboardFilterForm" action="{{ route('drms.admin.operational.dashboard') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:items-end">
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">🏢 Business Unit</label>
                 @if($isSuperAdmin ?? false)
-                    <select name="business_unit_id" id="filter_bu" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <select name="business_unit_id" id="filter_bu" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua BU</option>
                         @foreach($businessUnits as $bu)
                             <option value="{{ $bu->id_bisnis_unit }}" {{ (string) $filterBusinessUnitId === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -41,16 +41,16 @@
                     </select>
                 @else
                     {{-- Admin biasa: terkunci ke BU sendiri (server mengabaikan input lain) --}}
-                    <select id="filter_bu" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                    <select id="filter_bu" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
                         @foreach($businessUnits as $bu)
                             <option selected>{{ $bu->nama_bisnis_unit }}</option>
                         @endforeach
                     </select>
                 @endif
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">🚗 Kendaraan</label>
-                <select name="vehicle_id" id="filter_vehicle" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="vehicle_id" id="filter_vehicle" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Kendaraan</option>
                     @foreach($vehicles as $v)
                         <option value="{{ $v->id }}" data-bu="{{ $v->business_unit_id }}" {{ $filterVehicleId == $v->id ? 'selected' : '' }}>
@@ -59,9 +59,9 @@
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">👤 Driver</label>
-                <select name="driver_id" id="filter_driver" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="driver_id" id="filter_driver" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Semua Driver</option>
                     @foreach($drivers as $d)
                         <option value="{{ $d->id }}" data-bu="{{ $d->business_unit_id }}" {{ $filterDriverId == $d->id ? 'selected' : '' }}>
@@ -70,36 +70,38 @@
                     @endforeach
                 </select>
             </div>
-            <div>
+            <div class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">Periode</label>
-                <select name="period" id="filter_period" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="period" id="filter_period" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="all" {{ ($period ?? 'year') === 'all' ? 'selected' : '' }}>Semua</option>
                     <option value="year" {{ ($period ?? 'year') === 'year' ? 'selected' : '' }}>Tahun</option>
                     <option value="month" {{ ($period ?? 'year') === 'month' ? 'selected' : '' }}>Bulan</option>
                 </select>
             </div>
-            <div id="wrap_month">
+            <div id="wrap_month" class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">Bulan</label>
-                <select name="month" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="month" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     @foreach($months as $key => $label)
                         <option value="{{ $key }}" {{ ($month ?? now()->month) == $key ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
-            <div id="wrap_year">
+            <div id="wrap_year" class="w-full lg:w-auto">
                 <label class="block text-xs font-medium text-gray-600">Tahun</label>
-                <select name="year" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <select name="year" class="w-full lg:w-auto border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                     @foreach($years as $y)
                         <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
                     @endforeach
                 </select>
             </div>
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                Tampilkan
-            </button>
-            <a href="{{ route('drms.admin.operational.dashboard') }}" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition">
-                Reset
-            </a>
+            <div class="flex gap-2 sm:col-span-2 lg:col-span-1">
+                <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    Tampilkan
+                </button>
+                <a href="{{ route('drms.admin.operational.dashboard') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    Reset
+                </a>
+            </div>
         </form>
     </div>
 
@@ -168,33 +170,33 @@
     </script>
 
     {{-- STATISTIK UTAMA --}}
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-blue-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>
-            <p class="text-xl font-bold text-blue-600">Rp {{ number_format($stats['total_operational_cost'] ?? 0, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-xl font-bold break-words text-blue-600">Rp {{ number_format($stats['total_operational_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500 uppercase">BBM/Charge</p>
-            <p class="text-xl font-bold text-yellow-600">Rp {{ number_format($stats['total_fuel_cost'] ?? 0, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-xl font-bold break-words text-yellow-600">Rp {{ number_format($stats['total_fuel_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
             <p class="text-xs text-gray-500 uppercase">Service Rutin</p>
-            <p class="text-xl font-bold text-orange-600">Rp {{ number_format($stats['total_service_cost'] ?? 0, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-xl font-bold break-words text-orange-600">Rp {{ number_format($stats['total_service_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-red-500">
             <p class="text-xs text-gray-500 uppercase">Perbaikan</p>
-            <p class="text-xl font-bold text-red-600">Rp {{ number_format($stats['total_repair_cost'] ?? 0, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-xl font-bold break-words text-red-600">Rp {{ number_format($stats['total_repair_cost'] ?? 0, 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 {{ ($stats['pending_verification'] ?? 0) > 0 ? 'border-red-500' : 'border-green-500' }}">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 {{ ($stats['pending_verification'] ?? 0) > 0 ? 'border-red-500' : 'border-green-500' }}">
             <p class="text-xs text-gray-500 uppercase">Menunggu Verifikasi</p>
-            <p class="text-xl font-bold {{ ($stats['pending_verification'] ?? 0) > 0 ? 'text-red-600' : 'text-green-600' }}">
+            <p class="text-lg md:text-xl font-bold break-words {{ ($stats['pending_verification'] ?? 0) > 0 ? 'text-red-600' : 'text-green-600' }}">
                 {{ $stats['pending_verification'] ?? 0 }}
             </p>
         </div>
     </div>
 
     {{-- STATISTIK TAMBAHAN --}}
-    <div class="grid grid-cols-2 md:grid-cols-2 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border">
             <p class="text-xs text-gray-500 uppercase">Total Perjalanan (Terverifikasi)</p>
             <p class="text-xl font-bold text-purple-600">{{ $stats['total_trips'] ?? 0 }}</p>
@@ -264,7 +266,7 @@
     <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <h3 class="font-semibold text-gray-700 mb-3">📋 Rincian per Kendaraan ({{ $periodLabel }})</h3>
         <p class="text-xs text-gray-400 mb-2">Kolom Jarak &amp; Liter/kWh dihitung dari Log Pengisian BBM/EV Charging (selisih odometer antar pengisian), sama seperti di <a href="{{ route('drms.fuel-logs.analytics') }}" class="underline">Analisis Konsumsi</a>.</p>
-        <div class="overflow-x-auto">
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full text-sm">
                 <thead class="bg-gray-50">
                     <tr>
@@ -301,6 +303,38 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- HP: kartu per kendaraan --}}
+        <div class="md:hidden space-y-3">
+            @foreach($vehicleStats as $v)
+            <div class="border rounded-lg p-3 text-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-semibold">{{ $v['plate_number'] }}</span>
+                    <span class="font-bold text-blue-600">Rp {{ number_format($v['total_cost'], 0, ',', '.') }}</span>
+                </div>
+                <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                    <dt>BBM/Charge</dt><dd class="text-right">{{ number_format($v['fuel_cost'], 0, ',', '.') }}</dd>
+                    <dt>Service Rutin</dt><dd class="text-right">{{ number_format($v['service_cost'], 0, ',', '.') }}</dd>
+                    <dt>Perbaikan</dt><dd class="text-right">{{ number_format($v['repair_cost'] ?? 0, 0, ',', '.') }}</dd>
+                    <dt>Jarak</dt><dd class="text-right">{{ number_format($v['distance'], 0, ',', '.') }} km</dd>
+                    <dt>Liter/kWh</dt><dd class="text-right">{{ number_format($v['fuel_liters'], 2, ',', '.') }}</dd>
+                </dl>
+            </div>
+            @endforeach
+            <div class="border-2 border-gray-300 bg-gray-100 rounded-lg p-3 text-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-semibold">TOTAL</span>
+                    <span class="font-bold text-blue-600">Rp {{ number_format($totals['total_operational_cost'] ?? 0, 0, ',', '.') }}</span>
+                </div>
+                <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+                    <dt>BBM/Charge</dt><dd class="text-right">{{ number_format($totals['total_fuel_cost'] ?? 0, 0, ',', '.') }}</dd>
+                    <dt>Service Rutin</dt><dd class="text-right">{{ number_format($totals['total_service_cost'] ?? 0, 0, ',', '.') }}</dd>
+                    <dt>Perbaikan</dt><dd class="text-right">{{ number_format($totals['total_repair_cost'] ?? 0, 0, ',', '.') }}</dd>
+                    <dt>Jarak</dt><dd class="text-right">{{ number_format($totals['total_distance'] ?? 0, 0, ',', '.') }} km</dd>
+                    <dt>Liter/kWh</dt><dd class="text-right">{{ number_format($totals['total_fuel_liters'] ?? 0, 2, ',', '.') }}</dd>
+                </dl>
+            </div>
+        </div>
     </div>
     @endif
 
@@ -317,11 +351,11 @@
 
     {{-- TABEL LOG TERBARU --}}
     <div class="bg-white p-4 rounded-lg shadow-sm border">
-        <div class="flex justify-between items-center mb-3">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
             <h3 class="font-semibold text-gray-700">📋 Log Terbaru <span class="text-xs font-normal text-gray-400">(5 log terakhir, tidak terpengaruh filter periode)</span></h3>
             <a href="{{ route('drms.admin.monitoring.logs') }}" class="text-blue-600 hover:underline text-sm">Lihat semua →</a>
         </div>
-        <div class="overflow-x-auto">
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full text-sm">
                 <thead class="bg-gray-50">
                     <tr>
@@ -358,6 +392,33 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+
+        {{-- HP: kartu per log --}}
+        <div class="md:hidden divide-y">
+            @forelse($recentLogs ?? [] as $log)
+            <div class="py-3 space-y-1 text-sm break-words min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <span class="font-medium">{{ $log->request->request_no ?? '-' }}</span>
+                    @if($log->is_verified)
+                        <span class="shrink-0 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">✅ Diverifikasi</span>
+                    @elseif($log->is_submitted)
+                        <span class="shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs">⏳ Pending</span>
+                    @elseif($log->needsRevision())
+                        <span class="shrink-0 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs">🔄 Revisi</span>
+                    @else
+                        <span class="shrink-0 px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs">📝 Draft</span>
+                    @endif
+                </div>
+                <div class="text-xs text-gray-600">👤 {{ $log->request->driver->name ?? '-' }}</div>
+                <div class="flex items-center justify-between text-xs text-gray-600">
+                    <span>📏 {{ $log->distance ?? '-' }} km</span>
+                    <span>{{ $log->verified_at ? $log->verified_at->format('d M Y') : '-' }}</span>
+                </div>
+            </div>
+            @empty
+            <p class="py-4 text-center text-gray-400 text-sm">Belum ada log</p>
+            @endforelse
         </div>
     </div>
 </div>

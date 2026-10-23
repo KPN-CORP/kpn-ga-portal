@@ -1,11 +1,11 @@
 @extends('layouts.app_car_sidebar')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
     {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
-        <h1 class="text-2xl font-bold">🔧 Perbaikan / Kerusakan</h1>
-        <a href="{{ route('drms.repairs.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+        <h1 class="text-xl sm:text-2xl font-bold">🔧 Perbaikan / Kerusakan</h1>
+        <a href="{{ route('drms.repairs.create') }}" class="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
             <span>+</span> Tambah Laporan
         </a>
     </div>
@@ -100,33 +100,43 @@
         $progress = $stats['progress'];
         $done = $stats['done'];
         $totalCost = $stats['total_cost'];
+
+        // Warna badge status (dipakai tabel desktop dan kartu HP)
+        $statusClass = function ($status) {
+            return match ($status) {
+                'open'     => 'bg-yellow-100 text-yellow-800',
+                'progress' => 'bg-blue-100 text-blue-800',
+                'rejected' => 'bg-red-100 text-red-800',
+                default    => 'bg-green-100 text-green-800',
+            };
+        };
     @endphp
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-blue-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">Total Laporan</p>
-            <p class="text-2xl font-bold">{{ $total }}</p>
+            <p class="text-xl md:text-2xl font-bold">{{ $total }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500 uppercase">🟡 Open</p>
-            <p class="text-2xl font-bold text-yellow-600">{{ $open }}</p>
+            <p class="text-xl md:text-2xl font-bold text-yellow-600">{{ $open }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">🔵 Progress</p>
-            <p class="text-2xl font-bold text-blue-600">{{ $progress }}</p>
+            <p class="text-xl md:text-2xl font-bold text-blue-600">{{ $progress }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-green-500">
             <p class="text-xs text-gray-500 uppercase">✅ Done</p>
-            <p class="text-2xl font-bold text-green-600">{{ $done }}</p>
+            <p class="text-xl md:text-2xl font-bold text-green-600">{{ $done }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
+        <div class="bg-white p-3 md:p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>
-            <p class="text-2xl font-bold text-purple-600">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
+            <p class="text-lg md:text-2xl font-bold text-purple-600 break-words">Rp {{ number_format($totalCost, 0, ',', '.') }}</p>
         </div>
     </div>
 
-    {{-- TABEL --}}
     <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div class="overflow-x-auto">
+        {{-- DESKTOP / TABLET: TABEL --}}
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -148,11 +158,7 @@
                         <td class="px-6 py-4">{{ $repair->report_date->format('d M Y') }}</td>
                         <td class="px-6 py-4">{{ Str::limit($repair->complaint, 50) }}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-xs 
-                                @if($repair->status == 'open') bg-yellow-100 text-yellow-800
-                                @elseif($repair->status == 'progress') bg-blue-100 text-blue-800
-                                @elseif($repair->status == 'rejected') bg-red-100 text-red-800
-                                @else bg-green-100 text-green-800 @endif">
+                            <span class="px-2 py-1 rounded-full text-xs {{ $statusClass($repair->status) }}">
                                 {{ ucfirst($repair->status) }}
                             </span>
                         </td>
@@ -181,8 +187,44 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- HP: KARTU PER LAPORAN (tanpa geser samping) --}}
+        <div class="md:hidden divide-y divide-gray-200">
+            @forelse($repairs as $repair)
+            <div class="p-4 space-y-2 break-words min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="font-semibold text-gray-800">{{ $repair->vehicle->plate_number }}</p>
+                        <p class="text-xs text-gray-400">{{ $repair->vehicle->type }}</p>
+                    </div>
+                    <span class="shrink-0 px-2 py-1 rounded-full text-xs {{ $statusClass($repair->status) }}">
+                        {{ ucfirst($repair->status) }}
+                    </span>
+                </div>
+                <div class="text-sm text-gray-700">{{ Str::limit($repair->complaint, 120) }}</div>
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-gray-600">
+                    <span>📅 {{ $repair->report_date->format('d M Y') }}</span>
+                    <span class="font-semibold text-red-600 text-sm">Rp {{ number_format($repair->total_cost, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <a href="{{ route('drms.repairs.show', $repair->id) }}" class="flex-1 text-center bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded text-xs font-semibold">Detail</a>
+                    <a href="{{ route('drms.repairs.edit', $repair->id) }}" class="flex-1 text-center bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-xs font-semibold">Edit</a>
+                </div>
+            </div>
+            @empty
+            <div class="px-4 py-10 text-center text-gray-500">
+                <div class="text-4xl mb-2">🔧</div>
+                <p>Belum ada laporan perbaikan.</p>
+                @if(request()->anyFilled(['search', 'plate_brand', 'vehicle_id', 'status', 'date_from', 'date_to']))
+                    <p class="text-sm mt-1">Coba ubah filter pencarian.</p>
+                @endif
+                <a href="{{ route('drms.repairs.create') }}" class="mt-2 inline-block text-blue-600 hover:underline">+ Tambah Laporan</a>
+            </div>
+            @endforelse
+        </div>
+
         @if($repairs->hasPages())
-        <div class="px-6 py-3 border-t">
+        <div class="px-4 sm:px-6 py-3 border-t">
             {{ $repairs->links() }}
         </div>
         @endif

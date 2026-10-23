@@ -124,7 +124,7 @@ class MessengerController extends Controller
      ===================================================== */
     public function getFile($type, $filename)
     {
-        if (!in_array($type, ['foto_barang', 'gambar_akhir'])) {
+        if (!in_array($type, ['foto_barang', 'gambar_awal', 'gambar_akhir'])) {
             abort(404, 'Tipe file tidak valid');
         }
         
@@ -419,6 +419,7 @@ class MessengerController extends Controller
         }
 
         $transaksi->foto_barang_url = $this->getFileUrl($transaksi->foto_barang, 'foto_barang');
+        $transaksi->gambar_awal_url = $this->getFileUrl($transaksi->gambar_awal, 'gambar_awal');
         $transaksi->gambar_akhir_url = $this->getFileUrl($transaksi->gambar_akhir, 'gambar_akhir');
 
         return view('messenger.detail', compact(
@@ -466,6 +467,7 @@ class MessengerController extends Controller
         }
 
         $transaksi->foto_barang_url = $this->getFileUrl($transaksi->foto_barang, 'foto_barang');
+        $transaksi->gambar_awal_url = $this->getFileUrl($transaksi->gambar_awal, 'gambar_awal');
         $transaksi->gambar_akhir_url = $this->getFileUrl($transaksi->gambar_akhir, 'gambar_akhir');
 
         $pdf = Pdf::loadView('messenger.print', compact('transaksi'))->setPaper('a4', 'portrait');

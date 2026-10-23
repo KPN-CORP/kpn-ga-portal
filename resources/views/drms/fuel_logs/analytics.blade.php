@@ -5,10 +5,11 @@
 @endphp
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto max-w-full px-4 py-6">
+    {{-- HEADER --}}
     <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
-        <h1 class="text-2xl font-bold">📊 Analisis Konsumsi</h1>
-        <a href="{{ route('drms.fuel-logs.index') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+        <h1 class="text-xl md:text-2xl font-bold">📊 Analisis Konsumsi</h1>
+        <a href="{{ route('drms.fuel-logs.index') }}" class="w-full sm:w-auto bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition text-center">
             ⛽ Kembali ke Log Pengisian
         </a>
     </div>
@@ -33,18 +34,17 @@
         $thisMonthLabel = $bulanIndo[$today->month] . ' ' . $today->year;
         $lastMonthLabel = $bulanIndo[$lastMonth->month] . ' ' . $lastMonth->year;
 
-        // BARU: pisahkan total liter (BBM) dan total kWh (listrik) dari $result,
-        // supaya kartu ringkasan tidak menjumlahkan 2 satuan yang beda jadi 1 angka.
-        // Dihitung dari fuel_unit_label per kendaraan yang sudah ada di $result.
+        // Pisahkan total liter (BBM) dan total kWh (listrik) supaya tidak dijumlah campur 1 angka.
         $totalLiterBbm   = collect($result)->where('fuel_unit_label', 'Liter')->sum('total_liters');
         $totalKwhListrik = collect($result)->where('fuel_unit_label', 'kWh')->sum('total_liters');
     @endphp
-    <div class="bg-white p-4 rounded-lg shadow-sm border mb-4">
-        <form method="GET" action="{{ route('drms.fuel-logs.analytics') }}" class="flex flex-wrap gap-3 items-end">
+    <div class="bg-white rounded-lg shadow p-4 mb-6 border">
+        <form method="GET" action="{{ route('drms.fuel-logs.analytics') }}"
+              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">🏢 Business Unit</label>
                 @if(auth()->user()->isDrmsSuperAdmin())
-                    <select name="business_unit_id" id="bu_filter" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <select name="business_unit_id" id="bu_filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">Semua BU</option>
                         @foreach($businessUnits as $bu)
                             <option value="{{ $bu->id_bisnis_unit }}" {{ (string) $filterBusinessUnitId === (string) $bu->id_bisnis_unit ? 'selected' : '' }}>
@@ -54,7 +54,7 @@
                     </select>
                 @else
                     {{-- User biasa: terkunci ke BU sendiri --}}
-                    <select id="bu_filter" class="border rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
+                    <select id="bu_filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600" disabled>
                         @foreach($businessUnits as $bu)
                             <option selected>{{ $bu->nama_bisnis_unit }}</option>
                         @endforeach
@@ -70,27 +70,27 @@
                 <input type="text" id="vehicle_search" autocomplete="off"
                        placeholder="Ketik plat nomor / tipe..."
                        value="{{ $selectedVehicleLabel }}"
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 w-56">
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                 <input type="hidden" name="vehicle_id" id="vehicle_id" value="{{ request('vehicle_id') }}">
                 <div id="vehicle_suggestions"
-                     class="hidden absolute z-20 mt-1 w-56 bg-white border rounded shadow-lg max-h-60 overflow-y-auto"></div>
+                     class="hidden absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Dari Tanggal</label>
                 <input type="date" name="date_from" value="{{ request('date_from') }}"
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">📅 Sampai Tanggal</label>
                 <input type="date" name="date_to" value="{{ request('date_to') }}"
-                       class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <div class="flex gap-2 items-end md:col-span-2 lg:col-span-1">
+                <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
                 @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'date_from', 'date_to']))
-                    <a href="{{ route('drms.fuel-logs.analytics') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <a href="{{ route('drms.fuel-logs.analytics') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif
@@ -99,7 +99,7 @@
 
         {{-- Quick filter periode --}}
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-            <span class="text-xs text-gray-500 self-center mr-1">Periode cepat:</span>
+            <span class="w-full sm:w-auto text-xs text-gray-500 sm:self-center sm:mr-1">Periode cepat:</span>
             <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id'), 'date_from' => $thisMonthFrom, 'date_to' => $thisMonthTo])) }}"
                class="px-3 py-1.5 rounded-full text-xs font-medium {{ $isThisMonth ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                 Bulan Ini ({{ $thisMonthLabel }})
@@ -117,41 +117,40 @@
         </div>
     </div>
 
-    {{-- RINGKASAN TOTAL (sesuai filter aktif) --}}
-    {{-- BARU: "Total Liter/kWh" dipecah jadi 2 kartu terpisah — BBM (Liter) dan Listrik (kWh) — supaya tidak dijumlah campur 1 angka. --}}
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+    {{-- RINGKASAN TOTAL (sesuai filter aktif): HP 2 kolom, tablet 3 kolom, desktop 5 kolom --}}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500 uppercase">Jumlah Pengisian</p>
-            <p class="text-2xl font-bold">{{ $summary['count'] }}</p>
+            <p class="text-xl md:text-2xl font-bold">{{ $summary['count'] }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-green-500">
             <p class="text-xs text-gray-500 uppercase">Total Liter (BBM)</p>
-            <p class="text-2xl font-bold text-green-600">{{ number_format($totalLiterBbm, 2, ',', '.') }}</p>
+            <p class="text-xl md:text-2xl font-bold text-green-600 break-words">{{ number_format($totalLiterBbm, 2, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-teal-500">
             <p class="text-xs text-gray-500 uppercase">Total kWh (Listrik)</p>
-            <p class="text-2xl font-bold text-teal-600">{{ number_format($totalKwhListrik, 2, ',', '.') }}</p>
+            <p class="text-xl md:text-2xl font-bold text-teal-600 break-words">{{ number_format($totalKwhListrik, 2, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-purple-500">
             <p class="text-xs text-gray-500 uppercase">Total Biaya</p>
-            <p class="text-2xl font-bold text-purple-600">Rp {{ number_format($summary['total_cost'], 0, ',', '.') }}</p>
+            <p class="text-xl md:text-2xl font-bold text-purple-600 break-words">Rp {{ number_format($summary['total_cost'], 0, ',', '.') }}</p>
         </div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
+        <div class="bg-white rounded-lg shadow p-3 md:p-4 border-l-4 border-orange-500 col-span-2 md:col-span-1">
             <p class="text-xs text-gray-500 uppercase">Total Jarak (km)</p>
-            <p class="text-2xl font-bold text-orange-600">{{ number_format($summary['total_distance'], 0, ',', '.') }}</p>
+            <p class="text-xl md:text-2xl font-bold text-orange-600 break-words">{{ number_format($summary['total_distance'], 0, ',', '.') }}</p>
         </div>
     </div>
 
     {{-- RINGKASAN WARNING EFISIENSI --}}
     @if(($summary['warning_yellow_count'] ?? 0) > 0 || ($summary['warning_red_count'] ?? 0) > 0)
-    <div class="flex flex-wrap gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-6">
         @if($summary['warning_red_count'] > 0)
-        <div class="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+        <div class="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
             🔴 <span><strong>{{ $summary['warning_red_count'] }}</strong> kendaraan boros signifikan (&gt;10% di bawah standar)</span>
         </div>
         @endif
         @if($summary['warning_yellow_count'] > 0)
-        <div class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded-lg text-sm">
+        <div class="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded-lg text-sm">
             🟡 <span><strong>{{ $summary['warning_yellow_count'] }}</strong> kendaraan mulai boros (&gt;5% di bawah standar)</span>
         </div>
         @endif
@@ -160,10 +159,64 @@
 
     {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) + ESTIMASI KE DEPAN --}}
     @if($vehicleDetail)
-    <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
+    <div class="bg-white p-4 rounded-lg shadow border mb-6">
         <h3 class="font-semibold text-gray-700 mb-1">🔍 Riwayat Pengisian — {{ $vehicleDetail['vehicle']->plate_number }}</h3>
         <p class="text-xs text-gray-400 mb-3">Tidak dirangkum jadi rata-rata saja — tiap baris membandingkan pengisian sebelumnya dengan pengisian sekarang.</p>
-        <div class="overflow-x-auto">
+
+        {{-- HP & tablet: tampilan kartu --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
+            @foreach($vehicleDetail['rows'] as $row)
+            @php
+                $cardBg = match($row['warning_level'] ?? null) {
+                    'red' => 'bg-red-50 border-red-200',
+                    'yellow' => 'bg-yellow-50 border-yellow-200',
+                    default => 'bg-white',
+                };
+            @endphp
+            <div class="border rounded-lg p-3 {{ $cardBg }}">
+                <div class="flex justify-between items-start gap-2 mb-2">
+                    <div>
+                        <div class="font-medium text-sm">{{ $row['current_date']->format('d M Y') }}</div>
+                        <div class="text-xs text-gray-400">odo {{ number_format($row['current_odometer'], 0, ',', '.') }} km</div>
+                    </div>
+                    <div class="shrink-0">
+                        @if($row['deviation_percent'] !== null)
+                            @if($row['warning_level'] === 'red')
+                                <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 {{ $row['deviation_percent'] }}%</span>
+                            @elseif($row['warning_level'] === 'yellow')
+                                <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">🟡 {{ $row['deviation_percent'] }}%</span>
+                            @else
+                                <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢 {{ $row['deviation_percent'] }}%</span>
+                            @endif
+                        @else
+                            <span class="text-gray-400">-</span>
+                        @endif
+                    </div>
+                </div>
+                <div class="text-xs text-gray-500 mb-2">
+                    Sebelumnya:
+                    @if($row['previous_date'])
+                        {{ $row['previous_date']->format('d M Y') }} (odo {{ number_format($row['previous_odometer'], 0, ',', '.') }} km)
+                    @else
+                        <span class="italic text-gray-400">Pengisian pertama</span>
+                    @endif
+                </div>
+                <dl class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <dt class="text-xs text-gray-500">Jarak</dt>
+                    <dd class="text-right">{{ $row['distance'] !== null ? number_format($row['distance'], 0, ',', '.') . ' km' : '-' }}</dd>
+                    <dt class="text-xs text-gray-500">{{ $vehicleDetail['fuel_unit_label'] }} Diisi</dt>
+                    <dd class="text-right">{{ number_format($row['liters'], 2, ',', '.') }}</dd>
+                    <dt class="text-xs text-gray-500">Biaya</dt>
+                    <dd class="text-right">Rp {{ number_format($row['cost'], 0, ',', '.') }}</dd>
+                    <dt class="text-xs text-gray-500">Parameter</dt>
+                    <dd class="text-right">{{ $row['efficiency'] !== null ? number_format($row['efficiency'], 2) . ' ' . $vehicleDetail['unit_label'] : '-' }}</dd>
+                </dl>
+            </div>
+            @endforeach
+        </div>
+
+        {{-- Desktop: tampilan tabel --}}
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
@@ -206,8 +259,8 @@
                             @endif
                         </td>
                         <td class="px-4 py-2">{{ number_format($row['liters'], 2, ',', '.') }}</td>
-                        <td class="px-4 py-2">Rp {{ number_format($row['cost'], 0, ',', '.') }}</td>
-                        <td class="px-4 py-2">
+                        <td class="px-4 py-2 whitespace-nowrap">Rp {{ number_format($row['cost'], 0, ',', '.') }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap">
                             @if($row['efficiency'] !== null)
                                 {{ number_format($row['efficiency'], 2) }} {{ $vehicleDetail['unit_label'] }}
                             @else
@@ -236,7 +289,7 @@
         {{-- ESTIMASI KE DEPAN --}}
         @if($vehicleDetail['estimate'])
             @php $est = $vehicleDetail['estimate']; @endphp
-            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
                 <h4 class="font-semibold text-blue-800 mb-2">🔮 Estimasi ke Depan (dari pengisian {{ $est['based_on_date']->format('d M Y') }})</h4>
                 <p class="text-sm text-blue-900 mb-2">
                     Isi terakhir <strong>{{ number_format($est['based_on_liters'], 2, ',', '.') }} {{ $vehicleDetail['fuel_unit_label'] }}</strong>,
@@ -261,11 +314,106 @@
         @endif
     </div>
     @else
-    <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; estimasi tiap kendaraan sudah langsung tampil di tabel di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
+    <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; estimasi tiap kendaraan sudah langsung tampil di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
     @endif
 
-    {{-- TABEL PER KENDARAAN — sudah termasuk info "isi terakhir" & "estimasi berikutnya" langsung, tanpa perlu klik --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    {{-- PER KENDARAAN — HP & tablet: kartu --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
+        @forelse($result as $data)
+        @php
+            $cardBg = match($data['warning_level'] ?? null) {
+                'red' => 'bg-red-50 border-red-200',
+                'yellow' => 'bg-yellow-50 border-yellow-200',
+                default => 'bg-white',
+            };
+            $est = $data['estimate'] ?? null;
+        @endphp
+        <div class="border rounded-lg shadow-sm p-4 {{ $cardBg }}">
+            <div class="flex justify-between items-start gap-2 mb-3">
+                <div>
+                    <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => $data['vehicle_id'], 'date_from' => request('date_from'), 'date_to' => request('date_to')])) }}"
+                       class="text-blue-600 hover:underline font-semibold">
+                        {{ $data['plate_number'] }}
+                    </a>
+                    <div class="text-xs text-gray-400">{{ $data['fuel_type'] ?? 'Bensin' }}</div>
+                </div>
+                <div class="text-right shrink-0">
+                    @if($data['actual_efficiency'] !== null)
+                        <div class="text-sm">{{ number_format($data['actual_efficiency'], 2) }} {{ $data['unit_label'] }}</div>
+                        <div class="text-xs text-gray-400">standar {{ $data['efficiency_standard'] }}</div>
+                        @if($data['warning_level'] === 'red')
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 -{{ $data['deviation_percent'] }}%</span>
+                        @elseif($data['warning_level'] === 'yellow')
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">🟡 -{{ $data['deviation_percent'] }}%</span>
+                        @else
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢</span>
+                        @endif
+                    @else
+                        <span class="text-gray-400 text-xs">Efisiensi: -</span>
+                    @endif
+                </div>
+            </div>
+
+            <div class="text-sm space-y-2 border-t pt-3">
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Isi Terakhir</div>
+                    @if($data['last_fill_date'])
+                        <div>{{ $data['last_fill_date']->format('d M Y') }}</div>
+                        @if($data['last_interval_distance'] !== null && $data['last_interval_efficiency'] !== null)
+                            <div class="text-xs text-gray-400">
+                                {{ number_format($data['last_interval_distance'], 0, ',', '.') }} km
+                                · {{ number_format($data['last_interval_efficiency'], 2) }} {{ $data['unit_label'] }}
+                            </div>
+                        @else
+                            <div class="text-xs text-gray-400 italic">pengisian pertama</div>
+                        @endif
+                    @else
+                        <span class="text-gray-400">-</span>
+                    @endif
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 uppercase">Estimasi Isi Berikutnya</div>
+                    @if($est)
+                        @if($est['estimated_next_fill_date'])
+                            <div>~{{ $est['estimated_next_fill_date']->format('d M Y') }}</div>
+                        @else
+                            <div class="text-gray-400 italic">tanggal blm bisa diprediksi</div>
+                        @endif
+                        <div class="text-xs text-gray-400">
+                            ~{{ number_format($est['estimated_next_liters'], 1, ',', '.') }} {{ $data['fuel_unit_label'] }}
+                            · Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}
+                        </div>
+                        <div class="text-xs text-gray-400">jarak ~{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km lagi</div>
+                    @else
+                        <span class="text-gray-400">-</span>
+                    @endif
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t text-center">
+                <div>
+                    <div class="text-[10px] text-gray-500 uppercase">Total {{ $data['fuel_unit_label'] }}</div>
+                    <div class="text-sm font-semibold">{{ number_format($data['total_liters'], 2, ',', '.') }}</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-500 uppercase">Biaya</div>
+                    <div class="text-sm font-semibold break-words">Rp {{ number_format($data['total_cost'], 0, ',', '.') }}</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-500 uppercase">Jml Isi</div>
+                    <div class="text-sm font-semibold">{{ $data['count'] }}</div>
+                </div>
+            </div>
+        </div>
+        @empty
+        <div class="sm:col-span-2 bg-white rounded-lg shadow-sm p-4 text-center text-gray-500 text-sm">
+            Belum ada data terverifikasi untuk filter ini.
+        </div>
+        @endforelse
+    </div>
+
+    {{-- PER KENDARAAN — Desktop: tabel --}}
+    <div class="hidden md:block bg-white rounded-lg shadow overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
@@ -349,10 +497,10 @@
                             <span class="text-gray-400" title="Minimal 2 pengisian dengan jarak berbeda untuk membuat estimasi">-</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 whitespace-nowrap">
                         {{ number_format($data['total_liters'], 2, ',', '.') }} {{ $data['fuel_unit_label'] }}
                     </td>
-                    <td class="px-6 py-4">Rp {{ number_format($data['total_cost'], 0, ',', '.') }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">Rp {{ number_format($data['total_cost'], 0, ',', '.') }}</td>
                     <td class="px-6 py-4">{{ $data['count'] }}</td>
                 </tr>
                 @empty

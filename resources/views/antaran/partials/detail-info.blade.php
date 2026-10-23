@@ -58,6 +58,13 @@
   </div>
   @endif
 
+  @if ($trx->gambar_awal_url)
+  <div>
+    <p class="text-gray-400 text-xs">Foto ambil (kurir)</p>
+    <a href="{{ $trx->gambar_awal_url }}" target="_blank" class="jne-text underline text-xs">Lihat foto ambil</a>
+  </div>
+  @endif
+
   @if ($trx->gambar_akhir_url)
   <div>
     <p class="text-gray-400 text-xs">Bukti serah terima</p>
