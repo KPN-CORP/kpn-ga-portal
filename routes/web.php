@@ -263,6 +263,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post('approval/admin/{id}/reject', [ApprovalAdminController::class, 'reject'])->name('approval.admin.reject');
             Route::get('approval/admin/cek-stok/{id}', [ApprovalAdminController::class, 'cekStok'])->name('approval.admin.cek-stok');
 
+            // === BARU: Substitusi / Ganti Barang ===
+            Route::get('approval/admin/cari-pengganti/{id}', [ApprovalAdminController::class, 'cariPengganti'])->name('approval.admin.cari-pengganti');
+            Route::post('approval/admin/{id}/substitusi', [ApprovalAdminController::class, 'substitusi'])->name('approval.admin.substitusi');
+
             Route::resource('barang', BarangController::class);
             Route::get('stok', [StokController::class, 'index'])->name('stok.index');
             Route::get('stok/awal', [StokController::class, 'createAwal'])->name('stok.awal');

@@ -546,7 +546,8 @@ class LaporanController extends Controller
     {
         $query = Permintaan::with(
             'pemohon.profil', 'barang', 'areaKerja.bisnisUnit',
-            'approverL1', 'approverAdmin', 'rejector'
+            'approverL1', 'approverAdmin', 'rejector',
+            'substitusi.admin', 'substitusi.barangPengganti'
         );
 
         if (!$f['is_super']) {
@@ -591,7 +592,17 @@ class LaporanController extends Controller
             $query->whereDate('tanggal_permintaan', '<=', $f['tanggal_akhir']);
         }
 
-        $permintaan = $query->orderBy('tanggal_permintaan', 'desc')->get();
+        // Urut berdasarkan No. Permintaan (kode unit, tahun, nomor urut) - nomor dibandingkan sebagai
+        // angka, jadi 99 < 100 (urutan teks biasa akan salah). Nomor di luar format ditaruh di akhir.
+        $permintaan = $query->orderBy('id_permintaan')->get()->sort(function ($a, $b) {
+            $kunci = function ($p) {
+                if (preg_match('/^(.+)-(\d{2})-(\d+)$/', (string) $p->no_tampil, $m)) {
+                    return [0, $m[1], (int) $m[2], (int) $m[3]];
+                }
+                return [1, '', 0, (int) $p->id_permintaan];
+            };
+            return $kunci($a) <=> $kunci($b);
+        })->values();
 
         $rows = [];
         $totalNilai = 0;
@@ -604,7 +615,12 @@ class LaporanController extends Controller
             $unitName = $unit ? explode(' (', $unit)[0] : '-';
             $harga    = (float) ($p->barang->harga ?? 0);
             $jml      = (float) $p->jumlah;
-            $nilai    = $p->status === 'disetujui' ? $jml * $harga : 0;
+            $sub      = $p->substitusi;
+            $hargaPengganti = $sub ? (float) ($sub->barangPengganti->harga ?? 0) : 0;
+            // Jika barang diganti, nilai dihitung dari barang pengganti yang benar-benar keluar
+            $nilai    = $p->status === 'disetujui'
+                ? ($sub ? (float) $sub->jumlah_pengganti * $hargaPengganti : $jml * $harga)
+                : 0;
             $totalNilai += $nilai;
 
             if ($p->status === 'disetujui') {
@@ -635,6 +651,13 @@ class LaporanController extends Controller
                 $p->rejector->name ?? '-',
                 $fmtDt($p->rejected_at),
                 $p->rejection_reason ?: ($p->alasan_tolak ?: '-'),
+                $sub ? $sub->nama_pengganti : '-',
+                $sub ? (float) $sub->jumlah_pengganti : null,
+                $sub ? ($sub->barangPengganti->satuan ?? '-') : '-',
+                $sub ? $hargaPengganti : null,
+                $sub ? $sub->alasan : '-',
+                $sub ? ($sub->admin->name ?? '-') : '-',
+                $sub ? $fmtDt($sub->created_at) : null,
             ];
         }
 
@@ -662,6 +685,13 @@ class LaporanController extends Controller
                 ['label' => 'Ditolak Oleh',      'type' => 'text',     'width' => 22],
                 ['label' => 'Ditolak Pada',      'type' => 'datetime', 'width' => 18],
                 ['label' => 'Alasan Penolakan',  'type' => 'text',     'width' => 34],
+                ['label' => 'Barang Pengganti',  'type' => 'text',     'width' => 34],
+                ['label' => 'Jumlah Pengganti',  'type' => 'qty',      'width' => 14],
+                ['label' => 'Satuan Pengganti',  'type' => 'text',     'width' => 12],
+                ['label' => 'Harga Pengganti (Rp)', 'type' => 'money', 'width' => 18],
+                ['label' => 'Alasan Penggantian','type' => 'text',     'width' => 34],
+                ['label' => 'Diganti Oleh',      'type' => 'text',     'width' => 22],
+                ['label' => 'Tanggal Penggantian','type' => 'datetime','width' => 18],
             ],
             'rows'     => $rows,
             'summary'  => [

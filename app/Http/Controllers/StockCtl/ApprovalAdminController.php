@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\StockCtl\Permintaan;
 use App\Models\StockCtl\Stok;
 use App\Models\StockCtl\Transaksi;
+use App\Models\StockCtl\Barang;
+use App\Models\StockCtl\Substitusi;
 use App\Models\StockCtl\AreaKerja;
 use App\Models\BisnisUnit;
 use App\Notifications\PermintaanDisetujui;
@@ -45,8 +47,16 @@ class ApprovalAdminController extends Controller
             ? ($request->filled('id_bisnis_unit') ? $request->id_bisnis_unit : null)
             : $access['id_bisnis_unit'];
 
+        // Default tanggal: jika admin tidak mengisi Dari/Sampai, riwayat (disetujui/ditolak/dibatalkan)
+        // dibatasi ke BULAN BERJALAN. Permintaan aktif (Pending L1 & Pending Admin) tetap tampil semua.
+        $defaultBulan = !$request->filled('dari') && !$request->filled('sampai');
+        $now          = \Carbon\Carbon::now('Asia/Jakarta');
+        $awalBulan    = $now->copy()->startOfMonth()->toDateString();
+        $akhirBulan   = $now->copy()->endOfMonth()->toDateString();
+        $labelBulan   = $now->copy()->locale('id')->translatedFormat('F Y');
+
         // Filter bersama (scope unit + filter pencarian), dipakai untuk daftar dan hitungan tab
-        $terapkanFilter = function ($q) use ($request, $unitAktif) {
+        $terapkanFilter = function ($q) use ($request, $unitAktif, $defaultBulan, $awalBulan, $akhirBulan) {
             if ($unitAktif) {
                 $q->whereExists(function ($sub) use ($unitAktif) {
                     $sub->select(DB::raw(1))
@@ -79,6 +89,18 @@ class ApprovalAdminController extends Controller
             if ($request->filled('sampai')) {
                 $q->whereDate('stock_ctl_permintaan.tanggal_permintaan', '<=', $request->sampai);
             }
+            if ($defaultBulan) {
+                $q->where(function ($w) use ($awalBulan, $akhirBulan) {
+                    $w->whereIn('stock_ctl_permintaan.status', [
+                            Permintaan::STATUS_PENDING_L1,
+                            Permintaan::STATUS_PENDING_ADMIN,
+                        ])
+                      ->orWhere(function ($r) use ($awalBulan, $akhirBulan) {
+                          $r->whereDate('stock_ctl_permintaan.tanggal_permintaan', '>=', $awalBulan)
+                            ->whereDate('stock_ctl_permintaan.tanggal_permintaan', '<=', $akhirBulan);
+                      });
+                });
+            }
         };
 
         // Hitungan per tab (mengikuti filter yang sedang aktif, kecuali status)
@@ -96,6 +118,7 @@ class ApprovalAdminController extends Controller
                 'approverL1',
                 'approverAdmin',
                 'rejectedBy',
+                'substitusi.admin',
             ])
             ->where('stock_ctl_permintaan.status', $status);
         $terapkanFilter($query);
@@ -122,7 +145,8 @@ class ApprovalAdminController extends Controller
         $pendingCount = (int) ($counts[Permintaan::STATUS_PENDING_ADMIN] ?? 0);
 
         return view('stock-ctl.approval.admin.index', compact(
-            'permintaan', 'pendingCount', 'status', 'statuses', 'counts', 'bisnisUnits', 'areas'
+            'permintaan', 'pendingCount', 'status', 'statuses', 'counts', 'bisnisUnits', 'areas',
+            'defaultBulan', 'labelBulan'
         ));
     }
 
@@ -224,6 +248,204 @@ class ApprovalAdminController extends Controller
             
             return back()->withErrors('Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
+
+
+    /**
+     * Cari barang pengganti (AJAX) - berdasarkan nama / kode / deskripsi (merek ada di nama barang).
+     * Stok yang ditampilkan adalah stok di AREA KERJA permintaan yang sama.
+     */
+    public function cariPengganti(Request $request, $id)
+    {
+        $permintaan = Permintaan::with('barang')->findOrFail($id);
+        $this->authorizeAdmin($permintaan);
+
+        $q    = trim((string) $request->get('q', ''));
+        $area = $permintaan->id_area_kerja;
+
+        $query = Barang::query()
+            ->leftJoin('stock_ctl_stok as s', function ($j) use ($area) {
+                $j->on('s.id_barang', '=', 'stock_ctl_barang.id_barang')
+                  ->where('s.id_area_kerja', '=', $area);
+            })
+            ->where('stock_ctl_barang.id_barang', '!=', $permintaan->id_barang)
+            ->select(
+                'stock_ctl_barang.id_barang',
+                'stock_ctl_barang.kode_barang',
+                'stock_ctl_barang.nama_barang',
+                'stock_ctl_barang.satuan',
+                DB::raw('COALESCE(s.jumlah, 0) as stok')
+            );
+
+        if ($q !== '') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+            $query->where(function ($w) use ($like) {
+                $w->where('stock_ctl_barang.nama_barang', 'like', $like)
+                  ->orWhere('stock_ctl_barang.kode_barang', 'like', $like)
+                  ->orWhere('stock_ctl_barang.deskripsi', 'like', $like);
+            });
+        }
+
+        $items = $query->orderByDesc('stok')->orderBy('stock_ctl_barang.nama_barang')->limit(20)->get();
+
+        $stokAsli = Stok::where('id_barang', $permintaan->id_barang)
+            ->where('id_area_kerja', $area)
+            ->value('jumlah');
+
+        return response()->json([
+            'asli' => [
+                'nama'   => $permintaan->barang->nama_barang ?? '-',
+                'satuan' => $permintaan->barang->satuan ?? '',
+                'jumlah' => (float) $permintaan->jumlah,
+                'stok'   => (float) ($stokAsli ?? 0),
+            ],
+            'items' => $items,
+        ]);
+    }
+
+    /**
+     * Ganti barang + setujui dalam SATU transaksi database.
+     * Hanya boleh jika stok barang asli = 0 (dicek di server, bukan hanya di tampilan).
+     * - Permintaan asli (id_barang, jumlah) tidak diubah.
+     * - Barang asli & pengganti disimpan di stock_ctl_substitusi.
+     * - Stok barang pengganti dikurangi, transaksi keluar dicatat atas barang pengganti.
+     * - Gagal di langkah mana pun => rollback (stok tidak berkurang).
+     * - Tidak perlu persetujuan tambahan dari user.
+     */
+    public function substitusi(Request $request, $id)
+    {
+        $request->validate([
+            'id_barang_pengganti' => 'required|integer|exists:stock_ctl_barang,id_barang',
+            'jumlah_pengganti'    => 'required|numeric|min:0.01',
+            'alasan'              => 'required|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Kunci baris permintaan agar tidak diproses ganda (dua admin / klik dua kali)
+            $permintaan = Permintaan::with('pemohon', 'barang', 'areaKerja')
+                ->lockForUpdate()
+                ->findOrFail($id);
+            $this->authorizeAdmin($permintaan);
+
+            if (Substitusi::where('id_permintaan', $permintaan->id_permintaan)->exists()) {
+                throw new \Exception('Permintaan ini sudah memiliki substitusi.');
+            }
+
+            if ((int) $request->id_barang_pengganti === (int) $permintaan->id_barang) {
+                throw new \Exception('Barang pengganti tidak boleh sama dengan barang yang diminta.');
+            }
+
+            $jumlah = (float) $request->jumlah_pengganti;
+            if ($jumlah > (float) $permintaan->jumlah) {
+                throw new \Exception('Jumlah pengganti tidak boleh melebihi jumlah yang diminta ('
+                    . (float) $permintaan->jumlah . ').');
+            }
+
+            // Ganti Barang hanya boleh jika stok barang asli HABIS (0) di area kerja permintaan
+            $stokAsli = Stok::where('id_barang', $permintaan->id_barang)
+                ->where('id_area_kerja', $permintaan->id_area_kerja)
+                ->lockForUpdate()
+                ->first();
+            if ($stokAsli && (float) $stokAsli->jumlah > 0) {
+                throw new \Exception('Stok barang asli masih tersedia (' . (float) $stokAsli->jumlah
+                    . '). Ganti Barang hanya dapat dilakukan jika stok barang yang diminta habis.');
+            }
+
+            $pengganti = Barang::findOrFail($request->id_barang_pengganti);
+
+            // Validasi + kunci stok barang pengganti di area kerja permintaan
+            $stok = Stok::where('id_barang', $pengganti->id_barang)
+                ->where('id_area_kerja', $permintaan->id_area_kerja)
+                ->lockForUpdate()
+                ->first();
+
+            $tersedia = $stok ? (float) $stok->jumlah : 0;
+            if ($tersedia < $jumlah) {
+                throw new \Exception("Stok {$pengganti->nama_barang} tidak mencukupi. Tersedia: "
+                    . (float) $tersedia . " {$pengganti->satuan}, dibutuhkan: " . (float) $jumlah . " {$pengganti->satuan}");
+            }
+
+            $stok->decrement('jumlah', $jumlah);
+
+            $namaAsli = $permintaan->barang->nama_barang ?? '-';
+            $noTampil = $permintaan->no_tampil;
+
+            $trx = Transaksi::create([
+                'jenis'       => 'keluar',
+                'id_barang'   => $pengganti->id_barang,
+                'jumlah'      => $jumlah,
+                'id_area_asal'=> $permintaan->id_area_kerja,
+                'keterangan'  => "Dari permintaan {$noTampil}. Substitusi: {$namaAsli} diganti {$pengganti->nama_barang}. Alasan: {$request->alasan}",
+                'id_user'     => Auth::id(),
+                'no_ref'      => $noTampil,
+            ]);
+
+            $sub = Substitusi::create([
+                'id_permintaan'       => $permintaan->id_permintaan,
+                'no_permintaan'       => $noTampil,
+                'id_barang_asli'      => $permintaan->id_barang,
+                'nama_asli'           => $namaAsli,
+                'jumlah_diminta'      => $permintaan->jumlah,
+                'id_barang_pengganti' => $pengganti->id_barang,
+                'nama_pengganti'      => $pengganti->nama_barang,
+                'jumlah_pengganti'    => $jumlah,
+                'alasan'              => $request->alasan,
+                'id_admin'            => Auth::id(),
+                'id_transaksi'        => $trx->id_transaksi ?? null,
+                'created_at'          => now(),
+            ]);
+
+            // id_barang & jumlah permintaan sengaja TIDAK diubah
+            $permintaan->update([
+                'status'            => Permintaan::STATUS_APPROVED,
+                'approved_admin_by' => Auth::id(),
+                'approved_admin_at' => now(),
+                'catatan_admin'     => "Barang diganti: {$namaAsli} -> {$pengganti->nama_barang}. {$request->alasan}",
+            ]);
+
+            // Audit log
+            Log::info('AUDIT substitusi barang', [
+                'id_substitusi' => $sub->id_substitusi,
+                'permintaan'    => $noTampil,
+                'barang_asli'   => $namaAsli,
+                'jumlah_diminta'=> (float) $permintaan->jumlah,
+                'pengganti'     => $pengganti->nama_barang,
+                'jumlah_pengganti' => $jumlah,
+                'alasan'        => $request->alasan,
+                'admin'         => Auth::user()->name ?? Auth::id(),
+                'waktu'         => now()->toDateTimeString(),
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('ApprovalAdmin substitusi gagal', ['error' => $e->getMessage(), 'id' => $id]);
+
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
+            return back()->withErrors('Terjadi kesalahan: ' . $e->getMessage());
+        }
+
+        // Notifikasi setelah commit; kegagalan notifikasi tidak membatalkan substitusi
+        try {
+            if (method_exists($permintaan->pemohon, 'notify')) {
+                $permintaan->pemohon->notify(new PermintaanDisetujui(
+                    $permintaan,
+                    "Barang diganti menjadi {$pengganti->nama_barang}. Alasan: {$request->alasan}",
+                    $jumlah
+                ));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Notifikasi substitusi gagal', ['error' => $e->getMessage()]);
+        }
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Barang diganti dan permintaan disetujui.']);
+        }
+        return redirect()->route('stock-ctl.approval.admin.index', ['status' => 'pending_admin'])
+            ->with('success', "Permintaan {$noTampil} disetujui dengan barang pengganti {$pengganti->nama_barang}.");
     }
 
     public function reject(Request $request, $id)

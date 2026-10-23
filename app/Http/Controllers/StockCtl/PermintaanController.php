@@ -33,7 +33,7 @@ class PermintaanController extends Controller
             )
             ->leftJoin('users as l1', 'l1.id', '=', 'stock_ctl_permintaan.approved_l1_by')
             ->leftJoin('users as admin', 'admin.id', '=', 'stock_ctl_permintaan.approved_admin_by')
-            ->with('barang', 'pemohon.profil');
+            ->with('barang', 'pemohon.profil', 'substitusi');
 
         // Menu Permintaan = permintaan MILIK SENDIRI saja (semua role, termasuk admin & superadmin).
         // Untuk melihat permintaan orang lain, admin memakai menu Approval Admin.

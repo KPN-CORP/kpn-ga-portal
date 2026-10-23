@@ -160,6 +160,15 @@ class Permintaan extends Model
     {
         return $this->belongsTo(User::class, 'approved_admin_by');
     }
+    /**
+     * Substitusi barang (jika admin mengganti barang). Satu permintaan maksimal satu substitusi.
+     * Permintaan asli (id_barang, jumlah) TIDAK diubah; barang pengganti disimpan di tabel ini.
+     */
+    public function substitusi()
+    {
+        return $this->hasOne(Substitusi::class, 'id_permintaan', 'id_permintaan');
+    }
+
     public function rejectedBy()
     {
         return $this->belongsTo(User::class, 'rejected_by');

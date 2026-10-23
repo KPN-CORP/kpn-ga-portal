@@ -167,12 +167,15 @@
         <div class="hidden md:block bg-white rounded-lg shadow-sm border overflow-hidden">
             {{-- max-h + overflow-y-auto: biar header tanggal "freeze" (nempel di atas) waktu discroll ke bawah,
                  mirip freeze panes di Excel. sticky top-0 pada thead nempel relatif ke div scroll ini. --}}
-            <div class="overflow-auto max-h-[75vh]">
-                <table class="min-w-full border-collapse text-sm table-fixed">
+            <div class="overflow-auto max-h-[75vh] isolate">
+                {{-- Lebar tabel DITETAPKAN (kolom driver 160px + 40px per hari). Tanpa width eksplisit, table-fixed
+                     diabaikan browser (jatuh ke auto-layout) sehingga lebar kolom tanggal jadi tidak rata. --}}
+                <table class="border-collapse text-sm"
+                       style="table-layout: fixed; width: {{ 160 + (count($daysInMonth) * 64) }}px; min-width: 100%;">
                     <colgroup>
                         <col style="width:160px">
                         @foreach($daysInMonth as $day)
-                            <col style="width:40px">
+                            <col style="width:64px">
                         @endforeach
                     </colgroup>
                     <thead class="bg-gray-50 text-xs text-gray-500 uppercase sticky top-0 z-20">
@@ -236,15 +239,26 @@
                                             @endphp
                                             <td colspan="{{ $cell['colspan'] }}" class="border-l border-gray-200 align-top p-0.5">
                                                 <div class="rounded px-1.5 py-1 text-[11px] leading-tight border {{ $statusColor }} h-full"
-                                                     title="{{ $req->destination }} — {{ $req->requester->name ?? '-' }} ({{ $req->usage_date->format('d M') }}{{ $req->trip_type === 'round_trip' && $req->return_date ? ' - ' . $req->return_date->format('d M') : '' }})">
-                                                    <div class="font-semibold truncate">
-                                                        {{ $start->format('H:i') }}{{ $req->end_time ? '-' . \Carbon\Carbon::parse($req->end_time)->format('H:i') : '' }}
+                                                     title="{{ $start->format('H:i') }}{{ $req->end_time ? '-' . \Carbon\Carbon::parse($req->end_time)->format('H:i') : '' }} · {{ $req->destination }} — {{ $req->requester->name ?? '-' }} ({{ $req->usage_date->format('d M') }}{{ $req->trip_type === 'round_trip' && $req->return_date ? ' - ' . $req->return_date->format('d M') : '' }})">
+                                                    @php
+                                                        // Bar sempit (1-2 hari): jam ditumpuk 2 baris & teks boleh membungkus,
+                                                        // supaya jam tetap terbaca. Bar lebar: satu baris + dipotong (truncate).
+                                                        $narrow = ($cell['colspan'] ?? 1) <= 2;
+                                                        $endFmt = $req->end_time ? \Carbon\Carbon::parse($req->end_time)->format('H:i') : null;
+                                                    @endphp
+                                                    <div class="font-semibold {{ $narrow ? '' : 'truncate' }}">
+                                                        @if($narrow && $endFmt)
+                                                            <div>{{ $start->format('H:i') }}</div>
+                                                            <div>–{{ $endFmt }}</div>
+                                                        @else
+                                                            {{ $start->format('H:i') }}{{ $endFmt ? '-' . $endFmt : '' }}
+                                                        @endif
                                                         @if($req->trip_type === 'round_trip' && $req->return_date)
                                                             <span class="font-normal text-gray-500">(PP)</span>
                                                         @endif
                                                     </div>
-                                                    <div class="truncate">{{ $req->destination }}</div>
-                                                    <div class="truncate text-gray-500">{{ $req->requester->name ?? '-' }}</div>
+                                                    <div class="{{ $narrow ? 'break-words' : 'truncate' }}">{{ $req->destination }}</div>
+                                                    <div class="{{ $narrow ? 'break-words' : 'truncate' }} text-gray-500">{{ $req->requester->name ?? '-' }}</div>
                                                     @if($completedTooEarly)
                                                         <div class="text-red-600">⚠️ terlalu awal</div>
                                                     @endif
