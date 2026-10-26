@@ -1,29 +1,29 @@
 <style>
 @verbatim
     #efg {
-      --bg:#F5F7FA;
+      --bg:#EEF2F6;
       --sf:#fff;
-      --ink:#14262B;
-      --mu:#5B6C70;
-      --ln:#D5DCDD;
-      --a1:#0E6B5C;
-      --a2:#C98A00;
-      --a3:#3A5BA0;
-      --a4:#B4412F;
+      --ink:#13263F;
+      --mu:#64748B;
+      --ln:#E2E8F0;
+      --a1:#2A9D8F;
+      --a2:#E9A23B;
+      --a3:#3D5A80;
+      --a4:#D64545;
       --on:#fff;
-      --cf:#FF7A1A;
-      --ct:#2D8CFF;
-      --cx:#FFC400;
-      --c0:#6C4DFF;
-      --c1:#E040FB;
-      --ce:#00BCD4;
-      --cd:#FF4F8B;
-      --cg:#B8763E;
-      --cy:#26A69A;
+      --cf:#1F3A5F;
+      --ct:#2A9D8F;
+      --cx:#E9A23B;
+      --c0:#3D5A80;
+      --c1:#7C93B0;
+      --ce:#1F3A5F;
+      --cd:#3D5A80;
+      --cg:#2A9D8F;
+      --cy:#5B7083;
       --ch:#9CA3AF;
-      --cm:#E11D48;
+      --cm:#D64545;
       --ca:#1F2937;
-      --g:#2C3E50;
+      --g:#13263F;
       --gon:#fff;
       color-scheme:light;
       box-sizing:border-box;
@@ -75,7 +75,7 @@
       gap:10px;
       align-items:end;
       justify-content:space-between;
-      background:linear-gradient(90deg,#2C3E50,#4A6491);
+      background:linear-gradient(90deg,#13263F,#2F5D8A);
       color:var(--gon);
       padding:20px;
       border-radius:15px;
@@ -164,7 +164,7 @@
     }
     #efg .hd .on {
       background:#fff!important;
-      color:#2C3E50!important;
+      color:#13263F!important;
       border-color:#fff!important;
     }
     #efg .ch {
@@ -500,5 +500,32 @@
     #efg { background: transparent; }
     #efg .w0 { padding: 0; max-width: none; }
     #efg dialog::backdrop { background: #0006; }
+    #efg .g2,#efg .gh,#efg .g3 {
+      display:grid;
+      gap:14px;
+    }
+    #efg .g2 {
+      grid-template-columns:minmax(0,2fr) minmax(0,1fr);
+    }
+    #efg .gh {
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    #efg .g3 {
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+    @media(max-width:1100px) {
+      #efg .g3 {
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+    @media(max-width:820px) {
+      #efg .g2, #efg .gh, #efg .g3 {
+        grid-template-columns:minmax(0,1fr);
+      }
+    }
+    #efg .pr {
+      font-weight:500;
+      color:var(--mu);
+    }
 @endverbatim
 </style>

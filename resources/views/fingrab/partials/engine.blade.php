@@ -34,7 +34,7 @@
     }catch(e){
     }
 
-    const FL_ALL=[['b','Bisnis unit'],['c','Perusahaan'],['u','Unit'],['o','Office area'],['t','Tahun'],['m','Bulan'],['v','Layanan'],['g','Grup'],['e','Karyawan']];
+    const FL_ALL=[['b','Bisnis unit'],['c','Perusahaan'],['u','Unit'],['o','Office area'],['t','Tahun'],['m','Bulan'],['v','Tipe'],['g','Service'],['e','Karyawan']];
     /* Filter per halaman: hanya yang berguna untuk isi halaman itu (dashboard memakai semuanya) */
     const FK={ep:['b','c','u','o','t','m','v','e'],mt:['b','c','u','t','m','e']};
     const FL=FL_ALL.filter(([k])=>!FK[PAGE]||FK[PAGE].includes(k));
@@ -48,7 +48,7 @@
     function enrich(){
       RW=X.rows.map(r=>{
         const e=X.em[r[3]],h0=e[0]&&HC.get(e[0]),h1=h0||(e[2]&&HCE.get(e[2]))||null,h=e[8]?{group_company:e[5],unit:e[6],office_area:e[7]}:h1, mt=e[8]?(e[8]=='id'?'Cocok via ID':e[8]=='email'?'Cocok via email':'Tidak ada di HCIS'):h1?(h0?'Cocok via ID':'Cocok via email'):(HC.size?'Tidak ada di HCIS':'HCIS belum dimuat'), ok=mt.startsWith('Cocok'),gc=ok?(h.group_company||'-'):'-',bu=r[10]||buOfPT(CO[r[1]]),gbu=ok?(GCM[gc]||guess(gc)):null;
-        return{d:r[0],c:r[1],g:r[2],e:r[3],v:r[4],a:r[5],h:r[6],y:r[7],k:r[8],x:r[9],en:e[1],id:e[0],bu,gc,un:ok?cu(h.unit):'Belum cocok',of:ok?h.office_area||'-':'Belum cocok',st:mt,mis:!!gbu&&gbu!='KPN Corporation'&&gbu!=bu}
+        return{d:r[0],c:r[1],g:r[2],e:r[3],v:r[4],a:r[5],h:r[6],y:r[7],k:r[8],x:r[9],en:e[9]||e[1],eg:e[1],id:e[0],bu,gc,un:ok?cu(h.unit):'Belum cocok',of:ok?h.office_area||'-':'Belum cocok',st:mt,mis:!!gbu&&gbu!='KPN Corporation'&&gbu!=bu}
       })
     }
 
@@ -81,6 +81,14 @@
     /* === GRAFIK === */
     Chart.defaults.font.size=10;
     /* Plugin kecil: tampilkan nilai di ujung batang (aktif per grafik lewat plugins:{vlabel:{on:1}}) */
+    Chart.register({id:'selband',beforeDatasetsDraw(ch,a,op){
+      if(!op||!op.i||!op.i.length)return;
+      const x=ch.scales.x,ca=ch.chartArea,w=ca.width/Math.max(1,ch.data.labels.length);
+      ch.ctx.save();
+      ch.ctx.fillStyle='rgba(42,157,143,.14)';
+      op.i.forEach(i=>ch.ctx.fillRect(x.getPixelForValue(i)-w/2,ca.top,w,ca.height));
+      ch.ctx.restore()
+    }});
     Chart.register({id:'vlabel',afterDatasetsDraw(ch,a,op){
       if(!op||!op.on)return;
       const ctx=ch.ctx,hz=ch.options.indexAxis=='y';
@@ -148,7 +156,7 @@
       const x=r.x,rw=(l,v)=>`<tr><td class="mu">${l}</td><td>${v}</td></tr>`;
       const fare=x[6]==null?rw('Total tarif',`<b>${idr(r.a)}</b><br><span class="mu">BCR GrabFood tidak memuat rincian tarif</span>`):rw('Tarif dasar',idr(x[6]))+rw('Promo',idr(x[7]))+rw('Tol dan surcharge',idr(x[8]))+rw('Late fee',idr(x[9]))+rw('Biaya lain',idr(x[10]))+rw('Total tarif',`<b>${idr(r.a)}</b>`);
       const d=$('#dlg');
-      d.innerHTML=`<div class="sh"><b>${VN[r.v]} · ${esc(r.k)}${x[11]?' · '+esc(x[11]):''}</b><button id="dx" aria-label="Tutup">&times;</button></div><table>${rw('Waktu',r.d.slice(8)+'/'+r.d.slice(5,7)+'/'+r.d.slice(0,4)+', jam '+String(r.h).padStart(2,'0'))}${rw('Booking / Trip code',esc(r.k)+' / '+(x[11]?esc(x[11]):'-'))}${rw('Karyawan',esc(r.en)+'<br><span class="mu">'+esc(r.id||'tanpa ID')+' · '+esc(r.st)+'</span>')}${rw('Bisnis unit › Unit',esc(r.bu)+' › '+esc(r.un)+'<br><span class="mu">BU dari PT penagih: '+esc(CO[r.c])+'</span>')}${rw('Office area',esc(r.of))+rw('Grup HCIS',esc(r.gc))}${rw('Grup',esc(X.gr[r.g])+(x[5]?' · '+esc(x[5]):''))}${rw('Keterangan',esc(x[4]||'-'))}${rw('Jarak',x[3]+' km')}${rw('Dari',esc(x[0]||'-'))}${x[2]?rw('Singgah',esc(x[2])):''}${rw('Tujuan',esc(x[1]||'-'))}${fare}</table>`;
+      d.innerHTML=`<div class="sh"><b>${VN[r.v]} · ${esc(r.k)}${x[11]?' · '+esc(x[11]):''}</b><button id="dx" aria-label="Tutup">&times;</button></div><table>${rw('Waktu',r.d.slice(8)+'/'+r.d.slice(5,7)+'/'+r.d.slice(0,4)+', jam '+String(r.h).padStart(2,'0'))}${rw('Booking / Trip code',esc(r.k)+' / '+(x[11]?esc(x[11]):'-'))}${rw('Karyawan',esc(r.en)+(r.eg&&r.eg!=r.en?'<br><span class="mu">Nama di Grab: '+esc(r.eg)+'</span>':'')+'<br><span class="mu">'+esc(r.id||'tanpa ID')+' · '+esc(r.st)+'</span>')}${rw('Bisnis unit › Unit',esc(r.bu)+' › '+esc(r.un)+'<br><span class="mu">BU dari PT penagih: '+esc(CO[r.c])+'</span>')}${rw('Office area',esc(r.of))+rw('Grup HCIS',esc(r.gc))}${rw('Service',esc(X.gr[r.g])+(x[5]?' · '+esc(x[5]):''))}${rw('Keterangan',esc(x[4]||'-'))}${rw('Jarak',x[3]+' km')}${rw('Dari',esc(x[0]||'-'))}${x[2]?rw('Singgah',esc(x[2])):''}${rw('Tujuan',esc(x[1]||'-'))}${fare}</table>`;
       $('#dx').onclick=()=>d.close();
       d.onclick=e=>{
         if(e.target==d)d.close()
@@ -164,8 +172,8 @@
       SP.pg=Math.min(Math.max(0,SP.pg),pages-1);
       SP.list=a.slice(SP.pg*PG,(SP.pg+1)*PG);
       $('#sp').hidden=false;
-      $('#sp').innerHTML=`<div class="sh"><b>${esc(SP.t)}</b><button id="sx" aria-label="Tutup">&times;</button></div><input id="sq" type="search" class="sq" placeholder="Cari nama atau ID karyawan" value="${esc(SP.q)}" aria-label="Cari karyawan"><div class="ss"><div><span class="mu">Transaksi</span><b>${num(a.length)}</b></div><div><span class="mu">Total biaya</span><b>${idr(tot)}</b></div><div><span class="mu">Karyawan</span><b>${emp}</b></div><div><span class="mu">Rata-rata/trx</span><b>${a.length?idr(tot/a.length):'-'}</b></div></div>
-    <div class="w"><table><tr><th>Tanggal</th><th>Karyawan</th><th>Rute (klik untuk lengkap)</th><th class="r">Tarif</th></tr>${SP.list.length?SP.list.map((r,i)=>`<tr class="dr" tabindex="0" data-i="${i}"><td>${r.d.slice(8)}/${r.d.slice(5,7)}<br><span class="mu">${String(r.h).padStart(2,'0')}:00 · ${VN[r.v]}</span></td><td>${esc(r.en)}<br><span class="mu">${esc(r.bu)} › ${esc(r.un)}</span></td><td class="ad" title="${esc(r.x[0]+' → '+r.x[1])}">${esc(cut(r.x[0],30))}<br><span class="mu">${esc(cut(r.x[1],30))}</span></td><td class="r">${idr(r.a)}<br><span class="mu">${r.x[6]==null?'tarif food':'dasar '+idr(r.x[6])}</span></td></tr>`).join(''):'<tr><td colspan="4" class="mu">Tidak ada transaksi yang cocok.</td></tr>'}</table></div>
+      $('#sp').innerHTML=`<div class="sh"><b>${esc(SP.t)}</b><button id="sx" aria-label="Tutup">&times;</button></div><input id="sq" type="search" class="sq" placeholder="Cari nama atau ID karyawan" value="${esc(SP.q)}" aria-label="Cari karyawan"><div class="ss"><div><span class="mu">Transaksi</span><b>${num(a.length)}</b></div><div><span class="mu">Total pengeluaran</span><b>${idr(tot)}</b></div><div><span class="mu">Karyawan</span><b>${emp}</b></div><div><span class="mu">Rata-rata per transaksi</span><b>${a.length?idr(tot/a.length):'-'}</b></div></div>
+    <div class="w"><table><tr><th>Tanggal</th><th>Karyawan</th><th>Rute (klik untuk rincian)</th><th class="r">Tarif</th></tr>${SP.list.length?SP.list.map((r,i)=>`<tr class="dr" tabindex="0" data-i="${i}"><td>${r.d.slice(8)}/${r.d.slice(5,7)}<br><span class="mu">${String(r.h).padStart(2,'0')}:00 · ${VN[r.v]}</span></td><td>${esc(r.en)}<br><span class="mu">${esc(r.bu)} › ${esc(r.un)}</span></td><td class="ad" title="${esc(r.x[0]+' → '+r.x[1])}">${esc(cut(r.x[0],30))}<br><span class="mu">${esc(cut(r.x[1],30))}</span></td><td class="r">${idr(r.a)}<br><span class="mu">${r.x[6]==null?'tarif food':'dasar '+idr(r.x[6])}</span></td></tr>`).join(''):'<tr><td colspan="4" class="mu">Tidak ada transaksi yang sesuai.</td></tr>'}</table></div>
     <div class="pgn"><button type="button" id="spp"${SP.pg?'':' disabled'}>‹ Sebelumnya</button><span class="mu">Halaman ${SP.pg+1} dari ${pages}${a.length?' · '+(SP.pg*PG+1)+'-'+Math.min(a.length,(SP.pg+1)*PG)+' dari '+num(a.length):''}</span><button type="button" id="spn"${SP.pg<pages-1?'':' disabled'}>Berikutnya ›</button></div>`;
       $('#sx').onclick=closeSP;
       const sq=$('#sq');
@@ -228,7 +236,7 @@
       $('#bd').textContent=SERVER?SERVER_LABEL:RB==null?'Admin Corporate: semua Bisnis unit':'Admin: '+RB;
       tab=PAGE;
       const ch=FL.filter(([k])=>F[k]!=='').map(([k,l])=>[k,l+': '+((OPT[k].find(x=>x[0]==F[k])||['',''])[1])]);
-      $('#ch').innerHTML=ch.length?'<span class="mu">Filter aktif:</span>'+ch.map(c=>`<i>${esc(c[1])}<b data-k="${c[0]}" role="button" tabindex="0">&times;</b></i>`).join(''):'';
+      $('#ch').innerHTML=ch.length?'<span class="mu">Filter diterapkan:</span>'+ch.map(c=>`<i>${esc(c[1])}<b data-k="${c[0]}" role="button" tabindex="0">&times;</b></i>`).join(''):'';
       $('#ch').querySelectorAll('b').forEach(b=>b.onclick=()=>{
         F[b.dataset.k]='';
         refill();
@@ -271,7 +279,7 @@
         $('#et').querySelectorAll('tr.kr').forEach(tr=>{
           const go=()=>{
             const e=+tr.dataset.e;
-            openSP(X.em[e][1],r=>r.e==e)
+            openSP(X.em[e][9]||X.em[e][1],r=>r.e==e)
           };
           tr.onclick=go;
           tr.onkeydown=e=>{
@@ -363,7 +371,7 @@
       $('#kp').innerHTML=`<div class="p k" style="--c:${cv('--ln')}"><span class="mu">Total transaksi</span><b>${num(base.length)}</b><span class="mu">${idr(sm0(base))}</span></div>`+[0,1,2].map(v=>{
         const a=base.filter(r=>r.v==v);
         return`<button class="p k${F.v==v?' sel':''}" style="--c:${col[v]}" data-v="${v}"><span class="mu">${VN[v]}</span><b>${num(a.length)}</b><span class="mu">${idr(sm0(a))}</span></button>`
-      }).join('')+`<div class="p k" style="--c:${cv('--cm')}"><span class="mu">Hari tertinggi</span><b style="font-size:18px">${da.length?idr(da[0][1]):'-'}</b><span class="mu">${da.length?da[0][0]:''}</span></div>`;
+      }).join('')+`<div class="p k" style="--c:${cv('--cm')}"><span class="mu">Pengeluaran harian tertinggi</span><b style="font-size:18px">${da.length?idr(da[0][1]):'-'}</b><span class="mu">${da.length?da[0][0]:''}</span></div>`;
       document.querySelectorAll('#kp button').forEach(b=>b.onclick=()=>{
         F.v=F.v===b.dataset.v?'':b.dataset.v;
         refill();
@@ -371,9 +379,10 @@
       });
       $('#em').hidden=rows.length>0;
       const ms=[...new Set(rows.map(r=>r.d.slice(0,7)))].sort(),dim=m=>new Date(+m.slice(0,4),+m.slice(5),0).getDate(),sM=m=>sm0(rows.filter(r=>r.d.slice(0,7)==m));
-      const rM=S.filter(r=>test(r,'m')),mkeys=Object.keys(MN).filter(m=>!F.t||m.slice(0,4)==F.t),PAL=['#6C4DFF','#E040FB','#14B8A6','#F59E0B','#64748B','#EF4444'],pc9=c=>c<0?cv('--cm'):PAL[c%PAL.length],cs=F.c===''?[...new Set(rM.map(r=>r.c))].sort((a,b)=>a-b):[-1];
+      const rM=S.filter(r=>test(r,'m')),mkeys=Object.keys(MN).filter(m=>!F.t||m.slice(0,4)==F.t),PAL=['#1F3A5F','#2A9D8F','#E9A23B','#7C93B0','#5B7083','#D64545'],pc9=c=>c<0?cv('--cm'):PAL[c%PAL.length],cs=F.c===''?[...new Set(rM.map(r=>r.c))].sort((a,b)=>a-b):[-1];
+      const fm=v=>mode=='rp'?idr(v):num(v),selM=m=>F.m!==''&&m.slice(5)==F.m;
       const MNS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],h9=$('#h9');
-      if(h9)h9.textContent='Tren biaya per bulan, tahun '+([...new Set(mkeys.map(m=>m.slice(0,4)))].join(', ')||'-');
+      if(h9)h9.textContent=(mode=='rp'?'Tren pengeluaran bulanan':'Tren jumlah transaksi bulanan')+', tahun '+([...new Set(mkeys.map(m=>m.slice(0,4)))].join(', ')||'-');
       const grad=k=>x=>{
         const a=x.chart.chartArea;
         if(!a)return k+'22';
@@ -382,10 +391,10 @@
         g.addColorStop(1,k+'05');
         return g
       };
-      mk('c9','line',mkeys.map(m=>MNS[+m.slice(5)-1]+' '+m.slice(0,4)),cs.map(c=>({label:c<0?'Total biaya':CO[c],borderColor:pc9(c),backgroundColor:cs.length==1?grad(pc9(c)):pc9(c),fill:cs.length==1,borderWidth:3,tension:.35,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:pc9(c),pointBorderColor:'#fff',pointBorderWidth:2,data:mkeys.map(m=>{
+      mk('c9','line',mkeys.map(m=>MNS[+m.slice(5)-1]+' '+m.slice(0,4)),cs.map(c=>({label:c<0?'Total pengeluaran':CO[c],borderColor:pc9(c),backgroundColor:cs.length==1?grad(pc9(c)):pc9(c),fill:cs.length==1,borderWidth:3,tension:.35,pointRadius:x=>selM(mkeys[x.dataIndex])?9:4,pointHoverRadius:8,pointBackgroundColor:x=>F.m!==''&&!selM(mkeys[x.dataIndex])?pc9(c)+'55':pc9(c),pointBorderColor:'#fff',pointBorderWidth:2,data:mkeys.map(m=>{
         const a=rM.filter(r=>r.d.slice(0,7)==m&&(c<0||r.c==c));
-        return a.length?sm0(a):null
-      })})),{scales:{x:{ticks:{autoSkip:false,maxRotation:60},grid:{display:false}},y:{beginAtZero:true,...mon}},plugins:{tooltip:TTf(idr)},onClick:(e,els)=>{
+        return a.length?sm(a):null
+      })})),{scales:{x:{ticks:{autoSkip:false,maxRotation:60},grid:{display:false}},y:{beginAtZero:true,...mon}},plugins:{tooltip:TTf(fm),selband:{i:mkeys.map((m,i)=>selM(m)?i:-1).filter(i=>i>=0)}},onClick:(e,els)=>{
         if(els.length){
           const m=mkeys[els[0].index],c=cs[els[0].datasetIndex];
           openSP((c<0?'Semua perusahaan':CO[c])+', '+MN[m],r=>r.d.slice(0,7)==m&&(c<0||r.c==c))
@@ -395,15 +404,18 @@
       $('#mtn').innerHTML=cs.map(c=>{
         const pts=mkeys.map(m=>{
           const a=rM.filter(r=>r.d.slice(0,7)==m&&(c<0||r.c==c));
-          return a.length?[m,sm0(a)]:null
-        }).filter(Boolean),nm=c<0?'Total biaya':CO[c];
+          return a.length?[m,sm(a)]:null
+        }).filter(Boolean),nm=c<0?'Total pengeluaran':CO[c];
         if(!pts.length)return'';
-        if(pts.length<2)return`<div>${esc(nm)}: ${esc(MN[pts[0][0]])} ${idr(pts[0][1])}. Tren terlihat setelah ada data bulan berikutnya.</div>`;
-        const[a,b]=pts.slice(-2),pc=a[1]?(b[1]/a[1]-1)*100:null;
-        return pc===null?'':`<div>${esc(nm)}: ${esc(MN[b[0]])} <b class="${pc>=0?'up':'dn'}">${pc>=0?'▲ naik':'▼ turun'} ${Math.abs(pc).toFixed(1)}%</b> dibanding ${esc(MN[a[0]])} (${idr(a[1])} ke ${idr(b[1])})</div>`
+        if(pts.length<2)return`<div>${esc(nm)}: ${esc(MN[pts[0][0]])} ${fm(pts[0][1])}. Tren terlihat setelah ada data bulan berikutnya.</div>`;
+        const j=F.m?pts.map(q=>q[0]).reduce((z,q,ix)=>selM(q)?ix:z,-1):-1;
+        if(F.m&&j==0)return`<div>${esc(nm)}: ${esc(MN[pts[0][0]])} adalah bulan pertama dalam data, belum ada pembanding.</div>`;
+        const[a,b]=j>0?[pts[j-1],pts[j]]:pts.slice(-2),pc=a[1]?(b[1]/a[1]-1)*100:null;
+        return pc===null?'':`<div>${esc(nm)}: ${esc(MN[b[0]])} <b class="${pc>=0?'up':'dn'}">${pc>=0?'▲ naik':'▼ turun'} ${Math.abs(pc).toFixed(1)}%</b> dibanding ${esc(MN[a[0]])} (${fm(a[1])} ke ${fm(b[1])})</div>`
       }).join('')||'<div>Belum ada data bulanan.</div>';
       const mm=F.t&&F.m?F.t+'-'+F.m:'',keys=mm?[...Array(dim(mm))].map((_,i)=>mm+'-'+String(i+1).padStart(2,'0')):Object.keys(MN).filter(k=>(!F.t||k.slice(0,4)==F.t)&&(!F.m||k.slice(5)==F.m)),pk=r=>mm?r.d:r.d.slice(0,7);
-      $('#h1').textContent=(mode=='rp'?'Biaya':'Transaksi')+' per '+(mm?'hari':'bulan');
+      {const h4=$('#h4');if(h4)h4.textContent=mode=='rp'?'10 karyawan dengan pengeluaran tertinggi':'10 karyawan dengan transaksi terbanyak'}
+      $('#h1').textContent=(mode=='rp'?'Pengeluaran':'Jumlah transaksi')+' per '+(mm?'hari':'bulan');
       mk('c1','bar',keys.map(k=>mm?+k.slice(8):MN[k]),[0,1,2].map(v=>({label:VN[v],data:keys.map(k=>sm(rows.filter(r=>r.v==v&&pk(r)==k)))})),{scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,...mon}},plugins:{tooltip:TT},onClick:(e,els)=>{
         if(els.length){
           const k=keys[els[0].index],v=els[0].datasetIndex;
@@ -420,7 +432,7 @@
         }
       }
       });
-      const DPAL=[...PAL,'#0EA5E9','#84CC16','#F43F5E','#A855F7'];
+      const DPAL=['#1F3A5F','#2F5D8A','#2A9D8F','#5FB8AE','#7C93B0','#E9A23B','#A9B8CB','#5B7083'];
       const top=(f,n)=>{
         const m={};
         rows.forEach(r=>{
@@ -451,12 +463,34 @@
         const a=top(f,n);
         mk(id,'doughnut',a.map(x=>lab(x[0])),[{data:a.map(x=>x[1]),backgroundColor:a.map((x,i)=>DPAL[i%DPAL.length]),borderColor:cv('--sf'),borderWidth:2}],{cutout:'62%',plugins:{tooltip:TT,legend:lgPct('right')},onClick:clk(a,f,lab,ttl)})
       };
-      hb('c4',r=>r.e,k=>X.em[k][1],10,'--ce','Karyawan',true,true);
+      hb('c4',r=>r.e,k=>X.em[k][9]||X.em[k][1],10,'--ce','Karyawan',true,true);
       hb('c5',r=>r.bu+'|'+r.un,k=>k.replace('|',' › '),10,'--cd','Unit');
       hb('c10',r=>r.of,k=>k,8,'--cg','Office area');
       vb('c11',r=>r.bu,k=>k,5,'Bisnis unit');
-      dn('c6',r=>r.g,k=>X.gr[k],8,'Grup');
+      dn('c6',r=>r.g,k=>X.gr[k],8,'Service');
       hb('c7',r=>r.y,k=>X.ci[k],8,'--cy','Kota');
+      /* Periode yang sedang ditampilkan ditulis di judul tiap grafik (bulan + tahun, tahun saja, atau semua periode) */
+      {
+        const ab=i=>MNAMA[i].slice(0,3),nm=F.m?MNAMA[+F.m-1]:'';
+        let per;
+        if(F.m&&F.t)per=nm+' '+F.t;
+        else if(F.m)per=nm+', semua tahun';
+        else if(F.t)per='Tahun '+F.t;
+        else{
+          const ds=X.rows.map(r=>r[0]).sort();
+          per=ds.length?'Semua periode ('+ab(+ds[0].slice(5,7)-1)+' '+ds[0].slice(0,4)+' s.d. '+ab(+ds[ds.length-1].slice(5,7)-1)+' '+ds[ds.length-1].slice(0,4)+')':'Semua periode'
+        }
+        document.querySelectorAll('#ov .p').forEach(c=>{
+          const hh=c.querySelector('h2');
+          if(!hh||!c.querySelector('canvas')||hh.id=='h9')return;
+          const old=hh.querySelector('.pr');
+          if(old)old.remove();
+          const sp=document.createElement('span');
+          sp.className='pr';
+          sp.textContent=' · '+per;
+          hh.appendChild(sp)
+        })
+      }
       drawSP()
     }
 
@@ -695,12 +729,12 @@
       const all=document.createElement('button');
       all.type='button';
       const label=()=>{
-        all.textContent=boxes.every(p=>hid.has(idOf(p)))?'Buka semua grafik':'Lipat semua grafik'
+        all.textContent=boxes.every(p=>hid.has(idOf(p)))?'Expand semua grafik':'Minimize semua grafik'
       };
       const apply=p=>{
         const id=idOf(p),h=hid.has(id),b=p.querySelector('.tb');
         p.classList.toggle('hid',h);
-        b.textContent=h?'Buka':'Lipat';
+        b.textContent=h?'Expand':'Minimize';
         b.setAttribute('aria-expanded',h?'false':'true');
         if(!h){
           if(PEND[id]){

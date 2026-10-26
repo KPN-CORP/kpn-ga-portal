@@ -8,8 +8,8 @@
     @include('fingrab.partials.header', ['title' => 'Karyawan dan unit', 'hitung' => false])
 
     <div id="ep" style="display:grid;gap:14px">
-      <div class="p"><h2>Per unit. Klik judul kolom untuk mengurutkan.</h2><div class="w" id="dt"></div></div>
-      <div class="p"><h2>Per karyawan. Klik judul kolom untuk mengurutkan, klik baris untuk melihat transaksi.</h2><div class="w" id="et"></div></div>
+      <div class="p"><h2>Ringkasan per unit. Klik judul kolom untuk mengurutkan.</h2><div class="w" id="dt"></div></div>
+      <div class="p"><h2>Ringkasan per karyawan. Klik judul kolom untuk mengurutkan, klik baris untuk melihat transaksi.</h2><div class="w" id="et"></div></div>
     </div>
   </div>
   @include('fingrab.partials.panel')

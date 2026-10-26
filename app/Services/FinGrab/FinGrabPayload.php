@@ -22,6 +22,8 @@ class FinGrabPayload
         $all = $q->get();
 
         $buNames = DB::table('tb_bisnis_unit')->pluck('nama_bisnis_unit', 'id_bisnis_unit');
+        $hcisNames = self::hcisNames($all->pluck('employee_id'));
+        $hcisByEmail = self::hcisNamesByEmail($all->filter(fn ($t) => !$t->employee_id)->pluck('employee_email'));
 
         $co = $all->pluck('pt_name')->filter()->unique()->sort()->values()->all();
         $gr = $all->pluck('group_name')->filter()->unique()->sort()->values()->all();
@@ -42,6 +44,8 @@ class FinGrabPayload
                     $t->employee_id ?? '', $t->employee_name ?? '', $t->employee_email ?? '',
                     $t->employee_id_status ?? 'kosong', $t->employee_id_hint ?? '',
                     $t->hcis_group_company, $t->hcis_unit, $t->hcis_office_area, $t->hcis_match,
+                    // Elemen ke-10: nama lengkap di HCIS. Kosong bila tidak ada di HCIS; dashboard lalu memakai nama Grab.
+                    $hcisNames[(string) $t->employee_id] ?? ($hcisByEmail[mb_strtolower((string) $t->employee_email)] ?? ''),
                 ];
             }
 
@@ -66,5 +70,61 @@ class FinGrabPayload
         }
 
         return ['co' => $co, 'gr' => $gr, 'ci' => $ci, 'em' => $em, 'rows' => $rows];
+    }
+
+    /**
+     * Nama lengkap HCIS untuk karyawan yang tidak punya employee_id di transaksi tetapi cocok lewat email.
+     * Dipisah dari hcisNames() supaya kolom email yang salah hanya menghilangkan nama jenis ini.
+     *
+     * @return array<string,string> email huruf kecil => fullname
+     */
+    private static function hcisNamesByEmail($emails): array
+    {
+        $out = [];
+        try {
+            $emails = $emails->filter()->map(fn ($e) => mb_strtolower(trim((string) $e)))->unique()->values();
+            foreach ($emails->chunk(1000) as $chunk) {
+                // TODO cek: nama kolom email di tabel HCIS
+                foreach (DB::table('api_emp_hcis')->whereIn('email', $chunk->all())->get(['email', 'fullname']) as $r) {
+                    $name = trim((string) $r->fullname);
+                    if ($name !== '' && $r->email) {
+                        $out[mb_strtolower(trim((string) $r->email))] = $name;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            return [];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Nama lengkap HCIS (kolom fullname) untuk employee_id yang ada di data halaman ini saja,
+     * jadi ikut terpotong oleh akses Bisnis unit. Satu query per 1000 ID.
+     * Bila tabel atau kolom tidak bisa dibaca, dashboard tetap jalan dengan nama Grab.
+     *
+     * @return array<string,string> employee_id => fullname
+     */
+    private static function hcisNames($employeeIds): array
+    {
+        $out = [];
+        try {
+            foreach ($employeeIds->filter()->unique()->values()->chunk(1000) as $chunk) {
+                // TODO cek: nama tabel (di engine tertulis api_emp_hcis) dan kolom employee_id
+                foreach (DB::table('api_emp_hcis')->whereIn('employee_id', $chunk->all())->get(['employee_id', 'fullname']) as $r) {
+                    $name = trim((string) $r->fullname);
+                    if ($name !== '') {
+                        $out[(string) $r->employee_id] = $name;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            return [];
+        }
+
+        return $out;
     }
 }

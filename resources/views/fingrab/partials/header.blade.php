@@ -1,4 +1,4 @@
-{{-- Judul, badge akses, pilihan hitung, dan filter (urutan: Bisnis unit, Perusahaan, Unit, Office area, Bulan, Layanan, Grup, Karyawan) --}}
+{{-- Judul, badge akses, pilihan hitung, dan filter (urutan: Bisnis unit, Perusahaan, Unit, Office area, Bulan, Layanan, Service, Karyawan) --}}
 <div class="sim" hidden></div>
 <div class="hd">
   <div>
@@ -7,12 +7,12 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     @if($hitung ?? false)
-      <span class="mu">Hitung per:</span>
-      <span class="tg"><button id="m1" class="on">Biaya (Rp)</button><button id="m2">Transaksi</button></span>
+      <span class="mu">Tampilkan berdasarkan:</span>
+      <span class="tg"><button id="m1" class="on">Nilai (Rp)</button><button id="m2">Jumlah transaksi</button></span>
     @else
       <span hidden><button id="m1"></button><button id="m2"></button></span>
     @endif
-    <button id="rs">Reset semua filter</button>
+    <button id="rs">Atur ulang filter</button>
   </div>
 </div>
 <div class="p">
