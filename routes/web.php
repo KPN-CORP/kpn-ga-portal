@@ -334,8 +334,8 @@ Route::middleware(['auth'])->group(function () {
             Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
             Route::post('{id}/swap-driver', [AppAdminController::class, 'swapDriver'])->name('swap_driver');
             Route::post('{id}/return-to-pending', [AppAdminController::class, 'returnToPending'])->name('return_to_pending');
-            Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
-            Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
+            // Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
+            // Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
         });
 
         // ===== DRIVER DASHBOARD =====
@@ -422,8 +422,6 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('admin')->middleware(['auth'])->group(function () {
             Route::get('/operational-dashboard', [AdminOperationalController::class, 'dashboard'])
                 ->name('admin.operational.dashboard');
-            Route::get('/monitoring-logs', [AdminOperationalController::class, 'monitoringLogs'])
-                ->name('admin.monitoring.logs');
             Route::get('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLogForm'])
                 ->name('admin.verify.log');
             Route::post('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLog'])

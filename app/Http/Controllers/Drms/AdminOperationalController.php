@@ -339,7 +339,10 @@ class AdminOperationalController extends Controller
             fputcsv($handle, [
                 $s->vehicle->plate_number ?? '-',
                 $s->service_date,
-                str_replace('_', ' ', ucfirst($s->service_type)),
+                collect(is_array($s->service_type) ? $s->service_type : [$s->service_type])
+                    ->filter()
+                    ->map(fn($t) => ucfirst(str_replace('_', ' ', $t)))
+                    ->implode(', '),
                 $s->cost,
                 $s->workshop_name ?? '-',
             ]);
