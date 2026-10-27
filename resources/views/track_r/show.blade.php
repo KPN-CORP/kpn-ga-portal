@@ -1,526 +1,737 @@
 @extends('layouts.app-sidebar')
 
 @section('content')
-<div class="space-y-6 text-sm text-gray-800 font-sans">
+@php
+    $userStatus = $document->statusForUser(auth()->user());
+    $imageExts  = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    $fotos      = $document->fotos ?? collect();
+
+    $isCurrentRecipient = auth()->id() == $document->penerima_id;
+    $isSender           = auth()->id() == $document->pengirim_id;
+    $isPending          = in_array($document->status, ['dikirim', 'diteruskan']);
+
+    // Siapa boleh apa (harus sama dengan guard di TrackRController)
+    $canTerima   = $isCurrentRecipient && $isPending;
+    $canTolak    = $isCurrentRecipient && $isPending;
+    $canTeruskan = ($isCurrentRecipient && in_array($document->status, ['dikirim', 'diteruskan', 'diterima']))
+                   || ($isSender && ($isPending || $document->status === 'ditolak'));
+    $canAct      = $canTerima || $canTolak || $canTeruskan;
+
+    // Pengirim setelah ditolak = Kirim Ulang; pengirim saat masih menunggu = Alihkan
+    $teruskanMode = $document->status === 'ditolak' ? 'kirim_ulang'
+                  : (($isSender && !$isCurrentRecipient) ? 'alihkan' : 'teruskan');
+    $teruskanText = [
+        'teruskan'    => ['btn' => 'Teruskan',    'label' => 'Teruskan ke',    'submit' => 'Teruskan dokumen', 'hint' => 'Instruksi untuk penerima berikutnya'],
+        'alihkan'     => ['btn' => 'Alihkan',     'label' => 'Alihkan ke',     'submit' => 'Alihkan dokumen',  'hint' => 'Alasan dialihkan'],
+        'kirim_ulang' => ['btn' => 'Kirim Ulang', 'label' => 'Kirim ulang ke', 'submit' => 'Kirim ulang',      'hint' => 'Apa yang sudah diperbaiki'],
+    ][$teruskanMode];
+
+    $initials = fn ($n) => collect(preg_split('/\s+/', trim((string) $n)))
+        ->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('') ?: '?';
+
+    // Nama file di storage berformat "nama_<time>_<uniqid>.ext" — tampilkan nama aslinya saja
+    $displayName = fn ($n) => preg_replace('/_\d{10}_[0-9a-f]{13}(?=\.[^.]+$)/i', '', (string) $n) ?: (string) $n;
+
+    $imageFotos = $fotos->filter(fn ($f) => in_array(strtolower($f->tipe), $imageExts))->values();
+    $imageIds   = $imageFotos->pluck('id');
+    $imageList  = $imageFotos->map(fn ($f) => [
+        'url'      => route('track-foto.view', $f->id),
+        'name'     => $displayName($f->nama_file),
+        'download' => route('track-foto.download', $f->id),
+    ])->values();
+
+    $userList = $users->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email])->values();
+
+    $logVerb  = ['kirim' => 'mengirim', 'terima' => 'menerima', 'tolak' => 'menolak dokumen dari', 'teruskan' => 'meneruskan', 'kirim_ulang' => 'mengirim ulang'];
+    $logIcon  = ['kirim' => 'paper-plane', 'terima' => 'check', 'tolak' => 'times', 'teruskan' => 'share', 'kirim_ulang' => 'redo'];
+    $logTone  = [
+        'kirim'    => 'bg-blue-100 text-blue-700',
+        'terima'   => 'bg-emerald-100 text-emerald-700',
+        'tolak'    => 'bg-rose-100 text-rose-700',
+        'teruskan' => 'bg-violet-100 text-violet-700',
+        'kirim_ulang' => 'bg-amber-100 text-amber-700',
+    ];
+    $boilerplateNotes = ['Dokumen dikirim', 'Dokumen diteruskan'];
+
+    // Posisi dokumen & langkah berikutnya, sesuai peran user
+    $senderName = $document->pengirim->name ?? '-';
+    $holderName = $document->penerima->name ?? '-';
+    $lastReject = $document->logs->where('aksi', 'tolak')->last();
+    $flow = null;
+    if ($isCurrentRecipient && $isPending) {
+        $flow = ['box' => 'border-amber-200 bg-amber-50', 'ico' => 'text-amber-600', 'txt' => 'text-amber-900', 'icon' => 'inbox',
+                 'title' => 'Dokumen ini menunggu tindakan Anda',
+                 'text'  => 'Dikirim oleh ' . $senderName . '. Periksa lampiran, lalu pilih Terima, Tolak, atau Teruskan di panel Tindakan.', 'cta' => true];
+    } elseif ($isCurrentRecipient && in_array($document->status, ['diterima', 'selesai'], true)) {
+        $flow = ['box' => 'border-emerald-200 bg-emerald-50', 'ico' => 'text-emerald-600', 'txt' => 'text-emerald-900', 'icon' => 'check-circle',
+                 'title' => 'Anda sudah menerima dokumen ini',
+                 'text'  => 'Jika perlu ditindaklanjuti orang lain, gunakan tombol Teruskan di panel Tindakan.', 'cta' => $canTeruskan];
+    } elseif ($isCurrentRecipient && $document->status === 'ditolak') {
+        $flow = ['box' => 'border-slate-200 bg-slate-50', 'ico' => 'text-slate-500', 'txt' => 'text-slate-800', 'icon' => 'undo',
+                 'title' => 'Anda menolak dokumen ini',
+                 'text'  => 'Dokumen dikembalikan ke ' . $senderName . ' untuk diperbaiki dan dikirim ulang.', 'cta' => false];
+    } elseif ($isSender && $isPending) {
+        $flow = ['box' => 'border-blue-200 bg-blue-50', 'ico' => 'text-blue-600', 'txt' => 'text-blue-900', 'icon' => 'paper-plane',
+                 'title' => 'Dokumen Anda sedang berada di ' . $holderName,
+                 'text'  => 'Menunggu ' . $holderName . ' menerima. Jika salah tujuan, Anda bisa mengalihkannya lewat panel Tindakan.', 'cta' => $canTeruskan];
+    } elseif ($isSender && $document->status === 'ditolak') {
+        $flow = ['box' => 'border-rose-200 bg-rose-50', 'ico' => 'text-rose-600', 'txt' => 'text-rose-900', 'icon' => 'times-circle',
+                 'title' => 'Dokumen ditolak oleh ' . ($lastReject->dariUser->name ?? $holderName),
+                 'text'  => (filled($lastReject->catatan ?? null) ? 'Alasan: ' . $lastReject->catatan . '. ' : '') . 'Perbaiki dokumen, lalu pilih Kirim Ulang di panel Tindakan.', 'cta' => $canTeruskan];
+    } elseif ($isSender && in_array($document->status, ['diterima', 'selesai'], true)) {
+        $flow = ['box' => 'border-emerald-200 bg-emerald-50', 'ico' => 'text-emerald-600', 'txt' => 'text-emerald-900', 'icon' => 'check-circle',
+                 'title' => 'Dokumen Anda sudah diterima oleh ' . $holderName,
+                 'text'  => 'Tidak ada tindakan lagi yang diperlukan.', 'cta' => false];
+    }
+
+    $textarea = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 sm:text-sm';
+@endphp
+
+<div class="tr-page mx-auto max-w-6xl space-y-5 text-slate-800">
 
     {{-- HEADER --}}
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-800">Tanda Terima Dokumen</h1>
-            <p class="text-sm text-gray-500 mt-1">Nomor: <span class="font-mono">{{ $document->nomor_dokumen }}</span></p>
-        </div>
-        <div class="flex gap-2">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
             <a href="{{ route('track-r.index') }}"
-               class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition flex items-center gap-2">
-                <i class="fas fa-arrow-left"></i> Kembali
+               class="inline-flex h-9 items-center gap-2 rounded-lg pr-3 text-sm font-medium text-slate-500 transition hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                <i class="fas fa-arrow-left text-xs" aria-hidden="true"></i> Kembali ke daftar
             </a>
-            <a href="{{ route('track-r.pdf', $document->id) }}"
-               target="_blank"
-               class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition flex items-center gap-2">
-                <i class="fas fa-file-pdf"></i> PDF
-            </a>
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Tanda terima dokumen</h1>
+                @include('track_r._status-badge', ['status' => $document->status, 'label' => $userStatus['label']])
+            </div>
         </div>
+        <a href="{{ route('track-r.pdf', $document->id) }}"
+           class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:h-10">
+            <i class="fas fa-file-pdf text-red-500" aria-hidden="true"></i> Unduh PDF
+        </a>
     </div>
 
-    @php
-        $userStatus = $document->statusForUser(auth()->user());
-    @endphp
+    {{-- ERROR DARI AKSI (tolak / teruskan) --}}
+    @if($errors->any())
+        <div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <ul class="list-disc space-y-0.5 pl-5">
+                @foreach($errors->all() as $message)
+                    <li>{{ $message }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-    {{-- GRID UTAMA --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {{-- POSISI DOKUMEN & LANGKAH BERIKUTNYA --}}
+    @if($flow)
+        <div class="rounded-xl border p-4 {{ $flow['box'] }}">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-{{ $flow['icon'] }} mt-0.5 text-xl {{ $flow['ico'] }}" aria-hidden="true"></i>
+                <div class="min-w-0 flex-1">
+                    <p class="tr-wrap font-semibold {{ $flow['txt'] }}">{{ $flow['title'] }}</p>
+                    <p class="tr-wrap mt-0.5 text-sm {{ $flow['txt'] }} opacity-90">{{ $flow['text'] }}</p>
+                    <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs {{ $flow['txt'] }} opacity-80">
+                        <span>Pengirim: <b>{{ $senderName }}</b></span>
+                        <i class="fas fa-long-arrow-alt-right" aria-hidden="true"></i>
+                        <span>Sekarang di: <b>{{ $holderName }}</b></span>
+                    </p>
+                </div>
+            </div>
+            @if($flow['cta'] && $canAct)
+                <a href="#panel-tindakan"
+                   class="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 transition hover:bg-slate-50 sm:w-auto">
+                    <i class="fas fa-arrow-down text-xs" aria-hidden="true"></i> Ke panel Tindakan
+                </a>
+            @endif
+        </div>
+    @endif
 
-        {{-- KOLOM KIRI (2/3): TANDA TERIMA & LAMPIRAN --}}
-        <div class="lg:col-span-2 space-y-6">
+    {{-- AKSES DITOLAK --}}
+    @if(!$document->hasAccess(auth()->user()) && !auth()->user()->isSuperadminTrack())
+        <div role="alert" class="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <i class="fas fa-exclamation-triangle mt-0.5 text-red-500" aria-hidden="true"></i>
+            <div>
+                <p class="font-semibold text-red-800">Akses ditolak</p>
+                <p class="text-sm text-red-700">Anda tidak memiliki akses ke dokumen ini.</p>
+            </div>
+        </div>
+    @endif
+
+    {{--
+        TATA LETAK
+        - HP/tablet: satu kolom, urutan: ringkasan → tindakan → lampiran → riwayat
+          (wrapper memakai "contents" supaya anak-anaknya bisa diurutkan dengan order-*)
+        - Laptop/desktop (lg): 2/3 kiri (ringkasan, lampiran) + 1/3 kanan (tindakan, riwayat)
+    --}}
+    <div class="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start">
+
+        {{-- KOLOM KIRI --}}
+        <div class="contents lg:col-span-2 lg:block lg:space-y-6">
 
             {{-- KARTU TANDA TERIMA --}}
-            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div class="bg-gradient-to-r from-blue-700 to-blue-800 px-6 py-5 text-white">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div>
-                            <h1 class="text-xl font-bold tracking-wide">TANDA TERIMA DOKUMEN</h1>
-                            <p class="text-xs opacity-80">Sistem Track R · GA Portal</p>
+            <article class="order-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:order-none">
+                <div class="flex flex-col gap-2 bg-slate-900 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div>
+                        <p class="text-base font-semibold">Tanda terima dokumen</p>
+                        <p class="text-xs text-slate-300">GA Portal – Sistem Track R</p>
+                    </div>
+                    <div class="sm:text-right">
+                        <p class="tr-wrap font-mono text-base">No. {{ $document->nomor_dokumen }}</p>
+                        <p class="text-xs text-slate-300">{{ $document->created_at->translatedFormat('d F Y') }}</p>
+                    </div>
+                </div>
+
+                <div class="tr-fit gap-4 p-5 sm:p-6">
+                    <div>
+                        <p class="mb-2 text-xs font-medium text-slate-500">Pengirim</p>
+                        <div class="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600" aria-hidden="true">{{ $initials($document->pengirim->name ?? '') }}</div>
+                            <div class="min-w-0">
+                                <p class="tr-wrap font-medium text-slate-900">{{ $document->pengirim->name ?? '-' }}</p>
+                                <p class="tr-wrap text-xs text-slate-500">{{ $document->pengirim->email ?? '' }}</p>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-lg font-mono block">No: {{ $document->nomor_dokumen }}</span>
-                            <span class="text-xs">{{ $document->created_at->format('d F Y') }}</span>
+                    </div>
+
+                    <div>
+                        <p class="mb-2 text-xs font-medium text-slate-500">Penerima saat ini</p>
+                        <div class="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700" aria-hidden="true">{{ $initials($document->penerima->name ?? '') }}</div>
+                            <div class="min-w-0">
+                                <p class="tr-wrap font-medium text-slate-900">{{ $document->penerima->name ?? '-' }}</p>
+                                <p class="tr-wrap text-xs text-slate-500">{{ $document->penerima->email ?? '' }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md-span">
+                        <p class="mb-2 text-xs font-medium text-slate-500">Judul dan keterangan</p>
+                        <div class="rounded-lg bg-slate-50 p-4">
+                            <p class="tr-wrap font-semibold text-slate-900">{{ $document->judul }}</p>
+                            @if(filled($document->keterangan))
+                                <p class="tr-wrap mt-1.5 whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ $document->keterangan }}</p>
+                            @else
+                                <p class="mt-1.5 text-sm italic text-slate-400">Tidak ada keterangan</p>
+                            @endif
                         </div>
                     </div>
                 </div>
 
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="font-semibold text-gray-600 uppercase text-xs tracking-wider mb-3">Pengirim</h3>
-                        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-user text-blue-600"></i>
-                            </div>
-                            <div>
-                                <p class="font-medium">{{ $document->pengirim->name }}</p>
-                                <p class="text-xs text-gray-500">{{ $document->pengirim->email }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-gray-600 uppercase text-xs tracking-wider mb-3">Penerima Saat Ini</h3>
-                        <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-                            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-user-check text-green-600"></i>
-                            </div>
-                            <div>
-                                <p class="font-medium">{{ $document->penerima->name }}</p>
-                                <p class="text-xs text-gray-500">{{ $document->penerima->email }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="md:col-span-2">
-                        <h3 class="font-semibold text-gray-600 uppercase text-xs tracking-wider mb-2">Judul & Keterangan</h3>
-                        <div class="bg-gray-50 p-4 rounded-lg space-y-2">
-                            <p class="font-semibold text-gray-800">{{ $document->judul }}</p>
-                            <p class="text-sm text-gray-600">{{ $document->keterangan ?? 'Tidak ada keterangan' }}</p>
-                        </div>
-                    </div>
-                    <div class="md:col-span-2 flex justify-between items-center pt-2">
-                        <span class="text-sm text-gray-500">Status Anda:</span>
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold border {{ $userStatus['color'] }}">
-                            {{ $userStatus['label'] }}
-                        </span>
-                    </div>
+                <div class="border-t border-slate-100 px-5 py-4 sm:px-6">
+                    <p class="mb-3 text-xs font-medium text-slate-500">Riwayat penerima</p>
+                    @if($document->recipients->count())
+                        <ol class="flex flex-wrap items-center gap-y-2">
+                            @foreach($document->recipients as $recip)
+                                @php $isCurrent = $recip->id === $document->penerima_id; @endphp
+                                <li class="flex min-w-0 max-w-full items-center">
+                                    <span class="tr-wrap inline-flex max-w-full flex-wrap items-center gap-x-2 rounded-2xl px-3 py-1.5 text-sm {{ $isCurrent ? 'bg-blue-50 font-medium text-blue-800 ring-1 ring-inset ring-blue-300' : 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200' }}"
+                                          @if($isCurrent) aria-current="true" @endif>
+                                        {{ $recip->name }}
+                                        @if($recip->pivot->received_at)
+                                            <span class="text-xs tabular-nums {{ $isCurrent ? 'text-blue-600' : 'text-slate-400' }}">{{ \Carbon\Carbon::parse($recip->pivot->received_at)->format('d/m H:i') }}</span>
+                                        @endif
+                                    </span>
+                                    @unless($loop->last)
+                                        <i class="fas fa-chevron-right mx-2 text-[10px] text-slate-300" aria-hidden="true"></i>
+                                    @endunless
+                                </li>
+                            @endforeach
+                        </ol>
+                    @else
+                        <p class="text-sm text-slate-500">Belum ada penerima.</p>
+                    @endif
                 </div>
 
-                <div class="border-t px-6 py-4">
-                    <h3 class="font-semibold text-gray-600 uppercase text-xs tracking-wider mb-3">Riwayat Penerima</h3>
-                    <div class="flex flex-wrap gap-2">
-                        @forelse($document->recipients as $recip)
-                            @php $isCurrent = $recip->id === $document->penerima_id; @endphp
-                            <div class="flex items-center gap-2 px-3 py-2 rounded-full text-sm 
-                                {{ $isCurrent ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50 border' }}">
-                                <i class="fas fa-user-circle {{ $isCurrent ? 'text-blue-600' : 'text-gray-400' }}"></i>
-                                <span class="font-medium">{{ $recip->name }}</span>
-                                @if($recip->pivot->received_at)
-                                    <span class="text-xs text-gray-400">({{ \Carbon\Carbon::parse($recip->pivot->received_at)->format('d/m H:i') }})</span>
-                                @endif
-                            </div>
-                        @empty
-                            <p class="text-sm text-gray-500">Belum ada penerima.</p>
-                        @endforelse
+                <dl class="flex flex-wrap items-center gap-x-8 gap-y-1 border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-sm sm:px-6">
+                    <div class="flex items-center gap-2">
+                        <dt class="text-slate-500">Status dokumen</dt>
+                        <dd class="font-medium text-slate-800">{{ ucfirst($document->status) }}</dd>
                     </div>
-                </div>
-            </div>
+                </dl>
+            </article>
 
             {{-- LAMPIRAN --}}
-            @if($document->fotos && $document->fotos->count() > 0)
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="bg-gradient-to-r from-gray-700 to-gray-800 px-6 py-4 flex items-center justify-between">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-images"></i>Lampiran Dokumen</h3>
-                    <span class="text-xs bg-white/20 text-white px-3 py-1.5 rounded-full">{{ $document->fotos->count() }} file</span>
-                </div>
-                <div class="p-6">
-                    <p class="text-xs text-gray-500 mb-4 flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <i class="fas fa-info-circle text-blue-500"></i> Klik gambar untuk memperbesar.
-                    </p>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        @foreach($document->fotos as $foto)
-                        @php
-                            $ext = strtolower($foto->tipe);
-                            $isImage = in_array($ext, ['jpg','jpeg','png','gif','bmp','webp']);
-                        @endphp
-                        <div class="group relative bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-200">
-                            <div class="aspect-square bg-gray-50 relative cursor-pointer overflow-hidden"
-                                 @if($isImage)
-                                 onclick="openLightbox('{{ route('track-foto.view', $foto->id) }}', '{{ $foto->nama_file }}')"
-                                 @else
-                                 onclick="showFileInfo('{{ $foto->nama_file }}', '{{ $foto->tipe }}', '{{ number_format($foto->ukuran / 1024, 1) }}')"
-                                 @endif>
-                                @if($isImage)
-                                    <img src="{{ route('track-foto.view', $foto->id) }}" 
-                                         alt="{{ $foto->nama_file }}"
-                                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                         onerror="this.onerror=null; this.src='{{ route('track-foto.view', $foto->id) }}?nocache=' + Date.now();"
-                                         loading="lazy">
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                @else
-                                    <div class="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
-                                        @php
-                                            $icon = match($ext) {
-                                                'pdf' => 'fa-file-pdf text-red-500',
-                                                'doc','docx' => 'fa-file-word text-blue-500',
-                                                'xls','xlsx' => 'fa-file-excel text-green-600',
-                                                'ppt','pptx' => 'fa-file-powerpoint text-orange-500',
-                                                'txt' => 'fa-file-alt text-gray-500',
-                                                'zip','rar' => 'fa-file-archive text-yellow-600',
-                                                default => 'fa-file text-gray-500'
-                                            };
-                                        @endphp
-                                        <i class="fas {{ $icon }} text-5xl mb-3"></i>
-                                        <span class="text-xs font-medium px-2 py-1 bg-white rounded-full shadow-sm">{{ strtoupper($ext) }}</span>
-                                    </div>
-                                @endif
-                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    @if($isImage)
-                                    <span class="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center text-blue-600 hover:bg-white transform hover:scale-110 transition shadow-lg">
-                                        <i class="fas fa-search-plus text-xl"></i>
-                                    </span>
-                                    @else
-                                    <span class="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center text-gray-600 hover:bg-white transform hover:scale-110 transition shadow-lg">
-                                        <i class="fas fa-info-circle text-xl"></i>
-                                    </span>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="p-3 border-t bg-white">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <i class="fas {{ $isImage ? 'fa-image text-green-600' : 'fa-file text-gray-600' }} text-xs"></i>
-                                    <p class="text-xs font-medium truncate flex-1 text-gray-700" title="{{ $foto->nama_file }}">{{ Str::limit($foto->nama_file, 20) }}</p>
-                                </div>
-                                <div class="flex items-center justify-between">
-                                    <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{{ number_format($foto->ukuran / 1024, 1) }} KB</span>
-                                    <div class="flex gap-1">
-                                        @if($isImage)
-                                        <a href="{{ route('track-foto.view', $foto->id) }}" target="_blank"
-                                           class="w-7 h-7 bg-green-50 text-green-600 rounded flex items-center justify-center hover:bg-green-100 transition"
-                                           title="Lihat" onclick="event.stopPropagation()"><i class="fas fa-eye text-xs"></i></a>
-                                        @endif
-                                        <a href="{{ route('track-foto.download', $foto->id) }}"
-                                           class="w-7 h-7 bg-blue-50 text-blue-600 rounded flex items-center justify-center hover:bg-blue-100 transition"
-                                           title="Download" onclick="event.stopPropagation()"><i class="fas fa-download text-xs"></i></a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @endforeach
+            @if($fotos->count() > 0)
+                <section class="order-3 overflow-hidden rounded-xl border border-slate-200 bg-white lg:order-none" aria-labelledby="lampiran-title">
+                    <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5 sm:px-6">
+                        <h2 id="lampiran-title" class="text-base font-semibold text-slate-900">Lampiran</h2>
+                        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{{ $fotos->count() }} file</span>
                     </div>
-                </div>
-            </div>
+
+                    <ul class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:p-5 xl:grid-cols-4">
+                        @foreach($fotos as $foto)
+                            @php
+                                $ext     = strtolower($foto->tipe);
+                                $isImage = in_array($ext, $imageExts);
+                                $name    = $displayName($foto->nama_file);
+                                $viewUrl = route('track-foto.view', $foto->id);
+                                $dlUrl   = route('track-foto.download', $foto->id);
+                                $icon = match($ext) {
+                                    'pdf'         => 'fa-file-pdf text-red-500',
+                                    'doc', 'docx' => 'fa-file-word text-blue-500',
+                                    'xls', 'xlsx' => 'fa-file-excel text-emerald-600',
+                                    'ppt', 'pptx' => 'fa-file-powerpoint text-orange-500',
+                                    'txt'         => 'fa-file-alt text-slate-500',
+                                    'zip', 'rar'  => 'fa-file-archive text-amber-600',
+                                    default       => 'fa-file text-slate-500',
+                                };
+                            @endphp
+                            <li class="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                @if($isImage)
+                                    <button type="button" onclick="openLightbox({{ $imageIds->search($foto->id) }})"
+                                            aria-label="Perbesar {{ $name }}"
+                                            class="relative block aspect-square w-full overflow-hidden bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+                                        <img src="{{ $viewUrl }}" alt="" loading="lazy" draggable="false"
+                                             class="h-full w-full object-cover"
+                                             onerror="this.onerror=null; this.src='{{ $viewUrl }}?nocache=' + Date.now();">
+                                    </button>
+                                @else
+                                    <a href="{{ $dlUrl }}" aria-label="Unduh {{ $name }}"
+                                       class="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-slate-50 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500">
+                                        <i class="fas {{ $icon }} text-4xl" aria-hidden="true"></i>
+                                        <span class="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{{ strtoupper($ext) }}</span>
+                                    </a>
+                                @endif
+
+                                <div class="border-t border-slate-100 p-2.5">
+                                    <p class="tr-wrap text-xs font-medium text-slate-700" title="{{ $name }}">{{ $name }}</p>
+                                    <div class="mt-1.5 flex items-center justify-between gap-2">
+                                        <span class="text-xs tabular-nums text-slate-500">{{ number_format($foto->ukuran / 1024, 1) }} KB</span>
+                                        <span class="flex gap-1">
+                                            @if($isImage)
+                                                <a href="{{ $viewUrl }}" target="_blank" rel="noopener" title="Buka di tab baru" aria-label="Buka {{ $name }} di tab baru"
+                                                   class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                                                    <i class="fas fa-external-link-alt text-xs" aria-hidden="true"></i>
+                                                </a>
+                                            @endif
+                                            <a href="{{ $dlUrl }}" title="Unduh" aria-label="Unduh {{ $name }}"
+                                               class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                                                <i class="fas fa-download text-xs" aria-hidden="true"></i>
+                                            </a>
+                                        </span>
+                                    </div>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
             @else
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fas fa-image text-gray-400 text-3xl"></i></div>
-                <p class="text-gray-500 font-medium">Tidak ada lampiran file</p>
-                <p class="text-sm text-gray-400 mt-1">Dokumen ini tidak memiliki file lampiran</p>
-            </div>
+                <div class="order-3 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center lg:order-none">
+                    <i class="far fa-file text-2xl text-slate-300" aria-hidden="true"></i>
+                    <p class="mt-2 text-sm font-medium text-slate-600">Tidak ada lampiran</p>
+                    <p class="text-xs text-slate-400">Dokumen ini dikirim tanpa file.</p>
+                </div>
             @endif
         </div>
 
-        {{-- KOLOM KANAN (1/3): STATUS, RIWAYAT, AKSI --}}
-        <div class="space-y-6">
-            {{-- STATUS CARD --}}
-            <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-info-circle"></i>Status Anda</h3>
-                </div>
-                <div class="p-6 text-center">
-                    <span class="px-4 py-2 rounded-full border text-sm font-semibold {{ $userStatus['color'] }}">
-                        {{ $userStatus['label'] }}
-                    </span>
-                    <div class="mt-4 text-sm text-gray-600">
-                        Status global: <span class="font-semibold">{{ strtoupper($document->status) }}</span>
+        {{-- KOLOM KANAN --}}
+        <div class="contents lg:block lg:space-y-6">
+
+            {{-- TINDAKAN --}}
+            @if($canAct)
+                <section id="panel-tindakan" class="order-2 scroll-mt-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 lg:order-none" aria-labelledby="aksi-title">
+                    <h2 id="aksi-title" class="text-base font-semibold text-slate-900">Tindakan</h2>
+                    <p class="mt-0.5 text-sm text-slate-500">Pilih yang akan Anda lakukan pada dokumen ini.</p>
+
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row lg:flex-col">
+                        @if($canTerima)
+                            <form action="{{ route('track-r.terima', $document->id) }}" method="POST" data-once class="sm:flex-1"
+                                  onsubmit="return confirm('Terima dokumen ini? Tindakan ini tidak dapat dibatalkan.')">
+                                @csrf
+                                <button type="submit"
+                                        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:opacity-60">
+                                    <i class="fas fa-check-circle" aria-hidden="true"></i> Terima
+                                </button>
+                            </form>
+                        @endif
+
+                        @if($canTolak)
+                            <button type="button" id="btnTolak" onclick="togglePanel('tolak')" aria-expanded="false" aria-controls="tolakForm"
+                                    class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 sm:flex-1">
+                                <i class="fas fa-times-circle" aria-hidden="true"></i> Tolak
+                            </button>
+                        @endif
+
+                        @if($canTeruskan)
+                        <button type="button" id="btnTeruskan" onclick="togglePanel('teruskan')" aria-expanded="false" aria-controls="teruskanForm"
+                                class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-1">
+                            <i class="fas fa-{{ $teruskanMode === 'kirim_ulang' ? 'redo' : 'share-alt' }}" aria-hidden="true"></i> {{ $teruskanText['btn'] }}
+                        </button>
+                        @endif
                     </div>
-                </div>
-            </div>
+
+                    {{-- Form Tolak --}}
+                    @if($canTolak)
+                        <div id="tolakForm" class="mt-4 hidden rounded-lg border border-red-200 bg-red-50/60 p-4">
+                            <form action="{{ route('track-r.tolak', $document->id) }}" method="POST" data-once>
+                                @csrf
+                                <label for="tolak_catatan" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Alasan penolakan <span class="text-red-600" aria-hidden="true">*</span>
+                                </label>
+                                <textarea id="tolak_catatan" name="catatan" rows="3" required
+                                          placeholder="Jelaskan kenapa dokumen ini ditolak" class="{{ $textarea }}"></textarea>
+                                <div class="mt-3 flex justify-end gap-2">
+                                    <button type="button" onclick="togglePanel('tolak')"
+                                            class="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+                                    <button type="submit"
+                                            class="h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">Tolak dokumen</button>
+                                </div>
+                            </form>
+                        </div>
+                    @endif
+
+                    @if($canTeruskan)
+                    {{-- Form Teruskan --}}
+                    <div id="teruskanForm" class="mt-4 hidden rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <form action="{{ route('track-r.teruskan', $document->id) }}" method="POST" data-once id="formTeruskan">
+                            @csrf
+                            <label for="penerima_search" class="mb-1.5 block text-sm font-medium text-slate-700">
+                                {{ $teruskanText['label'] }} <span class="text-red-600" aria-hidden="true">*</span>
+                            </label>
+
+                            <input type="hidden" name="penerima_id" id="penerima_id">
+
+                            <div id="recipientSearchWrap" class="relative">
+                                <input type="text" id="penerima_search" autocomplete="off"
+                                       role="combobox" aria-expanded="false" aria-controls="searchResults" aria-autocomplete="list"
+                                       placeholder="Ketik nama atau email (min. 3 huruf)"
+                                       class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 sm:h-10 sm:text-sm">
+                                <ul id="searchResults" role="listbox" aria-label="Hasil pencarian penerima"
+                                    class="absolute z-20 mt-1 hidden max-h-60 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"></ul>
+                            </div>
+
+                            <div id="selectedUserDisplay" class="hidden">
+                                <div class="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                                    <div class="min-w-0 flex-1">
+                                        <p id="selectedUserName" class="tr-wrap text-sm font-semibold text-slate-900"></p>
+                                        <p id="selectedUserEmail" class="tr-wrap text-xs text-slate-500"></p>
+                                    </div>
+                                    <button type="button" id="clearRecipient"
+                                            class="h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-100">Ganti</button>
+                                </div>
+                            </div>
+                            <p id="recipientError" class="mt-1.5 hidden text-xs text-red-600" role="alert">Pilih penerima dari hasil pencarian.</p>
+
+                            <label for="teruskan_catatan" class="mb-1.5 mt-4 block text-sm font-medium text-slate-700">
+                                Catatan <span class="font-normal text-slate-400">(opsional)</span>
+                            </label>
+                            <textarea id="teruskan_catatan" name="catatan" rows="2" maxlength="500"
+                                      placeholder="{{ $teruskanText['hint'] }}" class="{{ $textarea }}"></textarea>
+
+                            <div class="mt-3 flex justify-end gap-2">
+                                <button type="button" onclick="togglePanel('teruskan')"
+                                        class="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+                                <button type="submit"
+                                        class="h-10 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{{ $teruskanText['submit'] }}</button>
+                            </div>
+                        </form>
+                    </div>
+                    @endif
+                </section>
+            @endif
 
             {{-- RIWAYAT AKTIVITAS --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4 flex items-center justify-between">
-                    <h3 class="font-semibold text-white"><i class="fas fa-history"></i> Riwayat</h3>
-                    <span class="text-xs bg-white/20 text-white px-3 py-1.5 rounded-full">{{ $document->logs->count() }}</span>
+            <section class="order-4 overflow-hidden rounded-xl border border-slate-200 bg-white lg:order-none" aria-labelledby="riwayat-title">
+                <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+                    <h2 id="riwayat-title" class="text-base font-semibold text-slate-900">Riwayat aktivitas</h2>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{{ $document->logs->count() }}</span>
                 </div>
-                <div class="p-6 max-h-96 overflow-y-auto space-y-4">
-                    @forelse($document->logs as $log)
-                    <div class="flex gap-4 p-3 border rounded-lg hover:bg-gray-50 transition">
-                        <div class="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+
+                @if($document->logs->count())
+                    <ol class="p-5 lg:max-h-[32rem] lg:overflow-y-auto">
+                        @foreach($document->logs as $log)
                             @php
-                                $icon = match($log->aksi) {'kirim'=>'paper-plane','terima'=>'check','tolak'=>'times','teruskan'=>'share',default=>'circle'};
-                                $color = match($log->aksi) {'kirim'=>'text-blue-600','terima'=>'text-green-600','tolak'=>'text-red-600','teruskan'=>'text-purple-600',default=>'text-gray-600'};
+                                $aksi = $log->aksi;
+                                $tone = $logTone[$aksi] ?? 'bg-slate-100 text-slate-600';
+                                $icon = $logIcon[$aksi] ?? 'circle';
+                                $verb = $logVerb[$aksi] ?? $aksi;
+                                $showNote = filled($log->catatan) && !in_array($log->catatan, $boilerplateNotes);
                             @endphp
-                            <i class="fas fa-{{ $icon }} {{ $color }}"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <p class="text-sm"><span class="font-semibold">{{ $log->dariUser->name ?? 'System' }}</span> {{ $log->aksi }}
-                                        @if($log->keUser) ke <span class="font-semibold">{{ $log->keUser->name }}</span> @endif
-                                    </p>
-                                    @if($log->catatan)<p class="text-xs text-gray-500 mt-1 italic">"{{ $log->catatan }}"</p>@endif
-                                </div>
-                                <span class="text-xs text-gray-400 whitespace-nowrap ml-4 bg-gray-100 px-2 py-1 rounded">{{ $log->created_at->format('d M H:i') }}</span>
-                            </div>
-                        </div>
+                            <li class="relative pl-11 {{ $loop->last ? '' : 'pb-5' }}">
+                                @unless($loop->last)
+                                    <span class="absolute bottom-0 left-4 top-8 w-px bg-slate-200" aria-hidden="true"></span>
+                                @endunless
+                                <span class="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full {{ $tone }}" aria-hidden="true">
+                                    <i class="fas fa-{{ $icon }} text-xs"></i>
+                                </span>
+                                <p class="tr-wrap text-sm leading-snug text-slate-800">
+                                    <span class="font-medium">{{ $log->dariUser->name ?? 'Sistem' }}</span>
+                                    {{ $verb }}
+                                    @if($log->keUser && $aksi !== 'terima') {{ $aksi === 'tolak' ? '' : 'kepada' }} <span class="font-medium">{{ $log->keUser->name }}</span> @endif
+                                </p>
+                                @if($showNote)
+                                    <p class="tr-wrap mt-1 whitespace-pre-line rounded-md bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">{{ $log->catatan }}</p>
+                                @endif
+                                <time class="mt-1 block text-xs tabular-nums text-slate-400" datetime="{{ $log->created_at->toIso8601String() }}">{{ $log->created_at->format('d/m/Y H:i') }}</time>
+                            </li>
+                        @endforeach
+                    </ol>
+                @else
+                    <div class="px-5 py-8 text-center text-sm text-slate-500">
+                        <i class="fas fa-history mb-2 block text-2xl text-slate-300" aria-hidden="true"></i>
+                        Belum ada aktivitas
                     </div>
-                    @empty
-                    <div class="text-center py-6 text-gray-500"><i class="fas fa-history text-3xl mb-2 text-gray-300"></i><p>Belum ada aktivitas</p></div>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- AKSI --}}
-            @if(auth()->id() == $document->penerima_id || auth()->id() == $document->pengirim_id)
-                @if(in_array($document->status, ['dikirim','diteruskan']))
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
-                        <h3 class="font-semibold text-white"><i class="fas fa-tasks"></i> Aksi</h3>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        @if(auth()->id() == $document->penerima_id && $document->status == 'dikirim')
-                        <form action="{{ route('track-r.terima', $document->id) }}" method="POST">
-                            @csrf
-                            <button class="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center justify-center gap-2">
-                                <i class="fas fa-check-circle"></i> Terima
-                            </button>
-                        </form>
-                        @endif
-                        @if(auth()->id() == $document->penerima_id)
-                        <button onclick="toggleTolakForm()" class="w-full py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 flex items-center justify-center gap-2">
-                            <i class="fas fa-times-circle"></i> Tolak
-                        </button>
-                        @endif
-                        <button onclick="toggleTeruskanForm()" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
-                            <i class="fas fa-share-alt"></i> Teruskan
-                        </button>
-
-                        {{-- Form Tolak --}}
-                        <div id="tolakForm" class="hidden mt-4 p-4 bg-red-50 border rounded-lg">
-                            <form action="{{ route('track-r.tolak', $document->id) }}" method="POST">
-                                @csrf
-                                <label class="block text-sm font-medium mb-1">Alasan *</label>
-                                <textarea name="catatan" rows="3" required class="w-full border rounded px-3 py-2 text-sm"></textarea>
-                                <div class="flex justify-end gap-2 mt-3">
-                                    <button type="button" onclick="toggleTolakForm()" class="px-4 py-2 border rounded">Batal</button>
-                                    <button class="px-4 py-2 bg-red-600 text-white rounded">Tolak</button>
-                                </div>
-                            </form>
-                        </div>
-
-                        {{-- Form Teruskan dengan Pencarian Penerima --}}
-                        <div id="teruskanForm" class="hidden mt-4 p-4 bg-blue-50 border rounded-lg">
-                            <form action="{{ route('track-r.teruskan', $document->id) }}" method="POST">
-                                @csrf
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium mb-1">Teruskan ke *</label>
-                                        <div class="relative">
-                                            <input type="text" id="penerima_search"
-                                                   class="w-full border rounded px-3 py-2 text-sm"
-                                                   placeholder="Ketik minimal 3 huruf nama..."
-                                                   autocomplete="off">
-                                            <input type="hidden" name="penerima_id" id="penerima_id" required>
-                                            <div id="searchResults" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
-                                            <div id="selectedUserDisplay" class="mt-2 hidden">
-                                                <div class="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-gray-800" id="selectedUserName"></p>
-                                                        <p class="text-xs text-gray-500" id="selectedUserEmail"></p>
-                                                    </div>
-                                                    <button type="button" onclick="clearSelectedUser()" class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium mb-1">Catatan</label>
-                                        <textarea name="catatan" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea>
-                                    </div>
-                                </div>
-                                <div class="flex justify-end gap-2 mt-3">
-                                    <button type="button" onclick="toggleTeruskanForm()" class="px-4 py-2 border rounded">Batal</button>
-                                    <button class="px-4 py-2 bg-blue-600 text-white rounded">Teruskan</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
                 @endif
-            @endif
-
-            {{-- Fallback akses ditolak --}}
-            @if(!$document->hasAccess(auth()->user()))
-            <div class="bg-red-50 border border-red-200 rounded-lg p-6">
-                <div class="flex items-start gap-4">
-                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center"><i class="fas fa-exclamation-triangle text-red-500 text-xl"></i></div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-red-800">Akses Ditolak</h3>
-                        <p class="text-red-700">Anda tidak memiliki akses ke dokumen ini.</p>
-                        <a href="{{ route('track-r.index') }}" class="mt-2 inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg">Kembali</a>
-                    </div>
-                </div>
-            </div>
-            @endif
+            </section>
         </div>
     </div>
 </div>
 
-{{-- LIGHTBOX MODAL --}}
-<div id="lightboxModal" class="fixed inset-0 z-50 hidden" onclick="closeLightbox()">
-    <div class="absolute inset-0 bg-black bg-opacity-95"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="relative max-w-7xl max-h-full" onclick="event.stopPropagation()">
-            <button onclick="closeLightbox()" class="absolute -top-14 right-0 text-white hover:text-gray-300 text-3xl z-50 w-12 h-12 flex items-center justify-center bg-black/50 rounded-full hover:bg-black/70 transition border border-white/20"><i class="fas fa-times"></i></button>
-            <button onclick="prevImage()" class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 text-3xl z-50 w-12 h-12 flex items-center justify-center bg-black/50 rounded-full hover:bg-black/70 transition border border-white/20"><i class="fas fa-chevron-left"></i></button>
-            <button onclick="nextImage()" class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 text-3xl z-50 w-12 h-12 flex items-center justify-center bg-black/50 rounded-full hover:bg-black/70 transition border border-white/20"><i class="fas fa-chevron-right"></i></button>
-            <img id="lightboxImage" src="" alt="" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10">
-            <div id="lightboxCaption" class="absolute -bottom-12 left-0 right-0 text-center text-white text-sm"></div>
-            <div id="lightboxCounter" class="absolute top-4 left-4 text-white text-sm bg-black/50 px-3 py-1.5 rounded-full border border-white/20"></div>
-            <a id="lightboxDownload" href="#" target="_blank" class="absolute top-4 right-4 text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg border border-blue-400"><i class="fas fa-download"></i> Download</a>
+{{-- LIGHTBOX --}}
+<div id="lightboxModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Pratinjau gambar">
+    <div class="absolute inset-0 bg-black/90" onclick="closeLightbox()"></div>
+
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-3 pb-16 pt-16 sm:px-16">
+        <img id="lightboxImage" src="" alt="" class="pointer-events-auto max-h-full max-w-full rounded-lg object-contain shadow-2xl">
+    </div>
+
+    <div class="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-3 pb-3 text-white"
+         style="padding-top: max(0.75rem, env(safe-area-inset-top));">
+        <span id="lightboxCounter" class="rounded-full bg-white/10 px-3 py-1.5 text-sm tabular-nums"></span>
+        <div class="flex items-center gap-2">
+            <a id="lightboxDownload" href="#"
+               class="inline-flex h-11 items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <i class="fas fa-download" aria-hidden="true"></i> <span class="hidden sm:inline">Unduh</span>
+            </a>
+            <button type="button" id="lightboxClose" onclick="closeLightbox()" aria-label="Tutup pratinjau"
+                    class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
         </div>
     </div>
-</div>
 
-{{-- MODAL INFO FILE --}}
-<div id="fileInfoModal" class="fixed inset-0 z-50 hidden" onclick="closeFileInfo()">
-    <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"></div>
-    <div class="absolute inset-0 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-800"><i class="fas fa-info-circle text-blue-500"></i> Informasi File</h3>
-                <button onclick="closeFileInfo()" class="text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="space-y-4">
-                <div class="bg-gray-50 p-4 rounded-lg"><label class="text-xs text-gray-500 block mb-1">Nama File</label><p id="infoFileName" class="text-sm font-medium text-gray-800 break-words"></p></div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-50 p-3 rounded-lg"><label class="text-xs text-gray-500 block mb-1">Tipe</label><p id="infoFileType" class="text-sm font-medium"></p></div>
-                    <div class="bg-gray-50 p-3 rounded-lg"><label class="text-xs text-gray-500 block mb-1">Ukuran</label><p id="infoFileSize" class="text-sm font-medium"></p></div>
-                </div>
-                <div class="text-sm text-gray-600 bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex items-start gap-3">
-                    <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
-                    <span>File ini tidak dapat ditampilkan di browser. Silakan download untuk melihat.</span>
-                </div>
-            </div>
-            <div class="flex justify-end gap-3 mt-6">
-                <button onclick="closeFileInfo()" class="px-4 py-2 border rounded-lg">Tutup</button>
-                <a id="downloadFromModal" href="#" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"><i class="fas fa-download"></i> Download</a>
-            </div>
-        </div>
+    <button type="button" id="lightboxPrev" onclick="prevImage()" aria-label="Gambar sebelumnya"
+            class="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-4">
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+    </button>
+    <button type="button" id="lightboxNext" onclick="nextImage()" aria-label="Gambar berikutnya"
+            class="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-4">
+        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+    </button>
+
+    <div class="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-4" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
+        <span id="lightboxCaption" class="max-w-full truncate rounded-full bg-white/10 px-4 py-1.5 text-sm text-white"></span>
     </div>
 </div>
 
 <script>
-// Data lightbox
+/* =========================================================
+   LIGHTBOX
+========================================================= */
+const IMAGES = @json($imageList);
 let currentImageIndex = 0;
-let images = [];
-@if($document->fotos)
-    images = [
-        @foreach($document->fotos as $foto)
-            @if(in_array(strtolower($foto->tipe), ['jpg','jpeg','png','gif','bmp','webp']))
-            { url:"{{ route('track-foto.view', $foto->id) }}", name:"{{ $foto->nama_file }}", downloadUrl:"{{ route('track-foto.download', $foto->id) }}" },
-            @endif
-        @endforeach
-    ];
-@endif
+let lastFocused = null;
 
-function openLightbox(url, name) {
-    currentImageIndex = images.findIndex(img => img.url === url);
-    if(currentImageIndex===-1) currentImageIndex=0;
-    updateLightboxImage();
+function renderLightbox() {
+    const item = IMAGES[currentImageIndex];
+    if (!item) return;
+    const img = document.getElementById('lightboxImage');
+    img.src = item.url;
+    img.alt = item.name;
+    document.getElementById('lightboxCaption').textContent = item.name;
+    document.getElementById('lightboxCounter').textContent = (currentImageIndex + 1) + ' / ' + IMAGES.length;
+    document.getElementById('lightboxDownload').href = item.download;
+    const multi = IMAGES.length > 1;
+    document.getElementById('lightboxPrev').classList.toggle('hidden', !multi);
+    document.getElementById('lightboxNext').classList.toggle('hidden', !multi);
+}
+function openLightbox(index) {
+    if (!IMAGES.length) return;
+    currentImageIndex = (index >= 0 && index < IMAGES.length) ? index : 0;
+    lastFocused = document.activeElement;
+    renderLightbox();
     document.getElementById('lightboxModal').classList.remove('hidden');
-    document.body.style.overflow='hidden';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('lightboxClose').focus();
 }
 function closeLightbox() {
     document.getElementById('lightboxModal').classList.add('hidden');
-    document.body.style.overflow='auto';
+    document.body.style.overflow = '';
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
 }
-function updateLightboxImage() {
-    if(images.length>0 && currentImageIndex>=0 && currentImageIndex<images.length) {
-        let img = document.getElementById('lightboxImage');
-        let image = images[currentImageIndex];
-        img.src = image.url + '?t=' + Date.now();
-        document.getElementById('lightboxCaption').innerHTML = `<span class="bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">${image.name}</span>`;
-        document.getElementById('lightboxCounter').innerHTML = `${currentImageIndex+1} / ${images.length}`;
-        document.getElementById('lightboxDownload').href = image.downloadUrl;
-    }
-}
-function nextImage() { if(images.length>0) { currentImageIndex = (currentImageIndex+1)%images.length; updateLightboxImage(); } }
-function prevImage() { if(images.length>0) { currentImageIndex = (currentImageIndex-1+images.length)%images.length; updateLightboxImage(); } }
+function nextImage() { if (IMAGES.length > 1) { currentImageIndex = (currentImageIndex + 1) % IMAGES.length; renderLightbox(); } }
+function prevImage() { if (IMAGES.length > 1) { currentImageIndex = (currentImageIndex - 1 + IMAGES.length) % IMAGES.length; renderLightbox(); } }
 
-// File info
-function showFileInfo(name, type, size) {
-    document.getElementById('infoFileName').textContent = name;
-    document.getElementById('infoFileType').textContent = type.toUpperCase();
-    document.getElementById('infoFileSize').textContent = size + ' KB';
-    let card = event.currentTarget.closest('.group');
-    let dl = card?.querySelector('a[title="Download"]');
-    if(dl) document.getElementById('downloadFromModal').href = dl.href;
-    document.getElementById('fileInfoModal').classList.remove('hidden');
-    document.body.style.overflow='hidden';
-}
-function closeFileInfo() {
-    document.getElementById('fileInfoModal').classList.add('hidden');
-    document.body.style.overflow='auto';
-}
-
-// Keyboard & touch
-document.addEventListener('keydown', e => {
-    if(!document.getElementById('lightboxModal').classList.contains('hidden')) {
-        if(e.key==='Escape') closeLightbox();
-        else if(e.key==='ArrowRight') { e.preventDefault(); nextImage(); }
-        else if(e.key==='ArrowLeft') { e.preventDefault(); prevImage(); }
-    }
-    if(!document.getElementById('fileInfoModal').classList.contains('hidden') && e.key==='Escape') closeFileInfo();
-});
-let touchstartX=0, touchendX=0;
-document.getElementById('lightboxModal')?.addEventListener('touchstart', e => touchstartX=e.changedTouches[0].screenX);
-document.getElementById('lightboxModal')?.addEventListener('touchend', e => {
-    touchendX=e.changedTouches[0].screenX;
-    if(touchendX<touchstartX-50) nextImage();
-    if(touchendX>touchstartX+50) prevImage();
+document.addEventListener('keydown', function (e) {
+    const modal = document.getElementById('lightboxModal');
+    if (modal.classList.contains('hidden')) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
 });
 
-// Toggle forms
-function toggleTolakForm(){ document.getElementById('tolakForm').classList.toggle('hidden'); document.getElementById('teruskanForm').classList.add('hidden'); }
-function toggleTeruskanForm(){ document.getElementById('teruskanForm').classList.toggle('hidden'); document.getElementById('tolakForm').classList.add('hidden'); }
+// Geser kiri/kanan di layar sentuh
+(function () {
+    const modal = document.getElementById('lightboxModal');
+    let startX = 0;
+    modal.addEventListener('touchstart', (e) => { startX = e.changedTouches[0].screenX; }, { passive: true });
+    modal.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].screenX - startX;
+        if (dx < -50) nextImage();
+        if (dx > 50) prevImage();
+    }, { passive: true });
+})();
 
-// Pencarian penerima
-const allUsers = [
-    @foreach($users as $user)
-        { id: {{ $user->id }}, name: "{{ $user->name }}", email: "{{ $user->email }}", searchText: "{{ strtolower($user->name) }} {{ strtolower($user->email) }}" },
-    @endforeach
-];
-
-let searchTimeout;
-document.getElementById('penerima_search').addEventListener('input', function() {
-    const searchTerm = this.value.trim().toLowerCase();
-    const resultsDiv = document.getElementById('searchResults');
-    clearTimeout(searchTimeout);
-
-    if (searchTerm.length < 3) {
-        resultsDiv.classList.add('hidden');
-        return;
-    }
-
-    searchTimeout = setTimeout(() => {
-        const filtered = allUsers.filter(u => u.searchText.includes(searchTerm));
-        let html = '';
-        filtered.slice(0, 10).forEach(u => {
-            html += `<div class="p-3 hover:bg-gray-50 cursor-pointer border-b" onclick="selectUser(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.email}')">
-                        <div class="font-medium text-gray-800">${u.name}</div>
-                        <div class="text-xs text-gray-500">${u.email}</div>
-                     </div>`;
-        });
-        if (filtered.length > 10) {
-            html += `<div class="p-2 text-xs text-gray-500 text-center">${filtered.length - 10} lebih... ketik lebih spesifik</div>`;
+/* =========================================================
+   TINDAKAN — buka/tutup panel & cegah klik ganda
+========================================================= */
+function togglePanel(which) {
+    const panels = { tolak: document.getElementById('tolakForm'), teruskan: document.getElementById('teruskanForm') };
+    const buttons = { tolak: document.getElementById('btnTolak'), teruskan: document.getElementById('btnTeruskan') };
+    Object.keys(panels).forEach(function (key) {
+        const panel = panels[key];
+        if (!panel) return;
+        const show = key === which ? panel.classList.contains('hidden') : false;
+        panel.classList.toggle('hidden', !show);
+        if (buttons[key]) buttons[key].setAttribute('aria-expanded', show ? 'true' : 'false');
+        if (show) {
+            const field = panel.querySelector('textarea, input[type="text"]');
+            if (field) field.focus();
         }
-        resultsDiv.innerHTML = html || '<div class="p-3 text-sm text-gray-500 text-center">Tidak ditemukan</div>';
-        resultsDiv.classList.remove('hidden');
-    }, 300);
+    });
+}
+
+document.querySelectorAll('form[data-once]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+        // Dicek setelah semua handler lain selesai: kalau submit dibatalkan (validasi gagal / confirm ditolak),
+        // tombol dibiarkan aktif supaya bisa dicoba lagi.
+        setTimeout(function () {
+            if (e.defaultPrevented) return;
+            f.querySelectorAll('button[type="submit"]').forEach(function (b) { b.disabled = true; });
+        }, 0);
+    });
 });
 
-function selectUser(id, name, email) {
-    document.getElementById('penerima_id').value = id;
-    document.getElementById('selectedUserName').textContent = name;
-    document.getElementById('selectedUserEmail').textContent = email;
-    document.getElementById('selectedUserDisplay').classList.remove('hidden');
-    document.getElementById('penerima_search').value = '';
-    document.getElementById('searchResults').classList.add('hidden');
-}
+@if($canTeruskan)
+/* =========================================================
+   TERUSKAN — combobox penerima (keyboard friendly)
+========================================================= */
+(function () {
+    const USERS = @json($userList);
+    const $ = (id) => document.getElementById(id);
 
-function clearSelectedUser() {
-    document.getElementById('penerima_id').value = '';
-    document.getElementById('selectedUserDisplay').classList.add('hidden');
-    document.getElementById('penerima_search').value = '';
-    document.getElementById('searchResults').classList.add('hidden');
-}
+    const form = $('formTeruskan');
+    const search = $('penerima_search');
+    const results = $('searchResults');
+    const hidden = $('penerima_id');
+    const selectedBox = $('selectedUserDisplay');
+    const searchWrap = $('recipientSearchWrap');
+    const errorEl = $('recipientError');
+    let matches = [];
+    let active = -1;
 
-// Prevent image drag
-document.querySelectorAll('img').forEach(img => img.addEventListener('dragstart', e => e.preventDefault()));
+    function openResults()  { results.classList.remove('hidden'); search.setAttribute('aria-expanded', 'true'); }
+    function closeResults() {
+        results.classList.add('hidden');
+        search.setAttribute('aria-expanded', 'false');
+        search.removeAttribute('aria-activedescendant');
+        active = -1;
+    }
+    function showMessage(text) {
+        matches = [];
+        results.innerHTML = '';
+        const li = document.createElement('li');
+        li.setAttribute('role', 'presentation');
+        li.className = 'px-3 py-3 text-center text-sm text-slate-500';
+        li.textContent = text;
+        results.appendChild(li);
+        openResults();
+    }
+    function setActive(i) {
+        results.querySelectorAll('[role="option"]').forEach(function (el, idx) {
+            const on = idx === i;
+            el.classList.toggle('bg-blue-50', on);
+            el.setAttribute('aria-selected', on ? 'true' : 'false');
+            if (on) { search.setAttribute('aria-activedescendant', el.id); el.scrollIntoView({ block: 'nearest' }); }
+        });
+        active = i;
+    }
+    function renderResults() {
+        results.innerHTML = '';
+        const shown = matches.slice(0, 8);
+        shown.forEach(function (u, i) {
+            const li = document.createElement('li');
+            li.id = 'opt-' + i;
+            li.setAttribute('role', 'option');
+            li.className = 'cursor-pointer px-3 py-2.5 hover:bg-slate-50';
+            const n = document.createElement('div');
+            n.className = 'text-sm font-medium text-slate-900';
+            n.textContent = u.name;
+            const m = document.createElement('div');
+            m.className = 'text-xs text-slate-500';
+            m.textContent = u.email;
+            li.append(n, m);
+            li.addEventListener('click', function () { choose(u); });
+            results.appendChild(li);
+        });
+        if (matches.length > shown.length) {
+            const more = document.createElement('li');
+            more.setAttribute('role', 'presentation');
+            more.className = 'border-t border-slate-100 px-3 py-2 text-center text-xs text-slate-500';
+            more.textContent = (matches.length - shown.length) + ' hasil lain, ketik lebih spesifik';
+            results.appendChild(more);
+        }
+        openResults();
+        setActive(0);
+    }
+    function choose(u) {
+        hidden.value = u.id;
+        $('selectedUserName').textContent = u.name;
+        $('selectedUserEmail').textContent = u.email;
+        selectedBox.classList.remove('hidden');
+        searchWrap.classList.add('hidden');
+        errorEl.classList.add('hidden');
+        search.value = '';
+        closeResults();
+    }
+    function clearRecipient() {
+        hidden.value = '';
+        selectedBox.classList.add('hidden');
+        searchWrap.classList.remove('hidden');
+        search.value = '';
+        closeResults();
+        search.focus();
+    }
+
+    search.addEventListener('input', function () {
+        const term = search.value.trim().toLowerCase();
+        if (!term.length) { closeResults(); return; }
+        if (term.length < 3) { showMessage('Ketik minimal 3 huruf'); return; }
+        matches = USERS.filter(function (u) { return (u.name + ' ' + u.email).toLowerCase().includes(term); });
+        if (!matches.length) { showMessage('Tidak ada pengguna yang cocok'); return; }
+        renderResults();
+    });
+    search.addEventListener('keydown', function (e) {
+        const open = !results.classList.contains('hidden') && matches.length > 0;
+        const last = Math.min(matches.length, 8) - 1;
+        if (e.key === 'ArrowDown' && open) { e.preventDefault(); setActive(Math.min(active + 1, last)); }
+        else if (e.key === 'ArrowUp' && open) { e.preventDefault(); setActive(Math.max(active - 1, 0)); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (open && active >= 0) choose(matches[active]); }
+        else if (e.key === 'Escape') { closeResults(); }
+    });
+    $('clearRecipient').addEventListener('click', clearRecipient);
+    document.addEventListener('click', function (e) { if (!searchWrap.contains(e.target)) closeResults(); });
+
+    form.addEventListener('submit', function (e) {
+        if (!hidden.value) {
+            e.preventDefault();
+            errorEl.classList.remove('hidden');
+            search.focus();
+        }
+    });
+})();
+@endif
 </script>
 <style>
-#lightboxModal{transition:opacity 0.3s}#lightboxModal.hidden{display:none}#lightboxImage{transition:transform 0.3s}#lightboxModal:not(.hidden) #lightboxImage{animation:zoomIn 0.3s}@keyframes zoomIn{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}.group:hover .group-hover\:scale-110{transform:scale(1.1)}
+
+    /* Pengaman: isi halaman tidak boleh melebarkan layout (layout memakai flex-1 tanpa min-w-0) */
+    .tr-page { max-width: 100%; min-width: 0; overflow-x: clip; contain: inline-size; }
+
+    /* Teks panjang turun ke baris berikutnya (tidak melebarkan layar HP) */
+    .tr-wrap { overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
+
+    /* Kolom grid dikunci supaya teks panjang tidak melebarkan halaman di HP */
+    .tr-fit { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .tr-fit > .md-span { grid-column: auto; }
+    @media (min-width: 768px) {
+        .tr-fit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .tr-fit > .md-span { grid-column: 1 / -1; }
+    }
 </style>
 @endsection

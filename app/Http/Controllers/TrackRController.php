@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Str; // <-- Tambahan untuk sanitasi nama file
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TrackRController extends Controller
 {
@@ -20,28 +21,23 @@ class TrackRController extends Controller
     ========================= */
     public function index(Request $request)
     {
-        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients']);
+        $user      = auth()->user();
+        $dirCounts = TrackRDocument::directionCounts($user);
+        $arah      = $this->normalizeArah($request->input('arah'), $user, $dirCounts);
+        $tab       = $this->normalizeTab($request->input('tab'), $arah);
 
-        // Jika bukan superadmin track, filter berdasarkan akses biasa
-        if (!auth()->user()->isSuperadminTrack()) {
-            $query->where(function($q) {
-                $userId = auth()->id();
-                $q->where('pengirim_id', $userId)
-                  ->orWhereHas('recipients', function($sub) use ($userId) {
-                      $sub->where('user_id', $userId);
-                  });
-            });
-        }
+        // Hanya pengirim & penerima terakhir (superadmin track: semua)
+        // Arah: masuk = dokumen yang saya terima, keluar = dokumen yang saya kirim
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
+            ->visibleTo($user)
+            ->inDirection($arah, $user->id)
+            ->inTab($tab, $user->id);
 
         if ($search = $request->input('search')) {
             $query->where(function($q) use ($search) {
                 $q->where('nomor_dokumen', 'like', "%{$search}%")
                   ->orWhere('judul', 'like', "%{$search}%");
             });
-        }
-
-        if ($status = $request->input('status')) {
-            $query->where('status', $status);
         }
 
         if ($request->filled('from')) {
@@ -55,7 +51,9 @@ class TrackRController extends Controller
                          ->paginate(15)
                          ->withQueryString();
 
-        return view('track_r.index', compact('documents'));
+        $counts = $dirCounts[$arah];
+
+        return view('track_r.index', compact('documents', 'counts', 'tab', 'arah', 'dirCounts'));
     }
 
     /* =========================
@@ -77,7 +75,7 @@ class TrackRController extends Controller
         $request->validate([
             'nomor_dokumen' => 'required|unique:track_r_documents',
             'judul' => 'required',
-            'penerima_id' => 'required',
+            'penerima_id' => ['required', 'exists:users,id', Rule::notIn([auth()->id()])],
             'keterangan' => 'nullable|string',
             'foto_dokumen.*' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx',
         ]);
@@ -94,6 +92,7 @@ class TrackRController extends Controller
 
             $doc->recipients()->attach($request->penerima_id, [
                 'received_at' => now(),
+                'status'      => 'dikirim',
             ]);
 
             if ($request->hasFile('foto_dokumen')) {
@@ -128,7 +127,11 @@ class TrackRController extends Controller
             ]);
         });
 
-        return redirect()->route('track-r.index')->with('success', 'Dokumen berhasil dikirim');
+        $namaPenerima = User::find($request->penerima_id)->name ?? 'penerima';
+
+        // Arahkan ke tab Menunggu supaya pengirim langsung melihat dokumennya
+        return redirect()->route('track-r.index', ['arah' => 'keluar', 'tab' => 'menunggu'])
+            ->with('success', 'Dokumen berhasil dikirim ke ' . $namaPenerima . '. Pantau statusnya di Dokumen Keluar > Menunggu.');
     }
 
     /* =========================
@@ -143,7 +146,14 @@ class TrackRController extends Controller
 
         $this->authorizeDocumentAccess($document);
 
-        $users = User::where('id', '!=', auth()->id())
+        // Kandidat tujuan teruskan: bukan diri sendiri, bukan pengirim,
+        // dan (kecuali kirim ulang setelah ditolak) bukan pemegang saat ini.
+        $excluded = [auth()->id(), $document->pengirim_id];
+        if ($document->status !== 'ditolak') {
+            $excluded[] = $document->penerima_id;
+        }
+
+        $users = User::whereNotIn('id', array_unique($excluded))
                     ->orderBy('name')
                     ->get();
 
@@ -179,59 +189,76 @@ class TrackRController extends Controller
 
     /* =========================
        TERIMA
+       Hanya pemegang saat ini, hanya saat status menunggu (dikirim/diteruskan).
     ========================= */
     public function terima($id)
     {
         DB::transaction(function () use ($id) {
-            $doc = TrackRDocument::findOrFail($id);
+            $doc = TrackRDocument::lockForUpdate()->findOrFail($id);
+            $uid = auth()->id();
 
-            if (auth()->id() !== $doc->penerima_id) {
+            if ($uid !== $doc->penerima_id) {
                 abort(403, 'Hanya penerima saat ini yang dapat menerima dokumen');
+            }
+            if (!in_array($doc->status, ['dikirim', 'diteruskan'], true)) {
+                abort(422, 'Dokumen ini sudah diproses.');
             }
 
             $doc->update(['status' => 'diterima']);
+            $doc->recipients()->updateExistingPivot($uid, ['status' => 'diterima']);
 
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
                 'aksi' => 'terima',
-                'dari_user_id' => auth()->id(),
-                'ke_user_id' => auth()->id(),
+                'dari_user_id' => $uid,
+                'ke_user_id' => $uid,
                 'catatan' => 'Dokumen diterima',
             ]);
         });
 
-        return back()->with('success', 'Dokumen diterima');
+        return back()->with('success', 'Dokumen diterima. Bisa dilihat lagi di Dokumen Masuk > Diterima.');
     }
 
     /* =========================
        TOLAK
+       Dikembalikan ke pengirim (ke_user_id = pengirim). Pengirim bisa Kirim Ulang.
     ========================= */
     public function tolak(Request $request, $id)
     {
         $request->validate(['catatan' => 'required|string|max:500']);
 
         DB::transaction(function () use ($request, $id) {
-            $doc = TrackRDocument::findOrFail($id);
+            $doc = TrackRDocument::lockForUpdate()->findOrFail($id);
+            $uid = auth()->id();
 
-            if (auth()->id() !== $doc->penerima_id) {
+            if ($uid !== $doc->penerima_id) {
                 abort(403, 'Hanya penerima saat ini yang dapat menolak dokumen');
+            }
+            if (!in_array($doc->status, ['dikirim', 'diteruskan'], true)) {
+                abort(422, 'Dokumen ini sudah diproses.');
             }
 
             $doc->update(['status' => 'ditolak']);
+            $doc->recipients()->updateExistingPivot($uid, ['status' => 'ditolak']);
 
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
                 'aksi' => 'tolak',
-                'dari_user_id' => auth()->id(),
+                'dari_user_id' => $uid,
+                'ke_user_id' => $doc->pengirim_id,
                 'catatan' => $request->catatan,
             ]);
         });
 
-        return back()->with('success', 'Dokumen ditolak');
+        return back()->with('success', 'Dokumen ditolak dan dikembalikan ke pengirim');
     }
 
     /* =========================
-       TERUSKAN
+       TERUSKAN (tanpa batas) / ALIHKAN / KIRIM ULANG
+       - Pemegang saat ini : teruskan saat dikirim/diteruskan/diterima
+       - Pengirim          : alihkan selagi menunggu (dikirim/diteruskan),
+                             kirim ulang setelah ditolak
+       Akses selalu hanya pengirim + penerima terakhir.
     ========================= */
     public function teruskan(Request $request, $id)
     {
@@ -241,31 +268,72 @@ class TrackRController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $id) {
-            $doc = TrackRDocument::findOrFail($id);
+            $doc   = TrackRDocument::lockForUpdate()->findOrFail($id);
+            $uid   = auth()->id();
+            $newId = (int) $request->penerima_id;
+            $oldId = $doc->penerima_id;
 
-            if (auth()->id() !== $doc->penerima_id && auth()->id() !== $doc->pengirim_id) {
+            $isHolder = $uid === $doc->penerima_id;
+            $isSender = $uid === $doc->pengirim_id;
+
+            if ($doc->status === 'ditolak') {
+                abort_unless($isSender, 403, 'Hanya pengirim yang dapat mengirim ulang dokumen yang ditolak');
+                $aksi = 'kirim_ulang';
+                $note = 'Dokumen dikirim ulang';
+            } elseif ($isHolder && in_array($doc->status, ['dikirim', 'diteruskan', 'diterima'], true)) {
+                $aksi = 'teruskan';
+                $note = 'Dokumen diteruskan';
+            } elseif ($isSender && in_array($doc->status, ['dikirim', 'diteruskan'], true)) {
+                $aksi = 'teruskan';
+                $note = 'Dokumen dialihkan oleh pengirim';
+            } else {
                 abort(403, 'Anda tidak diizinkan meneruskan dokumen ini');
             }
 
-            $doc->update([
-                'status' => 'diteruskan',
-                'penerima_id' => $request->penerima_id,
+            if ($newId === $uid || $newId === $doc->pengirim_id) {
+                abort(422, 'Tujuan tidak valid.');
+            }
+            if ($aksi === 'teruskan' && $newId === $oldId) {
+                abort(422, 'Dokumen sudah berada pada penerima tersebut.');
+            }
+
+            $doc->fill([
+                'status'      => $aksi === 'kirim_ulang' ? 'dikirim' : 'diteruskan',
+                'penerima_id' => $newId,
             ]);
 
-            $doc->recipients()->syncWithoutDetaching([$request->penerima_id => [
-                'received_at' => now(),
-            ]]);
+            if ($aksi === 'kirim_ulang') {
+                // Siklus baru: izinkan notifikasi email & reminder jalan lagi
+                // (kolom ini tidak ada di $fillable, jadi pakai forceFill)
+                $doc->forceFill([
+                    'email_receiver_sent' => 0,
+                    'email_accepted_sent' => 0,
+                    'email_rejected_sent' => 0,
+                    'last_reminder_sent'  => null,
+                ]);
+            }
+            $doc->save();
+
+            if ($aksi === 'teruskan') {
+                $doc->recipients()->updateExistingPivot($oldId, ['status' => 'diteruskan']);
+            }
+
+            // Penerima baru: pivot dibuat, atau di-reset jika pernah memegang dokumen ini
+            $doc->recipients()->syncWithoutDetaching([
+                $newId => ['received_at' => now(), 'status' => 'dikirim'],
+            ]);
 
             TrackRLog::create([
                 'track_r_document_id' => $doc->id,
-                'aksi' => 'teruskan',
-                'dari_user_id' => auth()->id(),
-                'ke_user_id' => $request->penerima_id,
-                'catatan' => $request->catatan ?? 'Dokumen diteruskan',
+                // Kirim ulang dicatat sebagai 'kirim' (enum log tidak diubah); bedanya ada di catatan
+                'aksi' => $aksi === 'kirim_ulang' ? 'kirim' : $aksi,
+                'dari_user_id' => $uid,
+                'ke_user_id' => $newId,
+                'catatan' => $request->catatan ?: $note,
             ]);
         });
 
-        return back()->with('success', 'Dokumen diteruskan, penerima sebelumnya tetap dapat mengakses.');
+        return back()->with('success', 'Dokumen berhasil diteruskan');
     }
 
     /* =========================
@@ -297,21 +365,12 @@ class TrackRController extends Controller
     {
         $user = auth()->user();
 
-        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients']);
+        $arah = $this->normalizeArah($request->input('arah'), $user);
 
-        // Jika bukan superadmin track, filter berdasarkan akses biasa
-        if (!$user->isSuperadminTrack()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('pengirim_id', $user->id)
-                  ->orWhereHas('recipients', function ($sub) use ($user) {
-                      $sub->where('user_id', $user->id);
-                  });
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
+        $query = TrackRDocument::with(['pengirim', 'penerima', 'recipients'])
+            ->visibleTo($user)
+            ->inDirection($arah, $user->id)
+            ->inTab($this->normalizeTab($request->input('tab'), $arah), $user->id);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -343,8 +402,8 @@ class TrackRController extends Controller
             'Status Global',
             'Tanggal Kirim',
             'Tanggal Update',
-            'Jumlah Penerima Lain',
-            'Daftar Penerima Lain'
+            'Jumlah Penerima Sebelumnya',
+            'Daftar Penerima Sebelumnya'
         ]);
 
         foreach ($documents as $doc) {
@@ -379,6 +438,36 @@ class TrackRController extends Controller
     /* =========================
        PRIVATE – VALIDASI AKSES (dengan superadmin track)
     ========================= */
+    // Arah daftar: masuk | keluar | semua (semua hanya superadmin)
+    private function normalizeArah(?string $arah, $user, ?array $dirCounts = null): string
+    {
+        $isSuper = $user->isSuperadminTrack();
+        $allowed = $isSuper ? ['masuk', 'keluar', 'semua'] : ['masuk', 'keluar'];
+
+        if (in_array($arah, $allowed, true)) {
+            return $arah;
+        }
+        if ($isSuper) {
+            return 'semua';
+        }
+        // Belum punya dokumen masuk tapi sudah pernah kirim -> buka Dokumen Keluar
+        if ($dirCounts && ($dirCounts['masuk']['semua'] ?? 0) === 0 && ($dirCounts['keluar']['semua'] ?? 0) > 0) {
+            return 'keluar';
+        }
+        return 'masuk';
+    }
+
+    // Tab yang tersedia bergantung pada arah
+    private function normalizeTab(?string $tab, string $arah = 'semua'): string
+    {
+        $allowed = match ($arah) {
+            'masuk'  => ['perlu_tindakan', 'diterima', 'ditolak'],
+            'keluar' => ['menunggu', 'diterima', 'ditolak'],
+            default  => ['perlu_tindakan', 'menunggu', 'diterima', 'ditolak'],
+        };
+        return in_array($tab, $allowed, true) ? $tab : 'semua';
+    }
+
     private function authorizeDocumentAccess($document)
     {
         $user = auth()->user();
