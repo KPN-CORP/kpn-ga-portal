@@ -119,7 +119,7 @@
     </section>
 
     <section class="space-y-3">
-        <h2 class="{{ $sec }}">Tren dan nilai</h2>
+        <h2 class="{{ $sec }}">Tren dan status</h2>
         <div class="space-y-4">
     {{-- Tren + status --}}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -158,17 +158,6 @@
             <p class="mt-2 {{ $hint }}" x-text="'Satuan: ' + (ukuran === 'item' ? 'jumlah item' : 'jumlah permintaan')"></p>
         </div>
     </div>
-
-    {{-- Nilai disetujui --}}
-        <!-- <div class="{{ $card }} p-4">
-            <div class="flex items-baseline justify-between mb-2">
-                <h3 class="{{ $h }}">Nilai permintaan disetujui<button type="button" @click="toggleKet('nilai')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.nilai ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
-                <span class="{{ $hint }}">Rupiah, per <span x-text="gran === 'day' ? 'hari' : 'bulan'"></span></span>
-            </div>
-            <p x-show="!ketTutup.nilai" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.nilai"></p>
-            <div class="relative" data-chart-wrap style="height:260px"><canvas id="chNilai"></canvas></div>
-            <p x-show="nilaiTanpaHarga" class="mt-2 text-xs text-amber-700" x-text="nilaiTanpaHarga === nilaiSetuju ? 'Semua ' + angka(nilaiSetuju) + ' permintaan disetujui pada periode ini belum punya harga di master barang, jadi nilainya Rp 0.' : angka(nilaiTanpaHarga) + ' dari ' + angka(nilaiSetuju) + ' permintaan disetujui belum punya harga di master barang, jadi dihitung Rp 0.'"></p>
-        </div> -->
         </div>
     </section>
 
@@ -209,7 +198,7 @@
                         <th class="text-left font-medium pb-2 w-6">#</th>
                         <th class="text-left font-medium pb-2">Barang</th>
                         <th class="text-right font-medium pb-2" x-text="ukuran === 'item' ? 'Item' : 'Permintaan'"></th>
-                                                                    </tr>
+                    </tr>
                 </thead>
                 <tbody>
                     <template x-for="(b, i) in tabBarang" :key="b.id">
@@ -341,7 +330,7 @@
         </aside>
     </template>
 
-    <p class="text-xs text-slate-400">Data mencakup 24 bulan terakhir (mulai <span x-text="batasAwal"></span>). Nilai, Bisnis Unit/Area, unit, barang, dan pemohon hanya menghitung permintaan berstatus Disetujui (filter Status tidak berlaku). Nilai = jumlah × harga di master barang saat ini. "Item" = total jumlah barang yang diminta; "Permintaan" = jumlah baris permintaan. Periode pembanding = rentang yang sama panjang tepat sebelum periode terpilih.</p>
+    <p class="text-xs text-slate-400">Data mencakup 24 bulan terakhir (mulai <span x-text="batasAwal"></span>). Bisnis Unit/Area, unit, barang, dan pemohon hanya menghitung permintaan berstatus Disetujui (filter Status tidak berlaku). "Item" = total jumlah barang yang diminta; "Permintaan" = jumlah baris permintaan. Periode pembanding = rentang yang sama panjang tepat sebelum periode terpilih.</p>
 </div>
 @endsection
 
@@ -370,7 +359,7 @@ function dashboardPage(D) {
     const pemohonNama = {};
     (D.pemohon || []).forEach(x => { pemohonNama[x[0]] = x[1]; });
 
-    const KET_KEYS = ['bulan', 'status', 'nilai', 'barang', 'pemohon', 'stok', 'unit', 'grup'];
+    const KET_KEYS = ['bulan', 'status', 'barang', 'pemohon', 'stok', 'unit', 'grup'];
     const KET_STORE = 'stockDashKetTutup';
     const STATUS_NAMA = ['Disetujui', 'Ditolak', 'Dalam Proses', 'Dibatalkan'];
     // urutan indeks status: 0 disetujui, 1 ditolak, 2 dalam proses, 3 dibatalkan
@@ -378,7 +367,7 @@ function dashboardPage(D) {
 
     // Chart & data bantu disimpan di luar state Alpine supaya tidak dibungkus proxy reaktif.
     const charts = {};
-    const ctx = { keys: [], labels: [], gran: 'month', perArea: false, nilaiDiv: 1, nilaiN: [], nilaiQ: [], barang: [], grup: [], unit: [] };
+    const ctx = { keys: [], labels: [], gran: 'month', perArea: false, barang: [], grup: [], unit: [] };
     let timer = null;
     let spCtx = null;               // predikat & aksi panel (di luar state Alpine)
     const PG = 10;                  // baris per halaman di panel
@@ -447,9 +436,9 @@ function dashboardPage(D) {
         cbOpenKey: '', cbQ: '', cbHi: 0, cbTyped: false, CB_SEMUA,
         filterDef: [['idBu', 'Bisnis Unit'], ['idArea', 'Area Kerja'], ['unit', 'Unit (Divisi Pemohon)'], ['status', 'Status'], ['barang', 'Barang']],
         ketTutup: Object.fromEntries(KET_KEYS.map(k => [k, false])),
-        cmp: { prevOk: false, pa: '', pb: '', total: { v: 0, p: 0, d: null }, rate: { v: null, d: null, ok: 0, dec: 0 }, pend: { v: 0, p: 0, d: null }, nilai: { v: 0, p: 0, d: null } },
-        tabBarang: [], stokArea: [], nilaiTanpaHarga: 0, nilaiSetuju: 0,
-        kpi: { total: 0, s: [0, 0, 0, 0], q: [0, 0, 0, 0], qtyTotal: 0, nilai: 0 },
+        cmp: { prevOk: false, pa: '', pb: '', total: { v: 0, p: 0, d: null }, rate: { v: null, d: null, ok: 0, dec: 0 }, pend: { v: 0, p: 0, d: null } },
+        tabBarang: [], stokArea: [],
+        kpi: { total: 0, s: [0, 0, 0, 0], q: [0, 0, 0, 0], qtyTotal: 0 },
         gran: 'month',
         judulGrup: 'Permintaan per Bisnis Unit',
         errorMsg: '',
@@ -573,11 +562,6 @@ function dashboardPage(D) {
             } } : null;
             this.bukaPanel((st === null ? 'Semua status' : STATUS_NAMA[st]) + ' · ' + lab, 'req', r => kf(r[0]) === key && (st === null || r[5] === st), null, act);
         },
-        klikNilai(e, els) {
-            if (!els.length) return;
-            const key = ctx.keys[els[0].index], lab = ctx.labels[els[0].index], kf = ctx.gran === 'day' ? (t => t) : (t => t.slice(0, 7));
-            this.bukaPanel('Disetujui · ' + lab, 'req', r => r[5] === 0 && kf(r[0]) === key, 'status', null);
-        },
         klikUnit(els) {
             if (!els.length) return;
             const u = ctx.unit[els[0].index];
@@ -594,17 +578,16 @@ function dashboardPage(D) {
         // ---- Keterangan tiap grafik/tabel (bisa diminimalkan, pilihan diingat di browser) ----
         get ket() {
             const item = this.ukuran === 'item';
-            const sat = item ? 'jumlah item (total barang yang diminta)' : 'jumlah permintaan (banyaknya baris permintaan)';
+            const sat = item ? 'jumlah item (total pengajuan)' : 'jumlah permintaan (banyaknya baris permintaan)';
             const per = this.gran === 'day' ? 'hari' : 'bulan';
             return {
                 bulan:  `Menampilkan ${sat} per ${per}, ditumpuk menurut status. Mengikuti semua filter di atas. Klik sebuah batang untuk menampilkan datanya di panel kanan.`,
                 status: `Pembagian ${sat} menurut status. Klik sebuah status untuk menampilkan datanya di panel kanan.`,
-                nilai:  `Total nilai permintaan berstatus Disetujui per ${per}; filter Status tidak berlaku. Nilai = jumlah × harga di master barang saat ini (bukan harga saat permintaan dibuat); barang tanpa harga dihitung Rp 0. Arahkan kursor ke batang untuk angka rupiah penuh, klik untuk melihat datanya.`,
                 barang: `10 barang teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Klik baris untuk menampilkan datanya di panel kanan.`,
                 pemohon: `10 pemohon dengan ${sat} terbanyak, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Klik baris untuk melihat permintaan pemohon itu.`,
                 stok:   'Kondisi stok saat ini (bukan per periode), dikelompokkan per Bisnis Unit dan diurutkan dari persentase barang menipis + habis tertinggi. Stok cukup = di atas stok minimum; menipis = di atas 0 tetapi di bawah/sama dengan stok minimum; habis = stok 0. Klik sebuah Bisnis Unit untuk melihat rincian stok per area.',
                 unit:   `10 unit teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Nama unit ditulis bersama Bisnis Unit-nya dalam kurung. Klik batang untuk menampilkan datanya di panel kanan.`,
-                grup:   `10 teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Per Bisnis Unit; setelah satu Bisnis Unit dipilih, berubah menjadi per Area Kerja. Klik batang untuk menampilkan datanya di panel kanan.`,
+                grup:   `Menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Per Bisnis Unit; setelah satu Bisnis Unit dipilih, berubah menjadi per Area Kerja. Klik batang untuk menampilkan datanya di panel kanan.`,
             };
         },
         get semuaKetTutup() { return KET_KEYS.every(k => this.ketTutup[k]); },
@@ -613,7 +596,7 @@ function dashboardPage(D) {
         simpanKet() { try { localStorage.setItem(KET_STORE, JSON.stringify(this.ketTutup)); } catch (e) {} },
 
         get kartu() {
-            const C = this.cmp, K = this.kpi, item = this.ukuran === 'item';
+            const C = this.cmp, item = this.ukuran === 'item';
             return [
                 { k: 'total', label: item ? 'Item diminta' : 'Total permintaan', val: angka(C.total.v),
                   sub: C.prevOk ? 'sebelumnya ' + angka(C.total.p) : 'pembanding tidak tersedia',
@@ -755,15 +738,14 @@ function dashboardPage(D) {
             const dasar = this.saring('status');
             const s = [0, 0, 0, 0];   // jumlah permintaan per status
             const q = [0, 0, 0, 0];   // jumlah barang (qty) per status
-            let nilai = 0, qtyTotal = 0;
+            let qtyTotal = 0;
             dasar.forEach(r => {
                 const jml = qtyBaris(r);
                 s[r[5]]++;
                 q[r[5]] += jml;
                 qtyTotal += jml;
-                if (r[5] === 0) nilai += r[6];
             });
-            this.kpi = { total: dasar.length, s, q, qtyTotal, nilai };
+            this.kpi = { total: dasar.length, s, q, qtyTotal };
 
             // Bobot per baris permintaan: jumlah item atau 1 (hitung baris)
             const item = this.ukuran === 'item';
@@ -772,8 +754,8 @@ function dashboardPage(D) {
 
             // --- Periode pembanding: rentang sama panjang tepat sebelum periode aktif ---
             const agg = rows => {
-                const o = { s: [0, 0, 0, 0], q: [0, 0, 0, 0], tot: 0, qty: 0, nilai: 0 };
-                rows.forEach(r => { const j = qtyBaris(r); o.s[r[5]]++; o.q[r[5]] += j; o.tot++; o.qty += j; if (r[5] === 0) o.nilai += r[6]; });
+                const o = { s: [0, 0, 0, 0], q: [0, 0, 0, 0], tot: 0, qty: 0 };
+                rows.forEach(r => { const j = qtyBaris(r); o.s[r[5]]++; o.q[r[5]] += j; o.tot++; o.qty += j; });
                 return o;
             };
             const V = (o, i) => item ? o.q[i] : o.s[i];
@@ -792,8 +774,7 @@ function dashboardPage(D) {
             this.cmp = { prevOk, pa, pb,
                 total: { v: T(cur), p: T(prv), d: dl(T(cur), T(prv)) },
                 rate:  { v: rc, d: (prevOk && rc !== null && rp !== null) ? rc - rp : null, ok: V(cur, 0), dec: V(cur, 0) + V(cur, 1) },
-                pend:  { v: V(cur, 2), p: V(prv, 2), d: dl(V(cur, 2), V(prv, 2)) },
-                nilai: { v: cur.nilai, p: prv.nilai, d: dl(cur.nilai, prv.nilai) } };
+                pend:  { v: V(cur, 2), p: V(prv, 2), d: dl(V(cur, 2), V(prv, 2)) } };
 
             // --- Deret waktu ---
             const rg = rentang(aw, ak);
@@ -809,24 +790,6 @@ function dashboardPage(D) {
                 if (i === undefined) return;
                 perStatus[r[5]][i] += w(r);
             });
-
-            // Nilai disetujui per periode: hanya status Disetujui, filter Status tidak berlaku.
-            const nilaiSeri = rg.keys.map(() => 0), nilaiN = rg.keys.map(() => 0), nilaiQ = rg.keys.map(() => 0);
-            let tanpaHarga = 0, nSetuju = 0;
-            dasar.forEach(r => {
-                if (r[5] !== 0) return;
-                const i = idxKey[potongKey(r[0])];
-                if (i === undefined) return;
-                nSetuju++; nilaiSeri[i] += r[6]; nilaiN[i]++; nilaiQ[i] += qtyBaris(r);
-                if (r[6] === 0) tanpaHarga++;
-            });
-            const mxNilai = Math.max(0, ...nilaiSeri);
-            ctx.nilaiDiv = mxNilai >= 1e9 ? 1e9 : mxNilai >= 1e6 ? 1e6 : mxNilai >= 1e3 ? 1e3 : 1;
-            ctx.nilaiN = nilaiN; ctx.nilaiQ = nilaiQ;
-            this.nilaiTanpaHarga = tanpaHarga; this.nilaiSetuju = nSetuju;
-            if (charts.chNilai) charts.chNilai.options.scales.y.title.text =
-                ctx.nilaiDiv === 1e9 ? 'Rupiah (miliar)' : ctx.nilaiDiv === 1e6 ? 'Rupiah (juta)' : ctx.nilaiDiv === 1e3 ? 'Rupiah (ribu)' : 'Rupiah';
-
 
             // --- Stok ---
             const stok = [0, 0, 0];
@@ -885,13 +848,6 @@ function dashboardPage(D) {
             set('chBulan', rg.labels, [0, 2, 1, 3].map(i => ({
                 label: STATUS_NAMA[i], data: perStatus[i], backgroundColor: WARNA[i], borderRadius: 2, maxBarThickness: 28,
             })));
-
-
-            set('chNilai', rg.labels, [{
-                label: 'Nilai disetujui', data: nilaiSeri, backgroundColor: '#4a6a94', borderRadius: 2, maxBarThickness: 40,
-            }]);
-
-
 
             set('chUnit', ctx.unit.map(u => u.nama + ' (' + (buNama[u.b] || '-') + ')'), [{
                 label: lbl, data: tUnit.map(x => x[1]),
@@ -964,45 +920,6 @@ function dashboardPage(D) {
                     onHover: pointer,
                 },
             });
-
-
-            mk('chNilai', {
-                type: 'bar',
-                data: { labels: [], datasets: [] },
-                options: {
-                    ...dasar,
-                    interaction: { mode: 'index', axis: 'x', intersect: false },
-                    layout: { padding: { top: 20 } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { maxTicksLimit: 16, autoSkip: true } },
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, border: { display: false },
-                             title: { display: true, text: 'Rupiah', color: '#94a3b8' },
-                             ticks: { callback: v => (v / ctx.nilaiDiv).toLocaleString('id-ID', { maximumFractionDigits: 2 }) } },
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { ...tipDasar, callbacks: {
-                            label: c => rupiah(c.parsed.y),   // angka penuh, tanpa pembulatan
-                            footer: items => angka(ctx.nilaiN[items[0].dataIndex]) + ' permintaan · ' + angka(ctx.nilaiQ[items[0].dataIndex]) + ' item',
-                        } },
-                    },
-                    onClick: (e, els) => self.klikNilai(e, els), onHover: pointer,
-                },
-                plugins: [{
-                    id: 'nilaiLabel',   // nilai ringkas di atas batang (hanya bila batangnya sedikit)
-                    afterDatasetsDraw(chart) {
-                        const ds = chart.data.datasets[0];
-                        if (!ds || !ds.data || !ds.data.length || chart.data.labels.length > 12) return;   // grafik kosong saat dibuat pertama kali
-                        const c = chart.ctx, vals = ds.data;
-                        c.save();
-                        c.font = '600 ' + Chart.defaults.font.size + 'px ' + Chart.defaults.font.family;
-                        c.fillStyle = '#475569'; c.textAlign = 'center'; c.textBaseline = 'bottom';
-                        chart.getDatasetMeta(0).data.forEach((el, i) => { if (vals[i] > 0) c.fillText(ringkas(vals[i]), el.x, el.y - 4); });
-                        c.restore();
-                    },
-                }],
-            });
-
 
             mk('chUnit', horizontal('#4a6a94', (e, els) => self.klikUnit(els)));
             mk('chGrup', horizontal('#64748b', (e, els) => self.klikGrup(els)));
