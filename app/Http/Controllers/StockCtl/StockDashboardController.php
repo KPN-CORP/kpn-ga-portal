@@ -69,6 +69,7 @@ class StockDashboardController extends Controller
         $q = DB::table('stock_ctl_permintaan as p')
             ->join('stock_ctl_area_kerja as a', 'a.id_area_kerja', '=', 'p.id_area_kerja')
             ->leftJoin('stock_ctl_barang as b', 'b.id_barang', '=', 'p.id_barang')
+            ->leftJoin('users as u', 'u.id', '=', 'p.id_user_pemohon')
             ->whereDate('p.tanggal_permintaan', '>=', $batasAwal)
             ->orderBy('p.tanggal_permintaan')
             ->orderBy('p.id_permintaan');
@@ -91,16 +92,19 @@ class StockDashboardController extends Controller
              p.id_barang as barang,
              p.status as status,
              ROUND(p.jumlah * COALESCE(b.harga, 0)) as nilai,
-             p.jumlah as qty'
+             p.jumlah as qty,
+             p.id_user_pemohon as pemohon,
+             u.name as pemohon_nama'
         )->get();
 
         $rows      = [];
         $barangIds = [];
+        $pemohonNama = [];
         foreach ($hasil as $r) {
             if (!isset($kodeStatus[$r->status])) {
                 continue;
             }
-            // urutan: tanggal, bu, area, unitIdx, barang, status, nilai, qty
+            // urutan: tanggal, bu, area, unitIdx, barang, status, nilai, qty, pemohon
             $rows[] = [
                 $r->tgl,
                 (int) $r->bu,
@@ -110,8 +114,10 @@ class StockDashboardController extends Controller
                 $kodeStatus[$r->status],
                 (int) $r->nilai,
                 (int) $r->qty,   // r[7] = jumlah barang (ganti ke (float) kalau jumlah bisa desimal)
+                (int) $r->pemohon, // r[8] = id user pemohon (nama ada di payload 'pemohon')
             ];
             $barangIds[(int) $r->barang] = true;
+            $pemohonNama[(int) $r->pemohon] = $r->pemohon_nama ?: ('User #' . (int) $r->pemohon);
         }
 
         $barangList = [];
@@ -124,6 +130,9 @@ class StockDashboardController extends Controller
                 ->values()
                 ->all();
         }
+
+        // Daftar pemohon [id, nama] untuk panel data & grafik pemohon teratas
+        $pemohonList = collect($pemohonNama)->map(fn ($nama, $id) => [(int) $id, $nama])->sortBy(fn ($x) => mb_strtolower($x[1]))->values()->all();
 
         // ---- Transaksi aktif, diringkas per hari/jenis/area ----
         // masuk -> area tujuan, keluar -> area asal (sama dengan Laporan)
@@ -180,6 +189,7 @@ class StockDashboardController extends Controller
             'areas'     => $areas,
             'units'     => $unitList,
             'barang'    => $barangList,
+            'pemohon'   => $pemohonList,
             'rows'      => $rows,
             'trx'       => $trx,
             'stok'      => $stok,

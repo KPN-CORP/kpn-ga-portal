@@ -3,86 +3,87 @@
 @section('title', isset($user) ? 'Project - ' . $user->name : 'Project Monitor')
 
 @section('content')
-<div class="w-full px-4 sm:px-6 lg:px-8 py-6">
-    @php
-        $userId = isset($user) ? $user->id : Auth::id();
-        // Tentukan route untuk link Project
-        $projectLink = isset($user) ? route('task-m.user.projects', $user->id) : route('task-m.index');
-        if ($year) {
-            $projectLink .= '?year=' . $year;
-        }
-    @endphp
+@php
+    $userId  = isset($user) ? $user->id : Auth::id();
+    $baseUrl = isset($user) ? route('task-m.user.projects', $user->id) : route('task-m.index');
+@endphp
 
-    {{-- Stats Cards (semua angka bisa diklik) --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white rounded-xl shadow-sm border-l-4 border-indigo-500 p-4">
+<div class="w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+    {{-- Judul --}}
+    <div class="mb-4">
+        <h1 class="text-xl sm:text-2xl font-semibold text-gray-800 break-words">
+            @if(isset($user))
+                📁 Project Milik: {{ $user->name }}
+            @else
+                📋 Daftar Project
+            @endif
+        </h1>
+        <p class="text-sm text-gray-500">Kelola progress</p>
+    </div>
+
+    {{-- Stats Cards (seluruh kartu bisa diketuk) --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5">
+        <a href="#daftar-project" class="block bg-white rounded-xl shadow-sm border-l-4 border-indigo-500 p-4 hover:shadow-md transition">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-500 text-sm">Project</p>
-                    <a href="{{ $projectLink }}" class="text-2xl font-bold text-gray-800 hover:underline">
-                        {{ $stats['total_projects'] ?? 0 }}
-                    </a>
+                    <p class="text-2xl font-bold text-gray-800">{{ $stats['total_projects'] ?? 0 }}</p>
                 </div>
                 <i class="fas fa-folder-open text-3xl text-indigo-300"></i>
             </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border-l-4 border-yellow-500 p-4">
+        </a>
+        <a href="{{ route('task-m.units', ['status' => 'pending', 'user_id' => $userId, 'year' => $year]) }}"
+           class="block bg-white rounded-xl shadow-sm border-l-4 border-yellow-500 p-4 hover:shadow-md transition">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-gray-500 text-sm">Item Proses</p>
-                    <a href="{{ route('task-m.units', ['status' => 'pending', 'user_id' => $userId, 'year' => $year]) }}" class="text-2xl font-bold text-yellow-600 hover:underline">
-                        {{ $stats['total_pending'] ?? 0 }}
-                    </a>
+                    <p class="text-2xl font-bold text-yellow-600">{{ $stats['total_pending'] ?? 0 }}</p>
                 </div>
                 <i class="fas fa-clock text-3xl text-yellow-300"></i>
             </div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border-l-4 border-green-500 p-4">
+        </a>
+        <a href="{{ route('task-m.units', ['status' => 'done', 'user_id' => $userId, 'year' => $year]) }}"
+           class="block bg-white rounded-xl shadow-sm border-l-4 border-green-500 p-4 hover:shadow-md transition">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-500 text-sm">Item Done</p>
-                    <a href="{{ route('task-m.units', ['status' => 'done', 'user_id' => $userId, 'year' => $year]) }}" class="text-2xl font-bold text-green-600 hover:underline">
-                        {{ $stats['total_done'] ?? 0 }}
-                    </a>
+                    <p class="text-gray-500 text-sm">Item Selesai</p>
+                    <p class="text-2xl font-bold text-green-600">{{ $stats['total_done'] ?? 0 }}</p>
                 </div>
                 <i class="fas fa-check-circle text-3xl text-green-300"></i>
             </div>
-        </div>
+        </a>
     </div>
 
-    {{-- Filter Tahun --}}
-    <div class="mb-4 flex flex-wrap justify-between items-center gap-3">
-        <form method="GET" action="{{ isset($user) ? route('task-m.user.projects', $user->id) : route('task-m.index') }}" class="flex gap-2">
-            <select name="year" class="rounded-xl border-gray-200 px-3 py-2 text-sm">
+    {{-- Toolbar: filter tahun + aksi --}}
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <form method="GET" action="{{ $baseUrl }}" class="flex items-center gap-2">
+            <select name="year" onchange="this.form.submit()"
+                    class="flex-1 sm:flex-none rounded-xl border-gray-200 px-3 py-2.5 text-sm">
                 <option value="">Semua Tahun</option>
                 @foreach($availableYears as $y)
                     <option value="{{ $y }}" {{ ($year == $y) ? 'selected' : '' }}>{{ $y }}</option>
                 @endforeach
             </select>
-            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-indigo-700">
-                <i class="fas fa-filter mr-1"></i> Filter
-            </button>
+            <noscript>
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm">Filter</button>
+            </noscript>
             @if($year)
-                <a href="{{ isset($user) ? route('task-m.user.projects', $user->id) : route('task-m.index') }}" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-xl text-sm hover:bg-gray-400">
+                <a href="{{ $baseUrl }}" class="shrink-0 bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm hover:bg-gray-300">
                     Reset
                 </a>
             @endif
         </form>
-        <button onclick="openCreateModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-3 shadow-md transition">
-            <i class="fas fa-plus text-lg"></i>
-        </button>
-    </div>
 
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-2xl font-semibold text-gray-800">
-                @if(isset($user))
-                    📁 Project Milik: {{ $user->name }}
-                @else
-                    📋 Daftar Project
-                @endif
-            </h1>
-            <p class="text-sm text-gray-500">Kelola progress</p>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('task-m.report.weekly', isset($user) ? ['user_id' => $user->id] : []) }}"
+               class="flex-1 sm:flex-none text-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm shadow-sm transition">
+                Laporan Mingguan
+            </a>
+            <button type="button" onclick="openCreateModal()"
+                    class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm shadow-sm transition">
+                <i class="fas fa-plus mr-1"></i> Project Baru
+            </button>
         </div>
     </div>
 
@@ -92,83 +93,93 @@
     @if(session('error'))
         <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-xl text-sm">{{ session('error') }}</div>
     @endif
-
-    @if($projects->count())
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Project</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tahun</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($projects as $project)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <a href="{{ route('task-m.show', $project->id) }}" class="text-indigo-600 hover:text-indigo-900 font-medium">
-                                    {{ $project->title }}
-                                </a>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {{ $project->start_date->format('Y') }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex-1 max-w-[200px]">
-                                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                            <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ $project->progressPercentage() }}%"></div>
-                                        </div>
-                                    </div>
-                                    <span class="text-sm font-medium text-gray-700">{{ $project->progressPercentage() }}%</span>
-                                </div>
-                                <div class="text-xs text-gray-400 mt-1">
-                                    {{ $project->doneUnitsCount() }} / {{ $project->units->count() }} unit selesai
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+    @if($errors->any())
+        <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-xl text-sm">
+            <ul class="list-disc pl-5">
+                @foreach($errors->all() as $e)
+                    <li>{{ $e }}</li>
+                @endforeach
+            </ul>
         </div>
+    @endif
+
+    {{-- Daftar project: satu tampilan untuk HP, tablet, desktop --}}
+    @if($projects->count())
+        <ul id="daftar-project" class="scroll-mt-4 bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+            @foreach($projects as $project)
+                @php
+                    $pct       = $project->progressPercentage();
+                    $doneCount = $project->doneUnitsCount();
+                    $active    = $project->activeUnitsCount();
+                    $cancelled = $project->cancelledUnitsCount();
+                @endphp
+                <li>
+                    <a href="{{ route('task-m.show', $project->id) }}"
+                       class="block p-4 hover:bg-gray-50 sm:flex sm:items-center sm:justify-between sm:gap-6">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-medium text-indigo-700 break-words">{{ $project->title }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Tahun {{ $project->start_date->format('Y') }}</p>
+                        </div>
+                        <div class="mt-3 sm:mt-0 sm:w-64 shrink-0">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: {{ $pct }}%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700 w-10 text-right">{{ $pct }}%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {{ $doneCount }} / {{ $active }} unit aktif selesai
+                                @if($cancelled) &middot; {{ $cancelled }} dibatalkan @endif
+                            </p>
+                        </div>
+                    </a>
+                </li>
+            @endforeach
+        </ul>
     @else
-        <div class="text-center py-16 bg-gray-50 rounded-2xl">
+        <div id="daftar-project" class="text-center py-16 bg-gray-50 rounded-2xl">
             <i class="fas fa-folder-open text-5xl text-gray-300 mb-3"></i>
-            <p class="text-gray-500">Belum ada project</p>
-            <button onclick="openCreateModal()" class="inline-block mt-3 bg-indigo-600 text-white px-4 py-2 rounded-full text-sm">
+            <p class="text-gray-500">Belum ada project{{ $year ? ' di tahun ' . $year : '' }}</p>
+            <button type="button" onclick="openCreateModal()" class="inline-block mt-3 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm">
                 Buat Project Baru
             </button>
         </div>
     @endif
 </div>
 
-{{-- Modal Create Project --}}
-<div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" onclick="if(event.target === this) closeCreateModal()">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4">
+{{-- Modal Buat Project --}}
+<div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4" onclick="if(event.target === this) closeCreateModal()">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-screen overflow-y-auto p-5 sm:p-6">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-gray-800">Buat Project Baru</h3>
-            <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            <h3 class="text-lg sm:text-xl font-bold text-gray-800">Buat Project Baru</h3>
+            <button type="button" onclick="closeCreateModal()" aria-label="Tutup"
+                    class="w-10 h-10 -mr-2 flex items-center justify-center text-2xl text-gray-400 hover:text-gray-600">&times;</button>
         </div>
         <form action="{{ route('task-m.store') }}" method="POST">
             @csrf
+            @if(isset($user))
+                <input type="hidden" name="user_id" value="{{ $user->id }}">
+                <p class="mb-3 text-xs text-gray-500">Project dibuat untuk <b>{{ $user->name }}</b>.</p>
+            @endif
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nama Project</label>
-                <input type="text" name="title" required class="w-full rounded-xl border-gray-200 focus:border-indigo-400 focus:ring focus:ring-indigo-200">
+                <input type="text" name="title" required maxlength="255" value="{{ old('title') }}"
+                       class="w-full rounded-xl border-gray-200 focus:border-indigo-400 focus:ring focus:ring-indigo-200">
             </div>
-            <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-1">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
-                    <input type="date" name="start_date" required class="w-full rounded-xl border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai <span class="text-gray-400 font-normal">(opsional)</span></label>
+                    <input type="date" name="start_date" value="{{ old('start_date') }}" class="w-full rounded-xl border-gray-200">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
-                    <input type="date" name="end_date" required class="w-full rounded-xl border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai <span class="text-gray-400 font-normal">(opsional)</span></label>
+                    <input type="date" name="end_date" value="{{ old('end_date') }}" class="w-full rounded-xl border-gray-200">
                 </div>
             </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="closeCreateModal()" class="px-4 py-2 border rounded-xl">Batal</button>
-                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700">Simpan</button>
+            <p class="text-xs text-gray-400 mb-4">Kosongkan tanggal bila project tidak punya deadline.</p>
+            <div class="flex gap-2 sm:justify-end">
+                <button type="button" onclick="closeCreateModal()" class="flex-1 sm:flex-none px-4 py-2.5 border rounded-xl">Batal</button>
+                <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700">Simpan</button>
             </div>
         </form>
     </div>
@@ -176,12 +187,22 @@
 
 <script>
     function openCreateModal() {
-        document.getElementById('createModal').classList.remove('hidden');
-        document.getElementById('createModal').classList.add('flex');
+        var m = document.getElementById('createModal');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        var t = m.querySelector('input[name="title"]');
+        if (t) t.focus();
     }
     function closeCreateModal() {
-        document.getElementById('createModal').classList.add('hidden');
-        document.getElementById('createModal').classList.remove('flex');
+        var m = document.getElementById('createModal');
+        m.classList.add('hidden');
+        m.classList.remove('flex');
     }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeCreateModal();
+    });
+    @if($errors->any() && old('title') !== null)
+        openCreateModal();
+    @endif
 </script>
 @endsection

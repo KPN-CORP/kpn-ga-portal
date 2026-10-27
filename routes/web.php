@@ -783,6 +783,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/user/{userId}/projects', [TaskMonitorController::class, 'userProjects'])->name('user.projects');
         Route::post('/', [TaskMonitorController::class, 'store'])->name('store');
         Route::get('/units', [TaskMonitorController::class, 'unitsList'])->name('units');
+        Route::get('/report/weekly', [TaskMonitorController::class, 'weeklyReport'])->name('report.weekly'); // BARU: harus di atas /{id}
         Route::get('/{id}', [TaskMonitorController::class, 'show'])->name('show');
         Route::put('/{id}', [TaskMonitorController::class, 'update'])->name('update');
         Route::delete('/{id}', [TaskMonitorController::class, 'destroy'])->name('destroy');

@@ -28,14 +28,34 @@ class TaskMonitor extends Model
         return $this->hasMany(TaskUnit::class, 'task_monitor_id');
     }
 
+    /**
+     * Koleksi unit yang sudah dimuat (eager load). Bila belum dimuat, dimuat sekali saja,
+     * sehingga hitungan di bawah tidak menjalankan query baru setiap dipanggil.
+     */
+    protected function unitsCollection()
+    {
+        $this->loadMissing('units:id,task_monitor_id,status');
+        return $this->units;
+    }
+
     public function doneUnitsCount()
     {
-        return $this->units()->where('status', 'done')->count();
+        return $this->unitsCollection()->where('status', 'done')->count();
+    }
+
+    public function pendingUnitsCount()
+    {
+        return $this->unitsCollection()->where('status', 'pending')->count();
+    }
+
+    public function cancelledUnitsCount()
+    {
+        return $this->unitsCollection()->where('status', 'cancelled')->count();
     }
 
     public function activeUnitsCount()
     {
-        return $this->units()->where('status', '!=', 'cancelled')->count();
+        return $this->unitsCollection()->where('status', '!=', 'cancelled')->count();
     }
 
     public function progressPercentage()
@@ -46,25 +66,27 @@ class TaskMonitor extends Model
     }
 
     /**
-     * Statistik untuk user (dengan filter tahun)
-     * Tahun filter berdasarkan tahun start_date
+     * Statistik untuk user (dengan filter tahun) - hanya 2 query, tanpa memuat semua unit.
+     * Tahun filter berdasarkan tahun start_date.
      */
     public static function getUserStats($userId, $year = null)
     {
-        $query = self::where('user_id', $userId);
+        $projects = self::where('user_id', $userId);
         if ($year) {
-            $query->whereYear('start_date', $year);
+            $projects->whereYear('start_date', $year);
         }
-        $projects = $query->with('units')->get();
 
-        $totalProjects = $projects->count();
-        $totalPending = $projects->sum(fn($p) => $p->units->where('status', 'pending')->count());
-        $totalDone = $projects->sum(fn($p) => $p->units->where('status', 'done')->count());
+        $totalProjects = (clone $projects)->count();
+
+        $counts = TaskUnit::whereIn('task_monitor_id', (clone $projects)->select('id'))
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
         return [
             'total_projects' => $totalProjects,
-            'total_pending'  => $totalPending,
-            'total_done'     => $totalDone,
+            'total_pending'  => (int) ($counts['pending'] ?? 0),
+            'total_done'     => (int) ($counts['done'] ?? 0),
         ];
     }
 
