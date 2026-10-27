@@ -1,20 +1,21 @@
 @extends('layouts.app_stock_sidebar')
 
+@push('styles')
+<style>[x-cloak] { display: none !important; }</style>
+@endpush
+
 @section('content')
 @php
     $sel  = 'w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[13px] bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400';
-    $card = 'bg-white border border-slate-200/70 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,.04)]';
+    $card = 'bg-white rounded-xl border soft-border soft-shadow';
     $h    = 'text-[13px] font-semibold text-slate-800';
     $hint = 'text-[11px] text-slate-400';
     $lbl  = 'block text-[11px] font-medium text-slate-500 mb-1';
+    $sec  = 'text-[11px] font-semibold text-gray-400 uppercase tracking-wider';
     $peran = ($access['is_super'] ?? false) ? 'Superadmin' : (($access['is_admin'] ?? false) ? 'Admin Area' : 'User');
 @endphp
-<script>
-    window.__dash = {!! json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!};
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
-<div class="space-y-4 text-[13px] text-slate-700 min-w-0 max-w-full tabular-nums" :class="sp ? 'xl:pr-[640px]' : ''" @keydown.escape.window="sp && tutupPanel()" x-data="dashboardPage(window.__dash)" x-cloak>
+<div class="space-y-6 text-[13px] text-slate-700 min-w-0 max-w-full tabular-nums" :class="sp ? 'xl:pr-[640px]' : ''" @keydown.escape.window="sp && tutupPanel()" x-data="dashboardPage(window.__dash)" x-cloak>
 
     {{-- Header --}}
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -96,6 +97,9 @@
         </p>
     </div>
 
+    <section class="space-y-3">
+        <h2 class="{{ $sec }}">Ringkasan</h2>
+        <div class="space-y-4">
     {{-- KPI --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <template x-for="c in kartu" :key="c.k">
@@ -111,7 +115,12 @@
     </div>
 
     <div class="text-center text-sm text-slate-500 {{ $card }} py-3" x-show="kpi.total === 0">Tidak ada permintaan untuk filter ini.</div>
+        </div>
+    </section>
 
+    <section class="space-y-3">
+        <h2 class="{{ $sec }}">Tren dan nilai</h2>
+        <div class="space-y-4">
     {{-- Tren + status --}}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div class="{{ $card }} p-4 lg:col-span-8">
@@ -150,7 +159,43 @@
         </div>
     </div>
 
-    {{-- Barang + pemohon teratas --}}
+    {{-- Nilai disetujui --}}
+        <!-- <div class="{{ $card }} p-4">
+            <div class="flex items-baseline justify-between mb-2">
+                <h3 class="{{ $h }}">Nilai permintaan disetujui<button type="button" @click="toggleKet('nilai')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.nilai ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
+                <span class="{{ $hint }}">Rupiah, per <span x-text="gran === 'day' ? 'hari' : 'bulan'"></span></span>
+            </div>
+            <p x-show="!ketTutup.nilai" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.nilai"></p>
+            <div class="relative" data-chart-wrap style="height:260px"><canvas id="chNilai"></canvas></div>
+            <p x-show="nilaiTanpaHarga" class="mt-2 text-xs text-amber-700" x-text="nilaiTanpaHarga === nilaiSetuju ? 'Semua ' + angka(nilaiSetuju) + ' permintaan disetujui pada periode ini belum punya harga di master barang, jadi nilainya Rp 0.' : angka(nilaiTanpaHarga) + ' dari ' + angka(nilaiSetuju) + ' permintaan disetujui belum punya harga di master barang, jadi dihitung Rp 0.'"></p>
+        </div> -->
+        </div>
+    </section>
+
+    <section class="space-y-3">
+        <h2 class="{{ $sec }}">Distribusi permintaan disetujui</h2>
+        <div class="space-y-4">
+    {{-- Bisnis Unit + unit (hanya Disetujui) --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="{{ $card }} p-4">
+            <div class="flex items-baseline justify-between mb-2">
+                <h3 class="{{ $h }}"><span x-text="judulGrup"></span><button type="button" @click="toggleKet('grup')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.grup ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
+                <span class="{{ $hint }}">klik untuk melihat data</span>
+            </div>
+            <p x-show="!ketTutup.grup" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.grup"></p>
+            <div class="relative" data-chart-wrap style="height:256px"><canvas id="chGrup"></canvas></div>
+        </div>
+        <div class="{{ $card }} p-4">
+            <div class="flex items-baseline justify-between mb-2">
+                <h3 class="{{ $h }}"><span x-text="(ukuran === 'item' ? 'Item diminta per unit' : 'Permintaan per unit') + ' (Bisnis Unit)'"></span><button type="button" @click="toggleKet('unit')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.unit ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
+                <span class="{{ $hint }}">10 teratas, klik untuk melihat data</span>
+            </div>
+            <p x-show="!ketTutup.unit" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.unit"></p>
+            <div class="relative" data-chart-wrap style="height:256px"><canvas id="chUnit"></canvas></div>
+        </div>
+    </div>
+
+    {{-- Barang + pemohon (hanya Disetujui) --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="{{ $card }} p-4">
             <div class="flex items-baseline justify-between mb-2">
@@ -207,17 +252,13 @@
             </table>
         </div>
     </div>
-
-    {{-- Nilai + risiko stok --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="{{ $card }} p-4">
-            <div class="flex items-baseline justify-between mb-2">
-                <h3 class="{{ $h }}">Nilai permintaan disetujui<button type="button" @click="toggleKet('nilai')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.nilai ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
-                <span class="{{ $hint }}">Rupiah, per <span x-text="gran === 'day' ? 'hari' : 'bulan'"></span></span>
-            </div>
-            <p x-show="!ketTutup.nilai" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.nilai"></p>
-            <div class="relative" data-chart-wrap style="height:220px"><canvas id="chNilai"></canvas></div>
         </div>
+    </section>
+
+    <section class="space-y-3">
+        <h2 class="{{ $sec }}">Kondisi stok saat ini</h2>
+        <div class="space-y-4">
+    {{-- Risiko stok (kondisi saat ini) --}}
         <div class="{{ $card }} p-4">
             <div class="flex items-baseline justify-between mb-1">
                 <h3 class="{{ $h }}">Risiko stok per Bisnis Unit<button type="button" @click="toggleKet('stok')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.stok ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
@@ -229,8 +270,9 @@
                 <span class="inline-flex items-center gap-1.5"><i class="w-2 h-2 rounded-sm bg-[#d2b37a]"></i>Menipis <b class="text-slate-800 font-semibold" x-text="angka(stokKpi.menipis)"></b></span>
                 <span class="inline-flex items-center gap-1.5"><i class="w-2 h-2 rounded-sm bg-[#b06a6e]"></i>Habis <b class="text-slate-800 font-semibold" x-text="angka(stokKpi.habis)"></b></span>
             </div>
+            <div class="lg:columns-2 lg:gap-x-10">
             <template x-for="a in stokArea" :key="a.id">
-                <button type="button" @click="bukaStok(a)" class="w-full text-left py-1.5 transition-opacity" :class="idBu && +idBu !== a.id ? 'opacity-40' : ''">
+                <button type="button" @click="bukaStok(a)" class="w-full text-left py-1.5 transition-opacity break-inside-avoid" :class="idBu && +idBu !== a.id ? 'opacity-40' : ''">
                     <div class="flex justify-between text-xs">
                         <span class="truncate pr-3 text-slate-700" x-text="a.nama"></span>
                         <span class="text-slate-400 whitespace-nowrap" x-text="(a.menipis + a.habis) + ' dari ' + a.tot + ' barang'"></span>
@@ -242,33 +284,15 @@
                     </div>
                 </button>
             </template>
+            </div>
             <p class="py-6 text-center text-slate-400" x-show="!stokArea.length">Belum ada data stok.</p>
         </div>
-    </div>
-
-    {{-- Unit (Bisnis Unit) + BU/Area --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="{{ $card }} p-4">
-            <div class="flex items-baseline justify-between mb-2">
-                <h3 class="{{ $h }}"><span x-text="(ukuran === 'item' ? 'Item diminta per unit' : 'Permintaan per unit') + ' (Bisnis Unit)'"></span><button type="button" @click="toggleKet('unit')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.unit ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
-                <span class="{{ $hint }}">10 teratas, klik untuk melihat data</span>
-            </div>
-            <p x-show="!ketTutup.unit" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.unit"></p>
-            <div class="relative" data-chart-wrap style="height:256px"><canvas id="chUnit"></canvas></div>
         </div>
-        <div class="{{ $card }} p-4">
-            <div class="flex items-baseline justify-between mb-2">
-                <h3 class="{{ $h }}"><span x-text="judulGrup"></span><button type="button" @click="toggleKet('grup')" class="ml-1 align-middle text-slate-300 hover:text-slate-500" :class="!ketTutup.grup ? 'text-slate-500' : ''" title="Keterangan"><i class="far fa-circle-question text-[11px]"></i></button></h3>
-                <span class="{{ $hint }}">klik untuk melihat data</span>
-            </div>
-            <p x-show="!ketTutup.grup" class="mb-3 text-xs leading-relaxed text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2" x-text="ket.grup"></p>
-            <div class="relative" data-chart-wrap style="height:256px"><canvas id="chGrup"></canvas></div>
-        </div>
-    </div>
+    </section>
 
     {{-- Panel data (kanan) --}}
     <template x-if="sp">
-        <aside class="fixed top-0 right-0 h-full w-[620px] max-w-full bg-white border-l border-slate-200 shadow-[-8px_0_24px_rgba(15,23,42,.08)] z-50 flex flex-col !mt-0">
+        <aside class="fixed top-0 right-0 h-full w-[620px] max-w-full bg-white border-l border-slate-200 shadow-[-8px_0_24px_rgba(15,23,42,.08)] z-[56] flex flex-col !mt-0">
             <div class="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-slate-100">
                 <div class="min-w-0">
                     <h3 class="text-sm font-semibold text-slate-900 truncate" x-text="sp.t"></h3>
@@ -298,9 +322,9 @@
                         <template x-for="(row, i) in spHal" :key="i">
                             <tr class="border-t border-slate-100 align-top">
                                 <template x-for="(cell, j) in row.c" :key="j">
-                                    <td class="py-2 px-1" :class="[spCols[j].r ? 'text-right whitespace-nowrap' : '', j === 0 ? 'whitespace-nowrap text-slate-500' : 'text-slate-700']">
+                                    <td class="py-2 px-1" :class="[spCols[j].r ? 'text-right whitespace-nowrap' : '', j === 0 ? 'whitespace-nowrap text-slate-500' : (cell === 'Harga belum ada' ? 'text-slate-400 text-xs' : 'text-slate-700')]">
                                         <span x-show="spCols[j].k === 'st'" class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" :style="`background:${row.w}`"></span><span x-text="cell"></span>
-                                        <div x-show="j === 1 && row.sub" class="text-[11px] text-slate-400" x-text="row.sub"></div>
+                                        <template x-if="j === 1 && row.sub"><div class="text-[11px] text-slate-400" x-text="row.sub"></div></template>
                                     </td>
                                 </template>
                             </tr>
@@ -317,9 +341,15 @@
         </aside>
     </template>
 
-    <p class="text-xs text-slate-400">Data mencakup 24 bulan terakhir (mulai <span x-text="batasAwal"></span>). Barang, pemohon, dan unit hanya menghitung permintaan berstatus Disetujui (filter Status tidak berlaku); BU/Area tidak menghitung yang dibatalkan. "Item" = total jumlah barang yang diminta; "Permintaan" = jumlah baris permintaan. Periode pembanding = rentang yang sama panjang tepat sebelum periode terpilih.</p>
+    <p class="text-xs text-slate-400">Data mencakup 24 bulan terakhir (mulai <span x-text="batasAwal"></span>). Nilai, Bisnis Unit/Area, unit, barang, dan pemohon hanya menghitung permintaan berstatus Disetujui (filter Status tidak berlaku). Nilai = jumlah × harga di master barang saat ini. "Item" = total jumlah barang yang diminta; "Permintaan" = jumlah baris permintaan. Periode pembanding = rentang yang sama panjang tepat sebelum periode terpilih.</p>
 </div>
+@endsection
 
+@push('scripts')
+<script>
+    window.__dash = {!! json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 function dashboardPage(D) {
     const pad = n => String(n).padStart(2, '0');
@@ -348,7 +378,7 @@ function dashboardPage(D) {
 
     // Chart & data bantu disimpan di luar state Alpine supaya tidak dibungkus proxy reaktif.
     const charts = {};
-    const ctx = { keys: [], labels: [], gran: 'month', perArea: false, barang: [], grup: [], unit: [] };
+    const ctx = { keys: [], labels: [], gran: 'month', perArea: false, nilaiDiv: 1, nilaiN: [], nilaiQ: [], barang: [], grup: [], unit: [] };
     let timer = null;
     let spCtx = null;               // predikat & aksi panel (di luar state Alpine)
     const PG = 10;                  // baris per halaman di panel
@@ -418,7 +448,7 @@ function dashboardPage(D) {
         filterDef: [['idBu', 'Bisnis Unit'], ['idArea', 'Area Kerja'], ['unit', 'Unit (Divisi Pemohon)'], ['status', 'Status'], ['barang', 'Barang']],
         ketTutup: Object.fromEntries(KET_KEYS.map(k => [k, false])),
         cmp: { prevOk: false, pa: '', pb: '', total: { v: 0, p: 0, d: null }, rate: { v: null, d: null, ok: 0, dec: 0 }, pend: { v: 0, p: 0, d: null }, nilai: { v: 0, p: 0, d: null } },
-        tabBarang: [], stokArea: [],
+        tabBarang: [], stokArea: [], nilaiTanpaHarga: 0, nilaiSetuju: 0,
         kpi: { total: 0, s: [0, 0, 0, 0], q: [0, 0, 0, 0], qtyTotal: 0, nilai: 0 },
         gran: 'month',
         judulGrup: 'Permintaan per Bisnis Unit',
@@ -503,8 +533,8 @@ function dashboardPage(D) {
             let rows = [];
             if (kind === 'req') {
                 rows = this.saring(skip).filter(pred).sort((a, b) => b[0].localeCompare(a[0])).map(r => ({
-                    c: [fmtTgl(r[0]), pemohonNama[r[8]] || '-', barangNama[r[4]] || ('#' + r[4]), STATUS_NAMA[r[5]], angka(qtyBaris(r)), rupiah(r[6])],
-                    sub: (D.units[r[3]] || '-') + ' › ' + (areaNama[r[2]] || '-'), ex: buNama[r[1]] || '', w: WARNA[r[5]], m: [1, qtyBaris(r), r[6]],
+                    c: [fmtTgl(r[0]), pemohonNama[r[8]] || '-', barangNama[r[4]] || ('#' + r[4]), STATUS_NAMA[r[5]], angka(qtyBaris(r)), r[6] === 0 ? 'Harga belum ada' : rupiah(r[6])],
+                    sub: (D.units[r[3]] || '-') + ' › ' + (areaNama[r[2]] || '-') + ' › ' + (buNama[r[1]] || '-'), ex: '', w: WARNA[r[5]], m: [1, qtyBaris(r), r[6]],
                 }));
             } else {
                 rows = D.stok.filter(pred).sort((a, b) => (b[2] + b[3]) / ((b[1] + b[2] + b[3]) || 1) - (a[2] + a[3]) / ((a[1] + a[2] + a[3]) || 1))
@@ -546,7 +576,7 @@ function dashboardPage(D) {
         klikNilai(e, els) {
             if (!els.length) return;
             const key = ctx.keys[els[0].index], lab = ctx.labels[els[0].index], kf = ctx.gran === 'day' ? (t => t) : (t => t.slice(0, 7));
-            this.bukaPanel('Disetujui · ' + lab, 'req', r => r[5] === 0 && kf(r[0]) === key, null, null);
+            this.bukaPanel('Disetujui · ' + lab, 'req', r => r[5] === 0 && kf(r[0]) === key, 'status', null);
         },
         klikUnit(els) {
             if (!els.length) return;
@@ -558,7 +588,7 @@ function dashboardPage(D) {
             if (!els.length) return;
             const id = ctx.grup[els[0].index], pa = ctx.perArea, nama = pa ? (areaNama[id] || '#' + id) : (buNama[id] || '#' + id);
             const act = (pa || this.lockedBu === null) ? { label: pa ? 'Jadikan filter Area' : 'Jadikan filter Bisnis Unit', fn: () => { if (pa) this.idArea = String(id); else this.idBu = String(id); } } : null;
-            this.bukaPanel((pa ? 'Area: ' : 'Bisnis Unit: ') + nama, 'req', r => r[5] !== 3 && (pa ? r[2] === id : r[1] === id), pa ? 'area' : 'bu', act);
+            this.bukaPanel((pa ? 'Area: ' : 'Bisnis Unit: ') + nama + ' · Disetujui', 'req', r => r[5] === 0 && (pa ? r[2] === id : r[1] === id), [pa ? 'area' : 'bu', 'status'], act);
         },
 
         // ---- Keterangan tiap grafik/tabel (bisa diminimalkan, pilihan diingat di browser) ----
@@ -569,12 +599,12 @@ function dashboardPage(D) {
             return {
                 bulan:  `Menampilkan ${sat} per ${per}, ditumpuk menurut status. Mengikuti semua filter di atas. Klik sebuah batang untuk menampilkan datanya di panel kanan.`,
                 status: `Pembagian ${sat} menurut status. Klik sebuah status untuk menampilkan datanya di panel kanan.`,
-                nilai:  `Total nilai (jumlah × harga barang) dari permintaan berstatus Disetujui per ${per}. Mengikuti filter Bisnis Unit, Area, Unit, dan Barang. Klik sebuah titik untuk melihat datanya.`,
+                nilai:  `Total nilai permintaan berstatus Disetujui per ${per}; filter Status tidak berlaku. Nilai = jumlah × harga di master barang saat ini (bukan harga saat permintaan dibuat); barang tanpa harga dihitung Rp 0. Arahkan kursor ke batang untuk angka rupiah penuh, klik untuk melihat datanya.`,
                 barang: `10 barang teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Klik baris untuk menampilkan datanya di panel kanan.`,
                 pemohon: `10 pemohon dengan ${sat} terbanyak, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Klik baris untuk melihat permintaan pemohon itu.`,
                 stok:   'Kondisi stok saat ini (bukan per periode), dikelompokkan per Bisnis Unit dan diurutkan dari persentase barang menipis + habis tertinggi. Stok cukup = di atas stok minimum; menipis = di atas 0 tetapi di bawah/sama dengan stok minimum; habis = stok 0. Klik sebuah Bisnis Unit untuk melihat rincian stok per area.',
                 unit:   `10 unit teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Nama unit ditulis bersama Bisnis Unit-nya dalam kurung. Klik batang untuk menampilkan datanya di panel kanan.`,
-                grup:   `10 teratas menurut ${sat}, tanpa permintaan dibatalkan. Per Bisnis Unit; setelah satu Bisnis Unit dipilih, berubah menjadi per Area Kerja. Klik batang untuk menampilkan datanya di panel kanan.`,
+                grup:   `10 teratas menurut ${sat}, hanya dari permintaan berstatus Disetujui (filter Status tidak berlaku). Per Bisnis Unit; setelah satu Bisnis Unit dipilih, berubah menjadi per Area Kerja. Klik batang untuk menampilkan datanya di panel kanan.`,
             };
         },
         get semuaKetTutup() { return KET_KEYS.every(k => this.ketTutup[k]); },
@@ -774,13 +804,28 @@ function dashboardPage(D) {
             const potongKey = rg.gran === 'day' ? (t => t) : (t => t.slice(0, 7));
 
             const perStatus = [0, 1, 2, 3].map(() => rg.keys.map(() => 0));
-            const nilaiSeri = rg.keys.map(() => 0);
             this.saring(null).forEach(r => {
                 const i = idxKey[potongKey(r[0])];
                 if (i === undefined) return;
                 perStatus[r[5]][i] += w(r);
-                if (r[5] === 0) nilaiSeri[i] += r[6];
             });
+
+            // Nilai disetujui per periode: hanya status Disetujui, filter Status tidak berlaku.
+            const nilaiSeri = rg.keys.map(() => 0), nilaiN = rg.keys.map(() => 0), nilaiQ = rg.keys.map(() => 0);
+            let tanpaHarga = 0, nSetuju = 0;
+            dasar.forEach(r => {
+                if (r[5] !== 0) return;
+                const i = idxKey[potongKey(r[0])];
+                if (i === undefined) return;
+                nSetuju++; nilaiSeri[i] += r[6]; nilaiN[i]++; nilaiQ[i] += qtyBaris(r);
+                if (r[6] === 0) tanpaHarga++;
+            });
+            const mxNilai = Math.max(0, ...nilaiSeri);
+            ctx.nilaiDiv = mxNilai >= 1e9 ? 1e9 : mxNilai >= 1e6 ? 1e6 : mxNilai >= 1e3 ? 1e3 : 1;
+            ctx.nilaiN = nilaiN; ctx.nilaiQ = nilaiQ;
+            this.nilaiTanpaHarga = tanpaHarga; this.nilaiSetuju = nSetuju;
+            if (charts.chNilai) charts.chNilai.options.scales.y.title.text =
+                ctx.nilaiDiv === 1e9 ? 'Rupiah (miliar)' : ctx.nilaiDiv === 1e6 ? 'Rupiah (juta)' : ctx.nilaiDiv === 1e3 ? 'Rupiah (ribu)' : 'Rupiah';
 
 
             // --- Stok ---
@@ -819,7 +864,7 @@ function dashboardPage(D) {
             ctx.perArea = perArea;
             const awalJudul = item ? 'Item Diminta per ' : 'Permintaan per ';
             this.judulGrup = awalJudul + (perArea ? 'Area Kerja' : 'Bisnis Unit');
-            const tGrup = top(hitung(this.saring(perArea ? 'area' : 'bu'), r => perArea ? r[2] : r[1]), 10);
+            const tGrup = top(hitungSetuju(this.saring([perArea ? 'area' : 'bu', 'status']), r => perArea ? r[2] : r[1]), 10);
 
             ctx.barang = tBarang.map(x => +x[0]);
             ctx.unit   = tUnit.map(x => { const [i, b] = x[0].split('|').map(Number); return { i, b, nama: D.units[i] }; });
@@ -833,9 +878,8 @@ function dashboardPage(D) {
             const set = (id, labels, datasets) => {
                 const c = charts[id];
                 if (!c) return;
-                c.data.labels = labels;
-                c.data.datasets = datasets;
-                c.update();
+                try { c.data.labels = labels; c.data.datasets = datasets; c.update(); }
+                catch (err) { console.error('Gagal memperbarui grafik ' + id, err); }
             };
 
             set('chBulan', rg.labels, [0, 2, 1, 3].map(i => ({
@@ -844,8 +888,7 @@ function dashboardPage(D) {
 
 
             set('chNilai', rg.labels, [{
-                label: 'Nilai disetujui', data: nilaiSeri, borderColor: '#4a6a94', borderWidth: 2,
-                backgroundColor: 'rgba(74,106,148,.08)', fill: true, tension: .3, pointRadius: rg.keys.length > 40 ? 0 : 3,
+                label: 'Nilai disetujui', data: nilaiSeri, backgroundColor: '#4a6a94', borderRadius: 2, maxBarThickness: 40,
             }]);
 
 
@@ -880,7 +923,11 @@ function dashboardPage(D) {
             Chart.defaults.color = '#64748b';
             Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: '#0f172a', padding: 9, cornerRadius: 6, boxPadding: 4 });
 
-            const mk = (id, cfg) => { const el = document.getElementById(id); if (el) charts[id] = new Chart(el, cfg); };
+            const mk = (id, cfg) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                try { charts[id] = new Chart(el, cfg); } catch (err) { console.error('Gagal membuat grafik ' + id, err); }
+            };
             // Tooltip langsung muncul di tempat (tidak meluncur) dan tanpa animasi saat hover,
             // supaya angka yang tampil tidak "lari-lari" ketika mouse digerakkan.
             const tipDasar = { animation: { duration: 0 }, position: 'cursor' };
@@ -920,16 +967,40 @@ function dashboardPage(D) {
 
 
             mk('chNilai', {
-                type: 'line',
+                type: 'bar',
                 data: { labels: [], datasets: [] },
                 options: {
                     ...dasar,
                     interaction: { mode: 'index', axis: 'x', intersect: false },
-                    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 16, autoSkip: true } },
-                              y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { callback: v => ringkas(v) } } },
-                    plugins: { legend: { display: false }, tooltip: { ...tipDasar, callbacks: { label: c => rupiah(c.parsed.y) } } },
+                    layout: { padding: { top: 20 } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 16, autoSkip: true } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' }, border: { display: false },
+                             title: { display: true, text: 'Rupiah', color: '#94a3b8' },
+                             ticks: { callback: v => (v / ctx.nilaiDiv).toLocaleString('id-ID', { maximumFractionDigits: 2 }) } },
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { ...tipDasar, callbacks: {
+                            label: c => rupiah(c.parsed.y),   // angka penuh, tanpa pembulatan
+                            footer: items => angka(ctx.nilaiN[items[0].dataIndex]) + ' permintaan · ' + angka(ctx.nilaiQ[items[0].dataIndex]) + ' item',
+                        } },
+                    },
                     onClick: (e, els) => self.klikNilai(e, els), onHover: pointer,
                 },
+                plugins: [{
+                    id: 'nilaiLabel',   // nilai ringkas di atas batang (hanya bila batangnya sedikit)
+                    afterDatasetsDraw(chart) {
+                        const ds = chart.data.datasets[0];
+                        if (!ds || !ds.data || !ds.data.length || chart.data.labels.length > 12) return;   // grafik kosong saat dibuat pertama kali
+                        const c = chart.ctx, vals = ds.data;
+                        c.save();
+                        c.font = '600 ' + Chart.defaults.font.size + 'px ' + Chart.defaults.font.family;
+                        c.fillStyle = '#475569'; c.textAlign = 'center'; c.textBaseline = 'bottom';
+                        chart.getDatasetMeta(0).data.forEach((el, i) => { if (vals[i] > 0) c.fillText(ringkas(vals[i]), el.x, el.y - 4); });
+                        c.restore();
+                    },
+                }],
             });
 
 
@@ -940,4 +1011,4 @@ function dashboardPage(D) {
     };
 }
 </script>
-@endsection
+@endpush
