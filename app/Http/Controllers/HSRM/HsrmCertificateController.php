@@ -311,21 +311,33 @@ class HsrmCertificateController extends Controller
 
         $oldData = $cert->toArray();
 
+        // Simpan data lama (versi verified) supaya bisa dikembalikan jika update ditolak.
+        $previousData = $cert->takeSnapshotIfNeeded();
+
         if ($request->hasFile('attachment')) {
             $oldPath = $cert->attachment_path;
-            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            $newPath = HsrmFileHelper::storeAttachment($request->file('attachment'), 'certificates');
+            if (!$newPath) {
+                return back()->withErrors(['attachment' => 'Failed to upload new file.'])->withInput();
+            }
+
+            if ($previousData) {
+                // File lama masih dibutuhkan untuk snapshot: jangan diarsipkan dulu (baru diarsipkan saat approve).
+                // Kalau file di record ini adalah file pending dari update sebelumnya, buang.
+                if ($cert->hasPendingUpdate() && $oldPath && $oldPath !== ($previousData['attachment_path'] ?? null)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            } elseif ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 $oldAttachments = $cert->old_attachments ?? [];
                 $oldAttachments = HsrmFileHelper::archiveOldAttachment($oldPath, 'certificates', $oldAttachments);
                 $data['old_attachments'] = $oldAttachments;
             }
 
-            $newPath = HsrmFileHelper::storeAttachment($request->file('attachment'), 'certificates');
-            if ($newPath) {
-                $data['attachment_path'] = $newPath;
-            } else {
-                return back()->withErrors(['attachment' => 'Failed to upload new file.'])->withInput();
-            }
+            $data['attachment_path'] = $newPath;
         }
+
+        // Selalu di-set eksplisit supaya tidak bisa ditimpa input dari request.
+        $data['previous_data'] = $previousData;
 
         // Reset approval status
         $data['status_verif'] = HsrmCertificate::STATUS_PENDING;
@@ -398,6 +410,15 @@ class HsrmCertificateController extends Controller
             }
         }
 
+        // Update disetujui: arsipkan file lama (jika diganti) lalu buang snapshot.
+        if ($cert->hasPendingUpdate()) {
+            $prevPath = $cert->previous_data['attachment_path'] ?? null;
+            if ($prevPath && $prevPath !== $cert->attachment_path && Storage::disk('public')->exists($prevPath)) {
+                $cert->old_attachments = HsrmFileHelper::archiveOldAttachment($prevPath, 'certificates', $cert->old_attachments ?? []);
+            }
+            $cert->previous_data = null;
+        }
+
         $cert->status_verif = HsrmCertificate::STATUS_VERIFIED;
         $cert->pending_action = null;
         $cert->approved_by = auth()->id();
@@ -435,6 +456,43 @@ class HsrmCertificateController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Certificate sent back for revision.');
+    }
+
+    /**
+     * Tolak update: data kembali ke versi lama (yang sudah verified) dan tetap tampil sebagai data lama.
+     * Hanya admin & superadmin.
+     */
+    public function rejectUpdate($id)
+    {
+        $cert = HsrmCertificate::findOrFail($id);
+        $this->authorizeReject();
+
+        if (!$cert->hasPendingUpdate()) {
+            return back()->withErrors(['error' => 'There is no pending update to reject for this record.']);
+        }
+
+        $rejectedData = $cert->toArray();
+        $previous = $cert->previous_data;
+
+        // Buang file hasil update yang ditolak (file lama tidak disentuh).
+        $pendingPath = $cert->attachment_path;
+        if ($pendingPath && $pendingPath !== ($previous['attachment_path'] ?? null)) {
+            Storage::disk('public')->delete($pendingPath);
+        }
+
+        $cert->restoreSnapshot();
+        $cert->save();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'reject_update',
+            'module' => 'certificate',
+            'record_id' => $cert->id,
+            'old_data' => $rejectedData,
+            'new_data' => $cert->toArray(),
+        ]);
+
+        return redirect()->back()->with('success', 'Update rejected. The certificate has been restored to its previous data.');
     }
 
     public function show($id)
@@ -502,6 +560,14 @@ class HsrmCertificateController extends Controller
     {
         if (!HsrmRole::isAdmin()) {
             abort(403, 'Only admin can delete a certificate.');
+        }
+    }
+
+    private function authorizeReject()
+    {
+        // Hanya admin & superadmin yang boleh menolak update.
+        if (!(HsrmRole::isAdmin() || HsrmRole::isSuperadmin())) {
+            abort(403, 'Only admin or superadmin can reject an update.');
         }
     }
 

@@ -9,6 +9,8 @@ use App\Models\AreaKerja;
 
 class HsrmCertificate extends Model
 {
+    use HasUpdateSnapshot;
+
     protected $table = 'hsrm_certificates';
 
     // Konstanta status verifikasi
@@ -36,6 +38,7 @@ class HsrmCertificate extends Model
         'notes',
         'attachment_path',
         'old_attachments',
+        'previous_data',
         'approved_by',
         'approved_at',
         'created_by',
@@ -47,8 +50,33 @@ class HsrmCertificate extends Model
         'approved_at' => 'datetime',
         'status_kepemilikan' => 'boolean',
         'old_attachments' => 'array',
+        'previous_data' => 'array',
         // rekomendasi tidak di-cast karena berupa string enum
     ];
+
+    /** Kolom yang di-snapshot saat update (dikembalikan jika update ditolak). */
+    public static function snapshotFields(): array
+    {
+        return [
+            'business_unit_id',
+            'area_id',
+            'pic_user_id',
+            'employee_name',
+            'nik',
+            'certificate_type_id',
+            'custom_certificate_type',
+            'instansi_pengurusan',
+            'expired_date',
+            'status_kepemilikan',
+            'rekomendasi',
+            'notes',
+            'attachment_path',
+            'status_verif',
+            'approved_by',
+            'approved_at',
+            'updated_by',
+        ];
+    }
 
     // ========== RELATIONSHIPS ==========
     public function businessUnit()

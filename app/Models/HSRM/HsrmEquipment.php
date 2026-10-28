@@ -9,6 +9,8 @@ use App\Models\AreaKerja;
 
 class HsrmEquipment extends Model
 {
+    use HasUpdateSnapshot;
+
     protected $table = 'hsrm_equipments';
 
     // Konstanta status verifikasi
@@ -36,6 +38,7 @@ class HsrmEquipment extends Model
         'rekomendasi',
         'photo_path',
         'old_attachments',
+        'previous_data',
         'notes',
         'approved_by',
         'approved_at',
@@ -48,8 +51,34 @@ class HsrmEquipment extends Model
         'approved_at' => 'datetime',
         'status_kepemilikan' => 'boolean',
         'old_attachments' => 'array',
+        'previous_data' => 'array',
         // rekomendasi tidak di-cast karena berupa string enum
     ];
+
+    /** Kolom yang di-snapshot saat update (dikembalikan jika update ditolak). */
+    public static function snapshotFields(): array
+    {
+        return [
+            'business_unit_id',
+            'area_id',
+            'pic_user_id',
+            'name',
+            'equipment_type_id',
+            'custom_equipment_type',
+            'capacity',
+            'total_items',
+            'location',
+            'expired_date',
+            'status_kepemilikan',
+            'rekomendasi',
+            'photo_path',
+            'notes',
+            'status_verif',
+            'approved_by',
+            'approved_at',
+            'updated_by',
+        ];
+    }
 
     // ========== RELATIONSHIPS ==========
     public function businessUnit()

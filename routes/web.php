@@ -820,6 +820,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('certificates/{certificate}/revision', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'revision'])->name('certificates.revision');
         Route::post('equipments/{equipment}/approve', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'approve'])->name('equipments.approve');
         Route::post('equipments/{equipment}/revision', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'revision'])->name('equipments.revision');
+
+        // === Tolak update (admin & superadmin) - BARU ===
+        Route::post('certificates/{certificate}/reject-update', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'rejectUpdate'])->name('certificates.reject-update');
+        Route::post('equipments/{equipment}/reject-update', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'rejectUpdate'])->name('equipments.reject-update');
+
         Route::resource('certificate-types', App\Http\Controllers\HSRM\HsrmCertificateTypeController::class)->except(['show']);
         Route::resource('equipment-types', App\Http\Controllers\HSRM\HsrmEquipmentTypeController::class)->except(['show']);
         Route::get('logs', [App\Http\Controllers\HSRM\HsrmLogController::class, 'index'])->name('logs.index');
@@ -833,8 +838,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('admin/quotas/update', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'update'])->name('admin.quotas.update');
         Route::get('admin/quotas/export', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'export'])->name('admin.quotas.export');
 
-        // === Superadmin: Role Access (BARU) ===
-        // Nama route akhir: hsrm.superadmin.access.index / .store / .destroy
+        // === Superadmin: Role Access ===
+        // Nama route akhir: hsrm.superadmin.access.index / .store / .update / .destroy
         Route::prefix('superadmin')->name('superadmin.')->group(function () {
             Route::get('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'index'])->name('access.index');
             Route::post('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'store'])->name('access.store');

@@ -65,6 +65,13 @@
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
+                                    @if($cert->hasPendingUpdate() && (\App\Helpers\HsrmRole::isAdmin() || \App\Helpers\HsrmRole::isSuperadmin()))
+                                    <form action="{{ route('hsrm.certificates.reject-update', $cert) }}" method="POST" class="inline"
+                                          onsubmit="return confirm('Reject this update? The data will be restored to its previous version.')">
+                                        @csrf
+                                        <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                    </form>
+                                    @endif
                                     @endif
                                 </div>
                             </td>
@@ -119,6 +126,13 @@
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
+                                    @if($cert->hasPendingUpdate() && (\App\Helpers\HsrmRole::isAdmin() || \App\Helpers\HsrmRole::isSuperadmin()))
+                                    <form action="{{ route('hsrm.certificates.reject-update', $cert) }}" method="POST" class="inline"
+                                          onsubmit="return confirm('Reject this update? The data will be restored to its previous version.')">
+                                        @csrf
+                                        <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                    </form>
+                                    @endif
                         @endif
                     </div>
                 </div>
@@ -187,6 +201,13 @@
                                         @csrf
                                         <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                                     </form>
+                                    @if($eq->hasPendingUpdate() && (\App\Helpers\HsrmRole::isAdmin() || \App\Helpers\HsrmRole::isSuperadmin()))
+                                    <form action="{{ route('hsrm.equipments.reject-update', $eq) }}" method="POST" class="inline"
+                                          onsubmit="return confirm('Reject this update? The data will be restored to its previous version.')">
+                                        @csrf
+                                        <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                    </form>
+                                    @endif
                                     @endif
                                 </div>
                             </td>
@@ -240,6 +261,13 @@
                             @csrf
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Revisi</button>
                         </form>
+                                    @if($eq->hasPendingUpdate() && (\App\Helpers\HsrmRole::isAdmin() || \App\Helpers\HsrmRole::isSuperadmin()))
+                                    <form action="{{ route('hsrm.equipments.reject-update', $eq) }}" method="POST" class="inline"
+                                          onsubmit="return confirm('Reject this update? The data will be restored to its previous version.')">
+                                        @csrf
+                                        <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">Reject</button>
+                                    </form>
+                                    @endif
                         @endif
                     </div>
                 </div>

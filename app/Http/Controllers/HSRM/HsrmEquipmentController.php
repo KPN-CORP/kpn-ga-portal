@@ -326,21 +326,33 @@ class HsrmEquipmentController extends Controller
 
         $oldData = $equipment->toArray();
 
+        // Simpan data lama (versi verified) supaya bisa dikembalikan jika update ditolak.
+        $previousData = $equipment->takeSnapshotIfNeeded();
+
         if ($request->hasFile('photo')) {
             $oldPath = $equipment->photo_path;
-            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            $newPath = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
+            if (!$newPath) {
+                return back()->withErrors(['photo' => 'Failed to upload new photo.'])->withInput();
+            }
+
+            if ($previousData) {
+                // File lama masih dibutuhkan untuk snapshot: jangan diarsipkan dulu (baru diarsipkan saat approve).
+                // Kalau file di record ini adalah file pending dari update sebelumnya, buang.
+                if ($equipment->hasPendingUpdate() && $oldPath && $oldPath !== ($previousData['photo_path'] ?? null)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            } elseif ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 $oldAttachments = $equipment->old_attachments ?? [];
                 $oldAttachments = HsrmFileHelper::archiveOldAttachment($oldPath, 'equipments', $oldAttachments);
                 $data['old_attachments'] = $oldAttachments;
             }
 
-            $newPath = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
-            if ($newPath) {
-                $data['photo_path'] = $newPath;
-            } else {
-                return back()->withErrors(['photo' => 'Failed to upload new photo.'])->withInput();
-            }
+            $data['photo_path'] = $newPath;
         }
+
+        // Selalu di-set eksplisit supaya tidak bisa ditimpa input dari request.
+        $data['previous_data'] = $previousData;
 
         $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
         $data['pending_action'] = 'update';
@@ -433,6 +445,15 @@ class HsrmEquipmentController extends Controller
             }
         }
 
+        // Update disetujui: arsipkan file lama (jika diganti) lalu buang snapshot.
+        if ($equipment->hasPendingUpdate()) {
+            $prevPath = $equipment->previous_data['photo_path'] ?? null;
+            if ($prevPath && $prevPath !== $equipment->photo_path && Storage::disk('public')->exists($prevPath)) {
+                $equipment->old_attachments = HsrmFileHelper::archiveOldAttachment($prevPath, 'equipments', $equipment->old_attachments ?? []);
+            }
+            $equipment->previous_data = null;
+        }
+
         $equipment->status_verif = HsrmEquipment::STATUS_VERIFIED;
         $equipment->pending_action = null;
         $equipment->approved_by = auth()->id();
@@ -470,6 +491,43 @@ class HsrmEquipmentController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Equipment sent back for revision.');
+    }
+
+    /**
+     * Tolak update: data kembali ke versi lama (yang sudah verified) dan tetap tampil sebagai data lama.
+     * Hanya admin & superadmin.
+     */
+    public function rejectUpdate($id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeReject();
+
+        if (!$equipment->hasPendingUpdate()) {
+            return back()->withErrors(['error' => 'There is no pending update to reject for this record.']);
+        }
+
+        $rejectedData = $equipment->toArray();
+        $previous = $equipment->previous_data;
+
+        // Buang file hasil update yang ditolak (file lama tidak disentuh).
+        $pendingPath = $equipment->photo_path;
+        if ($pendingPath && $pendingPath !== ($previous['photo_path'] ?? null)) {
+            Storage::disk('public')->delete($pendingPath);
+        }
+
+        $equipment->restoreSnapshot();
+        $equipment->save();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'reject_update',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'old_data' => $rejectedData,
+            'new_data' => $equipment->toArray(),
+        ]);
+
+        return redirect()->back()->with('success', 'Update rejected. The equipment has been restored to its previous data.');
     }
 
     public function show($id)
@@ -533,6 +591,14 @@ class HsrmEquipmentController extends Controller
     {
         if (!HsrmRole::isAdmin()) {
             abort(403, 'Only admin can delete an equipment.');
+        }
+    }
+
+    private function authorizeReject()
+    {
+        // Hanya admin & superadmin yang boleh menolak update.
+        if (!(HsrmRole::isAdmin() || HsrmRole::isSuperadmin())) {
+            abort(403, 'Only admin or superadmin can reject an update.');
         }
     }
 

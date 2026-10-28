@@ -43,6 +43,7 @@ class SyncHcisEmployees extends Command
                     'fullname'       => $empData['fullname'],
                     'email'          => $empData['email'] ?? null,
                     'group_company'  => $empData['group_company'] ?? null,
+                    'company_name' => $empData['company_name'] ?? null,
                     'office_area'    => $empData['office_area'] ?? null,
                     'unit'           => $empData['unit'] ?? null, // <-- tambahkan field unit
                     'manager_l1_id'  => $empData['manager_l1_id'] ?? null,
