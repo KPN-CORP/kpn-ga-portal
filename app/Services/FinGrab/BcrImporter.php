@@ -14,6 +14,9 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as XlDate;
  */
 class BcrImporter
 {
+    /** Baris tanpa BILLING_TYPE (dan baris lama sebelum kolom ada) dianggap transaksi biasa. */
+    public const BT_DEFAULT = 'corp bill transaction';
+
     private array $ptMap;
     private array $gcMap = [];
     private int $filesRead = 0;
@@ -71,6 +74,7 @@ class BcrImporter
                 'booking' => $booking, 'trip' => trim((string) ($r['TRIP_CODE'] ?? '')), 'date' => $date, 'hour' => $hour, 'id' => $id, 'status' => $status,
                 'hint' => $hint, 'mail' => Str::lower(trim((string) ($r['EMPLOYEE_EMAIL_ADDRESS'] ?? ''))),
                 'name' => Str::lower(trim((string) ($r['EMPLOYEE_NAME'] ?? ''))), 'r' => $r,
+                'bt' => $this->billingType($r['BILLING_TYPE'] ?? null),
             ];
         }
 
@@ -118,6 +122,7 @@ class BcrImporter
                     'trx_date' => $c['date'],
                     'trx_hour' => $c['hour'],
                     'vertical' => Str::lower(trim((string) ($r['VERTICAL'] ?? ''))),
+                    'billing_type' => $c['bt'],
                     'pt_name' => $pt,
                     'id_bisnis_unit' => $bu,
                     'employee_id_raw' => Str::limit(trim((string) ($r['EMPLOYEE_ID'] ?? '')), 100, ''),
@@ -149,12 +154,13 @@ class BcrImporter
                 ];
             }
 
-            // Satu baris per Booking ID + Trip code. Satu booking bisa punya beberapa trip (Trip code berbeda),
-            // semuanya disimpan. Hanya baris yang kembar persis (Booking ID dan Trip code sama) digabung, baris terakhir dipakai.
+            // Satu baris per Booking ID + Trip code + Billing type. Refund dan Tip memakai Booking ID dan Trip code
+            // yang sama dengan transaksi aslinya, jadi Billing type wajib ikut jadi kunci. Tanpa itu refund menimpa
+            // transaksi (nominal terpotong dua kali) dan tip hilang. Hanya baris yang kembar persis digabung, baris terakhir dipakai.
             $byBooking = [];
             $duplicates = 0;
             foreach ($records as $rec) {
-                $k = Str::lower($rec['booking_id']) . '|' . Str::lower($rec['trip_code']);
+                $k = $this->rowKey($rec['booking_id'], $rec['trip_code'], $rec['billing_type']);
                 if (isset($byBooking[$k])) {
                     $duplicates++;
                 }
@@ -176,15 +182,15 @@ class BcrImporter
                 $existing = DB::table('fingrab_transactions')
                     ->whereIn('booking_id', array_column($chunk, 'booking_id'))
                     ->get()
-                    ->keyBy(fn ($row) => Str::lower((string) $row->booking_id) . '|' . Str::lower((string) ($row->trip_code ?? '')));
+                    ->keyBy(fn ($row) => $this->rowKey((string) $row->booking_id, (string) ($row->trip_code ?? ''), $row->billing_type ?? null));
 
                 foreach ($chunk as $rec) {
-                    $old = $existing->get(Str::lower($rec['booking_id']) . '|' . Str::lower($rec['trip_code']));
+                    $old = $existing->get($this->rowKey($rec['booking_id'], $rec['trip_code'], $rec['billing_type']));
 
                     // Baris lama (dibuat sebelum ada Trip code) diambil alih oleh trip pertama dari booking yang sama.
                     $legacy = false;
                     if ($old === null && $rec['trip_code'] !== '') {
-                        $lk = Str::lower($rec['booking_id']) . '|';
+                        $lk = $this->rowKey($rec['booking_id'], '', $rec['billing_type']);
                         if (!isset($claimed[$lk]) && $existing->has($lk)) {
                             $old = $existing->get($lk);
                             $claimed[$lk] = true;
@@ -406,6 +412,18 @@ class BcrImporter
             }
         }
         return null;
+    }
+
+    private function billingType($v): string
+    {
+        $t = Str::lower(trim(preg_replace('/\s+/', ' ', (string) $v)));
+        return $t === '' ? self::BT_DEFAULT : Str::limit($t, 50, '');
+    }
+
+    private function rowKey(string $booking, string $trip, ?string $bt): string
+    {
+        $bt = Str::lower(trim((string) $bt));
+        return Str::lower($booking) . '|' . Str::lower($trip) . '|' . ($bt === '' ? self::BT_DEFAULT : $bt);
     }
 
     private function text($v): ?string

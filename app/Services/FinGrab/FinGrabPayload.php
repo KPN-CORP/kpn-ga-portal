@@ -21,6 +21,11 @@ class FinGrabPayload
         }
         $all = $q->get();
 
+        // Tip dan Refund memakai Booking ID + Trip code transaksi aslinya. Supaya nominal dashboard = nominal bersih
+        // (transaksi + tip + refund) dan jumlah transaksi tetap hanya transaksi, keduanya dilipat ke baris transaksi
+        // di bulan yang sama. Bila tidak ada transaksi di bulan itu (mis. refund bulan berikutnya), tampil sebagai baris sendiri.
+        [$all, $extra] = self::foldAdjustments($all);
+
         $buNames = DB::table('tb_bisnis_unit')->pluck('nama_bisnis_unit', 'id_bisnis_unit');
         $hcisNames = self::hcisNames($all->pluck('employee_id'));
         $hcisByEmail = self::hcisNamesByEmail($all->filter(fn ($t) => !$t->employee_id)->pluck('employee_email'));
@@ -55,7 +60,7 @@ class FinGrabPayload
                 $grIx[$t->group_name] ?? 0,
                 $emIx[$key],
                 self::VERTICAL[$t->vertical] ?? 0,
-                (int) $t->amount,
+                (int) $t->amount + (int) ($extra[$t->id] ?? 0),
                 (int) $t->trx_hour,
                 $ciIx[$t->city ?: '-'] ?? 0,
                 $t->booking_id,
@@ -70,6 +75,39 @@ class FinGrabPayload
         }
 
         return ['co' => $co, 'gr' => $gr, 'ci' => $ci, 'em' => $em, 'rows' => $rows];
+    }
+
+    /**
+     * @return array{0: \Illuminate\Support\Collection, 1: array<int,int>} [baris tanpa tip/refund yang terlipat, id transaksi => total tip+refund]
+     */
+    private static function foldAdjustments($all): array
+    {
+        $def = BcrImporter::BT_DEFAULT;
+        $key = fn ($t) => mb_strtolower((string) $t->booking_id) . '|' . mb_strtolower((string) ($t->trip_code ?? ''));
+        $bt = fn ($t) => ($t->billing_type ?? '') === '' ? $def : $t->billing_type;
+        $ym = fn ($t) => $t->trx_date->format('Y-m');
+
+        $base = [];
+        foreach ($all as $t) {
+            if ($bt($t) === $def) {
+                $base[$key($t) . '|' . $ym($t)] ??= $t->id;
+            }
+        }
+
+        $extra = [];
+        $folded = [];
+        foreach ($all as $t) {
+            if ($bt($t) === $def) {
+                continue;
+            }
+            $baseId = $base[$key($t) . '|' . $ym($t)] ?? null;
+            if ($baseId !== null) {
+                $extra[$baseId] = ($extra[$baseId] ?? 0) + (int) $t->amount;
+                $folded[$t->id] = true;
+            }
+        }
+
+        return [$all->reject(fn ($t) => isset($folded[$t->id]))->values(), $extra];
     }
 
     /**
