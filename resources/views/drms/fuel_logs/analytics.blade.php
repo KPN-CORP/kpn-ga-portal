@@ -34,6 +34,30 @@
         $thisMonthLabel = $bulanIndo[$today->month] . ' ' . $today->year;
         $lastMonthLabel = $bulanIndo[$lastMonth->month] . ' ' . $lastMonth->year;
 
+        // Langkah hitung deviasi, 1 operasi per langkah (biar gampang diikuti pakai kalkulator)
+        $devSteps = function ($std, $eff) {
+            $a = round($std - $eff, 2);
+            $b = round($a / $std, 3);
+            return ['a' => number_format($a, 2), 'b' => number_format($b, 3), 'c' => round($b * 100, 1)];
+        };
+
+        // Data untuk popup "Lihat hitungan" per baris riwayat
+        $calcPayload = function ($row, $vd) use ($devSteps) {
+            $st = $devSteps($vd['standard'], $row['efficiency']);
+            return [
+                'date'      => $row['current_date']->format('d M Y'),
+                'odo_now'   => number_format($row['current_odometer'], 0, ',', '.'),
+                'odo_prev'  => number_format($row['previous_odometer'], 0, ',', '.'),
+                'distance'  => number_format($row['distance'], 0, ',', '.'),
+                'liters'    => number_format($row['liters'], 2, ',', '.'),
+                'fuel_unit' => $vd['fuel_unit_label'],
+                'unit'      => $vd['unit_label'],
+                'eff'       => number_format($row['efficiency'], 2),
+                'std'       => $vd['standard'],
+                'a' => $st['a'], 'b' => $st['b'], 'c' => $st['c'],
+            ];
+        };
+
         // Pisahkan total liter (BBM) dan total kWh (listrik) supaya tidak dijumlah campur 1 angka.
         $totalLiterBbm   = collect($result)->where('fuel_unit_label', 'Liter')->sum('total_liters');
         $totalKwhListrik = collect($result)->where('fuel_unit_label', 'kWh')->sum('total_liters');
@@ -157,6 +181,34 @@
     </div>
     @endif
 
+    {{-- INFO SOP: STANDAR EFISIENSI (BBM vs LISTRIK) --}}
+    @php
+        $stdBbm = 8;      // km/L  (harus sama dengan $standard di FuelLogController)
+        $stdListrik = 6;  // km/kWh
+    @endphp
+    <div class="bg-white rounded-lg shadow p-4 mb-6 border">
+        <h3 class="font-semibold text-gray-700">📘 CP Perjalanan Dinas MAR 2026 — Ketentuan Penggantian BBM</h3>
+        <p class="text-xs text-gray-500">Perjalanan Dinas – Transportasi Perjalanan Dinas / <em>Business Travel Transportation</em></p>
+        <p class="text-xs text-gray-400 mb-3">Makin besar angka km per liter/kWh, makin irit.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="border rounded-lg p-3 bg-green-50 border-green-200">
+                <div class="text-sm font-semibold text-green-800">⛽ Mobil BBM (Bensin)</div>
+                <div class="text-2xl font-bold text-green-700">{{ $stdBbm }} <span class="text-sm font-medium">km/L</span></div>
+                <p class="text-xs text-gray-600 mt-1"><strong>Poin 4</strong> — 1 liter BBM untuk setiap {{ $stdBbm }} km (1:{{ $stdBbm }})</p>
+                <p class="text-xs text-gray-600 mt-2">🟡 Mulai boros jika di bawah <strong>{{ number_format($stdBbm * 0.95, 2) }}</strong> km/L</p>
+                <p class="text-xs text-gray-600">🔴 Boros jika di bawah <strong>{{ number_format($stdBbm * 0.90, 2) }}</strong> km/L</p>
+            </div>
+            <div class="border rounded-lg p-3 bg-teal-50 border-teal-200">
+                <div class="text-sm font-semibold text-teal-800">⚡ Mobil Listrik</div>
+                <div class="text-2xl font-bold text-teal-700">{{ $stdListrik }} <span class="text-sm font-medium">km/kWh</span></div>
+                <p class="text-xs text-gray-600 mt-1"><strong>Poin 5</strong> — 1 kWh untuk setiap {{ $stdListrik }} km (1:{{ $stdListrik }})</p>
+                <p class="text-xs text-gray-600 mt-2">🟡 Mulai boros jika di bawah <strong>{{ number_format($stdListrik * 0.95, 2) }}</strong> km/kWh</p>
+                <p class="text-xs text-gray-600">🔴 Boros jika di bawah <strong>{{ number_format($stdListrik * 0.90, 2) }}</strong> km/kWh</p>
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">🟢 Normal (≤5% di bawah standar) · 🟡 &gt;5% di bawah · 🔴 &gt;10% di bawah</p>
+    </div>
+
     {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) + ESTIMASI KE DEPAN --}}
     @if($vehicleDetail)
     <div class="bg-white p-4 rounded-lg shadow border mb-6">
@@ -211,6 +263,9 @@
                     <dt class="text-xs text-gray-500">Parameter</dt>
                     <dd class="text-right">{{ $row['efficiency'] !== null ? number_format($row['efficiency'], 2) . ' ' . $vehicleDetail['unit_label'] : '-' }}</dd>
                 </dl>
+                @if($row['efficiency'] !== null)
+                <div class="mt-2 pt-2 border-t text-right"><button type="button" class="calc-btn mt-1 text-[11px] text-blue-600 hover:underline" data-calc="{{ json_encode($calcPayload($row, $vehicleDetail)) }}">🧮 Lihat hitungan</button></div>
+                @endif
             </div>
             @endforeach
         </div>
@@ -276,6 +331,7 @@
                                 @else
                                     <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢 {{ $row['deviation_percent'] }}%</span>
                                 @endif
+                                <div><button type="button" class="calc-btn mt-1 text-[11px] text-blue-600 hover:underline" data-calc="{{ json_encode($calcPayload($row, $vehicleDetail)) }}">🧮 Lihat hitungan</button></div>
                             @else
                                 <span class="text-gray-400">-</span>
                             @endif
@@ -284,6 +340,19 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+
+        {{-- POPUP HITUNGAN --}}
+        <div id="calc_modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 p-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-4 text-sm text-gray-700">
+                <div class="flex justify-between items-start mb-3">
+                    <h4 id="calc_title" class="font-semibold text-gray-800"></h4>
+                    <button type="button" id="calc_close" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+                </div>
+                <div id="calc_body" class="space-y-3"></div>
+                <p class="text-xs text-gray-400 mt-3">Minus = lebih irit dari standar.</p>
+                <button type="button" id="calc_close2" class="mt-3 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold">Tutup</button>
+            </div>
         </div>
 
         {{-- ESTIMASI KE DEPAN --}}
@@ -315,6 +384,11 @@
     </div>
     @else
     <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; estimasi tiap kendaraan sudah langsung tampil di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
+    <p class="text-xs text-gray-500 mb-4">
+        📊 Angka di tabel ini adalah <strong>rangkuman dari seluruh pengisian</strong> pada periode yang dipilih:
+        Parameter = rata-rata km per liter/kWh dari semua pengisian, Deviasi = selisih rata-rata itu dengan standar.
+        Klik nomor plat untuk melihat hitungan tiap pengisian.
+    </p>
     @endif
 
     {{-- PER KENDARAAN — HP & tablet: kartu --}}
@@ -353,6 +427,7 @@
                     @endif
                 </div>
             </div>
+
 
             <div class="text-sm space-y-2 border-t pt-3">
                 <div>
@@ -603,6 +678,45 @@
                 hideSuggestions();
             }
         });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('calc_modal');
+        if (!modal) return;
+        const body = document.getElementById('calc_body');
+        const title = document.getElementById('calc_title');
+
+        function open(d) {
+            title.textContent = '🧮 Hitungan — ' + d.date;
+            body.innerHTML =
+                '<div><p class="font-semibold">1. Jarak</p>' +
+                '<p>' + d.odo_now + ' − ' + d.odo_prev + ' = <strong>' + d.distance + ' km</strong></p>' +
+                '<p class="text-xs text-gray-400">odometer sekarang − odometer sebelumnya</p></div>' +
+                '<div><p class="font-semibold">2. Parameter</p>' +
+                '<p>' + d.distance + ' ÷ ' + d.liters + ' = <strong>' + d.eff + ' ' + d.unit + '</strong></p>' +
+                '<p class="text-xs text-gray-400">jarak ÷ ' + d.fuel_unit + ' diisi</p></div>' +
+                '<div><p class="font-semibold">3. Deviasi (standar ' + d.std + ')</p>' +
+                '<p>a) ' + d.std + ' − ' + d.eff + ' = ' + d.a + '</p>' +
+                '<p>b) ' + d.a + ' ÷ ' + d.std + ' = ' + d.b + '</p>' +
+                '<p>c) ' + d.b + ' × 100 = <strong>' + d.c + '%</strong></p></div>';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        function close() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.calc-btn');
+            if (btn) { open(JSON.parse(btn.getAttribute('data-calc'))); return; }
+            if (e.target === modal) close();
+        });
+        document.getElementById('calc_close').addEventListener('click', close);
+        document.getElementById('calc_close2').addEventListener('click', close);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     });
 </script>
 @endsection
