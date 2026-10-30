@@ -255,6 +255,9 @@ class HelpProsesController extends Controller
             'menunggu_detik'   => $menunggu->isNotEmpty() ? (int) round($menunggu->avg()) : null,
             'belum_diambil'    => $aktif->filter(fn ($t) => $t->status === 'OPEN')->count(),
             'aktif'            => $aktif->count(),
+            // Open = HELP_GA_CORP + OPEN · On proses = ON_PROCESS + WAITING (termasuk yang di vendor)
+            'open'             => $aktif->whereIn('status', ['HELP_GA_CORP', 'OPEN'])->count(),
+            'on_proses'        => $aktif->whereIn('status', ['ON_PROCESS', 'WAITING'])->count(),
             'telat'            => $aktif->filter(fn ($t) => $umur($t) > $tujuhHari)->count(),
             'closed'           => $closedPeriode->count(),
             'rata_detik'       => $lamaDone->isNotEmpty() ? (int) round($lamaDone->avg()) : null,
@@ -271,88 +274,100 @@ class HelpProsesController extends Controller
     }
 
     /**
-     * Halaman GRAFIK: batang jumlah tiket per Business Unit (admin).
-     * Hanya hitungan (1 query GROUP BY); daftar tiket dimuat saat batang diklik (grafikDaftar).
+     * Halaman GRAFIK: waktu penanganan per Business Unit, dirinci per admin (saat BU diklik).
+     * Tahap: Laporan -> Diambil -> Over -> Done. Maksimal 1000 tiket per tampilan.
      */
     public function grafik(Request $request)
     {
         $f = $this->siapkanFilter($request);
         extract($f, EXTR_SKIP);
 
-        $hitung = (clone $qPeriode)
-            ->selectRaw("bisnis_unit_id,
-                         SUM(CASE WHEN status <> 'CLOSED' THEN 1 ELSE 0 END) AS aktif,
-                         SUM(CASE WHEN status =  'CLOSED' THEN 1 ELSE 0 END) AS closed")
-            ->groupBy('bisnis_unit_id')
-            ->get()
-            ->keyBy('bisnis_unit_id');
+        $tikets = (clone $qPeriode)
+            ->with(['logStatus.pengguna', 'ditugaskanKe'])
+            ->orderByDesc('created_at')
+            ->limit(1000)
+            ->get();
+        $totalTiket = (clone $qPeriode)->count();
+        $terpotong  = $totalTiket > $tikets->count();
+        $perBU      = $tikets->groupBy('bisnis_unit_id');
 
         $grafikBU = [];
         foreach ($bisnisUnits as $bu) {
             if ($bisnisUnitId && (int) $bu->id_bisnis_unit !== $bisnisUnitId) {
                 continue;
             }
-            $info = \App\Support\help_s\HelpTimeline::infoBisnisUnit($bu->nama_bisnis_unit);
-            $row  = $hitung[$bu->id_bisnis_unit] ?? null;
+            $info  = \App\Support\help_s\HelpTimeline::infoBisnisUnit($bu->nama_bisnis_unit);
+            $rekap = \App\Support\help_s\HelpTimeline::rekapAdmin($perBU[$bu->id_bisnis_unit] ?? [], $sekarang);
 
             $grafikBU[] = [
-                'id'     => $bu->id_bisnis_unit,
-                'label'  => $bu->nama_bisnis_unit,
-                'warna'  => $info['warna'],
-                'urut'   => $info['urut'],
-                'aktif'  => (int) ($row->aktif ?? 0),
-                'closed' => (int) ($row->closed ?? 0),
+                'id'        => $bu->id_bisnis_unit,
+                'label'     => $bu->nama_bisnis_unit,
+                'warna'     => $info['warna'],
+                'urut'      => $info['urut'],
+                'tiket'     => $rekap['tiket'],
+                'tiket_bu'  => $rekap['tiket_bu'],
+                'tiket_corp'=> $rekap['tiket_corp'],
+                'jml_admin' => count($rekap['admin']),
+                'tunggu'    => $rekap['tunggu'],
+                'over'      => $rekap['over'],
+                'done'      => $rekap['done'],
+                'done_bu'   => $rekap['done_bu'],
+                'done_corp' => $rekap['done_corp'],
             ];
         }
         usort($grafikBU, fn ($a, $b) => [$a['urut'], $a['label']] <=> [$b['urut'], $b['label']]);
 
+        $semua = \App\Support\help_s\HelpTimeline::rekapAdmin($tikets, $sekarang);
+        $ringkasan = [
+            'tunggu'   => $semua['tunggu'],
+            'done'     => $semua['done'],
+            'jml_over' => $semua['jml_over'],
+            'jml_done' => $semua['jml_done'],
+        ];
+
         return view('help_p.grafik.index', compact(
             'rentang', 'tahun', 'bulan', 'daftarTahun',
-            'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search', 'grafikBU'
+            'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search',
+            'grafikBU', 'ringkasan', 'terpotong'
         ));
     }
 
     /**
-     * JSON daftar tiket satu Business Unit (dipanggil saat batang diklik).
-     * Maksimal 100 tiket: yang belum close lebih dulu, paling lama di atas.
+     * JSON rincian satu Business Unit (dipanggil saat baris BU diklik):
+     * nama-nama admin beserta lama proses tiap tahap (Laporan -> Diambil -> Over -> Done).
      */
     public function grafikDaftar(Request $request)
     {
-        $f    = $this->siapkanFilter($request, false);
-        $mode = in_array($request->get('mode'), ['aktif', 'closed', 'semua'], true) ? $request->mode : 'aktif';
+        $f = $this->siapkanFilter($request, false);
 
-        $q = (clone $f['qPeriode'])
+        $tikets = (clone $f['qPeriode'])
             ->where('bisnis_unit_id', (int) $request->get('bu'))
-            ->when($mode === 'aktif',  fn ($x) => $x->where('status', '!=', 'CLOSED'))
-            ->when($mode === 'closed', fn ($x) => $x->where('status', 'CLOSED'));
-
-        $total = (clone $q)->count();
-        $rows  = $q->with('ditugaskanKe')
-            ->orderByRaw("CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END")
+            ->with(['logStatus.pengguna', 'ditugaskanKe'])
             ->orderBy('created_at')
-            ->limit(100)
+            ->limit(500)
             ->get();
 
-        $sekarang = $f['sekarang'];
-        $data = $rows->map(function ($t) use ($sekarang) {
-            $tutup = \App\Support\help_s\HelpTimeline::waktuTutup($t);
-            $mulai = Carbon::parse($t->created_at);
-            $detik = max(0, ($tutup ?? $sekarang)->timestamp - $mulai->timestamp);
+        $rekap = \App\Support\help_s\HelpTimeline::rekapAdmin($tikets, $f['sekarang'], true);
+        $fmt   = fn ($d) => $d === null ? null : \App\Support\help_s\HelpTimeline::formatDurasi($d);
 
-            return [
-                'nomor'  => $t->nomor_tiket,
-                'judul'  => $t->judul,
-                'pic'    => optional($t->ditugaskanKe)->nama_pelanggan ?: 'Belum ditugaskan',
-                'status' => str_replace('_', ' ', $t->status),
-                'closed' => $tutup !== null,
-                'umur'   => \App\Support\help_s\HelpTimeline::formatDurasi($detik),
-                'telat'  => $detik > 7 * 86400,
-                'sejak'  => $mulai->format('d M Y'),
-                'url'    => route('help.proses.show', $t),
-            ];
-        })->values();
-
-        return response()->json(['total' => $total, 'data' => $data]);
+        return response()->json([
+            'tiket'  => $rekap['tiket'],
+            'tunggu' => $fmt($rekap['tunggu']),
+            'over'   => $fmt($rekap['over']),
+            'done'   => $fmt($rekap['done']),
+            'admin'  => array_map(fn ($a) => [
+                'nama'     => $a['nama'],
+                'corp'     => $a['corp'],
+                'tiket'    => $a['tiket'],
+                'tunggu'   => $fmt($a['tunggu']),
+                'over'     => $fmt($a['over']),
+                'done'     => $fmt($a['done']),
+                'jml_over' => $a['jml_over'],
+                'jml_done' => $a['jml_done'],
+                'berjalan' => $a['berjalan'],
+                'daftar'   => $a['daftar'],
+            ], $rekap['admin']),
+        ]);
     }
 
     /**

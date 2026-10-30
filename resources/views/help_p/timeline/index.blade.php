@@ -21,14 +21,14 @@
     {{-- RINGKASAN --}}
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div class="bg-white border border-gray-200 rounded-xl p-4">
-            <p class="text-xs text-gray-500">Belum close</p>
-            <p class="text-2xl font-semibold text-blue-600 mt-1">{{ $ringkasan['aktif'] }}</p>
-            <p class="text-xs text-gray-400 mt-1">di periode ini</p>
+            <p class="text-xs text-gray-500">Open</p>
+            <p class="text-2xl font-semibold text-blue-600 mt-1">{{ $ringkasan['open'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">Help GA Corp + Open · di periode ini</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-4">
-            <p class="text-xs text-gray-500">Belum close &amp; lewat 7 hari</p>
-            <p class="text-2xl font-semibold {{ $ringkasan['telat'] > 0 ? 'text-red-600' : 'text-gray-800' }} mt-1">{{ $ringkasan['telat'] }}</p>
-            <p class="text-xs text-gray-400 mt-1">di periode ini</p>
+            <p class="text-xs text-gray-500">On proses</p>
+            <p class="text-2xl font-semibold text-amber-600 mt-1">{{ $ringkasan['on_proses'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">On Process + Waiting (termasuk vendor) · di periode ini</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-4">
             <p class="text-xs text-gray-500">Closed di periode ini</p>

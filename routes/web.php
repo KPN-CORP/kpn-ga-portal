@@ -832,6 +832,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('equipment-types', App\Http\Controllers\HSRM\HsrmEquipmentTypeController::class)->except(['show']);
         Route::get('logs', [App\Http\Controllers\HSRM\HsrmLogController::class, 'index'])->name('logs.index');
         Route::get('download/{type}/{id}/{old_index?}', [App\Http\Controllers\HSRM\HsrmFileController::class, 'download'])->name('file.download');
+        Route::post('download/{type}/{id}/rotate', [App\Http\Controllers\HSRM\HsrmFileController::class, 'rotate'])->name('file.rotate');
         Route::get('/certificates/filter/{filter}', [HsrmCertificateController::class, 'index'])->name('certificates.filter');
         Route::get('/equipments/filter/{filter}', [HsrmEquipmentController::class, 'index'])->name('equipments.filter');
         Route::get('approvals', [App\Http\Controllers\HSRM\HsrmApprovalController::class, 'index'])->name('approvals.index');

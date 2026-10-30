@@ -195,18 +195,23 @@
                 <div class="text-sm font-semibold text-green-800">⛽ Mobil BBM (Bensin)</div>
                 <div class="text-2xl font-bold text-green-700">{{ $stdBbm }} <span class="text-sm font-medium">km/L</span></div>
                 <p class="text-xs text-gray-600 mt-1"><strong>Poin 4</strong> — 1 liter BBM untuk setiap {{ $stdBbm }} km (1:{{ $stdBbm }})</p>
-                <p class="text-xs text-gray-600 mt-2">🟡 Mulai boros jika di bawah <strong>{{ number_format($stdBbm * 0.95, 2) }}</strong> km/L</p>
-                <p class="text-xs text-gray-600">🔴 Boros jika di bawah <strong>{{ number_format($stdBbm * 0.90, 2) }}</strong> km/L</p>
+                <div class="text-xs text-gray-600 mt-2 space-y-0.5">
+                    <p>🟢 <strong>{{ number_format($stdBbm * 0.95, 2) }}</strong> km/L ke atas</p>
+                    <p>🟡 <strong>{{ number_format($stdBbm * 0.90, 2) }} – {{ number_format($stdBbm * 0.95, 2) }}</strong> km/L</p>
+                    <p>🔴 di bawah <strong>{{ number_format($stdBbm * 0.90, 2) }}</strong> km/L</p>
+                </div>
             </div>
             <div class="border rounded-lg p-3 bg-teal-50 border-teal-200">
                 <div class="text-sm font-semibold text-teal-800">⚡ Mobil Listrik</div>
                 <div class="text-2xl font-bold text-teal-700">{{ $stdListrik }} <span class="text-sm font-medium">km/kWh</span></div>
                 <p class="text-xs text-gray-600 mt-1"><strong>Poin 5</strong> — 1 kWh untuk setiap {{ $stdListrik }} km (1:{{ $stdListrik }})</p>
-                <p class="text-xs text-gray-600 mt-2">🟡 Mulai boros jika di bawah <strong>{{ number_format($stdListrik * 0.95, 2) }}</strong> km/kWh</p>
-                <p class="text-xs text-gray-600">🔴 Boros jika di bawah <strong>{{ number_format($stdListrik * 0.90, 2) }}</strong> km/kWh</p>
+                <div class="text-xs text-gray-600 mt-2 space-y-0.5">
+                    <p>🟢 <strong>{{ number_format($stdListrik * 0.95, 2) }}</strong> km/kWh ke atas</p>
+                    <p>🟡 <strong>{{ number_format($stdListrik * 0.90, 2) }} – {{ number_format($stdListrik * 0.95, 2) }}</strong> km/kWh</p>
+                    <p>🔴 di bawah <strong>{{ number_format($stdListrik * 0.90, 2) }}</strong> km/kWh</p>
+                </div>
             </div>
         </div>
-        <p class="text-xs text-gray-400 mt-3">🟢 Normal (≤5% di bawah standar) · 🟡 &gt;5% di bawah · 🔴 &gt;10% di bawah</p>
     </div>
 
     {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) + ESTIMASI KE DEPAN --}}

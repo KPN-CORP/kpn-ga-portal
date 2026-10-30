@@ -5,135 +5,164 @@
 
 @section('content')
 @php
+    $HT = \App\Support\help_s\HelpTimeline::class;
+    $warnaCorp = $HT::WARNA_CORP;   // coklat: bagian yang dikerjakan GA Corp
     $namaBulan = [1=>'Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     $periode   = ($bulan ? $namaBulan[$bulan] . ' ' : 'Tahun ') . $tahun;
+    $fd        = fn ($d) => $d === null ? '-' : $HT::formatDurasi((int) $d);
 
-    $totalAktif  = collect($grafikBU)->sum('aktif');
-    $totalClosed = collect($grafikBU)->sum('closed');
-    $maks        = max(1, collect($grafikBU)->max(fn ($g) => $g['aktif'] + $g['closed']));
+    // buang nilai kosong dari query halaman ini supaya tidak terkirim sebagai teks "null"
+    $query = array_filter(request()->query(), fn ($v) => $v !== null && $v !== '');
 @endphp
 
 <div class="space-y-6 text-sm text-gray-800 font-sans"
      x-data="grafikHelp()"
      data-url="{{ route('help.grafik.daftar') }}"
-     data-query='@json(request()->query())'>
+     data-query='@json((object) $query)'>
 
     <div>
         <h2 class="text-xl md:text-2xl font-bold text-gray-800">📊 Grafik</h2>
-        <p class="text-gray-500 mt-1">Jumlah tiket per Business Unit · periode {{ $periode }}. Klik batang untuk melihat daftar tiketnya di panel kanan.</p>
+        <p class="text-gray-500 mt-1">Berapa lama tiket dikerjakan di tiap Business Unit · periode {{ $periode }}. Klik satu Business Unit untuk melihat admin yang mengerjakan.</p>
     </div>
 
     @include('help_p.partials.grafik-filter', ['aksi' => 'help.grafik', 'tampilStatus' => false])
 
-    {{-- KIRI: grafik · KANAN: panel daftar tiket (muncul saat batang diklik) --}}
+    @if($terpotong)
+        <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Data dibatasi 1000 tiket terbaru. Persempit periode atau Business Unit agar semua tiket ikut dihitung.
+        </p>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 items-start"
-         :class="terbuka ? 'lg:grid-cols-[minmax(0,1fr)_26rem]' : 'lg:grid-cols-1'">
+         :class="terbuka ? 'lg:grid-cols-[minmax(0,1fr)_28rem]' : 'lg:grid-cols-1'">
 
         {{-- ===== KIRI ===== --}}
         <div class="space-y-6 min-w-0">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="bg-white border border-gray-200 rounded-xl p-4">
-                    <p class="text-xs text-gray-500">Belum close</p>
-                    <p class="text-2xl font-semibold text-blue-600 mt-1">{{ $totalAktif }}</p>
+                    <p class="text-xs font-semibold text-gray-600">Rata-rata menunggu diambil</p>
+                    <p class="text-2xl font-bold text-amber-600 mt-1">{{ $fd($ringkasan['tunggu']) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">sejak tiket dibuat sampai diambil admin</p>
+                </div>
+                <div class="bg-white border-2 border-blue-200 rounded-xl p-4">
+                    <p class="text-xs font-semibold text-gray-600">Rata-rata waktu pengerjaan</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1">{{ $fd($ringkasan['done']) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">sejak diambil admin sampai selesai · {{ $ringkasan['jml_done'] }} tiket</p>
                 </div>
                 <div class="bg-white border border-gray-200 rounded-xl p-4">
-                    <p class="text-xs text-gray-500">Sudah closed</p>
-                    <p class="text-2xl font-semibold text-green-600 mt-1">{{ $totalClosed }}</p>
+                    <p class="text-xs font-semibold text-gray-600">Diteruskan ke GA Corp</p>
+                    <p class="text-2xl font-bold text-purple-600 mt-1">{{ $ringkasan['jml_over'] }}</p>
+                    <p class="text-xs text-gray-500 mt-1">kali minta bantuan GA Corp</p>
                 </div>
             </div>
 
             <div class="bg-white border border-gray-200 rounded-xl p-4 md:p-6">
-                <div class="flex flex-wrap items-center gap-4 text-xs text-gray-600 mb-4">
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-blue-500"></span> Belum close (warna ikut BU)</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-green-500"></span> Sudah closed</span>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
+                    <span>Batang = 100% tiket tiap BU, dibagi menurut siapa yang mengerjakan</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-gray-400"></span> Dikerjakan BU</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background: {{ $warnaCorp }};"></span> Dikerjakan GA Corp</span>
                 </div>
 
                 @forelse($grafikBU as $g)
-                    @php $total = $g['aktif'] + $g['closed']; @endphp
-                    <div class="flex items-center gap-3 py-2">
-                        <div class="w-28 sm:w-40 shrink-0 text-xs sm:text-sm font-medium text-gray-700 truncate" title="{{ $g['label'] }}">
-                            {{ $g['label'] }}
+                    @php
+                        $nBU   = (int) $g['tiket_bu'];
+                        $nCorp = (int) $g['tiket_corp'];
+                        $nSemua = $nBU + $nCorp;
+                        $pCorp = $nSemua > 0 ? (int) round($nCorp / $nSemua * 100) : 0;
+                        $pBU   = 100 - $pCorp;
+                    @endphp
+                    <button type="button"
+                            @click="buka({{ $g['id'] }}, '{{ addslashes($g['label']) }}', '{{ $g['warna'] }}')"
+                            class="w-full text-left rounded-lg px-2 py-3 hover:bg-gray-50 transition"
+                            :class="pilih === {{ $g['id'] }} ? 'bg-blue-50 ring-1 ring-blue-200' : ''">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="font-medium text-gray-800 truncate">{{ $g['label'] }}</span>
+                            <span class="text-xs text-gray-500 whitespace-nowrap">{{ $nSemua }} tiket · {{ $g['jml_admin'] }} admin</span>
                         </div>
-                        <div class="flex-1 bg-gray-100 rounded h-8 overflow-hidden">
-                            <div class="flex h-full" style="width: {{ $total > 0 ? max(4, round($total / $maks * 100)) : 0 }}%;">
-                                @if($g['aktif'] > 0)
-                                    <button type="button"
-                                            @click="buka({{ $g['id'] }}, '{{ addslashes($g['label']) }}', 'aktif')"
-                                            class="h-full text-white text-xs font-semibold hover:opacity-80 transition"
-                                            :class="aktif({{ $g['id'] }}, 'aktif') ? 'ring-2 ring-inset ring-gray-900/60' : ''"
-                                            style="width: {{ round($g['aktif'] / $total * 100) }}%; background: {{ $g['warna'] }};"
-                                            title="{{ $g['label'] }} · belum close: {{ $g['aktif'] }}">
-                                        {{ $g['aktif'] }}
-                                    </button>
+
+                        @if($nSemua > 0)
+                            <div class="mt-2 flex h-7 rounded overflow-hidden bg-gray-100 text-xs font-semibold text-white">
+                                @if($pBU > 0)
+                                    <div class="flex items-center justify-center" style="width: {{ $pBU }}%; background: {{ $g['warna'] }};"
+                                         title="Dikerjakan BU: {{ $nBU }} tiket">{{ $pBU }}%</div>
                                 @endif
-                                @if($g['closed'] > 0)
-                                    <button type="button"
-                                            @click="buka({{ $g['id'] }}, '{{ addslashes($g['label']) }}', 'closed')"
-                                            class="h-full bg-green-500 text-white text-xs font-semibold hover:opacity-80 transition"
-                                            :class="aktif({{ $g['id'] }}, 'closed') ? 'ring-2 ring-inset ring-gray-900/60' : ''"
-                                            style="width: {{ round($g['closed'] / $total * 100) }}%;"
-                                            title="{{ $g['label'] }} · closed: {{ $g['closed'] }}">
-                                        {{ $g['closed'] }}
-                                    </button>
+                                @if($pCorp > 0)
+                                    <div class="flex items-center justify-center" style="width: {{ $pCorp }}%; background: {{ $warnaCorp }};"
+                                         title="Dikerjakan GA Corp: {{ $nCorp }} tiket">{{ $pCorp }}%</div>
                                 @endif
                             </div>
-                        </div>
-                        <div class="w-10 shrink-0 text-right text-xs text-gray-500">{{ $total }}</div>
-                    </div>
+                        @else
+                            <p class="mt-2 text-xs text-gray-400">Belum ada tiket yang diambil pada periode ini.</p>
+                        @endif
+                    </button>
                 @empty
                     <p class="text-gray-500 text-center py-6">Tidak ada data pada periode ini.</p>
                 @endforelse
             </div>
         </div>
 
-        {{-- ===== KANAN: PANEL DAFTAR TIKET ===== --}}
+        {{-- ===== KANAN: ADMIN PER BUSINESS UNIT ===== --}}
         <aside x-show="terbuka" x-cloak
                class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
             <div class="flex items-start justify-between gap-3 px-4 py-3 border-b bg-gray-50">
                 <div class="min-w-0">
                     <p class="font-semibold text-gray-800 truncate" x-text="judul"></p>
                     <p class="text-xs text-gray-500" x-show="!memuat && !galat">
-                        <span x-text="total"></span> tiket<span x-show="total > data.length"> · menampilkan <span x-text="data.length"></span> terlama</span>
+                        <span x-text="admin.length"></span> admin · <span x-text="tiket"></span> tiket
                     </p>
                 </div>
                 <button type="button" @click="tutup()" class="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Tutup">&times;</button>
             </div>
 
-            <div class="px-4 py-2 border-b" x-show="!memuat && !galat && data.length > 0">
-                <input type="search" x-model="cari" @input="hal = 0" placeholder="Cari nomor, judul, atau PIC"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500">
-            </div>
-
             <div class="flex-1 overflow-y-auto">
                 <div x-show="memuat" class="p-6 text-center text-gray-500">Memuat…</div>
                 <div x-show="galat" class="p-6 text-center text-red-600" x-text="galat"></div>
-                <div x-show="!memuat && !galat && tersaring.length === 0" class="p-6 text-center text-gray-500">Tidak ada tiket.</div>
+                <div x-show="!memuat && !galat && admin.length === 0" class="p-6 text-center text-gray-500">Belum ada admin yang mengambil tiket.</div>
 
-                <ul class="divide-y" x-show="!memuat && tersaring.length > 0">
-                    <template x-for="t in halaman" :key="t.nomor">
-                        <li class="px-4 py-3 hover:bg-gray-50">
-                            <div class="flex items-start justify-between gap-3">
-                                <a :href="t.url" class="text-blue-600 hover:underline font-medium" x-text="t.nomor"></a>
-                                <span class="text-xs font-semibold whitespace-nowrap"
-                                      :class="t.telat ? 'text-red-600' : 'text-green-600'"
-                                      x-text="t.umur"></span>
+                <template x-for="a in admin" :key="a.nama">
+                    <div class="border-b">
+                        <button type="button" @click="buka_admin = (buka_admin === a.nama ? null : a.nama)"
+                                class="w-full text-left px-4 py-3 hover:bg-gray-50">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="inline-flex items-center gap-2 min-w-0">
+                                    <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="'background:' + (a.corp ? warnaCorp : warnaBU)"></span>
+                                    <span class="font-semibold text-gray-800 truncate" x-text="a.nama"></span>
+                                    <span x-show="a.corp" class="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white shrink-0" :style="'background:' + warnaCorp">GA Corp</span>
+                                </span>
+                                <span class="text-xs text-gray-500 whitespace-nowrap"><span x-text="a.tiket"></span> tiket <span x-text="buka_admin === a.nama ? '▲' : '▼'"></span></span>
                             </div>
-                            <p class="text-sm text-gray-700 mt-0.5 line-clamp-2" x-text="t.judul"></p>
-                            <p class="text-xs text-gray-500 mt-1">
-                                <span x-text="t.pic"></span> · <span x-text="t.status"></span> · <span x-text="t.sejak"></span>
-                            </p>
-                        </li>
-                    </template>
-                </ul>
-            </div>
+                            <div class="mt-1.5 grid grid-cols-3 gap-2 text-xs">
+                                <div><p class="text-gray-400">Pengerjaan<span x-show="a.jml_done > 0"> (<span x-text="a.jml_done"></span>×)</span></p><p class="font-semibold text-blue-600" x-text="a.done || '-'"></p></div>
+                                <div><p class="text-gray-400">Menunggu diambil</p><p class="font-semibold text-amber-600" x-text="a.tunggu || '-'"></p></div>
+                                <div><p class="text-gray-400">Ke GA Corp<span x-show="a.jml_over > 0"> (<span x-text="a.jml_over"></span>×)</span></p><p class="font-semibold text-purple-600" x-text="a.over || '-'"></p></div>
+                            </div>
+                        </button>
 
-            <div class="flex items-center justify-between px-4 py-2 border-t bg-gray-50 text-xs text-gray-500"
-                 x-show="!memuat && tersaring.length > perHal">
-                <button type="button" @click="hal--" :disabled="hal === 0"
-                        class="px-2 py-1 rounded border bg-white disabled:opacity-40">‹ Sebelumnya</button>
-                <span>Hal <span x-text="hal + 1"></span> / <span x-text="jmlHal"></span></span>
-                <button type="button" @click="hal++" :disabled="hal >= jmlHal - 1"
-                        class="px-2 py-1 rounded border bg-white disabled:opacity-40">Berikutnya ›</button>
+                        <ul class="bg-gray-50 divide-y" x-show="buka_admin === a.nama">
+                            <template x-for="(d, i) in a.daftar" :key="d.nomor + i">
+                                <li class="px-4 py-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <a :href="d.url" class="text-blue-600 hover:underline font-medium" x-text="d.nomor"></a>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                                              :class="{
+                                                'bg-green-100 text-green-700': d.kode === 'DONE',
+                                                'bg-purple-100 text-purple-700': d.kode === 'OVER',
+                                                'bg-sky-100 text-sky-700': d.kode === 'ALIH',
+                                                'bg-amber-100 text-amber-700': d.kode === 'BERJALAN',
+                                                'bg-gray-200 text-gray-600': d.kode === 'CLOSED'
+                                              }" x-text="d.hasil"></span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 mt-0.5 line-clamp-2" x-text="d.judul"></p>
+                                    <ol class="mt-2 space-y-0.5 text-xs text-gray-600">
+                                        <li>Dibuat · <span x-text="d.laporan"></span></li>
+                                        <li>Diambil · <span x-text="d.diambil"></span><span x-show="d.tunggu" class="text-amber-600 font-semibold"> (menunggu <span x-text="d.tunggu"></span>)</span></li>
+                                        <li><span x-text="d.hasil"></span> · <span x-text="d.akhir"></span> <span class="text-blue-600 font-semibold">(dikerjakan <span x-text="d.proses"></span>)</span></li>
+                                    </ol>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
             </div>
         </aside>
     </div>
@@ -142,39 +171,34 @@
 <script>
 function grafikHelp() {
     return {
-        terbuka: false, memuat: false, galat: '', judul: '', total: 0, data: [],
-        cari: '', hal: 0, perHal: 10, pilih: { bu: null, mode: null },
+        terbuka: false, memuat: false, galat: '', judul: '', pilih: null,
+        warnaBU: '#3b82f6', warnaCorp: '{{ $warnaCorp }}',
+        tiket: 0, admin: [], buka_admin: null,
 
-        get tersaring() {
-            const q = this.cari.trim().toLowerCase();
-            if (!q) return this.data;
-            return this.data.filter(t =>
-                (t.nomor + ' ' + t.judul + ' ' + t.pic).toLowerCase().includes(q));
-        },
-        get jmlHal()  { return Math.max(1, Math.ceil(this.tersaring.length / this.perHal)); },
-        get halaman() { return this.tersaring.slice(this.hal * this.perHal, (this.hal + 1) * this.perHal); },
+        tutup() { this.terbuka = false; this.pilih = null; },
 
-        aktif(bu, mode) { return this.terbuka && this.pilih.bu === bu && this.pilih.mode === mode; },
-        tutup() { this.terbuka = false; this.pilih = { bu: null, mode: null }; },
-
-        async buka(bu, label, mode) {
+        async buka(bu, label, warna) {
             const el = this.$root;
-            const params = new URLSearchParams(JSON.parse(el.dataset.query || '{}'));
+            const params = new URLSearchParams();
+            // hanya kirim parameter yang berisi (jangan kirim null/kosong sebagai teks "null")
+            const q = JSON.parse(el.dataset.query || '{}');
+            Object.keys(q).forEach(k => {
+                if (q[k] !== null && q[k] !== '') params.set(k, q[k]);
+            });
             params.set('bu', bu);
-            params.set('mode', mode);
-            this.pilih = { bu, mode };
-            this.terbuka = true; this.memuat = true; this.galat = '';
-            this.data = []; this.total = 0; this.cari = ''; this.hal = 0;
-            this.judul = label + ' · ' + (mode === 'closed' ? 'Sudah closed' : 'Belum close');
+
+            this.pilih = bu; this.terbuka = true; this.memuat = true; this.galat = '';
+            this.admin = []; this.tiket = 0; this.buka_admin = null;
+            this.judul = label; this.warnaBU = warna || '#3b82f6';
             try {
                 const res = await fetch(el.dataset.url + '?' + params.toString(), {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
-                this.total = json.total; this.data = json.data;
+                this.tiket = json.tiket; this.admin = json.admin;
             } catch (e) {
-                this.galat = 'Gagal memuat daftar tiket (' + e.message + ').';
+                this.galat = 'Gagal memuat data admin (' + e.message + ').';
             } finally {
                 this.memuat = false;
             }

@@ -348,6 +348,210 @@ class HelpTimeline
     }
 
     /**
+     * Jejak penanganan tiket per admin, dari log status:
+     * Laporan (dibuat) -> Diambil -> Eskalasi (minta bantuan GA Corp) -> Done.
+     * Pengalihan PIC ke admin lain dicatat terpisah sebagai 'Dialihkan' (ALIH).
+     *
+     * Tiap "segmen" = satu admin memegang tiket, dari diambil sampai over / done / sekarang.
+     * Admin dikelompokkan menurut NAMA (pengalihan PIC hanya mencatat nama di catatan log).
+     *
+     * @return array{laporan:int, diambil:?int, over:?int, done:?int, segmen:array<int,array{admin:string,mulai:int,akhir:int,tunggu:?int,hasil:string,corp:bool}>}
+     */
+    public static function jejakAdmin(HelpTiket $tiket, ?Carbon $sekarang = null): array
+    {
+        $sekarang = $sekarang ?: now();
+        $laporan  = Carbon::parse($tiket->created_at)->timestamp;
+
+        $logs = $tiket->relationLoaded('logStatus')
+            ? $tiket->logStatus
+            : $tiket->logStatus()->with('pengguna')->orderBy('created_at')->get();
+        $logs = $logs->sortBy('created_at')->values();
+
+        $nama   = fn ($log) => optional($log->pengguna)->nama_pelanggan ?: 'Tidak diketahui';
+        $segmen = [];
+        $cur    = null;          // segmen yang sedang berjalan
+        $tungguDari = $laporan;  // sejak kapan tiket menunggu diambil
+        $sudahOver  = false;     // sudah minta bantuan GA Corp: pengerjaan berikutnya = dikerjakan Corp
+        $diambilTs = $overTs = $doneTs = null;
+
+        $tutup = function (?array $c, int $ts, string $hasil) use (&$segmen) {
+            if ($c) {
+                $c['akhir'] = max($c['mulai'], $ts);
+                $c['hasil'] = $hasil;
+                $segmen[]   = $c;
+            }
+
+            return null;
+        };
+
+        foreach ($logs as $log) {
+            $ts   = Carbon::parse($log->created_at)->timestamp;
+            $lama = $log->status_lama;
+            $baru = $log->status_baru;
+            $cat  = (string) $log->catatan;
+
+            if ($baru === 'HELP_GA_CORP' && $lama !== 'HELP_GA_CORP') {
+                // ESKALASI: minta bantuan GA Corp (kode internal: OVER)
+                $cur = $tutup($cur, $ts, 'OVER');
+                $tungguDari = $ts;
+                $sudahOver  = true;
+                $overTs   ??= $ts;
+            } elseif ($lama === $baru && str_starts_with($cat, 'Pengalihan penanggung jawab')) {
+                // DIALIHKAN ke admin lain (nama admin baru ada di catatan)
+                $cur = $tutup($cur, $ts, 'ALIH');
+                if (preg_match('/dari .+ ke (.+?)\. Alasan:/u', $cat, $m)) {
+                    $cur = ['admin' => trim($m[1]), 'mulai' => $ts, 'tunggu' => null, 'corp' => $sudahOver];
+                }
+            } elseif ($baru === 'ON_PROCESS' && !$cur) {
+                // DIAMBIL
+                $cur = ['admin' => $nama($log), 'mulai' => $ts, 'tunggu' => max(0, $ts - $tungguDari), 'corp' => $sudahOver];
+                $diambilTs ??= $ts;
+            } elseif ($baru === 'DONE') {
+                $cur = $tutup($cur, $ts, 'DONE');
+                $doneTs = $ts;
+            } elseif ($baru === 'CLOSED') {
+                $cur = $tutup($cur, $ts, 'CLOSED');
+            }
+        }
+
+        if ($cur) {
+            // Log DONE/CLOSED tidak tercatat, padahal tiketnya sudah DONE/CLOSED:
+            // akhiri di waktu selesai/tutup tiket, jangan dianggap masih berjalan sampai sekarang.
+            $akhirTiket = in_array($tiket->status, ['DONE', 'CLOSED'], true) ? self::waktuSelesai($tiket) : null;
+
+            if ($akhirTiket) {
+                $akhirTs = max($cur['mulai'], $akhirTiket->timestamp);
+                $cur     = $tutup($cur, $akhirTs, 'DONE');
+                $doneTs  = $akhirTs;
+            } else {
+                $cur = $tutup($cur, $sekarang->timestamp, 'BERJALAN');
+            }
+        }
+
+        // Tiket lama tanpa log lengkap: pakai kolom ditugaskan_ke / diproses_pada
+        if (!$segmen && $tiket->ditugaskan_ke && $tiket->diproses_pada) {
+            $mulai = Carbon::parse($tiket->diproses_pada)->timestamp;
+            $akhir = self::waktuSelesai($tiket);
+            $segmen[] = [
+                'admin'  => optional($tiket->ditugaskanKe)->nama_pelanggan ?: 'Tidak diketahui',
+                'mulai'  => $mulai,
+                'akhir'  => max($mulai, ($akhir ?: $sekarang)->timestamp),
+                'tunggu' => max(0, $mulai - $laporan),
+                'hasil'  => $akhir ? 'DONE' : 'BERJALAN',
+                'corp'   => false,
+            ];
+            $diambilTs = $mulai;
+            $doneTs    = $akhir ? $akhir->timestamp : null;
+        }
+
+        return [
+            'laporan' => $laporan,
+            'diambil' => $diambilTs,   // pertama kali diambil
+            'over'    => $overTs,      // pertama kali minta bantuan GA Corp
+            'done'    => $doneTs,
+            'segmen'  => $segmen,
+        ];
+    }
+
+    /**
+     * Rekap waktu per admin untuk sekumpulan tiket (biasanya satu Business Unit).
+     * Semua angka dalam DETIK; $rinci = true menyertakan daftar tiket tiap admin.
+     */
+    public static function rekapAdmin(iterable $tikets, ?Carbon $sekarang = null, bool $rinci = false): array
+    {
+        $avg   = fn (array $a) => $a ? (int) round(array_sum($a) / count($a)) : null;
+        $admin = [];
+        $tunggu = $over = $totalDone = $bagBU = $bagCorp = [];
+        $nTiket = $nBU = $nCorp = 0;
+        $label  = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
+        $fmt    = fn (int $ts) => Carbon::createFromTimestamp($ts)->format('d M H:i');
+
+        foreach ($tikets as $t) {
+            $j = self::jejakAdmin($t, $sekarang);
+            if (!$j['segmen']) {
+                continue;
+            }
+            $nTiket++;
+
+            // siapa yang mengerjakan tiket ini: GA Corp (pernah diteruskan / dikerjakan Corp) atau BU sendiri
+            $korp = $j['over'] !== null || (bool) array_filter($j['segmen'], fn ($sg) => !empty($sg['corp']));
+            $korp ? $nCorp++ : $nBU++;
+
+            // Diambil -> Done per TIKET, dipisah: bagian dikerjakan BU (sebelum eskalasi) dan dikerjakan GA Corp (setelah eskalasi)
+            if ($j['diambil'] !== null && $j['done'] !== null && $j['done'] >= $j['diambil']) {
+                $ov = $j['over'] !== null ? min(max($j['over'], $j['diambil']), $j['done']) : null;
+                $totalDone[] = $j['done'] - $j['diambil'];
+                $bagBU[]     = ($ov ?? $j['done']) - $j['diambil'];
+                $bagCorp[]   = $ov !== null ? $j['done'] - $ov : 0;
+            }
+
+            foreach ($j['segmen'] as $s) {
+                $detik = $s['akhir'] - $s['mulai'];
+                $nm    = $s['admin'];
+                $admin[$nm] ??= ['nama' => $nm, 'corp' => false, 'tiket' => [], 'tunggu' => [], 'over' => [], 'done' => [], 'berjalan' => 0, 'daftar' => []];
+                $admin[$nm]['corp'] = $admin[$nm]['corp'] || !empty($s['corp']);
+
+                $admin[$nm]['tiket'][$t->id] = true;
+                if ($s['tunggu'] !== null) {
+                    $admin[$nm]['tunggu'][] = $s['tunggu'];
+                    $tunggu[] = $s['tunggu'];
+                }
+                if ($s['hasil'] === 'DONE') {
+                    $admin[$nm]['done'][] = $detik;
+                } elseif ($s['hasil'] === 'OVER') {
+                    $admin[$nm]['over'][] = $detik;
+                    $over[] = $detik;
+                } elseif ($s['hasil'] === 'BERJALAN') {
+                    $admin[$nm]['berjalan']++;
+                }
+
+                if ($rinci) {
+                    $admin[$nm]['daftar'][] = [
+                        'nomor'   => $t->nomor_tiket,
+                        'judul'   => $t->judul,
+                        'url'     => route('help.proses.show', $t),
+                        'laporan' => $fmt($j['laporan']),
+                        'diambil' => $fmt($s['mulai']),
+                        'tunggu'  => $s['tunggu'] !== null ? self::formatDurasi($s['tunggu']) : null,
+                        'proses'  => self::formatDurasi($detik),
+                        'hasil'   => $label[$s['hasil']] ?? $s['hasil'],
+                        'kode'    => $s['hasil'],
+                        'akhir'   => $fmt($s['akhir']),
+                    ];
+                }
+            }
+        }
+
+        $baris = array_map(fn ($a) => [
+            'nama'     => $a['nama'],
+            'corp'     => $a['corp'],
+            'tiket'    => count($a['tiket']),
+            'tunggu'   => $avg($a['tunggu']),
+            'over'     => $avg($a['over']),
+            'done'     => $avg($a['done']),
+            'jml_over' => count($a['over']),
+            'jml_done' => count($a['done']),
+            'berjalan' => $a['berjalan'],
+            'daftar'   => $a['daftar'],
+        ], array_values($admin));
+        usort($baris, fn ($x, $y) => [$y['tiket'], $x['nama']] <=> [$x['tiket'], $y['nama']]);
+
+        return [
+            'tiket'    => $nTiket,
+            'tiket_bu'   => $nBU,
+            'tiket_corp' => $nCorp,
+            'tunggu'   => $avg($tunggu),
+            'over'     => $avg($over),
+            'done'     => $avg($totalDone),   // Diambil -> Done per tiket (BU + GA Corp)
+            'done_bu'  => $avg($bagBU),
+            'done_corp'=> $avg($bagCorp),
+            'jml_over' => count($over),
+            'jml_done' => count($totalDone),
+            'admin'    => $baris,
+        ];
+    }
+
+    /**
      * Susun segmen [awal, akhir, status] dari log status.
      */
     public static function segmen(HelpTiket $tiket, int $awal, int $akhir): array
