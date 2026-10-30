@@ -1,5 +1,5 @@
 {{-- resources/views/help/tiket/create.blade.php --}}
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="p-6 max-w-4xl mx-auto">

@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
@@ -29,6 +29,11 @@
         $activeStatus = request('status', 'OPEN');
     @endphp
     <div class="flex flex-wrap gap-2 px-2 sm:px-0">
+        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'HELP_GA_CORP'])) }}"
+           class="px-4 py-2 rounded-lg text-sm font-semibold transition
+                  {{ $activeStatus == 'HELP_GA_CORP' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+            HELP GA CORP
+        </a>
         <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'OPEN'])) }}"
            class="px-4 py-2 rounded-lg text-sm font-semibold transition
                   {{ $activeStatus == 'OPEN' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
@@ -54,11 +59,6 @@
                   {{ $activeStatus == 'CLOSED' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
             CLOSED
         </a>
-        <a href="{{ route('help.proses.index', array_merge(request()->except('status'), ['status' => 'HELP_GA_CORP'])) }}"
-           class="px-4 py-2 rounded-lg text-sm font-semibold transition
-                  {{ $activeStatus == 'HELP_GA_CORP' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
-            HELP GA CORP
-        </a>
     </div>
 
     {{-- FILTER SECTION (lanjutan) --}}
@@ -77,12 +77,12 @@
                     <select name="status"
                             class="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                         <option value="">All Status</option>
+                        <option value="HELP_GA_CORP" {{ request('status')=='HELP_GA_CORP'?'selected':'' }}>HELP GA CORP</option>
                         <option value="OPEN" {{ request('status')=='OPEN'?'selected':'' }}>OPEN</option>
                         <option value="ON_PROCESS" {{ request('status')=='ON_PROCESS'?'selected':'' }}>ON PROCESS</option>
                         <option value="WAITING" {{ request('status')=='WAITING'?'selected':'' }}>WAITING</option>
                         <option value="DONE" {{ request('status')=='DONE'?'selected':'' }}>DONE</option>
                         <option value="CLOSED" {{ request('status')=='CLOSED'?'selected':'' }}>CLOSED</option>
-                        <option value="HELP_GA_CORP" {{ request('status')=='HELP_GA_CORP'?'selected':'' }}>HELP GA CORP</option>
                     </select>
                 </div>
 
@@ -332,6 +332,7 @@
                     <th class="px-4 py-3 text-left hidden md:table-cell">Pelapor</th>
                     <th class="px-4 py-3 text-left hidden md:table-cell">Kategori</th>
                     <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-left hidden md:table-cell">Proses</th>
                     <th class="px-4 py-3 text-left">Action</th>
                 </tr>
             </thead>
@@ -448,6 +449,9 @@
                             </div>
                             @endif
                         </div>
+                    </td>
+                    <td class="px-4 py-3 hidden md:table-cell">
+                        @include('help_p.partials.grafik-proses', ['tiket' => $item, 'compact' => true])
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex flex-col gap-2">

@@ -4,7 +4,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\HelpLampiran;
+use App\Models\help_m\HelpLampiran;
 
 class CheckFileAccess
 {

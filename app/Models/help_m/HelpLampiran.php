@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\help_m;
 
+use App\Models\Pelanggan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

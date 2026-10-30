@@ -1,13 +1,16 @@
 <?php
 // app/Http/Controllers/HelpTiketApprovalController.php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\help_c;
 
-use App\Models\HelpTiket;
-use App\Models\HelpKategori;
-use App\Models\HelpLogStatus;
-use App\Models\HelpKomentar;
-use App\Models\HelpLampiran;
+use App\Http\Controllers\Controller;
+
+use App\Models\help_m\HelpTiket;
+use App\Models\help_m\HelpKategori;
+use App\Models\help_m\HelpLogStatus;
+use App\Models\help_m\HelpKomentar;
+use App\Models\help_m\HelpLampiran;
+use App\Models\help_m\HelpVendorProses;
 use App\Models\Pelanggan;
 use App\Models\BisnisUnit;
 use Illuminate\Http\Request;
@@ -62,6 +65,7 @@ class HelpTiketApprovalController extends Controller
             'bisnisUnit',
             'pelapor.user',
             'ditugaskanKe.user',
+            'vendorProses',
             'komentar' => function($query) {
                 $query->with(['pengguna.user'])
                       ->orderBy('created_at', 'asc');
@@ -82,7 +86,7 @@ class HelpTiketApprovalController extends Controller
         // Klasifikasi lampiran untuk view
         $lampiran = $this->klasifikasiLampiran($tiket->lampiran, $tiket->pelapor_id);
         
-        return view('help.proses.show', compact('tiket', 'isAssigned', 'lampiran'));
+        return view('help_p.proses.show', compact('tiket', 'isAssigned', 'lampiran'));
     }
 
     /**
@@ -251,6 +255,151 @@ class HelpTiketApprovalController extends Controller
             return redirect()->back()
                 ->with('error', 'Gagal mengalihkan tiket: ' . $e->getMessage())
                 ->withInput();
+        }
+    }
+
+    /**
+     * Serahkan tiket ke vendor.
+     * Status tiket TIDAK berubah (tetap ON_PROCESS / WAITING); tiket mulai
+     * memakai grafik pengerjaan vendor (tanpa merah/hijau).
+     */
+    public function serahkanVendor(Request $request, HelpTiket $tiket)
+    {
+        $pelanggan = Auth::user()->pelanggan;
+
+        if (!$pelanggan) {
+            return redirect()->back()->with('error', 'Data pelanggan belum terhubung.');
+        }
+
+        if ($tiket->ditugaskan_ke != $pelanggan->id_pelanggan) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk menyerahkan tiket ini ke vendor.');
+        }
+
+        if (!in_array($tiket->status, ['ON_PROCESS', 'WAITING'])) {
+            return redirect()->back()->with('error', 'Tiket hanya dapat diserahkan ke vendor saat status ON_PROCESS atau WAITING.');
+        }
+
+        if ($tiket->vendorProses()->whereNull('selesai_pada')->exists()) {
+            return redirect()->back()->with('error', 'Tiket ini masih dalam pengerjaan vendor.');
+        }
+
+        $request->validate([
+            'nama_vendor' => 'required|string|min:2|max:150',
+            'catatan'     => 'nullable|string|max:500',
+        ], [
+            'nama_vendor.required' => 'Nama vendor harus diisi.',
+            'nama_vendor.min'      => 'Nama vendor minimal 2 karakter.',
+            'nama_vendor.max'      => 'Nama vendor maksimal 150 karakter.',
+            'catatan.max'          => 'Catatan maksimal 500 karakter.',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            HelpVendorProses::create([
+                'tiket_id'        => $tiket->id,
+                'nama_vendor'     => $request->nama_vendor,
+                'catatan'         => $request->catatan,
+                'diserahkan_oleh' => $pelanggan->id_pelanggan,
+                'mulai_pada'      => now(),
+            ]);
+
+            HelpLogStatus::create([
+                'tiket_id'    => $tiket->id,
+                'status_lama' => $tiket->status,
+                'status_baru' => $tiket->status,
+                'pengguna_id' => $pelanggan->id_pelanggan,
+                'catatan'     => 'Diserahkan ke vendor: ' . $request->nama_vendor
+                                 . ($request->catatan ? '. Catatan: ' . $request->catatan : ''),
+            ]);
+
+            HelpKomentar::create([
+                'tiket_id'          => $tiket->id,
+                'pengguna_id'       => $pelanggan->id_pelanggan,
+                'komentar'          => '🛠️ **Tiket Diserahkan ke Vendor** 🛠️' . "\n\n" .
+                                       '**Vendor:** ' . $request->nama_vendor .
+                                       ($request->catatan ? "\n\n" . '**Catatan:** ' . $request->catatan : ''),
+                'pesan_sistem'      => true,
+                'tipe_pesan_sistem' => 'STATUS_CHANGED',
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('help.proses.show', $tiket)
+                ->with('success', '✅ Tiket diserahkan ke vendor: ' . $request->nama_vendor);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Gagal menyerahkan tiket ke vendor', [
+                'tiket_id' => $tiket->id,
+                'error'    => $e->getMessage(),
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Gagal menyerahkan tiket ke vendor: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Tandai pengerjaan vendor selesai.
+     */
+    public function selesaiVendor(Request $request, HelpTiket $tiket)
+    {
+        $pelanggan = Auth::user()->pelanggan;
+
+        if (!$pelanggan) {
+            return redirect()->back()->with('error', 'Data pelanggan belum terhubung.');
+        }
+
+        if ($tiket->ditugaskan_ke != $pelanggan->id_pelanggan) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk tiket ini.');
+        }
+
+        $vendor = $tiket->vendorProses()->whereNull('selesai_pada')->latest('mulai_pada')->first();
+
+        if (!$vendor) {
+            return redirect()->back()->with('error', 'Tidak ada pengerjaan vendor yang sedang berjalan.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $vendor->selesai_pada = now();
+            $vendor->save();
+
+            HelpLogStatus::create([
+                'tiket_id'    => $tiket->id,
+                'status_lama' => $tiket->status,
+                'status_baru' => $tiket->status,
+                'pengguna_id' => $pelanggan->id_pelanggan,
+                'catatan'     => 'Pengerjaan vendor selesai: ' . $vendor->nama_vendor,
+            ]);
+
+            HelpKomentar::create([
+                'tiket_id'          => $tiket->id,
+                'pengguna_id'       => $pelanggan->id_pelanggan,
+                'komentar'          => '✅ **Pengerjaan Vendor Selesai** ✅' . "\n\n" .
+                                       '**Vendor:** ' . $vendor->nama_vendor,
+                'pesan_sistem'      => true,
+                'tipe_pesan_sistem' => 'STATUS_CHANGED',
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('help.proses.show', $tiket)
+                ->with('success', '✅ Pengerjaan vendor ditandai selesai.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Gagal menyelesaikan pengerjaan vendor', [
+                'tiket_id' => $tiket->id,
+                'error'    => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->with('error', 'Gagal menyimpan: ' . $e->getMessage());
         }
     }
 

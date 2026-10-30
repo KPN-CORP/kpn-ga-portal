@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\help_c;
 
-use App\Models\HelpTiket;
-use App\Models\HelpKategori;
-use App\Models\HelpLampiran;
-use App\Models\HelpKomentar;
-use App\Models\HelpLogStatus;
+use App\Http\Controllers\Controller;
+
+use App\Models\help_m\HelpTiket;
+use App\Models\help_m\HelpKategori;
+use App\Models\help_m\HelpLampiran;
+use App\Models\help_m\HelpKomentar;
+use App\Models\help_m\HelpLogStatus;
 use App\Models\User;
 use App\Models\BisnisUnit;
 use Illuminate\Http\Request;
@@ -78,12 +80,12 @@ class HelpTiketController extends Controller
         }
         
         // Eksekusi query dengan pagination
-        $tiket = $query->with(['kategori', 'bisnisUnit'])
+        $tiket = $query->with(['kategori', 'bisnisUnit', 'logStatus', 'vendorProses'])
                       ->latest()
                       ->paginate(20)
                       ->withQueryString();
         
-        return view('help.tiket.index', compact('tiket'));
+        return view('help_p.tiket.index', compact('tiket'));
     }
 
     /**
@@ -94,7 +96,7 @@ class HelpTiketController extends Controller
         $kategori = HelpKategori::where('aktif', true)->orderBy('nama')->get();
         $bisnisUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
         
-        return view('help.tiket.create', compact('kategori', 'bisnisUnits'));
+        return view('help_p.tiket.create', compact('kategori', 'bisnisUnits'));
     }
 
     /**
@@ -241,6 +243,7 @@ class HelpTiketController extends Controller
             'bisnisUnit',
             'pelapor.user',
             'ditugaskanKe.user',
+            'vendorProses',
             'komentar' => function($query) {
                 $query->with(['pengguna.user'])
                       ->orderBy('created_at', 'asc');
@@ -258,7 +261,7 @@ class HelpTiketController extends Controller
         // Klasifikasi lampiran untuk view
         $lampiran = $this->klasifikasiLampiran($tiket->lampiran, $tiket->pelapor_id);
         
-        return view('help.tiket.show', compact('tiket', 'lampiran'));
+        return view('help_p.tiket.show', compact('tiket', 'lampiran'));
     }
 
     /**

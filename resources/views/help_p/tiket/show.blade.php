@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="p-4 md:p-6">
@@ -123,15 +123,18 @@
                 </div>
             </div>
             
+            <!-- Grafik Proses 7 Hari / Vendor -->
+            @include('help_p.partials.grafik-proses', ['tiket' => $tiket])
+
             <!-- Diskusi Tiket -->
-            @include('help.partials.diskusi', [
+            @include('help_p.partials.diskusi', [
                 'tiket' => $tiket,
                 'userRole' => 'pelapor',
                 'showInput' => $tiket->status !== 'CLOSED'
             ])
             
             <!-- Lampiran -->
-            @include('help.partials.lampiran', [
+            @include('help_p.partials.lampiran', [
                 'lampiran' => $lampiran,
                 'tiket' => $tiket,
                 'userRole' => 'pelapor'
@@ -249,7 +252,7 @@
 </div>
 
 <!-- Image Viewer Modal -->
-@include('help.partials.image-viewer')
+@include('help_p.partials.image-viewer')
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

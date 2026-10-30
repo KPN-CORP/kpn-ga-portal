@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\help_c;
 
-use App\Models\HelpTiket;
-use App\Models\HelpKategori;
+use App\Http\Controllers\Controller;
+
+use App\Models\help_m\HelpTiket;
+use App\Models\help_m\HelpKategori;
 use App\Models\BisnisUnit;
-use App\Models\HelpLogStatus;
-use App\Models\HelpKomentar;
-use App\Models\HelpLampiran;
+use App\Models\help_m\HelpLogStatus;
+use App\Models\help_m\HelpKomentar;
+use App\Models\help_m\HelpLampiran;
 use App\Models\Pelanggan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +48,9 @@ class HelpProsesController extends Controller
             'kategori',
             'bisnisUnit',
             'pelapor.user',
-            'ditugaskanKe.user'
+            'ditugaskanKe.user',
+            'logStatus',
+            'vendorProses'
         ]);
 
         $accessibleUnits = $user->getAccessibleBusinessUnits();
@@ -103,7 +107,252 @@ class HelpProsesController extends Controller
         $query->orderBy('created_at', 'desc');
         $tiket = $query->paginate(15)->withQueryString();
 
-        return view('help.proses.index', compact('tiket', 'bisnisUnits', 'kategori'));
+        return view('help_p.proses.index', compact('tiket', 'bisnisUnits', 'kategori'));
+    }
+
+    /**
+     * Query tiket sesuai hak akses unit bisnis user (sama seperti index()).
+     */
+    protected function aksesQuery($user)
+    {
+        $query = HelpTiket::query();
+
+        $accessibleUnits = $user->getAccessibleBusinessUnits();
+        if (!empty($accessibleUnits)) {
+            $query->whereIn('bisnis_unit_id', $accessibleUnits);
+        } elseif ($user->pelanggan) {
+            $query->where('ditugaskan_ke', $user->pelanggan->id_pelanggan);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Filter bersama halaman Timeline & Grafik: bisnis unit, cari, tahun, bulan, status.
+     * $penuh = false (dipakai endpoint AJAX) melewatkan query daftar tahun.
+     */
+    protected function siapkanFilter(Request $request, bool $penuh = true): array
+    {
+        $user     = Auth::user();
+        $base     = $this->aksesQuery($user);
+        $sekarang = now();
+
+        $daftarTahun = [];
+        if ($penuh) {
+            $minTahun    = optional((clone $base)->min('created_at'), fn ($d) => Carbon::parse($d)->year) ?? $sekarang->year;
+            $tahunPilih  = (int) $request->get('tahun', $sekarang->year);
+            $daftarTahun = range($sekarang->year, min($minTahun, $tahunPilih, $sekarang->year));
+        }
+
+        // Business Unit yang boleh dipilih
+        $unitIds     = $user->getAccessibleBusinessUnits();
+        $bisnisUnits = BisnisUnit::orderBy('nama_bisnis_unit')
+            ->when(!empty($unitIds), fn ($q) => $q->whereIn('id_bisnis_unit', $unitIds))
+            ->get();
+        $terkunci     = $bisnisUnits->count() <= 1;
+        $bisnisUnitId = ($request->filled('bisnis_unit_id') && !$terkunci) ? (int) $request->bisnis_unit_id : null;
+        $search       = trim((string) $request->get('search', ''));
+
+        if ($bisnisUnitId) {
+            $base->where('bisnis_unit_id', $bisnisUnitId);
+        }
+        if ($search !== '') {
+            $base->where(function ($w) use ($search) {
+                $w->where('nomor_tiket', 'LIKE', "%{$search}%")->orWhere('judul', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Periode: default bulan & tahun berjalan; bulan kosong = seluruh tahun
+        $tahun = max(2000, min($sekarang->year + 1, (int) $request->get('tahun', $sekarang->year)));
+        $bulan = $request->has('tahun')
+            ? ($request->filled('bulan') ? (int) $request->bulan : null)
+            : $sekarang->month;
+        if ($bulan !== null && ($bulan < 1 || $bulan > 12)) {
+            $bulan = null;
+        }
+
+        $status  = in_array($request->get('status'), ['aktif', 'closed'], true) ? $request->status : 'semua';
+        $rentang = $bulan
+            ? \App\Support\help_s\HelpTimeline::rentangBulan($tahun, $bulan)
+            : \App\Support\help_s\HelpTimeline::rentangTahun($tahun);
+
+        // Tiket yang beririsan dengan periode (belum close, atau ditutup di/sesudah awal periode)
+        $qPeriode = (clone $base)
+            ->where('created_at', '<=', $rentang['akhir'])
+            ->where(function ($w) use ($rentang) {
+                $w->where('status', '!=', 'CLOSED')
+                  ->orWhereRaw('COALESCE(ditutup_pada, diselesaikan_pada, updated_at) >= ?', [$rentang['awal']]);
+            });
+
+        return [
+            'base' => $base, 'qPeriode' => $qPeriode, 'rentang' => $rentang, 'sekarang' => $sekarang,
+            'tahun' => $tahun, 'bulan' => $bulan, 'status' => $status, 'daftarTahun' => $daftarTahun,
+            'bisnisUnits' => $bisnisUnits, 'bisnisUnitId' => $bisnisUnitId,
+            'bisnisUnitTerkunci' => $terkunci, 'search' => $search,
+        ];
+    }
+
+    /**
+     * Halaman TIMELINE (Gantt kalender). Menu sidebar: Timeline.
+     *
+     * Dibuat ringan: maksimal $batas baris, hanya relasi yang dipakai.
+     */
+    public function timeline(Request $request)
+    {
+        $f = $this->siapkanFilter($request);
+        extract($f, EXTR_SKIP);   // $base $qPeriode $rentang $sekarang $tahun $bulan $status ...
+
+        $q = (clone $qPeriode)->with(['ditugaskanKe', 'logStatus', 'vendorProses', 'bisnisUnit']);
+        if ($status === 'aktif') {
+            $q->where('status', '!=', 'CLOSED');
+        } elseif ($status === 'closed') {
+            $q->where('status', 'CLOSED');
+        }
+
+        $batas      = 100;
+        $totalTiket = (clone $q)->count();
+        $semua      = $q->orderBy('created_at')->limit($batas)->get();
+
+        $aktif  = $semua->where('status', '!=', 'CLOSED')->sortBy('created_at');
+        $closed = $semua->where('status', 'CLOSED')
+            ->sortByDesc(fn ($t) => \App\Support\help_s\HelpTimeline::waktuTutup($t)->timestamp);
+
+        $ganttAktif  = $aktif->reject(fn ($t) => $t->di_vendor)->values();
+        $ganttClosed = $closed->reject(fn ($t) => $t->di_vendor)->values();
+        $ganttVendor = $aktif->concat($closed)->filter(fn ($t) => $t->di_vendor)->values();
+
+        // ---------- ringkasan ----------
+        $tujuhHari = 7 * 86400;
+        $umur      = fn ($t) => $sekarang->timestamp - Carbon::parse($t->created_at)->timestamp;
+
+        $closedPeriode = $closed->filter(fn ($t) => \App\Support\help_s\HelpTimeline::waktuTutup($t)
+            ->between($rentang['awal'], $rentang['akhir']));
+        // lama closed dalam DETIK (1 hari = 24 jam penuh; tampilan hari + jam dibuat di view)
+        $lamaClosed = $closedPeriode->map(fn ($t) => max(0,
+            \App\Support\help_s\HelpTimeline::waktuTutup($t)->timestamp - Carbon::parse($t->created_at)->timestamp
+        ));
+
+        // lama sampai DONE (pengerjaan selesai, bukan ditutup) untuk tiket yang selesai di periode ini, dalam DETIK
+        $lamaDone = $semua->map(function ($t) use ($rentang) {
+            $s = \App\Support\help_s\HelpTimeline::waktuSelesai($t);
+
+            return ($s && $s->between($rentang['awal'], $rentang['akhir']))
+                ? max(0, $s->timestamp - Carbon::parse($t->created_at)->timestamp)
+                : null;
+        })->filter(fn ($d) => $d !== null);
+
+        $menunggu = $semua
+            ->filter(fn ($t) => Carbon::parse($t->created_at)->between($rentang['awal'], $rentang['akhir']))
+            ->map(function ($t) {
+                $d = \App\Support\help_s\HelpTimeline::waktuDiambil($t);
+                return $d ? max(0, $d->timestamp - Carbon::parse($t->created_at)->timestamp) : null;
+            })
+            ->filter(fn ($d) => $d !== null);
+
+        $ringkasan = [
+            'menunggu_detik'   => $menunggu->isNotEmpty() ? (int) round($menunggu->avg()) : null,
+            'belum_diambil'    => $aktif->filter(fn ($t) => $t->status === 'OPEN')->count(),
+            'aktif'            => $aktif->count(),
+            'telat'            => $aktif->filter(fn ($t) => $umur($t) > $tujuhHari)->count(),
+            'closed'           => $closedPeriode->count(),
+            'rata_detik'       => $lamaDone->isNotEmpty() ? (int) round($lamaDone->avg()) : null,
+            'persen_ok'        => $lamaClosed->isNotEmpty()
+                ? (int) round($lamaClosed->filter(fn ($d) => $d <= $tujuhHari)->count() / $lamaClosed->count() * 100) : null,
+        ];
+
+        return view('help_p.timeline.index', compact(
+            'rentang', 'tahun', 'bulan', 'status', 'daftarTahun',
+            'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search',
+            'ganttAktif', 'ganttClosed', 'ganttVendor', 'ringkasan',
+            'totalTiket', 'batas'
+        ));
+    }
+
+    /**
+     * Halaman GRAFIK: batang jumlah tiket per Business Unit (admin).
+     * Hanya hitungan (1 query GROUP BY); daftar tiket dimuat saat batang diklik (grafikDaftar).
+     */
+    public function grafik(Request $request)
+    {
+        $f = $this->siapkanFilter($request);
+        extract($f, EXTR_SKIP);
+
+        $hitung = (clone $qPeriode)
+            ->selectRaw("bisnis_unit_id,
+                         SUM(CASE WHEN status <> 'CLOSED' THEN 1 ELSE 0 END) AS aktif,
+                         SUM(CASE WHEN status =  'CLOSED' THEN 1 ELSE 0 END) AS closed")
+            ->groupBy('bisnis_unit_id')
+            ->get()
+            ->keyBy('bisnis_unit_id');
+
+        $grafikBU = [];
+        foreach ($bisnisUnits as $bu) {
+            if ($bisnisUnitId && (int) $bu->id_bisnis_unit !== $bisnisUnitId) {
+                continue;
+            }
+            $info = \App\Support\help_s\HelpTimeline::infoBisnisUnit($bu->nama_bisnis_unit);
+            $row  = $hitung[$bu->id_bisnis_unit] ?? null;
+
+            $grafikBU[] = [
+                'id'     => $bu->id_bisnis_unit,
+                'label'  => $bu->nama_bisnis_unit,
+                'warna'  => $info['warna'],
+                'urut'   => $info['urut'],
+                'aktif'  => (int) ($row->aktif ?? 0),
+                'closed' => (int) ($row->closed ?? 0),
+            ];
+        }
+        usort($grafikBU, fn ($a, $b) => [$a['urut'], $a['label']] <=> [$b['urut'], $b['label']]);
+
+        return view('help_p.grafik.index', compact(
+            'rentang', 'tahun', 'bulan', 'daftarTahun',
+            'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search', 'grafikBU'
+        ));
+    }
+
+    /**
+     * JSON daftar tiket satu Business Unit (dipanggil saat batang diklik).
+     * Maksimal 100 tiket: yang belum close lebih dulu, paling lama di atas.
+     */
+    public function grafikDaftar(Request $request)
+    {
+        $f    = $this->siapkanFilter($request, false);
+        $mode = in_array($request->get('mode'), ['aktif', 'closed', 'semua'], true) ? $request->mode : 'aktif';
+
+        $q = (clone $f['qPeriode'])
+            ->where('bisnis_unit_id', (int) $request->get('bu'))
+            ->when($mode === 'aktif',  fn ($x) => $x->where('status', '!=', 'CLOSED'))
+            ->when($mode === 'closed', fn ($x) => $x->where('status', 'CLOSED'));
+
+        $total = (clone $q)->count();
+        $rows  = $q->with('ditugaskanKe')
+            ->orderByRaw("CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END")
+            ->orderBy('created_at')
+            ->limit(100)
+            ->get();
+
+        $sekarang = $f['sekarang'];
+        $data = $rows->map(function ($t) use ($sekarang) {
+            $tutup = \App\Support\help_s\HelpTimeline::waktuTutup($t);
+            $mulai = Carbon::parse($t->created_at);
+            $detik = max(0, ($tutup ?? $sekarang)->timestamp - $mulai->timestamp);
+
+            return [
+                'nomor'  => $t->nomor_tiket,
+                'judul'  => $t->judul,
+                'pic'    => optional($t->ditugaskanKe)->nama_pelanggan ?: 'Belum ditugaskan',
+                'status' => str_replace('_', ' ', $t->status),
+                'closed' => $tutup !== null,
+                'umur'   => \App\Support\help_s\HelpTimeline::formatDurasi($detik),
+                'telat'  => $detik > 7 * 86400,
+                'sejak'  => $mulai->format('d M Y'),
+                'url'    => route('help.proses.show', $t),
+            ];
+        })->values();
+
+        return response()->json(['total' => $total, 'data' => $data]);
     }
 
     /**
@@ -122,6 +371,7 @@ class HelpProsesController extends Controller
             'bisnisUnit',
             'pelapor.user',
             'ditugaskanKe.user',
+            'vendorProses',
             'komentar' => function($query) {
                 $query->with(['pengguna.user'])
                       ->orderBy('created_at', 'asc');
@@ -159,7 +409,7 @@ class HelpProsesController extends Controller
                   });
         })->with('user')->get();
 
-        return view('help.proses.show', compact('tiket', 'isAssigned', 'lampiran', 'assignableUsers'));
+        return view('help_p.proses.show', compact('tiket', 'isAssigned', 'lampiran', 'assignableUsers'));
     }
 
     /**

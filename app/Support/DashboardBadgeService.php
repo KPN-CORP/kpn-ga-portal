@@ -6,7 +6,7 @@ use App\Models\AccessMenu;
 use App\Models\Drms\DriverRequest;
 use App\Models\Feedbacks\Feedback;
 use App\Models\Feedbacks\FeedbackReply;
-use App\Models\HelpTiket;
+use App\Models\help_m\HelpTiket;
 use App\Models\HSRM\HsrmCertificate;
 use App\Models\HSRM\HsrmEquipment;
 use App\Models\IDCard\RequestIdCard;

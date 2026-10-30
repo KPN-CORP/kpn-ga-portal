@@ -87,15 +87,15 @@
                 
                 <div class="space-y-2">
                     @foreach($lampiran['initial']['documents'] as $doc)
-                        @include('help.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
+                        @include('help_p.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
                     @endforeach
                     
                     @foreach($lampiran['follow_up']['documents'] as $doc)
-                        @include('help.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
+                        @include('help_p.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
                     @endforeach
                     
                     @foreach($lampiran['completion']['documents'] as $doc)
-                        @include('help.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
+                        @include('help_p.partials.document-item', ['doc' => $doc, 'userRole' => $userRole])
                     @endforeach
                 </div>
             </div>

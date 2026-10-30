@@ -1,4 +1,4 @@
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="p-4 md:p-6">
@@ -138,15 +138,18 @@
                 </div>
             </div>
 
+            <!-- Grafik Proses 7 Hari / Vendor -->
+            @include('help_p.partials.grafik-proses', ['tiket' => $tiket])
+
             <!-- Diskusi Tiket -->
-            @include('help.partials.diskusi', [
+            @include('help_p.partials.diskusi', [
                 'tiket' => $tiket,
                 'userRole' => 'staff',
                 'showInput' => $tiket->status !== 'CLOSED'
             ])
 
             <!-- Lampiran -->
-            @include('help.partials.lampiran', [
+            @include('help_p.partials.lampiran', [
                 'lampiran' => $lampiran,
                 'tiket' => $tiket,
                 'userRole' => 'staff'
@@ -182,7 +185,7 @@
             @endphp
 
             @if($showUploadForm)
-                @include('help.partials.upload-foto-selesai', ['tiket' => $tiket])
+                @include('help_p.partials.upload-foto-selesai', ['tiket' => $tiket])
             @endif
 
             <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -221,6 +224,32 @@
                         </button>
                     @endif
 
+                    {{-- Tombol Vendor (hanya PIC) --}}
+                    @php
+                        $vendorAktif       = $tiket->vendor_aktif;
+                        $showVendorButton  = in_array($tiket->status, ['ON_PROCESS', 'WAITING']) && $isAssigned && !$vendorAktif;
+                        $showVendorSelesai = $isAssigned && $vendorAktif;
+                    @endphp
+
+                    @if($showVendorButton)
+                        <button type="button"
+                                onclick="openVendorModal()"
+                                class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors">
+                            <i class="fas fa-truck mr-2"></i> Serahkan ke Vendor
+                        </button>
+                    @endif
+
+                    @if($showVendorSelesai)
+                        <form action="{{ route('help.proses.vendor.selesai', $tiket) }}" method="POST">
+                            @csrf
+                            <button type="button"
+                                    onclick="confirmVendorSelesai(this)"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors">
+                                <i class="fas fa-flag-checkered mr-2"></i> Vendor Selesai ({{ $vendorAktif->nama_vendor }})
+                            </button>
+                        </form>
+                    @endif
+
                     @if($showCloseButton)
                         <form action="{{ route('help.proses.close', $tiket) }}" method="POST">
                             @csrf
@@ -244,11 +273,11 @@
             </div>
 
             @if($showWaitingForm)
-                @include('help.partials.set-waiting', ['tiket' => $tiket])
+                @include('help_p.partials.set-waiting', ['tiket' => $tiket])
             @endif
 
             @if($showResumeForm)
-                @include('help.partials.resume-process', ['tiket' => $tiket])
+                @include('help_p.partials.resume-process', ['tiket' => $tiket])
             @endif
 
             <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -337,6 +366,59 @@
     </div>
 </div>
 
+<!-- MODAL SERAHKAN KE VENDOR -->
+<div id="vendorModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeVendorModal()"></div>
+        <div class="relative bg-white rounded-lg w-full max-w-md transform transition-all">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <i class="fas fa-truck text-orange-600 mr-2"></i>
+                        Serahkan Tiket ke Vendor
+                    </h3>
+                    <button type="button" onclick="closeVendorModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form action="{{ route('help.proses.vendor.serahkan', $tiket) }}" method="POST" id="vendorForm">
+                    @csrf
+                    <div class="mb-4">
+                        <label for="nama_vendor" class="block text-sm font-medium text-gray-700 mb-2">
+                            Nama Vendor <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="nama_vendor" id="nama_vendor" maxlength="150"
+                               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm"
+                               placeholder="Contoh: CV Maju Jaya" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="catatan_vendor" class="block text-sm font-medium text-gray-700 mb-2">
+                            Catatan (opsional)
+                        </label>
+                        <textarea name="catatan" id="catatan_vendor" rows="3" maxlength="500"
+                                  class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 text-sm"
+                                  placeholder="Contoh: perataan lantai lobby"></textarea>
+                        <p class="mt-2 text-xs text-gray-500">
+                            <i class="fas fa-info-circle"></i>
+                            Status tiket tidak berubah. Progres tiket ditampilkan di grafik pengerjaan vendor.
+                        </p>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="closeVendorModal()"
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors">
+                            Batal
+                        </button>
+                        <button type="button" onclick="confirmVendor()"
+                                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors">
+                            <i class="fas fa-truck mr-2"></i> Ya, Serahkan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL REASSIGN -->
 <div id="reassignModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -398,7 +480,7 @@
 </div>
 
 <!-- Image Viewer Modal -->
-@include('help.partials.image-viewer')
+@include('help_p.partials.image-viewer')
 
 @endsection
 
@@ -406,6 +488,55 @@
 <script src="https://unpkg.com/sweetalert2@11"></script>
 
 <script>
+    // ==================== MODAL VENDOR ====================
+    window.openVendorModal = function() {
+        document.getElementById('vendorModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    window.closeVendorModal = function() {
+        document.getElementById('vendorModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        document.getElementById('vendorForm').reset();
+    };
+
+    window.confirmVendor = function() {
+        const nama = document.getElementById('nama_vendor');
+        if (!nama.value.trim() || nama.value.trim().length < 2) {
+            Swal.fire('Peringatan', 'Nama vendor wajib diisi (minimal 2 karakter)!', 'warning');
+            return;
+        }
+        Swal.fire({
+            title: 'Serahkan ke Vendor',
+            text: 'Tiket akan memakai grafik pengerjaan vendor. Lanjutkan?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Serahkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#ea580c',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('vendorForm').submit();
+            }
+        });
+    };
+
+    window.confirmVendorSelesai = function(btn) {
+        Swal.fire({
+            title: 'Vendor Selesai',
+            text: 'Tandai pengerjaan vendor sudah selesai?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Selesai',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#0d9488',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                btn.closest('form').submit();
+            }
+        });
+    };
+
     // ==================== MODAL TRANSFER ====================
     window.openTransferModal = function() {
         document.getElementById('transferModal').classList.remove('hidden');

@@ -2,7 +2,7 @@
 // app/Traits/LogActivity.php
 namespace App\Traits;
 
-use App\Models\HelpLogSistem;
+use App\Models\help_m\HelpLogSistem;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 

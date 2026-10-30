@@ -78,11 +78,11 @@ class Pelanggan extends Model
     // Relationships Help Tiket
     public function tiket()
     {
-        return $this->hasMany(HelpTiket::class, 'pelapor_id', 'id_pelanggan');
+        return $this->hasMany(\App\Models\help_m\HelpTiket::class, 'pelapor_id', 'id_pelanggan');
     }
     
     public function tiketDitugaskan()
     {
-        return $this->hasMany(HelpTiket::class, 'ditugaskan_ke', 'id_pelanggan');
+        return $this->hasMany(\App\Models\help_m\HelpTiket::class, 'ditugaskan_ke', 'id_pelanggan');
     }
 }

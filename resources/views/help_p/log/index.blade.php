@@ -1,5 +1,5 @@
 {{-- resources/views/help/log/index.blade.php --}}
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="p-6">

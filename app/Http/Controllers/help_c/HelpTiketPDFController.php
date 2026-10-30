@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\help_c;
 
 use App\Http\Controllers\Controller;
-use App\Models\HelpTiket;
+
+use App\Models\help_m\HelpTiket;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -163,7 +164,7 @@ class HelpTiketPDFController extends Controller
         ];
 
         // Generate PDF dengan opsi khusus
-        $pdf = Pdf::loadView('help.report.tiket-detail', $data);
+        $pdf = Pdf::loadView('help_p.report.tiket-detail', $data);
         $pdf->setPaper('A4', 'portrait');
         $pdf->setOptions([
             'isHtml5ParserEnabled' => true,

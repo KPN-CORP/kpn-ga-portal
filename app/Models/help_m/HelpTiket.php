@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\help_m;
 
+use App\Models\Pelanggan;
+use App\Models\BisnisUnit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -96,6 +98,28 @@ class HelpTiket extends Model
     public function logStatus(): HasMany
     {
         return $this->hasMany(HelpLogStatus::class, 'tiket_id');
+    }
+
+    public function vendorProses(): HasMany
+    {
+        return $this->hasMany(HelpVendorProses::class, 'tiket_id')->orderBy('mulai_pada');
+    }
+
+    /**
+     * Pengerjaan vendor yang sedang berjalan (belum selesai), jika ada.
+     */
+    public function getVendorAktifAttribute()
+    {
+        return $this->vendorProses->whereNull('selesai_pada')->last();
+    }
+
+    /**
+     * Tiket pernah/sedang dikerjakan vendor => memakai grafik vendor,
+     * bukan grafik 7 hari internal.
+     */
+    public function getDiVendorAttribute(): bool
+    {
+        return $this->vendorProses->isNotEmpty();
     }
     
     // SCOPES

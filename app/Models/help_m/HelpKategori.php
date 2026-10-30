@@ -1,6 +1,6 @@
 <?php
 // app/Models/HelpKategori.php
-namespace App\Models;
+namespace App\Models\help_m;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

@@ -14,18 +14,18 @@ use App\Http\Controllers\IDCard\ApprovalController as IDCardApprovalController;
 use App\Http\Controllers\IDCard\ReportController as IDCardReportController;
 use App\Http\Controllers\IDCard\GrafikController as IDCardGrafikController;
 use App\Http\Controllers\IDCard\NonaktifController as IDCardNonaktifController;
+use App\Http\Controllers\help_c\HelpTiketController;
+use App\Http\Controllers\help_c\HelpTiketApprovalController;
+use App\Http\Controllers\help_c\HelpTiketPDFController;
+use App\Http\Controllers\help_c\HelpProsesController;
 use App\Http\Controllers\MailingController;
-use App\Http\Controllers\HelpTiketController;
 use App\Http\Controllers\TrackRController;
-use App\Http\Controllers\HelpTiketApprovalController;
 use App\Http\Controllers\SettingAccessController;
 use App\Http\Controllers\MenuInformationController;
 use App\Http\Controllers\Apartemen\UserController;
 use App\Http\Controllers\Apartemen\AdminController;
 use App\Http\Controllers\Apartemen\AssignController;
 use App\Http\Controllers\Apartemen\DetailController;
-use App\Http\Controllers\HelpTiketPDFController;
-use App\Http\Controllers\HelpProsesController;
 use App\Http\Controllers\TrackFotoController;
 use App\Http\Controllers\Founddesk\FounddeskController;
 use App\Http\Controllers\Founddesk\FounddeskDispositionController;
@@ -208,7 +208,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
         Route::get('/tiket/{tiket}/pdf', [HelpTiketPDFController::class, 'download'])->name('tiket.pdf');
-
         Route::prefix('tiket')->name('tiket.')->group(function () {
             Route::get('/', [HelpTiketController::class, 'index'])->name('index');
             Route::get('/buat', [HelpTiketController::class, 'create'])->name('create');
@@ -237,11 +236,15 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
             Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
             Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
+            Route::post('/{tiket}/vendor', [HelpTiketApprovalController::class, 'serahkanVendor'])->name('vendor.serahkan');
+            Route::post('/{tiket}/vendor/selesai', [HelpTiketApprovalController::class, 'selesaiVendor'])->name('vendor.selesai');
             Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
             Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
             Route::post('/{tiket}/reassign', [HelpTiketApprovalController::class, 'reassign'])->name('reassign');
         });
-
+        Route::get('/timeline',      [HelpProsesController::class, 'timeline'])->name('timeline');
+        Route::get('/grafik',        [HelpProsesController::class, 'grafik'])->name('grafik');
+        Route::get('/grafik/daftar', [HelpProsesController::class, 'grafikDaftar'])->name('grafik.daftar');
         Route::get('/log-sistem', [HelpTiketController::class, 'logSistem'])
             ->name('log-sistem')
             ->middleware('ga_admin');

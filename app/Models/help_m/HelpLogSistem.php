@@ -1,6 +1,6 @@
 <?php
 // app/Models/HelpLogSistem.php - SIMPLE VERSION
-namespace App\Models;
+namespace App\Models\help_m;
 
 use Illuminate\Database\Eloquent\Model;
 

@@ -1,5 +1,5 @@
 {{-- resources/views/help/tiket/index.blade.php --}}
-@extends('layouts.app-sidebar')
+@extends('layouts.app-help-sidebar')
 
 @section('content')
 <div class="space-y-6 text-sm text-gray-800 font-sans">
@@ -91,6 +91,7 @@
                     <th class="px-4 py-3 text-left">Status</th>
                     <th class="px-4 py-3 text-left hidden lg:table-cell">Prioritas</th>
                     <th class="px-4 py-3 text-left hidden sm:table-cell">Tanggal</th>
+                    <th class="px-4 py-3 text-left hidden md:table-cell">Proses</th>
                     <th class="px-4 py-3 text-left">Action</th>
                 </tr>
             </thead>
@@ -165,6 +166,11 @@
                         {{ \Carbon\Carbon::parse($item->created_at)->format('d M Y') }}
                     </td>
 
+                    {{-- Proses (grafik 7 hari / vendor) --}}
+                    <td class="px-4 py-3 hidden md:table-cell">
+                        @include('help_p.partials.grafik-proses', ['tiket' => $item, 'compact' => true])
+                    </td>
+
                     {{-- Action --}}
                     <td class="px-4 py-3">
                         <a href="{{ route('help.tiket.show', $item) }}"
@@ -175,7 +181,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="py-10 text-center text-gray-500">
+                    <td colspan="8" class="py-10 text-center text-gray-500">
                         @if(request()->hasAny(['search', 'status', 'prioritas']))
                         Data tidak ditemukan
                         @else

@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\help_m;
 
+use App\Models\Pelanggan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class HelpKomentar extends Model
+class HelpLogStatus extends Model
 {
-    protected $table = 'db_help_komentar';
+    protected $table = 'db_help_log_status';
     protected $guarded = [];
     public $timestamps = true;
 
