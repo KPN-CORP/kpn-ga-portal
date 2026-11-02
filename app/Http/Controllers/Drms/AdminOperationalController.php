@@ -375,10 +375,19 @@ class AdminOperationalController extends Controller
         $user = Auth::user();
         $businessUnitId = $this->getBusinessUnitId($user);
 
+        // Kendaraan khusus (drms_log_verifier_vehicles): log kendaraan ini ikut tampil
+        // walau beda BU. Superadmin (BU null) tidak perlu.
+        $extraVehicleIds = $businessUnitId ? \App\Support\DrmsLogVerifier::vehicleIds($user) : [];
+
         $query = TripLog::with(['request.requester', 'request.driver', 'request.vehicle'])
-            ->whereHas('request', function ($q) use ($businessUnitId) {
+            ->whereHas('request', function ($q) use ($businessUnitId, $extraVehicleIds) {
                 if ($businessUnitId) {
-                    $this->applyBusinessUnitFilter($q, $businessUnitId);
+                    $q->where(function ($w) use ($businessUnitId, $extraVehicleIds) {
+                        $this->applyBusinessUnitFilter($w, $businessUnitId);
+                        if (!empty($extraVehicleIds)) {
+                            $w->orWhereIn('vehicle_id', $extraVehicleIds);
+                        }
+                    });
                 }
             });
 
@@ -532,6 +541,9 @@ class AdminOperationalController extends Controller
     {
         $user = Auth::user();
         if ($user->isDrmsSuperAdmin()) return;
+
+        // Kendaraan khusus yang diberikan ke user ini boleh diverifikasi walau beda BU.
+        if (\App\Support\DrmsLogVerifier::canVerifyVehicle($user, $log->request->vehicle_id ?? null)) return;
 
         $buId = $user->drmsProfile->business_unit_id;
         $logBu = $log->request->current_business_unit_id ?? $log->request->requester->drmsProfile->business_unit_id;

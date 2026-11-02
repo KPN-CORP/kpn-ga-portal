@@ -204,7 +204,7 @@ class HelpProsesController extends Controller
         $f = $this->siapkanFilter($request);
         extract($f, EXTR_SKIP);   // $base $qPeriode $rentang $sekarang $tahun $bulan $status ...
 
-        $q = (clone $qPeriode)->with(['ditugaskanKe', 'logStatus', 'vendorProses', 'bisnisUnit']);
+        $q = (clone $qPeriode)->with(['ditugaskanKe', 'logStatus.pengguna', 'vendorProses', 'bisnisUnit']);
         if ($status === 'aktif') {
             $q->where('status', '!=', 'CLOSED');
         } elseif ($status === 'closed') {
@@ -357,7 +357,8 @@ class HelpProsesController extends Controller
                 $sla[$kat->id]['dalam']++;
             }
         }
-        $slaKategori = collect($sla)->map(fn ($r) => [
+        $slaKategori = collect($sla)->map(fn ($r, $id) => [
+            'id'      => $id,
             'nama'    => $r['nama'],
             'sla_jam' => $r['sla_jam'],
             'total'   => $r['total'],
@@ -367,6 +368,68 @@ class HelpProsesController extends Controller
         ])->sortByDesc('total')->values()->all();
         $slaTotal = array_sum(array_column($slaKategori, 'total'));
         $slaDalam = array_sum(array_column($slaKategori, 'dalam'));
+
+        // ---- data rincian tiket (dipakai panel kanan saat batang grafik diklik; semua angka bisa ditelusuri ke tiketnya)
+        $labelHasil = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
+        $fmtTs = fn ($ts) => $ts ? \App\Support\help_s\HelpTimeline::wib($ts, 'd M H:i') : null;
+        $rincian = $tikets->map(function ($t) use ($HT, $sekarang, $rentang, $labelHasil, $fmtTs) {
+            $j       = $HT::jejakAdmin($t, $sekarang);
+            $selesaiO = $HT::waktuSelesai($t);
+            $selesai = $selesaiO ? $selesaiO->timestamp : null;
+            $kat     = $t->kategori;
+            $slaJam  = $kat && $kat->sla_jam ? (int) $kat->sla_jam : null;
+            $total   = $selesai ? max(0, $selesai - $j['laporan']) : null;
+            $dalam   = ($slaJam && $selesai && $selesaiO->between($rentang['awal'], $rentang['akhir']))
+                ? $total <= $slaJam * 3600 : null;
+            $pertama = $j['segmen'][0] ?? null;
+
+            return [
+                'id'      => $t->id,
+                'n'       => $t->nomor_tiket,
+                'j'       => $t->judul,
+                'u'       => route('help.proses.show', $t),
+                'st'      => $t->status,
+                'bu'      => (int) $t->bisnis_unit_id,
+                'bn'      => optional($t->bisnisUnit)->nama_bisnis_unit ?: '-',
+                'kat'     => $kat ? (int) $kat->id : null,
+                'kn'      => $kat ? $kat->nama : '-',
+                'sla'     => $slaJam,
+                'dibuat'  => $fmtTs($j['laporan']),
+                'diambil' => $fmtTs($j['diambil']),
+                'tunggu'  => $pertama && $pertama['tunggu'] !== null ? $HT::formatDurasi($pertama['tunggu']) : null,
+                'esk'     => $j['over'] !== null,
+                'over'    => $fmtTs($j['over']),
+                'done'    => $fmtTs($selesai),
+                'proses'  => $j['diambil'] && $selesai ? $HT::formatDurasi(max(0, $selesai - $j['diambil'])) : null,
+                'total'   => $total !== null ? $HT::formatDurasi($total) : null,
+                'dalam'   => $dalam,
+                'admin'   => array_values(array_unique(array_column($j['segmen'], 'admin'))),
+                'seg'     => array_map(fn ($s) => [
+                    'a' => $s['admin'],
+                    'm' => $fmtTs($s['mulai']),
+                    'e' => $fmtTs($s['akhir']),
+                    'h' => $labelHasil[$s['hasil']] ?? $s['hasil'],
+                    'k' => $s['hasil'],
+                    'd' => $HT::formatDurasi($s['akhir'] - $s['mulai']),
+                ], $j['segmen']),
+            ];
+        })->values()->all();
+
+        // ---- kesimpulan satu kalimat untuk tiap grafik
+        $e1 = $eskalasiBU[0] ?? null;
+        $insEsk = $e1 && $e1['eskalasi'] > 0
+            ? "{$e1['label']} paling sering meneruskan tiket ke GA Corp: {$e1['persen']}% ({$e1['eskalasi']} dari {$e1['tiket']} tiket)."
+            : 'Belum ada tiket yang diteruskan ke GA Corp pada periode ini.';
+
+        $buruk = collect($slaKategori)->where('total', '>=', 3)->sortBy('persen')->first();
+        $insSla = $buruk && $buruk['persen'] < 100
+            ? "{$buruk['nama']} paling sering melewati SLA: hanya {$buruk['persen']}% tepat waktu ({$buruk['dalam']} dari {$buruk['total']} tiket)."
+            : ($slaKategori ? 'Semua kategori selesai tepat waktu pada periode ini.' : null);
+
+        $a1 = $admin[0] ?? null;
+        $insAdmin = $a1 && $semua['tiket'] > 0
+            ? "{$a1['nama']} paling banyak menangani tiket: {$a1['total']} tiket (" . (int) round($a1['total'] / $semua['tiket'] * 100) . '% dari seluruh tiket yang diambil).'
+            : null;
 
         $ringkasan = [
             'tiket'      => $tikets->count(),
@@ -382,7 +445,8 @@ class HelpProsesController extends Controller
         return view('help_p.grafik.index', compact(
             'rentang', 'tahun', 'bulan', 'daftarTahun',
             'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search',
-            'grafikBU', 'eskalasiBU', 'admin', 'adminLain', 'slaKategori', 'ringkasan', 'terpotong'
+            'grafikBU', 'eskalasiBU', 'admin', 'adminLain', 'slaKategori', 'ringkasan', 'terpotong',
+            'rincian', 'insEsk', 'insSla', 'insAdmin'
         ));
     }
 
@@ -711,9 +775,9 @@ class HelpProsesController extends Controller
                     $item->prioritas,
                     $item->status,
                     $penanggungJawab,
-                    $item->created_at ? $item->created_at->format('d/m/Y H:i') : '-',
-                    $item->diproses_pada ? Carbon::parse($item->diproses_pada)->format('d/m/Y H:i') : '-',
-                    $item->diselesaikan_pada ? Carbon::parse($item->diselesaikan_pada)->format('d/m/Y H:i') : '-',
+                    \App\Support\help_s\HelpTimeline::wib($item->created_at),
+                    \App\Support\help_s\HelpTimeline::wib($item->diproses_pada),
+                    \App\Support\help_s\HelpTimeline::wib($item->diselesaikan_pada),
                     $item->deskripsi
                 ]);
             }

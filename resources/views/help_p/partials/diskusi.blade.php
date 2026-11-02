@@ -15,7 +15,7 @@
                 <div class="text-center my-3">
                     <div class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                         <i class="fas fa-robot mr-1"></i>
-                        {{ $komentar->pengguna->user->name ?? $komentar->pengguna->nama ?? 'System' }} • {{ $komentar->created_at->format('d/m H:i') }}
+                        {{ $komentar->pengguna->user->name ?? $komentar->pengguna->nama ?? 'System' }} • {{ \App\Support\help_s\HelpTimeline::wib($komentar->created_at, 'd/m H:i') }}
                     </div>
                     <div class="mt-1 text-xs text-gray-600 bg-white p-2 rounded-lg border border-gray-200 max-w-md mx-auto">
                         {{ $komentar->komentar }}

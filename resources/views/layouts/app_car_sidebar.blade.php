@@ -295,14 +295,26 @@
                                         <span>Monitoring Log Driver</span>
                                         @php
                                             $buId = auth()->user()->drmsProfile->business_unit_id ?? null;
+
+                                            // Mobil khusus (drms_log_verifier_vehicles): log perjalanan mobil ini
+                                            // ikut terhitung walau beda BU. Superadmin tidak perlu.
+                                            $logExtraVehicleIds = ($buId && !auth()->user()->isDrmsSuperAdmin())
+                                                ? \App\Support\DrmsLogVerifier::vehicleIds(auth()->user())
+                                                : [];
+
                                             $pendingLogs = \App\Models\Drms\TripLog::where('is_submitted', 1)
                                                 ->where('is_verified', 0)
-                                                ->whereHas('request', function($q) use ($buId) {
+                                                ->whereHas('request', function($q) use ($buId, $logExtraVehicleIds) {
                                                     if ($buId) {
-                                                        $q->where('current_business_unit_id', $buId)
-                                                          ->orWhereHas('requester.drmsProfile', function($q2) use ($buId) {
-                                                              $q2->where('business_unit_id', $buId);
-                                                          });
+                                                        $q->where(function ($w) use ($buId, $logExtraVehicleIds) {
+                                                            $w->where('current_business_unit_id', $buId)
+                                                              ->orWhereHas('requester.drmsProfile', function($q2) use ($buId) {
+                                                                  $q2->where('business_unit_id', $buId);
+                                                              });
+                                                            if (!empty($logExtraVehicleIds)) {
+                                                                $w->orWhereIn('vehicle_id', $logExtraVehicleIds);
+                                                            }
+                                                        });
                                                     }
                                                 })
                                                 ->count();
@@ -325,10 +337,21 @@
                                                 ? null
                                                 : (auth()->user()->drmsProfile->business_unit_id ?? null);
 
+                                            // Mobil khusus (drms_log_verifier_vehicles): log BBM mobil ini
+                                            // ikut terhitung walau beda BU, sama seperti halaman index().
+                                            $fuelExtraVehicleIds = $fuelBuId
+                                                ? \App\Support\DrmsLogVerifier::vehicleIds(auth()->user())
+                                                : [];
+
                                             $pendingFuel = \App\Models\Drms\FuelLog::where('is_verified', 0)
-                                                ->when($fuelBuId, function ($q) use ($fuelBuId) {
-                                                    $q->whereHas('vehicle', function ($sq) use ($fuelBuId) {
-                                                        $sq->where('business_unit_id', $fuelBuId);
+                                                ->when($fuelBuId, function ($q) use ($fuelBuId, $fuelExtraVehicleIds) {
+                                                    $q->where(function ($w) use ($fuelBuId, $fuelExtraVehicleIds) {
+                                                        $w->whereHas('vehicle', function ($sq) use ($fuelBuId) {
+                                                            $sq->where('business_unit_id', $fuelBuId);
+                                                        });
+                                                        if (!empty($fuelExtraVehicleIds)) {
+                                                            $w->orWhereIn('vehicle_id', $fuelExtraVehicleIds);
+                                                        }
                                                     });
                                                 })
                                                 ->count();

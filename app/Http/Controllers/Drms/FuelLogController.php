@@ -21,6 +21,32 @@ class FuelLogController extends Controller
     }
 
     /**
+     * ID kendaraan khusus yang boleh dilihat & diverifikasi user ini walau beda BU
+     * (tabel drms_log_verifier_vehicles). Superadmin tidak perlu (sudah lihat semua).
+     */
+    private function extraVehicleIds(): array
+    {
+        $user = Auth::user();
+        if ($user->isDrmsSuperAdmin()) return [];
+        return \App\Support\DrmsLogVerifier::vehicleIds($user);
+    }
+
+    /**
+     * Batasi query FuelLog ke BU user, ditambah kendaraan khusus (kalau ada).
+     */
+    private function limitToScope($query, $buId)
+    {
+        if (!$buId) return $query;
+        $extra = $this->extraVehicleIds();
+        return $query->where(function ($w) use ($buId, $extra) {
+            $w->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
+            if (!empty($extra)) {
+                $w->orWhereIn('vehicle_id', $extra);
+            }
+        });
+    }
+
+    /**
      * Business Unit efektif untuk filter halaman list/analitik.
      * - Superadmin: ikut filter business_unit_id di request (kosong = semua BU).
      * - User biasa: selalu BU miliknya sendiri (input request diabaikan).
@@ -49,9 +75,7 @@ class FuelLogController extends Controller
         $lockedBuId = $this->getBusinessUnitId();           // null = superadmin
         $buId = $this->effectiveBusinessUnitId($request);
         $query = FuelLog::with('vehicle', 'driver', 'user', 'verifier');
-        if ($buId) {
-            $query->whereHas('vehicle', fn($q) => $q->where('business_unit_id', $buId));
-        }
+        $this->limitToScope($query, $buId);   // BU sendiri + kendaraan khusus (kalau ada)
         if ($request->filled('date_from')) {
             $query->whereDate('filling_date', '>=', $request->date_from);
         }
@@ -100,7 +124,15 @@ class FuelLogController extends Controller
         $totalCostListrik = (clone $listrikQuery)->sum('total_cost');
 
         $logs = $query->latest()->paginate(20)->appends($request->query());
-        $vehicles = Vehicle::when($buId, fn($q) => $q->where('business_unit_id', $buId))->get();
+        $extraVehicleIds = $this->extraVehicleIds();
+        $vehicles = Vehicle::when($buId, function ($q) use ($buId, $extraVehicleIds) {
+            $q->where(function ($w) use ($buId, $extraVehicleIds) {
+                $w->where('business_unit_id', $buId);
+                if (!empty($extraVehicleIds)) {
+                    $w->orWhereIn('id', $extraVehicleIds);
+                }
+            });
+        })->get();
         $businessUnits = $this->businessUnitOptions($lockedBuId);
         $filterBusinessUnitId = $buId;
         return view('drms.fuel_logs.index', compact(
@@ -232,7 +264,17 @@ class FuelLogController extends Controller
 
     public function verify(Request $request, $id)
     {
-        $log = FuelLog::findOrFail($id);
+        $log = FuelLog::with('vehicle')->findOrFail($id);
+
+        // null = superadmin. Admin biasa hanya boleh log kendaraan BU-nya,
+        // atau kendaraan khusus yang diberikan lewat drms_log_verifier_vehicles.
+        $buId = $this->getBusinessUnitId();
+        if ($buId !== null
+            && ($log->vehicle->business_unit_id ?? null) != $buId
+            && !\App\Support\DrmsLogVerifier::canVerifyVehicle(Auth::user(), $log->vehicle_id)) {
+            abort(403, 'Anda tidak memiliki akses ke log ini.');
+        }
+
         $log->is_verified = 1;
         $log->verified_by = Auth::id();
         $log->verified_at = now();

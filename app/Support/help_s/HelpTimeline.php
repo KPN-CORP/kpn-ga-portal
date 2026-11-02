@@ -31,17 +31,64 @@ class HelpTimeline
     }
 
     /**
-     * Teks durasi: "2 hari 5 jam", "3 hari", "7 jam", atau "< 1 jam".
+     * Teks durasi lengkap dengan menit: "2 hari 5 jam 12 menit", "3 hari", "7 jam 5 menit", "42 menit", atau "< 1 menit".
      */
     public static function formatDurasi(int $detik): string
     {
+        $detik = max(0, $detik);
         [$hari, $jam] = self::pecahDurasi($detik);
+        $menit = intdiv($detik % 3600, 60);
 
-        if ($hari === 0) {
-            return $jam > 0 ? $jam . ' jam' : '< 1 jam';
+        $teks = [];
+        if ($hari > 0) {
+            $teks[] = $hari . ' hari';
+        }
+        if ($jam > 0) {
+            $teks[] = $jam . ' jam';
+        }
+        if ($menit > 0) {
+            $teks[] = $menit . ' menit';
         }
 
-        return $hari . ' hari' . ($jam > 0 ? ' ' . $jam . ' jam' : '');
+        return $teks ? implode(' ', $teks) : '< 1 menit';
+    }
+
+    // =====================================================================
+    //  WAKTU WIB
+    // =====================================================================
+
+    const ZONA_WIB = 'Asia/Jakarta';
+
+    /**
+     * Ubah ke zona WIB (Asia/Jakarta). Terima Carbon / string / timestamp / null.
+     */
+    public static function wibCarbon($waktu): ?Carbon
+    {
+        if ($waktu === null || $waktu === '') {
+            return null;
+        }
+
+        $c = $waktu instanceof \DateTimeInterface
+            ? Carbon::instance($waktu)
+            : (is_numeric($waktu) ? Carbon::createFromTimestamp((int) $waktu) : Carbon::parse($waktu));
+
+        return $c->setTimezone(self::ZONA_WIB);
+    }
+
+    /**
+     * Teks tanggal WIB. Default memuat jam:menit, mis. "02/11/2026 14:35 WIB".
+     * Format tanpa jam (mis. 'd/m/Y') tidak diberi akhiran WIB.
+     */
+    public static function wib($waktu, string $format = 'd/m/Y H:i', ?string $kosong = '-'): string
+    {
+        $c = self::wibCarbon($waktu);
+        if (!$c) {
+            return (string) $kosong;
+        }
+
+        $adaJam = (bool) preg_match('/[HhGgi]/', $format);
+
+        return $c->format($format) . ($adaJam ? ' WIB' : '');
     }
 
     public static function build(HelpTiket $tiket): array
@@ -84,7 +131,7 @@ class HelpTimeline
 
             $cells[] = [
                 'label'  => $tanggal->isoFormat('ddd D'),
-                'tgl'    => $tanggal->format('d/m/Y H:i'),
+                'tgl'    => self::wib($s),
                 'terisi' => $state !== null,
                 'state'  => $state,
             ];
@@ -276,7 +323,8 @@ class HelpTimeline
         $telat  = null;
         $durV   = max(1, $pos['vb'] - $pos['va']);
 
-        foreach (self::segmen($tiket, $a, $b) as [$s0, $e0, $st, $ak]) {
+        $seg = self::segmen($tiket, $a, $b);
+        foreach ($seg as [$s0, $e0, $st, $ak]) {
             // rincian tiap fase: lama (tidak dipotong rentang), jam mulai (transaksi) dan pelaku
             $fase[] = ['state' => $st, 'detik' => $e0 - $s0, 'mulai' => $s0, 'oleh' => $ak];
 
@@ -318,11 +366,105 @@ class HelpTimeline
             'hasil'   => $hasil,
             'bagian'  => $bagian,
             'fase'    => $fase,
+            'baris'   => self::barisTiket($tiket, $a, $b, $seg),
             'tutup'   => $tutup,
             'telat'   => $telat,
             'mulai'   => $mulai,
             'selesai' => $selesai,
         ];
+    }
+
+    /**
+     * Susun BARIS-BARIS FASE satu tiket, urut kronologis (paling awal dulu; tampilan membalik: terbaru di atas).
+     *
+     *   ajuan  : Pengajuan (menunggu diambil)
+     *   proses : satu baris PER ADMIN yang mengerjakan (admin pertama paling bawah, berikutnya di atasnya)
+     *   over   : tiket di-over ke GA Corp, menunggu diambil
+     *
+     * Tiap baris membawa jam mulai & akhir asli ('a','b'), jadi posisi dan panjang batangnya sesuai jam/tanggal.
+     * Batas antar-admin = saat diambil, di-over ke GA Corp, atau pengalihan PIC (lihat jejakAdmin).
+     */
+    protected static function barisTiket(HelpTiket $tiket, int $a, int $b, array $seg): array
+    {
+        $j = self::jejakAdmin($tiket, now());
+        $n = count($j['segmen']);
+
+        // lajur admin: [nama, mulai, akhir]; lajur terakhir berlanjut sampai akhir tiket (closed / sekarang)
+        $lajur = [];
+        $titik = $a;
+        foreach ($j['segmen'] as $i => $s) {
+            $berakhir = in_array($s['hasil'], ['OVER', 'ALIH'], true);
+            $akhir    = ($i === $n - 1 && !$berakhir) ? $b : min(max($s['akhir'], $titik), $b);
+            $akhir    = max($akhir, $titik);
+            $lajur[]  = ['nama' => $s['admin'], 'mulai' => $titik, 'akhir' => $akhir];
+            $titik    = $akhir;
+        }
+        // belum diambil / sedang menunggu pengambil berikutnya (mis. menunggu GA Corp)
+        if ($n === 0 || $titik < $b) {
+            $lajur[] = ['nama' => null, 'mulai' => $titik, 'akhir' => $b];
+        }
+
+        $baris = [];
+        foreach ($lajur as $L) {
+            // potong fase global ke lajur ini
+            $parts = [];
+            foreach ($seg as [$s0, $e0, $st, $ak]) {
+                $x = max($s0, $L['mulai']);
+                $y = min($e0, $L['akhir']);
+                if ($y > $x) {
+                    $parts[] = ['state' => $st, 'mulai' => $x, 'akhir' => $y, 'oleh' => $ak];
+                }
+            }
+            if (!$parts) {
+                continue;
+            }
+
+            // 1) fase menunggu di awal lajur (Pengajuan / Over GA Corp) -> baris sendiri
+            while ($parts && in_array($parts[0]['state'], ['OPEN', 'HELP_GA_CORP'], true)) {
+                $p = array_shift($parts);
+                $baris[] = [
+                    'jenis'  => $p['state'] === 'OPEN' ? 'ajuan' : 'over',
+                    'nama'   => null,
+                    'oleh'   => $p['oleh'],
+                    'a'      => $p['mulai'],
+                    'b'      => $p['akhir'],
+                    'detik'  => $p['akhir'] - $p['mulai'],
+                    'bagian' => [$p],
+                ];
+            }
+
+            // 2) pengerjaan admin ini
+            if ($parts) {
+                $proses  = 0;
+                $waiting = 0;
+                $selesai = null;
+                foreach ($parts as $p) {
+                    $d = $p['akhir'] - $p['mulai'];
+                    if (in_array($p['state'], ['ON_PROCESS', 'ON_PROCESS_CORP', 'WAITING'], true)) {
+                        $proses += $d;
+                    }
+                    if ($p['state'] === 'WAITING') {
+                        $waiting += $d;
+                    }
+                    if ($p['state'] === 'DONE' && $selesai === null) {
+                        $selesai = $p['mulai'];
+                    }
+                }
+                $baris[] = [
+                    'jenis'   => 'proses',
+                    'nama'    => $L['nama'] ?? 'Admin',
+                    'oleh'    => null,
+                    'a'       => $parts[0]['mulai'],
+                    'b'       => $parts[count($parts) - 1]['akhir'],
+                    'detik'   => $proses,
+                    'waiting' => $waiting,
+                    'selesai' => $selesai,
+                    'bagian'  => $parts,
+                ];
+            }
+        }
+
+        return $baris;
     }
 
     /**
@@ -478,7 +620,7 @@ class HelpTimeline
         $tunggu = $over = $totalDone = $bagBU = $bagCorp = [];
         $nTiket = $nEsk = 0;
         $label  = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
-        $fmt    = fn (int $ts) => Carbon::createFromTimestamp($ts)->format('d M H:i');
+        $fmt    = fn (int $ts) => self::wib($ts, 'd M H:i');
 
         foreach ($tikets as $t) {
             $j = self::jejakAdmin($t, $sekarang);

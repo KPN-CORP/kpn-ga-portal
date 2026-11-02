@@ -47,7 +47,7 @@
                 <div class="text-sm text-gray-600">
                     <span class="text-gray-500">#{{ $tiket->nomor_tiket }}</span>
                     <span class="mx-2">•</span>
-                    <span class="text-gray-500">{{ $tiket->created_at->format('d/m/Y H:i') }}</span>
+                    <span class="text-gray-500">{{ \App\Support\help_s\HelpTimeline::wib($tiket->created_at, 'd/m/Y H:i') }}</span>
                 </div>
             </div>
         </div>
@@ -67,7 +67,7 @@
                     </div>
                     <div>
                         <p class="font-medium text-gray-900 text-sm">{{ $pelaporName }}</p>
-                        <p class="text-xs text-gray-500">{{ $tiket->created_at->format('d/m/Y') }}</p>
+                        <p class="text-xs text-gray-500">{{ \App\Support\help_s\HelpTimeline::wib($tiket->created_at, 'd/m/Y') }}</p>
                     </div>
                 </div>
             </div>
@@ -98,7 +98,7 @@
                         <div>
                             <p class="font-medium text-gray-900 text-sm">{{ $pjName }}</p>
                             @if($tiket->diproses_pada)
-                            <p class="text-xs text-gray-500">{{ $tiket->diproses_pada->format('d/m/Y') }}</p>
+                            <p class="text-xs text-gray-500">{{ \App\Support\help_s\HelpTimeline::wib($tiket->diproses_pada, 'd/m/Y') }}</p>
                             @endif
                         </div>
                     @else
@@ -162,7 +162,7 @@
                         <div>
                             <p class="text-sm text-gray-700">Sedang diproses oleh petugas GA.</p>
                             @if($tiket->diproses_pada)
-                            <p class="text-xs text-gray-500 mt-0.5">Sejak: {{ $tiket->diproses_pada->format('d/m H:i') }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Sejak: {{ \App\Support\help_s\HelpTimeline::wib($tiket->diproses_pada, 'd/m H:i') }}</p>
                             @endif
                         </div>
                     </div>
@@ -180,7 +180,7 @@
                         <div>
                             <p class="text-sm text-gray-700">Tiket telah diselesaikan. <br>Jika dalam 1 hari kerja tidak ada tanggapan atau komplain, tiket akan close otomatis (Sabtu–Minggu tidak dihitung).</p>
                             @if($tiket->diselesaikan_pada)
-                            <p class="text-xs text-gray-500 mt-0.5">{{ $tiket->diselesaikan_pada->format('d/m H:i') }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ \App\Support\help_s\HelpTimeline::wib($tiket->diselesaikan_pada, 'd/m H:i') }}</p>
                             @endif
                         </div>
                     </div>
@@ -190,7 +190,7 @@
                         <div>
                             <p class="text-sm text-gray-700">Tiket telah ditutup.</p>
                             @if($tiket->ditutup_pada)
-                            <p class="text-xs text-gray-500 mt-0.5">{{ $tiket->ditutup_pada->format('d/m H:i') }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ \App\Support\help_s\HelpTimeline::wib($tiket->ditutup_pada, 'd/m H:i') }}</p>
                             @endif
                         </div>
                     </div>
@@ -230,7 +230,7 @@
                                 <p class="font-medium text-gray-900 text-sm">
                                     {{ $statusLabels[$log->status_baru] ?? $log->status_baru }}
                                 </p>
-                                <span class="text-xs text-gray-500" title="{{ $log->created_at->format('d/m/Y H:i') }}">
+                                <span class="text-xs text-gray-500" title="{{ \App\Support\help_s\HelpTimeline::wib($log->created_at, 'd/m/Y H:i') }}">
                                     {{ $log->created_at->diffForHumans() }}
                                 </span>
                             </div>

@@ -44,7 +44,7 @@
                 </div>
 
                 <p class="text-gray-600 text-sm">{{ $tiket->nomor_tiket }}</p>
-                <p class="text-sm text-gray-500">Dibuat: {{ $tiket->created_at->format('d/m/Y H:i') }}</p>
+                <p class="text-sm text-gray-500">Dibuat: {{ \App\Support\help_s\HelpTimeline::wib($tiket->created_at, 'd/m/Y H:i') }}</p>
             </div>
 
             <div class="flex items-center gap-3">
@@ -114,7 +114,7 @@
                             <p class="font-medium text-gray-900">{{ $pjName }}</p>
                             <p class="text-sm text-gray-500">{{ $pjEmail }}</p>
                             @if($tiket->diproses_pada)
-                            <p class="text-xs text-gray-500 mt-1">Sejak: {{ $tiket->diproses_pada->format('d/m H:i') }}</p>
+                            <p class="text-xs text-gray-500 mt-1">Sejak: {{ \App\Support\help_s\HelpTimeline::wib($tiket->diproses_pada, 'd/m H:i') }}</p>
                             @endif
                         </div>
                     @else
@@ -301,7 +301,7 @@
                                 {{ $statusLabels[$log->status_baru] ?? $log->status_baru }}
                             </p>
                             <p class="text-xs text-gray-500">
-                                {{ $log->created_at->format('d/m/Y H:i') }}
+                                {{ \App\Support\help_s\HelpTimeline::wib($log->created_at, 'd/m/Y H:i') }}
                             </p>
                             <p class="text-xs text-gray-600 mt-0.5">Oleh: {{ $logUserName }}</p>
                             @if($log->catatan)

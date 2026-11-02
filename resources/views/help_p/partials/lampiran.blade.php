@@ -54,7 +54,7 @@
                                         </a>
                                     </div>
                                     <div class="flex items-center justify-between">
-                                        <span class="text-xs text-gray-500">{{ $photo->created_at->format('H:i') }}</span>
+                                        <span class="text-xs text-gray-500">{{ \App\Support\help_s\HelpTimeline::wib($photo->created_at, 'H:i') }}</span>
                                         <span class="text-xs text-gray-500">{{ $photo->formatted_size ?? '' }}</span>
                                     </div>
                                 </div>

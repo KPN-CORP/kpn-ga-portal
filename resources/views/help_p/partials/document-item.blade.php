@@ -25,7 +25,7 @@
                 {{ $doc->nama_file }}
             </p>
             <div class="flex items-center text-xs text-gray-500">
-                <span class="mr-2">{{ $doc->created_at->format('d/m H:i') }}</span>
+                <span class="mr-2">{{ \App\Support\help_s\HelpTimeline::wib($doc->created_at, 'd/m H:i') }}</span>
                 <span class="mr-2">{{ $doc->formatted_size ?? '' }}</span>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium {{ $doc->type_badge_color ?? 'bg-gray-100 text-gray-800' }}">
                     {{ $doc->type_label ?? $doc->tipe }}

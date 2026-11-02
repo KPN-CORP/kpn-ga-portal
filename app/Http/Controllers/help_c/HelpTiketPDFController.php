@@ -159,7 +159,7 @@ class HelpTiketPDFController extends Controller
             'tiket' => $tiket,
             'statusLabels' => $statusLabels,
             'lampiranBase64' => $lampiranBase64,
-            'generated_at' => now()->format('d/m/Y H:i:s'),
+            'generated_at' => \App\Support\help_s\HelpTimeline::wib(now(), 'd/m/Y H:i:s'),
             'generated_by' => auth()->user()->name ?? 'System',
         ];
 

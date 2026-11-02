@@ -341,7 +341,7 @@
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3">
                         <div class="text-blue-600 font-medium">{{ $item->nomor_tiket }}</div>
-                        <div class="text-xs text-gray-500">{{ $item->created_at->format('d M Y H:i') }}</div>
+                        <div class="text-xs text-gray-500">{{ \App\Support\help_s\HelpTimeline::wib($item->created_at, 'd M Y H:i') }}</div>
                     </td>
                     <td class="px-4 py-3">
                         <div class="font-medium">{{ Str::limit($item->judul, 25) }}</div>

@@ -214,22 +214,22 @@
             </tr>
             <tr>
                 <td style="padding: 6px; background-color: #f0f4ff; font-weight: bold; border: 1px solid #d1d5db;">Tanggal Dibuat</td>
-                <td style="padding: 6px; border: 1px solid #d1d5db;">{{ $tiket->created_at->format('d/m/Y H:i') }}</td>
+                <td style="padding: 6px; border: 1px solid #d1d5db;">{{ \App\Support\help_s\HelpTimeline::wib($tiket->created_at, 'd/m/Y H:i') }}</td>
                 <td style="padding: 6px; background-color: #f0f4ff; font-weight: bold; border: 1px solid #d1d5db;">Terakhir Update</td>
-                <td style="padding: 6px; border: 1px solid #d1d5db;">{{ $tiket->updated_at->format('d/m/Y H:i') }}</td>
+                <td style="padding: 6px; border: 1px solid #d1d5db;">{{ \App\Support\help_s\HelpTimeline::wib($tiket->updated_at, 'd/m/Y H:i') }}</td>
             </tr>
             @if($tiket->diproses_pada)
             <tr>
                 <td style="padding: 6px; background-color: #f0f4ff; font-weight: bold; border: 1px solid #d1d5db;">Mulai Diproses</td>
-                <td style="padding: 6px; border: 1px solid #d1d5db;" colspan="3">{{ $tiket->diproses_pada->format('d/m/Y H:i') }}</td>
+                <td style="padding: 6px; border: 1px solid #d1d5db;" colspan="3">{{ \App\Support\help_s\HelpTimeline::wib($tiket->diproses_pada, 'd/m/Y H:i') }}</td>
             </tr>
             @endif
             @if($tiket->diselesaikan_pada || $tiket->ditutup_pada)
             <tr>
                 <td style="padding: 6px; background-color: #f0f4ff; font-weight: bold; border: 1px solid #d1d5db;">Diselesaikan/Ditutup</td>
                 <td style="padding: 6px; border: 1px solid #d1d5db;" colspan="3">
-                    @if($tiket->diselesaikan_pada) Selesai: {{ $tiket->diselesaikan_pada->format('d/m/Y H:i') }} @endif
-                    @if($tiket->ditutup_pada) | Ditutup: {{ $tiket->ditutup_pada->format('d/m/Y H:i') }} @endif
+                    @if($tiket->diselesaikan_pada) Selesai: {{ \App\Support\help_s\HelpTimeline::wib($tiket->diselesaikan_pada, 'd/m/Y H:i') }} @endif
+                    @if($tiket->ditutup_pada) | Ditutup: {{ \App\Support\help_s\HelpTimeline::wib($tiket->ditutup_pada, 'd/m/Y H:i') }} @endif
                 </td>
             </tr>
             @endif
@@ -342,7 +342,7 @@
         <div class="timeline-item">
             <div class="timeline-status">{{ $statusLabels[$log->status_baru] ?? $log->status_baru }}</div>
             <div class="timeline-date">
-                {{ $log->created_at->format('d/m/Y H:i') }} - 
+                {{ \App\Support\help_s\HelpTimeline::wib($log->created_at, 'd/m/Y H:i') }} - 
                 {{ $log->pengguna->user->name ?? $log->pengguna->nama ?? 'System' }}
             </div>
             @if($log->catatan)

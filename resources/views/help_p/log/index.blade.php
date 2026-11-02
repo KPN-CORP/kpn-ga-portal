@@ -57,7 +57,7 @@
                     @forelse($log as $item)
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 text-sm text-gray-500">
-                            {{ $item->created_at->format('d/m/Y H:i:s') }}
+                            {{ \App\Support\help_s\HelpTimeline::wib($item->created_at, 'd/m/Y H:i:s') }}
                         </td>
                         <td class="px-4 py-3">
                             @if($item->pengguna)

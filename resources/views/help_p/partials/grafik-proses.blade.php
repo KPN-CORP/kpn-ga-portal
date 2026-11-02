@@ -59,8 +59,8 @@
                             </div>
                         </div>
                         <div class="mt-1 flex justify-between text-xs text-gray-500">
-                            <span>Masuk vendor {{ $v->mulai_pada->format('d M Y H:i') }}</span>
-                            <span>{{ $v->selesai_pada ? 'Selesai ' . $v->selesai_pada->format('d M Y H:i') : 'Berjalan' }}</span>
+                            <span>Masuk vendor {{ \App\Support\help_s\HelpTimeline::wib($v->mulai_pada, 'd M Y H:i') }}</span>
+                            <span>{{ $v->selesai_pada ? 'Selesai ' . \App\Support\help_s\HelpTimeline::wib($v->selesai_pada, 'd M Y H:i') : 'Berjalan' }}</span>
                         </div>
                         @if($v->catatan)
                             <p class="mt-1 text-xs text-gray-600">{{ $v->catatan }}</p>
