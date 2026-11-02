@@ -274,16 +274,18 @@ class HelpProsesController extends Controller
     }
 
     /**
-     * Halaman GRAFIK: waktu penanganan per Business Unit, dirinci per admin (saat BU diklik).
-     * Tahap: Laporan -> Diambil -> Over -> Done. Maksimal 1000 tiket per tampilan.
+     * Halaman GRAFIK (dashboard): ringkasan waktu, ketergantungan tiap BU pada GA Corp,
+     * ketepatan SLA per kategori, dan beban kerja per admin. Maksimal 1000 tiket per tampilan.
      */
     public function grafik(Request $request)
     {
         $f = $this->siapkanFilter($request);
         extract($f, EXTR_SKIP);
 
+        $HT = \App\Support\help_s\HelpTimeline::class;
+
         $tikets = (clone $qPeriode)
-            ->with(['logStatus.pengguna', 'ditugaskanKe'])
+            ->with(['logStatus.pengguna', 'ditugaskanKe', 'bisnisUnit', 'kategori'])
             ->orderByDesc('created_at')
             ->limit(1000)
             ->get();
@@ -291,82 +293,125 @@ class HelpProsesController extends Controller
         $terpotong  = $totalTiket > $tikets->count();
         $perBU      = $tikets->groupBy('bisnis_unit_id');
 
+        // ---- per Business Unit: berapa persen tiket yang diteruskan ke GA Corp + beban admin per BU
         $grafikBU = [];
+        $perAdminBU = [];
         foreach ($bisnisUnits as $bu) {
             if ($bisnisUnitId && (int) $bu->id_bisnis_unit !== $bisnisUnitId) {
                 continue;
             }
-            $info  = \App\Support\help_s\HelpTimeline::infoBisnisUnit($bu->nama_bisnis_unit);
-            $rekap = \App\Support\help_s\HelpTimeline::rekapAdmin($perBU[$bu->id_bisnis_unit] ?? [], $sekarang);
+            $grup  = $perBU[$bu->id_bisnis_unit] ?? collect();
+            $info  = $HT::infoBisnisUnit($bu->nama_bisnis_unit);
+            $rekap = $HT::rekapAdmin($grup, $sekarang);
+            $n     = $grup->count();
 
             $grafikBU[] = [
-                'id'        => $bu->id_bisnis_unit,
-                'label'     => $bu->nama_bisnis_unit,
-                'warna'     => $info['warna'],
-                'urut'      => $info['urut'],
-                'tiket'     => $rekap['tiket'],
-                'tiket_bu'  => $rekap['tiket_bu'],
-                'tiket_corp'=> $rekap['tiket_corp'],
-                'jml_admin' => count($rekap['admin']),
-                'tunggu'    => $rekap['tunggu'],
-                'over'      => $rekap['over'],
-                'done'      => $rekap['done'],
-                'done_bu'   => $rekap['done_bu'],
-                'done_corp' => $rekap['done_corp'],
+                'id'       => $bu->id_bisnis_unit,
+                'label'    => $bu->nama_bisnis_unit,
+                'warna'    => $info['warna'],
+                'urut'     => $info['urut'],
+                'tiket'    => $n,
+                'eskalasi' => $rekap['eskalasi'],
+                'persen'   => $n > 0 ? (int) round($rekap['eskalasi'] / $n * 100) : 0,
             ];
+            foreach ($rekap['admin'] as $a) {
+                $perAdminBU[$a['nama']][$bu->id_bisnis_unit] = $a['tiket'];
+            }
         }
         usort($grafikBU, fn ($a, $b) => [$a['urut'], $a['label']] <=> [$b['urut'], $b['label']]);
+        $grafikBU   = array_values(array_filter($grafikBU, fn ($g) => $g['tiket'] > 0));
+        $eskalasiBU = collect($grafikBU)->sortByDesc('persen')->values()->all();
 
-        $semua = \App\Support\help_s\HelpTimeline::rekapAdmin($tikets, $sekarang);
+        // ---- ringkasan + beban kerja per admin
+        $semua = $HT::rekapAdmin($tikets, $sekarang);
+        $admin = array_map(fn ($a) => [
+            'nama'     => $a['nama'],
+            'corp'     => $a['corp'],
+            'total'    => $a['tiket'],
+            'tunggu'   => $a['tunggu'],
+            'done'     => $a['done'],
+            'jml_done' => $a['jml_done'],
+            'jml_over' => $a['jml_over'],
+            'per_bu'   => $perAdminBU[$a['nama']] ?? [],
+        ], $semua['admin']);
+        usort($admin, fn ($a, $b) => [$b['total'], $a['nama']] <=> [$a['total'], $b['nama']]);
+        $adminLain = max(0, count($admin) - 15);
+        $admin     = array_slice($admin, 0, 15);
+
+        // ---- ketepatan SLA per kategori: dibuat -> Done dibanding sla_jam kategori
+        $sla = [];
+        foreach ($tikets as $t) {
+            $kat = $t->kategori;
+            if (!$kat || !$kat->sla_jam) {
+                continue;
+            }
+            $selesai = $HT::waktuSelesai($t);
+            if (!$selesai || !$selesai->between($rentang['awal'], $rentang['akhir'])) {
+                continue;
+            }
+            $detik = max(0, $selesai->timestamp - Carbon::parse($t->created_at)->timestamp);
+            $sla[$kat->id] ??= ['nama' => $kat->nama, 'sla_jam' => (int) $kat->sla_jam, 'total' => 0, 'dalam' => 0, 'detik' => []];
+            $sla[$kat->id]['total']++;
+            $sla[$kat->id]['detik'][] = $detik;
+            if ($detik <= $kat->sla_jam * 3600) {
+                $sla[$kat->id]['dalam']++;
+            }
+        }
+        $slaKategori = collect($sla)->map(fn ($r) => [
+            'nama'    => $r['nama'],
+            'sla_jam' => $r['sla_jam'],
+            'total'   => $r['total'],
+            'dalam'   => $r['dalam'],
+            'persen'  => (int) round($r['dalam'] / $r['total'] * 100),
+            'rata'    => (int) round(array_sum($r['detik']) / count($r['detik'])),
+        ])->sortByDesc('total')->values()->all();
+        $slaTotal = array_sum(array_column($slaKategori, 'total'));
+        $slaDalam = array_sum(array_column($slaKategori, 'dalam'));
+
         $ringkasan = [
-            'tunggu'   => $semua['tunggu'],
-            'done'     => $semua['done'],
-            'jml_over' => $semua['jml_over'],
-            'jml_done' => $semua['jml_done'],
+            'tiket'      => $tikets->count(),
+            'tunggu'     => $semua['tunggu'],
+            'done'       => $semua['done'],
+            'jml_done'   => $semua['jml_done'],
+            'eskalasi'   => $semua['eskalasi'],
+            'persen_esk' => $tikets->count() > 0 ? (int) round($semua['eskalasi'] / $tikets->count() * 100) : null,
+            'sla'        => $slaTotal > 0 ? (int) round($slaDalam / $slaTotal * 100) : null,
+            'sla_total'  => $slaTotal,
         ];
 
         return view('help_p.grafik.index', compact(
             'rentang', 'tahun', 'bulan', 'daftarTahun',
             'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search',
-            'grafikBU', 'ringkasan', 'terpotong'
+            'grafikBU', 'eskalasiBU', 'admin', 'adminLain', 'slaKategori', 'ringkasan', 'terpotong'
         ));
     }
 
     /**
-     * JSON rincian satu Business Unit (dipanggil saat baris BU diklik):
-     * nama-nama admin beserta lama proses tiap tahap (Laporan -> Diambil -> Over -> Done).
+     * JSON rincian satu admin (dipanggil saat baris admin dibuka): daftar tiket yang dia tangani
+     * beserta waktu dibuat, diambil, dan selesai / diteruskan.
      */
     public function grafikDaftar(Request $request)
     {
-        $f = $this->siapkanFilter($request, false);
+        $f  = $this->siapkanFilter($request, false);
+        $HT = \App\Support\help_s\HelpTimeline::class;
 
         $tikets = (clone $f['qPeriode'])
-            ->where('bisnis_unit_id', (int) $request->get('bu'))
-            ->with(['logStatus.pengguna', 'ditugaskanKe'])
+            ->with(['logStatus.pengguna', 'ditugaskanKe', 'bisnisUnit'])
             ->orderBy('created_at')
-            ->limit(500)
+            ->limit(1000)
             ->get();
 
-        $rekap = \App\Support\help_s\HelpTimeline::rekapAdmin($tikets, $f['sekarang'], true);
-        $fmt   = fn ($d) => $d === null ? null : \App\Support\help_s\HelpTimeline::formatDurasi($d);
+        $rekap = $HT::rekapAdmin($tikets, $f['sekarang'], true);
+        $a     = collect($rekap['admin'])->firstWhere('nama', trim((string) $request->get('admin')));
+
+        if (!$a) {
+            return response()->json(['daftar' => []]);
+        }
 
         return response()->json([
-            'tiket'  => $rekap['tiket'],
-            'tunggu' => $fmt($rekap['tunggu']),
-            'over'   => $fmt($rekap['over']),
-            'done'   => $fmt($rekap['done']),
-            'admin'  => array_map(fn ($a) => [
-                'nama'     => $a['nama'],
-                'corp'     => $a['corp'],
-                'tiket'    => $a['tiket'],
-                'tunggu'   => $fmt($a['tunggu']),
-                'over'     => $fmt($a['over']),
-                'done'     => $fmt($a['done']),
-                'jml_over' => $a['jml_over'],
-                'jml_done' => $a['jml_done'],
-                'berjalan' => $a['berjalan'],
-                'daftar'   => $a['daftar'],
-            ], $rekap['admin']),
+            'nama'   => $a['nama'],
+            'tiket'  => $a['tiket'],
+            'daftar' => $a['daftar'],
         ]);
     }
 

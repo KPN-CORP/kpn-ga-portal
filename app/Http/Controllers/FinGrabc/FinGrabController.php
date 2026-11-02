@@ -54,8 +54,24 @@ class FinGrabController extends Controller
         if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 422);
         }
+        if (!($data['dry'] ?? false)) {
+            FinGrabPayload::bust(); // data berubah, cache halaman dibuat ulang
+        }
 
         return response()->json($result);
+    }
+
+    /** Detail transaksi (alamat, rincian tarif, booking) untuk panel samping, maks 50 id, dipotong per Bisnis unit. */
+    public function detail(Request $request)
+    {
+        $scope = FinGrabAccess::scope(auth()->user());
+        if (!$scope['allowed']) {
+            return response()->json(['message' => 'Tidak punya akses.'], 403);
+        }
+
+        $ids = (array) $request->query('ids', []);
+
+        return response()->json((object) FinGrabPayload::detail($scope, $ids));
     }
 
     private function page(string $view, bool $report = false)

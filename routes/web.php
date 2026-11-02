@@ -858,6 +858,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/karyawan-unit', [FinGrabController::class, 'karyawan'])->name('karyawan');
         Route::get('/kecocokan', [FinGrabController::class, 'kecocokan'])->name('kecocokan');
         Route::post('/kecocokan/fix', [FinGrabController::class, 'fixId'])->name('kecocokan.fix');
+        Route::get('/detail', [FinGrabController::class, 'detail'])->name('detail');
         Route::get('/upload', [FinGrabUploadController::class, 'form'])->name('upload');
         Route::post('/upload', [FinGrabUploadController::class, 'store'])->name('upload.store');
     });

@@ -115,15 +115,7 @@ class TaskMonitorController extends Controller
                 ->groupBy('task_monitors.user_id')
                 ->pluck('total', 'uid');
 
-            // Tanggal item proses tertua per user
-            $oldestPending = TaskUnit::join('task_monitors', 'task_monitors.id', '=', 'task_units.task_monitor_id')
-                ->whereIn('task_monitors.user_id', $ids)
-                ->where('task_units.status', 'pending')
-                ->selectRaw('task_monitors.user_id as uid, MIN(task_units.created_at) as oldest')
-                ->groupBy('task_monitors.user_id')
-                ->pluck('oldest', 'uid');
-
-            return view('task-m.users', compact('users', 'stats', 'doneThisWeek', 'oldestPending'));
+            return view('task-m.users', compact('users', 'stats', 'doneThisWeek'));
         }
 
         return view('task-m.index', $this->projectListData(Auth::id(), $request->get('year')));

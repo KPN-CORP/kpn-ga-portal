@@ -4,6 +4,7 @@ namespace App\Http\Controllers\FinGrabc;
 
 use App\Http\Controllers\Controller;
 use App\Services\FinGrab\BcrImporter;
+use App\Services\FinGrab\FinGrabPayload;
 use App\Support\FinGrabAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,7 @@ class FinGrabUploadController extends Controller
                 @unlink($t);
             }
         }
+        FinGrabPayload::bust(); // data baru masuk, cache halaman dibuat ulang
 
         return redirect()->route('fingrab.upload')->with('fingrab_summary', $summary);
     }

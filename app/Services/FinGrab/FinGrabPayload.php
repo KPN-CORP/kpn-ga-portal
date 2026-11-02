@@ -3,19 +3,47 @@
 namespace App\Services\FinGrab;
 
 use App\Models\FinGrabm\FinGrabTransaction;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Menyusun data untuk halaman (struktur X yang dipakai dashboard).
  * Pemotongan akses per Bisnis unit terjadi di sini, di query, sebelum data keluar dari server.
+ *
+ * Ringan: hasil di-cache per scope (data hanya berubah saat upload BCR atau koreksi ID, panggil bust() di sana),
+ * kolom yang diambil hanya yang dipakai grafik/tabel, dan detail transaksi (alamat, rincian tarif, booking)
+ * TIDAK ikut ke halaman; diambil per 10 baris lewat detail().
  */
 class FinGrabPayload
 {
     private const VERTICAL = ['food' => 0, 'transport' => 1, 'express' => 2];
+    private const VER_KEY = 'fingrab:payload:ver';
+    private const TTL = 21600; // 6 jam, jaga-jaga bila data HCIS berubah tanpa upload
+
+    /** Panggil setelah upload BCR atau koreksi ID karyawan supaya cache dibuat ulang. */
+    public static function bust(): void
+    {
+        Cache::forever(self::VER_KEY, (int) Cache::get(self::VER_KEY, 1) + 1);
+    }
 
     public static function build(array $scope): array
     {
-        $q = FinGrabTransaction::query()->orderBy('trx_date')->orderBy('id');
+        $ids = $scope['all'] ? [] : collect($scope['ids'])->sort()->values()->all();
+        $key = 'fingrab:payload:v' . (int) Cache::get(self::VER_KEY, 1) . ':' . ($scope['all'] ? 'all' : implode(',', $ids));
+
+        return Cache::remember($key, self::TTL, fn () => self::compute($scope));
+    }
+
+    private static function compute(array $scope): array
+    {
+        $q = FinGrabTransaction::query()
+            ->select([
+                'id', 'trx_date', 'pt_name', 'group_name', 'vertical', 'amount', 'trx_hour', 'city',
+                'booking_id', 'trip_code', 'billing_type', 'id_bisnis_unit',
+                'employee_id', 'employee_name', 'employee_email', 'employee_id_status', 'employee_id_hint',
+                'hcis_group_company', 'hcis_unit', 'hcis_office_area', 'hcis_match',
+            ])
+            ->orderBy('trx_date')->orderBy('id');
         if (!$scope['all']) {
             $q->whereIn('id_bisnis_unit', $scope['ids']); // PT belum terpetakan (null) hanya terlihat oleh Corporate
         }
@@ -54,6 +82,7 @@ class FinGrabPayload
                 ];
             }
 
+            // Baris slim: [tanggal, PT, group, karyawan, tipe, nominal, jam, kota, id transaksi, Bisnis unit]
             $rows[] = [
                 $t->trx_date->format('Y-m-d'),
                 $coIx[$t->pt_name] ?? 0,
@@ -63,18 +92,46 @@ class FinGrabPayload
                 (int) $t->amount + (int) ($extra[$t->id] ?? 0),
                 (int) $t->trx_hour,
                 $ciIx[$t->city ?: '-'] ?? 0,
-                $t->booking_id,
-                [
-                    $t->pickup ?? '', $t->dropoff ?? '', $t->intermediate ?? '', (float) $t->distance_km,
-                    $t->trip_description ?? '', $t->taxi_type ?? '',
-                    $t->base_fare, $t->promo, $t->toll, $t->late_fee, $t->other_fee,
-                    $t->trip_code ?? '',
-                ],
+                (int) $t->id,
                 $t->id_bisnis_unit ? ($buNames[$t->id_bisnis_unit] ?? 'Belum terpetakan') : 'Belum terpetakan',
             ];
         }
 
         return ['co' => $co, 'gr' => $gr, 'ci' => $ci, 'em' => $em, 'rows' => $rows];
+    }
+
+    /**
+     * Detail transaksi untuk panel samping dan popup (maks 50 id per panggilan), tetap dipotong per Bisnis unit.
+     *
+     * @param  array<int,int|string>  $ids
+     * @return array<int,array{k:string,x:array}> id transaksi => [booking, [pickup, dropoff, singgah, jarak, keterangan, taksi, dasar, promo, tol, late, lain, trip code]]
+     */
+    public static function detail(array $scope, array $ids): array
+    {
+        $ids = collect($ids)->map(fn ($i) => (int) $i)->filter()->unique()->take(50)->values()->all();
+        if (!$ids) {
+            return [];
+        }
+
+        $q = FinGrabTransaction::query()->whereIn('id', $ids);
+        if (!$scope['all']) {
+            $q->whereIn('id_bisnis_unit', $scope['ids']);
+        }
+
+        $out = [];
+        foreach ($q->get() as $t) {
+            $out[$t->id] = [
+                'k' => (string) $t->booking_id,
+                'x' => [
+                    $t->pickup ?? '', $t->dropoff ?? '', $t->intermediate ?? '', (float) $t->distance_km,
+                    $t->trip_description ?? '', $t->taxi_type ?? '',
+                    $t->base_fare, $t->promo, $t->toll, $t->late_fee, $t->other_fee,
+                    $t->trip_code ?? '',
+                ],
+            ];
+        }
+
+        return $out;
     }
 
     /**

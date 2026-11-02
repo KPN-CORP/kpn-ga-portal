@@ -404,7 +404,7 @@ class HelpTimeline
                 }
             } elseif ($baru === 'ON_PROCESS' && !$cur) {
                 // DIAMBIL
-                $cur = ['admin' => $nama($log), 'mulai' => $ts, 'tunggu' => max(0, $ts - $tungguDari), 'corp' => $sudahOver];
+                $cur = ['admin' => $nama($log), 'mulai' => $ts, 'tunggu' => max(0, $ts - $tungguDari), 'corp' => $sudahOver || self::pelangganCorp($log->pengguna)];
                 $diambilTs ??= $ts;
             } elseif ($baru === 'DONE') {
                 $cur = $tutup($cur, $ts, 'DONE');
@@ -454,6 +454,20 @@ class HelpTimeline
     }
 
     /**
+     * Apakah seorang admin (Pelanggan) termasuk Corp: Business Unit-nya Corporation,
+     * atau departemennya GA Corp (tb_pelanggan.bisnis_unit / tb_pelanggan.departemen).
+     */
+    public static function pelangganCorp($pelanggan): bool
+    {
+        if (!$pelanggan) {
+            return false;
+        }
+
+        return self::infoBisnisUnit($pelanggan->bisnis_unit ?? null)['urut'] === 1
+            || preg_match('/ga\s*corp/i', (string) ($pelanggan->departemen ?? '')) === 1;
+    }
+
+    /**
      * Rekap waktu per admin untuk sekumpulan tiket (biasanya satu Business Unit).
      * Semua angka dalam DETIK; $rinci = true menyertakan daftar tiket tiap admin.
      */
@@ -462,7 +476,7 @@ class HelpTimeline
         $avg   = fn (array $a) => $a ? (int) round(array_sum($a) / count($a)) : null;
         $admin = [];
         $tunggu = $over = $totalDone = $bagBU = $bagCorp = [];
-        $nTiket = $nBU = $nCorp = 0;
+        $nTiket = $nEsk = 0;
         $label  = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
         $fmt    = fn (int $ts) => Carbon::createFromTimestamp($ts)->format('d M H:i');
 
@@ -473,9 +487,10 @@ class HelpTimeline
             }
             $nTiket++;
 
-            // siapa yang mengerjakan tiket ini: GA Corp (pernah diteruskan / dikerjakan Corp) atau BU sendiri
-            $korp = $j['over'] !== null || (bool) array_filter($j['segmen'], fn ($sg) => !empty($sg['corp']));
-            $korp ? $nCorp++ : $nBU++;
+            // tiket yang pernah diteruskan ke GA Corp
+            if ($j['over'] !== null) {
+                $nEsk++;
+            }
 
             // Diambil -> Done per TIKET, dipisah: bagian dikerjakan BU (sebelum eskalasi) dan dikerjakan GA Corp (setelah eskalasi)
             if ($j['diambil'] !== null && $j['done'] !== null && $j['done'] >= $j['diambil']) {
@@ -508,6 +523,7 @@ class HelpTimeline
                 if ($rinci) {
                     $admin[$nm]['daftar'][] = [
                         'nomor'   => $t->nomor_tiket,
+                        'bu'      => optional($t->bisnisUnit)->nama_bisnis_unit ?: '-',
                         'judul'   => $t->judul,
                         'url'     => route('help.proses.show', $t),
                         'laporan' => $fmt($j['laporan']),
@@ -538,8 +554,7 @@ class HelpTimeline
 
         return [
             'tiket'    => $nTiket,
-            'tiket_bu'   => $nBU,
-            'tiket_corp' => $nCorp,
+            'eskalasi'   => $nEsk,
             'tunggu'   => $avg($tunggu),
             'over'     => $avg($over),
             'done'     => $avg($totalDone),   // Diambil -> Done per tiket (BU + GA Corp)
