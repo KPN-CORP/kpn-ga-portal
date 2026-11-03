@@ -17,6 +17,11 @@ class HelpTiketPDFController extends Controller
      */
     public function download(HelpTiket $tiket)
     {
+        // Hanya pelapor / petugas yang berhak atas tiket ini
+        if (!auth()->user() || !auth()->user()->canAccessTicket($tiket)) {
+            abort(403, 'Anda tidak memiliki akses ke tiket ini.');
+        }
+
         // Set memory limit lebih besar
         ini_set('memory_limit', '512M');
         set_time_limit(300);

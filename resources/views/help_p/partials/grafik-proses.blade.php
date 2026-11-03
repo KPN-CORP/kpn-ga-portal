@@ -117,6 +117,7 @@
                 ? 'Proses tiket · Closed dalam ' . $g['durasi'] . ($g['hasil'] === 'bad' ? ' (lebih dari 7 hari)' : '')
                 : 'Proses tiket · Berjalan ' . $g['durasi'] . ($g['lewat'] ? ' (lewat 7 hari)' : ''),
             'routeDetail' => 'help.tiket.show',
+            'navigasi'    => false,
         ])
     @endif
 @endif

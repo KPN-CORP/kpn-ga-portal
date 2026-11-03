@@ -41,10 +41,15 @@ class HelpProsesController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $bisnisUnits = BisnisUnit::orderBy('nama_bisnis_unit')->get();
+        // Dropdown BU hanya berisi BU yang boleh diakses petugas ini
+        $unitIds     = $user->getAccessibleBusinessUnits();
+        $bisnisUnits = BisnisUnit::orderBy('nama_bisnis_unit')
+            ->when(!empty($unitIds), fn ($q) => $q->whereIn('id_bisnis_unit', $unitIds))
+            ->get();
         $kategori = HelpKategori::where('aktif', true)->orderBy('nama')->get();
 
-        $query = HelpTiket::with([
+        // Hak akses BU (+ tiket yang ditugaskan ke petugas ini) dipusatkan di aksesQuery()
+        $query = $this->aksesQuery($user)->with([
             'kategori',
             'bisnisUnit',
             'pelapor.user',
@@ -52,18 +57,6 @@ class HelpProsesController extends Controller
             'logStatus',
             'vendorProses'
         ]);
-
-        $accessibleUnits = $user->getAccessibleBusinessUnits();
-
-        if (!empty($accessibleUnits)) {
-            $query->whereIn('bisnis_unit_id', $accessibleUnits);
-        } else {
-            if ($user->pelanggan) {
-                $query->where('ditugaskan_ke', $user->pelanggan->id_pelanggan);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
 
         // ========== DEFAULT STATUS = 'OPEN' ==========
         $status = $request->get('status', 'OPEN');
@@ -115,16 +108,23 @@ class HelpProsesController extends Controller
      */
     protected function aksesQuery($user)
     {
-        $query = HelpTiket::query();
+        $query   = HelpTiket::query();
+        $unitIds = $user->getAccessibleBusinessUnits();
+        $pelId   = optional($user->pelanggan)->id_pelanggan;
 
-        $accessibleUnits = $user->getAccessibleBusinessUnits();
-        if (!empty($accessibleUnits)) {
-            $query->whereIn('bisnis_unit_id', $accessibleUnits);
-        } elseif ($user->pelanggan) {
-            $query->where('ditugaskan_ke', $user->pelanggan->id_pelanggan);
-        } else {
-            $query->whereRaw('1 = 0');
-        }
+        // BU yang boleh diakses ATAU tiket yang ditugaskan langsung ke petugas ini
+        // (mis. tiket BU lain yang dialihkan ke dia) — supaya tidak hilang dari daftar, Timeline, dan Grafik.
+        $query->where(function ($q) use ($unitIds, $pelId) {
+            if (!empty($unitIds)) {
+                $q->whereIn('bisnis_unit_id', $unitIds);
+            }
+            if ($pelId) {
+                $q->orWhere('ditugaskan_ke', $pelId);
+            }
+            if (empty($unitIds) && !$pelId) {
+                $q->whereRaw('1 = 0');
+            }
+        });
 
         return $query;
     }
@@ -164,19 +164,47 @@ class HelpProsesController extends Controller
             });
         }
 
-        // Periode: default bulan & tahun berjalan; bulan kosong = seluruh tahun
-        $tahun = max(2000, min($sekarang->year + 1, (int) $request->get('tahun', $sekarang->year)));
-        $bulan = $request->has('tahun')
-            ? ($request->filled('bulan') ? (int) $request->bulan : null)
-            : $sekarang->month;
-        if ($bulan !== null && ($bulan < 1 || $bulan > 12)) {
-            $bulan = null;
+        // Periode: rentang tanggal bebas (?dari=YYYY-MM-DD&sampai=YYYY-MM-DD).
+        // Tanpa parameter: bulan berjalan. Parameter lama tahun/bulan tetap didukung (bulan kosong = seluruh tahun).
+        $HT       = \App\Support\help_s\HelpTimeline::class;
+        $parseTgl = function ($v) {
+            try {
+                return $v ? Carbon::createFromFormat('Y-m-d', (string) $v)->startOfDay() : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+        $dari   = $parseTgl($request->get('dari'));
+        $sampai = $parseTgl($request->get('sampai'));
+
+        if ($dari || $sampai) {
+            $dari   = $dari ?: $sampai->copy();
+            $sampai = $sampai ?: $dari->copy();
+            if ($sampai->lt($dari)) {
+                [$dari, $sampai] = [$sampai, $dari];
+            }
+            $dari   = $dari->max(Carbon::create(2000, 1, 1));
+            $sampai = $sampai->min($dari->copy()->addYears(5));   // batas wajar agar grafik tetap ringan
+
+            $rentang = $HT::rentang($dari, $sampai);
+        } else {
+            $tahun = max(2000, min($sekarang->year + 1, (int) $request->get('tahun', $sekarang->year)));
+            $bulan = $request->has('tahun')
+                ? ($request->filled('bulan') ? (int) $request->bulan : null)
+                : $sekarang->month;
+            if ($bulan !== null && ($bulan < 1 || $bulan > 12)) {
+                $bulan = null;
+            }
+            $rentang = $bulan ? $HT::rentangBulan($tahun, $bulan) : $HT::rentangTahun($tahun);
         }
 
-        $status  = in_array($request->get('status'), ['aktif', 'closed'], true) ? $request->status : 'semua';
-        $rentang = $bulan
-            ? \App\Support\help_s\HelpTimeline::rentangBulan($tahun, $bulan)
-            : \App\Support\help_s\HelpTimeline::rentangTahun($tahun);
+        // tahun / bulan tetap diisi (dipakai view lain): bulan hanya bila rentang = 1 bulan penuh
+        $tahun = $rentang['awal']->year;
+        $bulan = ($rentang['awal']->day === 1 && $rentang['awal']->isSameMonth($rentang['akhir'])
+                  && $rentang['akhir']->isSameDay($rentang['awal']->copy()->endOfMonth()))
+            ? $rentang['awal']->month : null;
+
+        $status = in_array($request->get('status'), ['aktif', 'closed'], true) ? $request->status : 'semua';
 
         // Tiket yang beririsan dengan periode (belum close, atau ditutup di/sesudah awal periode)
         $qPeriode = (clone $base)
@@ -293,9 +321,8 @@ class HelpProsesController extends Controller
         $terpotong  = $totalTiket > $tikets->count();
         $perBU      = $tikets->groupBy('bisnis_unit_id');
 
-        // ---- per Business Unit: berapa persen tiket yang diteruskan ke GA Corp + beban admin per BU
+        // ---- per Business Unit: berapa persen tiket yang dialihkan ke GA Corp, dan berapa yang selesai di unit sendiri
         $grafikBU = [];
-        $perAdminBU = [];
         foreach ($bisnisUnits as $bu) {
             if ($bisnisUnitId && (int) $bu->id_bisnis_unit !== $bisnisUnitId) {
                 continue;
@@ -305,6 +332,14 @@ class HelpProsesController extends Controller
             $rekap = $HT::rekapAdmin($grup, $sekarang);
             $n     = $grup->count();
 
+            // selesai di unit sendiri = sudah Done/Closed dan tidak pernah dialihkan ke GA Corp
+            $selUnit = 0;
+            foreach ($grup as $tk) {
+                if ($HT::jejakAdmin($tk, $sekarang)['over'] === null && $HT::waktuSelesai($tk) !== null) {
+                    $selUnit++;
+                }
+            }
+
             $grafikBU[] = [
                 'id'       => $bu->id_bisnis_unit,
                 'label'    => $bu->nama_bisnis_unit,
@@ -313,30 +348,17 @@ class HelpProsesController extends Controller
                 'tiket'    => $n,
                 'eskalasi' => $rekap['eskalasi'],
                 'persen'   => $n > 0 ? (int) round($rekap['eskalasi'] / $n * 100) : 0,
+                'selesai_unit' => $selUnit,
+                'persen_unit'  => $n > 0 ? (int) round($selUnit / $n * 100) : 0,
             ];
-            foreach ($rekap['admin'] as $a) {
-                $perAdminBU[$a['nama']][$bu->id_bisnis_unit] = $a['tiket'];
-            }
         }
         usort($grafikBU, fn ($a, $b) => [$a['urut'], $a['label']] <=> [$b['urut'], $b['label']]);
         $grafikBU   = array_values(array_filter($grafikBU, fn ($g) => $g['tiket'] > 0));
         $eskalasiBU = collect($grafikBU)->sortByDesc('persen')->values()->all();
+        $selesaiUnitBU = collect($grafikBU)->sortByDesc('persen_unit')->values()->all();
 
-        // ---- ringkasan + beban kerja per admin
+        // ---- ringkasan (rata-rata menunggu, pengerjaan, eskalasi)
         $semua = $HT::rekapAdmin($tikets, $sekarang);
-        $admin = array_map(fn ($a) => [
-            'nama'     => $a['nama'],
-            'corp'     => $a['corp'],
-            'total'    => $a['tiket'],
-            'tunggu'   => $a['tunggu'],
-            'done'     => $a['done'],
-            'jml_done' => $a['jml_done'],
-            'jml_over' => $a['jml_over'],
-            'per_bu'   => $perAdminBU[$a['nama']] ?? [],
-        ], $semua['admin']);
-        usort($admin, fn ($a, $b) => [$b['total'], $a['nama']] <=> [$a['total'], $b['nama']]);
-        $adminLain = max(0, count($admin) - 15);
-        $admin     = array_slice($admin, 0, 15);
 
         // ---- ketepatan SLA per kategori: dibuat -> Done dibanding sla_jam kategori
         $sla = [];
@@ -369,10 +391,74 @@ class HelpProsesController extends Controller
         $slaTotal = array_sum(array_column($slaKategori, 'total'));
         $slaDalam = array_sum(array_column($slaKategori, 'dalam'));
 
+        // ---- umur tiket yang belum close (per sekarang, semua periode; mengikuti filter BU/pencarian)
+        $batasHari = (int) $HT::BATAS_HARI;
+        $umurKey   = function (int $detik) use ($batasHari) {
+            $hari = $detik / 86400;
+
+            return $hari < 1 ? 'u0' : ($hari < 3 ? 'u1' : ($hari <= $batasHari ? 'u2' : 'u3'));
+        };
+        $backlog = (clone $base)->where('status', '!=', 'CLOSED')
+            ->with(['logStatus.pengguna', 'ditugaskanKe', 'bisnisUnit', 'kategori'])
+            ->orderBy('created_at')
+            ->limit(1000)
+            ->get();
+        $hitungUmur = ['u0' => 0, 'u1' => 0, 'u2' => 0, 'u3' => 0];
+        $umurTertua = null;
+        foreach ($backlog as $t) {
+            $detikUmur = max(0, $sekarang->timestamp - Carbon::parse($t->created_at)->timestamp);
+            $hitungUmur[$umurKey($detikUmur)]++;
+            if ($umurTertua === null || $detikUmur > $umurTertua['detik']) {
+                $umurTertua = ['detik' => $detikUmur, 'nomor' => $t->nomor_tiket];
+            }
+        }
+        // ---- lama tiket sampai close: tiket yang ditutup (Closed) pada periode terpilih, dihitung sejak diajukan
+        $hitungClose = ['c0' => 0, 'c1' => 0, 'c2' => 0, 'c3' => 0];
+        $closeTerlama = null;
+        foreach ($tikets as $t) {
+            $tutup = $HT::waktuTutup($t);
+            if (!$tutup || !$tutup->between($rentang['awal'], $rentang['akhir'])) {
+                continue;
+            }
+            $lama = max(0, $tutup->timestamp - Carbon::parse($t->created_at)->timestamp);
+            $hitungClose['c' . substr($umurKey($lama), 1)]++;
+            if ($closeTerlama === null || $lama > $closeTerlama['detik']) {
+                $closeTerlama = ['detik' => $lama, 'nomor' => $t->nomor_tiket];
+            }
+        }
+        $umur = [
+            ['k' => 'u0', 'label' => 'Kurang dari 1 hari', 'n' => $hitungUmur['u0'], 'warna' => '#059669'],
+            ['k' => 'u1', 'label' => '1 – 3 hari',         'n' => $hitungUmur['u1'], 'warna' => '#d97706'],
+            ['k' => 'u2', 'label' => "3 – {$batasHari} hari", 'n' => $hitungUmur['u2'], 'warna' => '#ea580c'],
+            ['k' => 'u3', 'label' => "Lebih dari {$batasHari} hari", 'n' => $hitungUmur['u3'], 'warna' => '#dc2626'],
+        ];
+        $umurClose = [
+            ['k' => 'c0', 'label' => 'Kurang dari 1 hari', 'n' => $hitungClose['c0'], 'warna' => '#059669'],
+            ['k' => 'c1', 'label' => '1 – 3 hari',         'n' => $hitungClose['c1'], 'warna' => '#d97706'],
+            ['k' => 'c2', 'label' => "3 – {$batasHari} hari", 'n' => $hitungClose['c2'], 'warna' => '#ea580c'],
+            ['k' => 'c3', 'label' => "Lebih dari {$batasHari} hari", 'n' => $hitungClose['c3'], 'warna' => '#dc2626'],
+        ];
+        $totalClose = array_sum($hitungClose);
+        if ($totalClose === 0) {
+            $insClose = 'Belum ada tiket yang ditutup pada periode ini.';
+        } elseif ($hitungClose['c3'] > 0) {
+            $insClose = "{$hitungClose['c3']} dari {$totalClose} tiket butuh lebih dari {$batasHari} hari sampai ditutup. Terlama: {$closeTerlama['nomor']} (" . $HT::formatDurasi($closeTerlama['detik']) . ').';
+        } else {
+            $insClose = "Semua {$totalClose} tiket ditutup dalam {$batasHari} hari atau kurang. Terlama: {$closeTerlama['nomor']} (" . $HT::formatDurasi($closeTerlama['detik']) . ').';
+        }
+        $totalBacklog = array_sum($hitungUmur);
+        if ($totalBacklog === 0) {
+            $insUmur = 'Tidak ada tiket yang menggantung. Semua tiket sudah ditutup.';
+        } elseif ($hitungUmur['u3'] > 0) {
+            $insUmur = "{$hitungUmur['u3']} dari {$totalBacklog} tiket sudah lebih dari {$batasHari} hari belum ditutup. Tertua: {$umurTertua['nomor']} (" . $HT::formatDurasi($umurTertua['detik']) . ').';
+        } else {
+            $insUmur = "Semua {$totalBacklog} tiket yang belum ditutup umurnya masih {$batasHari} hari atau kurang.";
+        }
+
         // ---- data rincian tiket (dipakai panel kanan saat batang grafik diklik; semua angka bisa ditelusuri ke tiketnya)
         $labelHasil = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
         $fmtTs = fn ($ts) => $ts ? \App\Support\help_s\HelpTimeline::wib($ts, 'd M H:i') : null;
-        $rincian = $tikets->map(function ($t) use ($HT, $sekarang, $rentang, $labelHasil, $fmtTs) {
+        $bangunRincian = function ($t) use ($HT, $sekarang, $rentang, $labelHasil, $fmtTs, $umurKey) {
             $j       = $HT::jejakAdmin($t, $sekarang);
             $selesaiO = $HT::waktuSelesai($t);
             $selesai = $selesaiO ? $selesaiO->timestamp : null;
@@ -385,14 +471,18 @@ class HelpProsesController extends Controller
 
             return [
                 'id'      => $t->id,
+                'kt'      => (int) $t->kategori_id,   // id kategori (grafik SLA per kategori)
+                'uc'      => ($tutupO = $HT::waktuTutup($t)) && $tutupO->between($rentang['awal'], $rentang['akhir'])
+                    ? 'c' . substr($umurKey(max(0, $tutupO->timestamp - Carbon::parse($t->created_at)->timestamp)), 1) : null,
+                'tutup'   => $fmtTs($tutupO ? $tutupO->timestamp : null),
+                'unit'    => $j['over'] === null && $selesai !== null,
+                'um'      => $t->status !== 'CLOSED' ? $umurKey(max(0, $sekarang->timestamp - Carbon::parse($t->created_at)->timestamp)) : null,
                 'n'       => $t->nomor_tiket,
                 'j'       => $t->judul,
                 'u'       => route('help.proses.show', $t),
                 'st'      => $t->status,
                 'bu'      => (int) $t->bisnis_unit_id,
                 'bn'      => optional($t->bisnisUnit)->nama_bisnis_unit ?: '-',
-                'kat'     => $kat ? (int) $kat->id : null,
-                'kn'      => $kat ? $kat->nama : '-',
                 'sla'     => $slaJam,
                 'dibuat'  => $fmtTs($j['laporan']),
                 'diambil' => $fmtTs($j['diambil']),
@@ -413,23 +503,62 @@ class HelpProsesController extends Controller
                     'd' => $HT::formatDurasi($s['akhir'] - $s['mulai']),
                 ], $j['segmen']),
             ];
-        })->values()->all();
+        };
+        // 'pr' = tiket termasuk perhitungan periode ini (dipakai tabel beban kerja admin agar angka dan daftar tiketnya sama)
+        $rincian  = $tikets->map(fn ($t) => $bangunRincian($t) + ['pr' => true])->values()->all();
+        $sudahAda = array_flip(array_column($rincian, 'id'));
+        foreach ($backlog as $t) {
+            if (!isset($sudahAda[$t->id])) {
+                $rincian[] = $bangunRincian($t) + ['pr' => false];   // tiket belum close di luar periode tetap bisa diklik dari grafik umur
+            }
+        }
 
         // ---- kesimpulan satu kalimat untuk tiap grafik
         $e1 = $eskalasiBU[0] ?? null;
         $insEsk = $e1 && $e1['eskalasi'] > 0
-            ? "{$e1['label']} paling sering meneruskan tiket ke GA Corp: {$e1['persen']}% ({$e1['eskalasi']} dari {$e1['tiket']} tiket)."
-            : 'Belum ada tiket yang diteruskan ke GA Corp pada periode ini.';
+            ? "{$e1['label']} paling sering meminta bantuan GA Corp: {$e1['persen']}% tiketnya dialihkan ({$e1['eskalasi']} dari {$e1['tiket']} tiket)."
+            : 'Belum ada tiket yang dialihkan ke GA Corp pada periode ini.';
+
+        $u1 = $selesaiUnitBU[0] ?? null;
+        $insUnit = $u1 && $u1['selesai_unit'] > 0
+            ? "{$u1['label']} paling banyak menyelesaikan tiketnya sendiri: {$u1['persen_unit']}% ({$u1['selesai_unit']} dari {$u1['tiket']} tiket selesai tanpa bantuan GA Corp)."
+            : 'Belum ada tiket yang selesai di unit sendiri pada periode ini.';
 
         $buruk = collect($slaKategori)->where('total', '>=', 3)->sortBy('persen')->first();
         $insSla = $buruk && $buruk['persen'] < 100
             ? "{$buruk['nama']} paling sering melewati SLA: hanya {$buruk['persen']}% tepat waktu ({$buruk['dalam']} dari {$buruk['total']} tiket)."
             : ($slaKategori ? 'Semua kategori selesai tepat waktu pada periode ini.' : null);
 
-        $a1 = $admin[0] ?? null;
-        $insAdmin = $a1 && $semua['tiket'] > 0
-            ? "{$a1['nama']} paling banyak menangani tiket: {$a1['total']} tiket (" . (int) round($a1['total'] / $semua['tiket'] * 100) . '% dari seluruh tiket yang diambil).'
-            : null;
+        // ---- KPI arus tiket pada periode: masuk (diajukan) dan selesai (Done/Closed)
+        $awalTs      = $rentang['awal']->timestamp;
+        $akhirTs     = $rentang['akhir']->timestamp;
+        $trenMasuk   = 0;
+        $trenSelesai = 0;
+        foreach ($tikets as $t) {
+            $dibuatTs = Carbon::parse($t->created_at)->timestamp;
+            if ($dibuatTs >= $awalTs && $dibuatTs <= $akhirTs) {
+                $trenMasuk++;
+            }
+            $sel = $HT::waktuSelesai($t);
+            if ($sel && $sel->timestamp >= $awalTs && $sel->timestamp <= $akhirTs) {
+                $trenSelesai++;
+            }
+        }
+
+        // ---- KPI tambahan: kondisi tiket saat ini (tidak tergantung periode, mengikuti filter BU/pencarian)
+        $belumClose = (clone $base)->where('status', '!=', 'CLOSED')->count();
+        $lewatBatas = (clone $base)->where('status', '!=', 'CLOSED')
+            ->where('created_at', '<', $sekarang->copy()->subDays($HT::BATAS_HARI))->count();
+        $kpiTambah = [
+            'masuk'      => $trenMasuk,
+            'selesai'    => $trenSelesai,
+            'belum_close' => $belumClose,
+            'lewat'      => $lewatBatas,
+            'batas'      => $HT::BATAS_HARI,
+        ];
+
+        // ---- beban kerja per admin (dari rekapAdmin): sudah urut dari tiket terbanyak
+        $adminRekap = $semua['admin'];
 
         $ringkasan = [
             'tiket'      => $tikets->count(),
@@ -445,8 +574,9 @@ class HelpProsesController extends Controller
         return view('help_p.grafik.index', compact(
             'rentang', 'tahun', 'bulan', 'daftarTahun',
             'bisnisUnits', 'bisnisUnitId', 'bisnisUnitTerkunci', 'search',
-            'grafikBU', 'eskalasiBU', 'admin', 'adminLain', 'slaKategori', 'ringkasan', 'terpotong',
-            'rincian', 'insEsk', 'insSla', 'insAdmin'
+            'grafikBU', 'eskalasiBU', 'selesaiUnitBU', 'insUnit', 'slaKategori', 'ringkasan', 'terpotong',
+            'rincian', 'insEsk', 'kpiTambah', 'umur', 'insUmur', 'umurClose', 'insClose',
+            'insSla', 'adminRekap'
         ));
     }
 
@@ -531,7 +661,10 @@ class HelpProsesController extends Controller
                       $q->where('am.ga_help_proses', 1)
                         ->orWhere('am.ga_help_full_akses', 1);
                   });
-        })->with('user')->get();
+        })->with(['user.accessMenu', 'user.pelanggan'])->get()
+          // hanya petugas yang berhak atas BU tiket ini
+          ->filter(fn ($p) => $p->user && $p->user->canAccessTicket($tiket))
+          ->values();
 
         return view('help_p.proses.show', compact('tiket', 'isAssigned', 'lampiran', 'assignableUsers'));
     }
@@ -545,6 +678,10 @@ class HelpProsesController extends Controller
 
         if (!$user->pelanggan) {
             return redirect()->back()->with('error', 'Data pelanggan belum terhubung.');
+        }
+
+        if (!$user->isGaHelpAdmin()) {
+            return redirect()->back()->with('error', 'Hanya petugas GA Help yang dapat mengambil tiket.');
         }
 
         $tiket = HelpTiket::findOrFail($id);
@@ -665,7 +802,7 @@ class HelpProsesController extends Controller
                 ->with('error', 'Data pelanggan belum terhubung.');
         }
 
-        $query = HelpTiket::with([
+        $query = $this->aksesQuery($user)->with([
             'pelapor.user',
             'kategori',
             'bisnisUnit',
@@ -707,7 +844,7 @@ class HelpProsesController extends Controller
         }
 
         if ($request->has('ignore_filters') && $request->ignore_filters == '1') {
-            $query = HelpTiket::with([
+            $query = $this->aksesQuery($user)->with([
                 'pelapor.user',
                 'kategori',
                 'bisnisUnit',

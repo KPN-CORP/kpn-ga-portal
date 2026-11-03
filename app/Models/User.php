@@ -103,6 +103,35 @@ class User extends Authenticatable
         
         return false;
     }
+        // Petugas GA Help: admin, pemroses tiket, atau full akses
+    public function isGaHelpAdmin(): bool
+    {
+        if ($this->username === 'admin') {
+            return true;
+        }
+        $m = $this->accessMenu;
+        return $m && ($m->ga_help_admin == 1 || $m->ga_help_proses == 1 || $m->ga_help_full_akses == 1);
+    }
+
+    // Cek apakah user bisa mengakses tiket tertentu
+    public function canAccessTicket($tiket)
+    {
+        $pelId = optional($this->pelanggan)->id_pelanggan;
+
+        // pelapor atau PIC tiket
+        if ($pelId && ($tiket->pelapor_id == $pelId || $tiket->ditugaskan_ke == $pelId)) {
+            return true;
+        }
+        // selebihnya hanya petugas GA Help
+        if (!$this->isGaHelpAdmin()) {
+            return false;
+        }
+        if ($this->hasFullGaHelpAccess()) {
+            return true;
+        }
+        return $tiket->bisnis_unit_id
+            && in_array($tiket->bisnis_unit_id, $this->getAccessibleBusinessUnits());
+    }
     
     // Cek apakah user adalah admin mess (bisa ditambahkan sendiri)
     public function isMessAdmin()
@@ -130,30 +159,7 @@ class User extends Authenticatable
         
         return [];
     }
-    
-    // Cek apakah user bisa mengakses tiket tertentu
-    public function canAccessTicket($tiket)
-    {
-        // Full access bisa akses semua
-        if ($this->hasFullGaHelpAccess()) {
-            return true;
-        }
-        
-        // Cek berdasarkan bisnis unit
-        $accessibleUnits = $this->getAccessibleBusinessUnits();
-        
-        // Jika tiket memiliki bisnis_unit_id dan ada dalam daftar akses
-        if ($tiket->bisnis_unit_id && in_array($tiket->bisnis_unit_id, $accessibleUnits)) {
-            return true;
-        }
-        
-        // Jika user adalah penanggung jawab tiket
-        if ($this->pelanggan && $tiket->ditugaskan_ke == $this->pelanggan->id_pelanggan) {
-            return true;
-        }
-        
-        return false;
-    }
+
     
     // Method untuk mencari pelanggan berdasarkan employee_no atau username
     public function findMatchingPelanggan()

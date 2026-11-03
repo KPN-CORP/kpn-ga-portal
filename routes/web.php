@@ -221,30 +221,38 @@ Route::middleware(['auth'])->group(function () {
         });
 
         Route::prefix('proses')->name('proses.')->group(function () {
+            // Lampiran: dipakai juga oleh halaman pelapor (image-viewer). Otorisasi per tiket ada di controller.
             Route::prefix('lampiran')->name('lampiran.')->group(function () {
                 Route::get('/{lampiran}/preview', [HelpTiketApprovalController::class, 'previewLampiran'])->name('preview');
                 Route::get('/{lampiran}/download', [HelpTiketApprovalController::class, 'downloadLampiran'])->name('download');
             });
-            Route::get('/', [HelpProsesController::class, 'index'])
-                ->middleware('ga.help.admin')
-                ->name('index');
-            Route::get('/download', [HelpProsesController::class, 'download'])->name('download');
-            Route::get('/{id}', [HelpProsesController::class, 'show'])->name('show');
-            Route::post('/{id}/take', [HelpProsesController::class, 'take'])->name('take');
-            Route::post('/{tiket}/waiting', [HelpTiketApprovalController::class, 'waiting'])->name('waiting');
-            Route::post('/{tiket}/resume', [HelpTiketApprovalController::class, 'resume'])->name('resume');
-            Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
-            Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
-            Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
-            Route::post('/{tiket}/vendor', [HelpTiketApprovalController::class, 'serahkanVendor'])->name('vendor.serahkan');
-            Route::post('/{tiket}/vendor/selesai', [HelpTiketApprovalController::class, 'selesaiVendor'])->name('vendor.selesai');
-            Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
-            Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
-            Route::post('/{tiket}/reassign', [HelpTiketApprovalController::class, 'reassign'])->name('reassign');
+
+            // Selain lampiran: khusus petugas GA Help
+            Route::middleware('ga.help.admin')->group(function () {
+                Route::get('/', [HelpProsesController::class, 'index'])->name('index');
+                Route::get('/download', [HelpProsesController::class, 'download'])->name('download');
+                Route::get('/{id}', [HelpProsesController::class, 'show'])->name('show');
+                Route::post('/{id}/take', [HelpProsesController::class, 'take'])->name('take');
+                Route::post('/{tiket}/waiting', [HelpTiketApprovalController::class, 'waiting'])->name('waiting');
+                Route::post('/{tiket}/resume', [HelpTiketApprovalController::class, 'resume'])->name('resume');
+                Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
+                Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
+                Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
+                Route::post('/{tiket}/vendor', [HelpTiketApprovalController::class, 'serahkanVendor'])->name('vendor.serahkan');
+                Route::post('/{tiket}/vendor/selesai', [HelpTiketApprovalController::class, 'selesaiVendor'])->name('vendor.selesai');
+                Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
+                Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
+                Route::post('/{tiket}/reassign', [HelpTiketApprovalController::class, 'reassign'])->name('reassign');
+            });
         });
-        Route::get('/timeline',      [HelpProsesController::class, 'timeline'])->name('timeline');
-        Route::get('/grafik',        [HelpProsesController::class, 'grafik'])->name('grafik');
-        Route::get('/grafik/daftar', [HelpProsesController::class, 'grafikDaftar'])->name('grafik.daftar');
+
+        // Timeline & Grafik: khusus petugas GA Help
+        Route::middleware('ga.help.admin')->group(function () {
+            Route::get('/timeline',      [HelpProsesController::class, 'timeline'])->name('timeline');
+            Route::get('/grafik',        [HelpProsesController::class, 'grafik'])->name('grafik');
+            Route::get('/grafik/daftar', [HelpProsesController::class, 'grafikDaftar'])->name('grafik.daftar');
+        });
+
         Route::get('/log-sistem', [HelpTiketController::class, 'logSistem'])
             ->name('log-sistem')
             ->middleware('ga_admin');

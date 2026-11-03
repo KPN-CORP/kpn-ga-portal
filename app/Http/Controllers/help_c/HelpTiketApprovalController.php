@@ -99,6 +99,10 @@ class HelpTiketApprovalController extends Controller
         if (!$user->pelanggan) {
             abort(403, 'Data pelanggan belum terhubung.');
         }
+
+        if (!$user->canAccessTicket($tiket)) {
+            abort(403, 'Anda tidak memiliki akses ke tiket ini.');
+        }
         
         if ($tiket->status === self::STATUS_TIKET['CLOSED']) {
             return back()->with('error', 'Tiket yang sudah ditutup tidak dapat dikomentari.');
@@ -950,6 +954,8 @@ class HelpTiketApprovalController extends Controller
         if (!$user) {
             abort(403, 'Unauthorized');
         }
+
+        $this->otorisasiLampiran($lampiran);
         
         // Cek apakah file gambar
         if (!str_contains($lampiran->tipe_file, 'image')) {
@@ -987,6 +993,8 @@ class HelpTiketApprovalController extends Controller
         if (!$user) {
             abort(403, 'Unauthorized');
         }
+
+        $this->otorisasiLampiran($lampiran);
         
         // Cari file
         $path = $this->cariPathFile($lampiran);
@@ -1295,79 +1303,96 @@ class HelpTiketApprovalController extends Controller
     public function reassign(Request $request, HelpTiket $tiket)
     {
         $user = Auth::user();
-        
+
         // 1. Otorisasi: hanya user dengan ga_help_full_akses
         if (!$user->hasFullGaHelpAccess()) {
             abort(403, 'Anda tidak memiliki izin untuk mengalihkan tiket.');
         }
-        
-        // 2. Validasi input
+        if (!$user->pelanggan) {
+            abort(403, 'Data pelanggan belum terhubung.');
+        }
+
+        // 2. Hanya tiket yang masih berjalan yang boleh dialihkan
+        if (!in_array($tiket->status, ['OPEN', 'ON_PROCESS', 'WAITING', 'HELP_GA_CORP'], true)) {
+            return back()->with('error', 'Tiket berstatus ' . $tiket->status . ' tidak dapat dialihkan.');
+        }
+
+        // 3. Validasi input
         $validated = $request->validate([
             'target_pelanggan_id' => 'required|exists:tb_pelanggan,id_pelanggan',
-            'alasan'             => 'required|string|min:5|max:500',
+            'alasan'              => 'required|string|min:5|max:500',
         ]);
-        
-        $targetPelanggan = Pelanggan::find($validated['target_pelanggan_id']);
-        
-        // 3. Pastikan target adalah petugas GA yang valid
-        //    (mempunyai akses ga_help_proses atau ga_help_full_akses)
-        $isValidStaff = $targetPelanggan->user && 
-                        $targetPelanggan->user->accessMenu && 
-                        ($targetPelanggan->user->accessMenu->ga_help_proses || 
-                        $targetPelanggan->user->accessMenu->ga_help_full_akses);
-        
+
+        $targetPelanggan = Pelanggan::with('user.accessMenu')->find($validated['target_pelanggan_id']);
+
+        // 4. Target harus petugas GA yang valid (ga_help_proses / ga_help_full_akses)
+        $isValidStaff = $targetPelanggan->user &&
+                        $targetPelanggan->user->accessMenu &&
+                        ($targetPelanggan->user->accessMenu->ga_help_proses ||
+                         $targetPelanggan->user->accessMenu->ga_help_full_akses);
+
         if (!$isValidStaff) {
             return back()->with('error', 'User yang dipilih bukan petugas GA yang valid.');
         }
-        
-        // 4. Jangan biarkan mengalihkan ke dirinya sendiri
+
+        // 5. Target harus berhak atas Business Unit tiket ini
+        if (!$targetPelanggan->user->canAccessTicket($tiket)) {
+            return back()->with('error', 'Petugas yang dipilih tidak menangani Business Unit tiket ini.');
+        }
+
+        // 6. Bukan diri sendiri, dan bukan petugas yang sudah memegang tiket
         if ($targetPelanggan->id_pelanggan == $user->pelanggan->id_pelanggan) {
             return back()->with('error', 'Tidak dapat mengalihkan ke diri sendiri.');
         }
-        
+        if ($tiket->ditugaskan_ke == $targetPelanggan->id_pelanggan) {
+            return back()->with('error', 'Tiket sudah dipegang petugas tersebut.');
+        }
+
         try {
             DB::beginTransaction();
-            
-            $oldPIC = $tiket->ditugaskanKe ? 
-                ($tiket->ditugaskanKe->user->name ?? $tiket->ditugaskanKe->nama_pelanggan) : 
-                'Belum ditugaskan';
-            $newPIC = $targetPelanggan->user->name ?? $targetPelanggan->nama_pelanggan;
-            
-            // 5. Update tiket
+
+            // Nama dicatat sebagai nama_pelanggan, sama dengan nama di grafik (grafik mengelompokkan admin menurut nama)
+            $oldPIC = optional($tiket->ditugaskanKe)->nama_pelanggan ?: 'Belum ditugaskan';
+            $newPIC = $targetPelanggan->nama_pelanggan ?: ($targetPelanggan->user->name ?? 'Petugas GA');
+
+            $statusLama = $tiket->status;
+            // Tiket yang belum dipegang siapa pun (OPEN / HELP_GA_CORP) langsung menjadi ON_PROCESS
+            $statusBaru = in_array($statusLama, ['OPEN', 'HELP_GA_CORP'], true)
+                ? self::STATUS_TIKET['ON_PROCESS']
+                : $statusLama;
+
             $tiket->ditugaskan_ke = $targetPelanggan->id_pelanggan;
-            // Jika status masih OPEN, ubah menjadi ON_PROCESS (opsional)
-            if ($tiket->status === self::STATUS_TIKET['OPEN']) {
-                $tiket->status = self::STATUS_TIKET['ON_PROCESS'];
+            if ($statusBaru !== $statusLama) {
+                $tiket->status        = $statusBaru;
                 $tiket->diproses_pada = now();
             }
             $tiket->save();
-            
-            // 6. Catat log status (status lama & baru sama, karena hanya ganti PIC)
+
+            // Log: dikenali HelpTimeline dari awalan catatan (HelpLogStatus::PREFIX_ALIH)
             HelpLogStatus::create([
                 'tiket_id'    => $tiket->id,
                 'pengguna_id' => $user->pelanggan->id_pelanggan,
-                'status_lama' => $tiket->status, // status saat ini (sudah diupdate)
-                'status_baru' => $tiket->status,
-                'catatan'     => "Pengalihan penanggung jawab dari {$oldPIC} ke {$newPIC}. Alasan: " . $validated['alasan'],
+                'status_lama' => $statusLama,
+                'status_baru' => $statusBaru,
+                'catatan'     => HelpLogStatus::PREFIX_ALIH . " dari {$oldPIC} ke {$newPIC}. Alasan: " . $validated['alasan'],
             ]);
-            
-            // 7. Tambahkan komentar sistem
+
             HelpKomentar::create([
-                'tiket_id'        => $tiket->id,
-                'pengguna_id'     => $user->pelanggan->id_pelanggan,
-                'komentar'        => "🔄 **Penanggung jawab dialihkan**\n\n" .
-                                    "Dari: **{$oldPIC}**\n" .
-                                    "Ke: **{$newPIC}**\n\n" .
-                                    "**Alasan:** {$validated['alasan']}",
-                'pesan_sistem'    => true,
+                'tiket_id'          => $tiket->id,
+                'pengguna_id'       => $user->pelanggan->id_pelanggan,
+                'komentar'          => "🔄 **Penanggung jawab dialihkan**\n\n" .
+                                       "Dari: **{$oldPIC}**\n" .
+                                       "Ke: **{$newPIC}**\n\n" .
+                                       "**Alasan:** {$validated['alasan']}",
+                'pesan_sistem'      => true,
                 'tipe_pesan_sistem' => 'REASSIGNED',
             ]);
-            
+
             DB::commit();
-            
+
             return redirect()->route('help.proses.show', $tiket->id)
                 ->with('success', "✅ Tiket berhasil dialihkan ke {$newPIC}.");
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Gagal reassign tiket', [

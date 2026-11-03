@@ -6,7 +6,7 @@
 @section('content')
 @php
     $namaBulan = [1=>'Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    $periode   = ($bulan ? $namaBulan[$bulan] . ' ' : 'Tahun ') . $tahun;
+    $periode   = \App\Support\help_s\HelpTimeline::labelPeriode($rentang);
 @endphp
 
 <div class="space-y-6 text-sm text-gray-800 font-sans">
@@ -19,7 +19,7 @@
     @include('help_p.partials.grafik-filter', ['aksi' => 'help.timeline', 'tampilStatus' => true])
 
     {{-- RINGKASAN --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white border border-gray-200 rounded-xl p-4">
             <p class="text-xs text-gray-500">Open</p>
             <p class="text-2xl font-semibold text-blue-600 mt-1">{{ $ringkasan['open'] }}</p>
@@ -36,16 +36,6 @@
             <p class="text-xs text-gray-400 mt-1">
                 {{ $ringkasan['persen_ok'] !== null ? $ringkasan['persen_ok'] . '% selesai ≤ 7 hari' : 'belum ada data' }}
             </p>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-4">
-            <p class="text-xs text-gray-500">Rata-rata menunggu diambil</p>
-            <p class="text-2xl font-semibold text-gray-800 mt-1">{{ $ringkasan['menunggu_detik'] !== null ? \App\Support\help_s\HelpTimeline::formatDurasi($ringkasan['menunggu_detik']) : '-' }}</p>
-            <p class="text-xs text-gray-400 mt-1">{{ $ringkasan['belum_diambil'] }} tiket belum diambil</p>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-4">
-            <p class="text-xs text-gray-500">Rata-rata lama done</p>
-            <p class="text-2xl font-semibold text-gray-800 mt-1">{{ $ringkasan['rata_detik'] !== null ? \App\Support\help_s\HelpTimeline::formatDurasi($ringkasan['rata_detik']) : '-' }}</p>
-            <p class="text-xs text-gray-400 mt-1">sejak OPEN sampai DONE (pengerjaan selesai)</p>
         </div>
     </div>
 

@@ -2,6 +2,7 @@
 
 namespace App\Support\help_s;
 
+use App\Models\help_m\HelpLogStatus;
 use App\Models\help_m\HelpTiket;
 use Carbon\Carbon;
 
@@ -228,6 +229,95 @@ class HelpTimeline
         ];
     }
 
+    /**
+     * Rentang TAMPIL untuk satu bulan penuh: bulan sebelumnya + bulan ini + bulan berikutnya (kolom per hari),
+     * supaya grafik bisa digeser kiri-kanan. Bulan terpilih diberi tanda 'aktif'; bulan tetangga abu-abu.
+     * Hanya untuk tampilan: angka ringkasan tetap memakai rentang bulan terpilih.
+     *
+     * Tambahan di hasil: 'grup' (header bulan: label, jumlah kolom, aktif), 'idxAwal' (indeks kolom tgl 1 bulan terpilih),
+     * 'lebarKolom' (px per hari), 'lebarKiri' (px kolom judul).
+     */
+    public static function rentangTampil(array $terpilih): array
+    {
+        $a0  = $terpilih['awal']->copy()->startOfMonth();
+        $awal  = $a0->copy()->subMonthNoOverflow()->startOfMonth();
+        $akhir = $a0->copy()->addMonthNoOverflow()->endOfMonth();
+        $now   = now();
+
+        $kolom = [];
+        $grup  = [];
+        $idxAwal = 0;
+        $i = 0;
+        for ($d = $awal->copy(); $d->lte($akhir); $d->addDay(), $i++) {
+            $l     = $d->copy()->locale('id');
+            $aktif = $d->isSameMonth($a0);
+            if ($aktif && $d->day === 1) {
+                $idxAwal = $i;
+            }
+            $kolom[] = [
+                'label' => $l->format('j'),
+                'sub'   => '',
+                'hari'  => 1,
+                'ini'   => $d->isSameDay($now),
+                'libur' => $d->isWeekend(),
+                'aktif' => $aktif,
+                'title' => $l->isoFormat('dddd, D MMMM Y'),
+            ];
+
+            $kunci = $d->format('Y-m');
+            if (!$grup || $grup[count($grup) - 1]['kunci'] !== $kunci) {
+                $grup[] = ['kunci' => $kunci, 'label' => $l->isoFormat('MMMM Y'), 'span' => 0, 'aktif' => $aktif];
+            }
+            $grup[count($grup) - 1]['span']++;
+        }
+
+        $lebarKolom = 30;
+        $lebarKiri  = 340;
+
+        return [
+            'awal'       => $awal,
+            'akhir'      => $akhir,
+            'jenis'      => 'hari',
+            'kolom'      => $kolom,
+            'grup'       => $grup,
+            'idxAwal'    => $idxAwal,
+            'lebarKolom' => $lebarKolom,
+            'lebarKiri'  => $lebarKiri,
+            'minWidth'   => $lebarKiri + count($kolom) * $lebarKolom,
+            'sekarang'   => ($now->between($awal, $akhir))
+                ? round(($now->timestamp - $awal->timestamp) / max(1, $akhir->timestamp + 1 - $awal->timestamp) * 100, 3)
+                : null,
+        ];
+    }
+
+    /**
+     * Teks periode untuk judul: "Oktober 2026" (1 bulan penuh), "Tahun 2026" (1 tahun penuh),
+     * atau "5 – 20 Okt 2026" / "28 Sep – 5 Okt 2026" / "1 Des 2025 – 5 Jan 2026" untuk rentang bebas.
+     */
+    public static function labelPeriode(array $r): string
+    {
+        $a = $r['awal']->copy()->locale('id');
+        $b = $r['akhir']->copy()->locale('id');
+
+        if ($a->day === 1 && $a->isSameMonth($b) && $b->isSameDay($a->copy()->endOfMonth())) {
+            return $a->isoFormat('MMMM Y');
+        }
+        if ($a->month === 1 && $a->day === 1 && $b->month === 12 && $b->day === 31 && $a->year === $b->year) {
+            return 'Tahun ' . $a->year;
+        }
+        if ($a->isSameDay($b)) {
+            return $a->isoFormat('D MMM Y');
+        }
+        if ($a->year === $b->year && $a->month === $b->month) {
+            return $a->day . ' – ' . $b->isoFormat('D MMM Y');
+        }
+        if ($a->year === $b->year) {
+            return $a->isoFormat('D MMM') . ' – ' . $b->isoFormat('D MMM Y');
+        }
+
+        return $a->isoFormat('D MMM Y') . ' – ' . $b->isoFormat('D MMM Y');
+    }
+
     public static function rentangBulan(int $tahun, int $bulan): array
     {
         $a = Carbon::create($tahun, $bulan, 1)->startOfMonth();
@@ -380,6 +470,7 @@ class HelpTimeline
      *   ajuan  : Pengajuan (menunggu diambil)
      *   proses : satu baris PER ADMIN yang mengerjakan (admin pertama paling bawah, berikutnya di atasnya)
      *   over   : tiket di-over ke GA Corp, menunggu diambil
+     *   alih   : penanda pengalihan penanggung jawab (dari -> ke, oleh siapa, alasan)
      *
      * Tiap baris membawa jam mulai & akhir asli ('a','b'), jadi posisi dan panjang batangnya sesuai jam/tanggal.
      * Batas antar-admin = saat diambil, di-over ke GA Corp, atau pengalihan PIC (lihat jejakAdmin).
@@ -464,6 +555,41 @@ class HelpTimeline
             }
         }
 
+        // 3) baris khusus pengalihan penanggung jawab (alih tugas)
+        foreach ($j['alih'] as $p) {
+            if ($p['ts'] < $a || $p['ts'] > $b) {
+                continue;
+            }
+
+            // Lama dipegang: dari saat dialihkan sampai admin tujuan benar-benar mengambil
+            // (baris 'proses' pertama atas nama admin tujuan). Bila belum diambil: sampai akhir tiket / sekarang.
+            $diambil = null;
+            foreach ($baris as $x) {
+                if ($x['jenis'] === 'proses' && $x['nama'] === $p['ke'] && $x['b'] >= $p['ts']) {
+                    $diambil = max($x['a'], $p['ts']);
+                    break;
+                }
+            }
+            $sampai = $diambil ?? $b;
+
+            $baris[] = [
+                'jenis'   => 'alih',
+                'nama'    => $p['dari'],
+                'ke'      => $p['ke'],
+                'oleh'    => $p['oleh'],
+                'alasan'  => $p['alasan'],
+                'a'       => $p['ts'],
+                'b'       => $p['ts'],
+                'detik'   => 0,
+                'bagian'  => [],
+                'pegang'  => max(0, $sampai - $p['ts']),   // detik dipegang admin tujuan
+                'sampai'  => $sampai,                       // jam diambil (atau akhir tiket / sekarang)
+                'diambil' => $diambil !== null,             // false = belum sempat diambil
+            ];
+        }
+        // urut kronologis; pada waktu yang sama, penanda alih didahulukan
+        usort($baris, fn ($x, $y) => [$x['a'], $x['jenis'] === 'alih' ? 0 : 1] <=> [$y['a'], $y['jenis'] === 'alih' ? 0 : 1]);
+
         return $baris;
     }
 
@@ -492,12 +618,13 @@ class HelpTimeline
     /**
      * Jejak penanganan tiket per admin, dari log status:
      * Laporan (dibuat) -> Diambil -> Eskalasi (minta bantuan GA Corp) -> Done.
-     * Pengalihan PIC ke admin lain dicatat terpisah sebagai 'Dialihkan' (ALIH).
+     * Pengalihan PIC ke admin lain dicatat terpisah sebagai 'Dialihkan' (ALIH), dikenali dari awalan
+     * catatan HelpLogStatus::PREFIX_ALIH (bisa terjadi dari status OPEN, HELP_GA_CORP, ON_PROCESS, WAITING).
      *
      * Tiap "segmen" = satu admin memegang tiket, dari diambil sampai over / done / sekarang.
      * Admin dikelompokkan menurut NAMA (pengalihan PIC hanya mencatat nama di catatan log).
      *
-     * @return array{laporan:int, diambil:?int, over:?int, done:?int, segmen:array<int,array{admin:string,mulai:int,akhir:int,tunggu:?int,hasil:string,corp:bool}>}
+     * @return array{laporan:int, diambil:?int, over:?int, done:?int, segmen:array<int,array{admin:string,mulai:int,akhir:int,tunggu:?int,hasil:string,corp:bool}>, alih:array<int,array{ts:int,dari:?string,ke:string,alasan:string,oleh:mixed}>}
      */
     public static function jejakAdmin(HelpTiket $tiket, ?Carbon $sekarang = null): array
     {
@@ -511,6 +638,7 @@ class HelpTimeline
 
         $nama   = fn ($log) => optional($log->pengguna)->nama_pelanggan ?: 'Tidak diketahui';
         $segmen = [];
+        $pengalihan = [];        // daftar kejadian pengalihan PIC (untuk baris khusus di Gantt)
         $cur    = null;          // segmen yang sedang berjalan
         $tungguDari = $laporan;  // sejak kapan tiket menunggu diambil
         $sudahOver  = false;     // sudah minta bantuan GA Corp: pengerjaan berikutnya = dikerjakan Corp
@@ -532,18 +660,30 @@ class HelpTimeline
             $baru = $log->status_baru;
             $cat  = (string) $log->catatan;
 
-            if ($baru === 'HELP_GA_CORP' && $lama !== 'HELP_GA_CORP') {
+            if (str_starts_with($cat, HelpLogStatus::PREFIX_ALIH)) {
+                // DIALIHKAN ke admin lain (dari OPEN / HELP_GA_CORP / ON_PROCESS / WAITING)
+                $ok        = preg_match('/dari (.+?) ke (.+?)\. Alasan:\s*(.*)$/su', $cat, $m);
+                $adminBaru = $ok ? trim($m[2]) : $nama($log);
+
+                $pengalihan[] = [
+                    'ts'     => $ts,
+                    'dari'   => $ok ? trim($m[1]) : null,
+                    'ke'     => $adminBaru,
+                    'alasan' => $ok ? trim($m[3]) : '',
+                    'oleh'   => $log->pengguna_id,
+                ];
+
+                // belum ada yang memegang tiket -> pengalihan ini = pengambilan pertama
+                $tungguBaru = $cur ? null : max(0, $ts - $tungguDari);
+                $cur = $tutup($cur, $ts, 'ALIH');
+                $cur = ['admin' => $adminBaru, 'mulai' => $ts, 'tunggu' => $tungguBaru, 'corp' => $sudahOver];
+                $diambilTs ??= $ts;
+            } elseif ($baru === 'HELP_GA_CORP' && $lama !== 'HELP_GA_CORP') {
                 // ESKALASI: minta bantuan GA Corp (kode internal: OVER)
                 $cur = $tutup($cur, $ts, 'OVER');
                 $tungguDari = $ts;
                 $sudahOver  = true;
                 $overTs   ??= $ts;
-            } elseif ($lama === $baru && str_starts_with($cat, 'Pengalihan penanggung jawab')) {
-                // DIALIHKAN ke admin lain (nama admin baru ada di catatan)
-                $cur = $tutup($cur, $ts, 'ALIH');
-                if (preg_match('/dari .+ ke (.+?)\. Alasan:/u', $cat, $m)) {
-                    $cur = ['admin' => trim($m[1]), 'mulai' => $ts, 'tunggu' => null, 'corp' => $sudahOver];
-                }
             } elseif ($baru === 'ON_PROCESS' && !$cur) {
                 // DIAMBIL
                 $cur = ['admin' => $nama($log), 'mulai' => $ts, 'tunggu' => max(0, $ts - $tungguDari), 'corp' => $sudahOver || self::pelangganCorp($log->pengguna)];
@@ -592,6 +732,7 @@ class HelpTimeline
             'over'    => $overTs,      // pertama kali minta bantuan GA Corp
             'done'    => $doneTs,
             'segmen'  => $segmen,
+            'alih'    => $pengalihan,  // kejadian pengalihan penanggung jawab
         ];
     }
 

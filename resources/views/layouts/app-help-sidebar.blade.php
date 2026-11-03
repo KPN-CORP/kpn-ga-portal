@@ -115,6 +115,17 @@
                     </a>
                 </li>
 
+                {{-- Menu untuk semua pengguna: tiket milik sendiri --}}
+                <li>
+                    <a href="{{ route('help.tiket.index') }}" title="Tiket Saya"
+                       class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('help.tiket.*') ? 'active' : '' }}">
+                        <i class="fas fa-ticket w-5 mr-3 text-gray-400"></i>
+                        <span>Tiket Saya</span>
+                    </a>
+                </li>
+
+                {{-- Menu khusus petugas GA Help (Proses, Timeline, Grafik) --}}
+                @if(auth()->user() && auth()->user()->isGaHelpAdmin())
                 <li>
                     <a href="{{ route('help.proses.index') }}" title="Proses Tiket"
                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('help.proses.*') ? 'active' : '' }}">
@@ -136,6 +147,8 @@
                         <span>Grafik</span>
                     </a>
                 </li>
+
+                @endif
 
                 {{-- Menu spesifik modul (disisipkan dari child layout) --}}
                 @yield('sidebar_navigation')

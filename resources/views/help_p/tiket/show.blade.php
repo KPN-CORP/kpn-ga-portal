@@ -123,9 +123,6 @@
                 </div>
             </div>
             
-            <!-- Grafik Proses 7 Hari / Vendor -->
-            @include('help_p.partials.grafik-proses', ['tiket' => $tiket])
-
             <!-- Diskusi Tiket -->
             @include('help_p.partials.diskusi', [
                 'tiket' => $tiket,
@@ -212,23 +209,30 @@
                     <i class="fas fa-history text-gray-500 mr-2"></i> Timeline Status
                 </h3>
                 <div class="space-y-3">
-                    @forelse($tiket->logStatus as $log)
+                    @php
+                        // Terbaru di atas: Closed paling atas, Pengajuan paling bawah
+                        $logUrut = $tiket->logStatus
+                            ->sort(fn ($a, $b) => [$b->created_at->timestamp, $b->id] <=> [$a->created_at->timestamp, $a->id])
+                            ->values();
+                    @endphp
+                    @forelse($logUrut as $log)
                     @php
                         $logUserName = $log->pengguna->user->name ?? $log->pengguna->nama ?? 'System';
+                        $isAlih = $log->is_pengalihan;
                     @endphp
                     <div class="relative pl-5 pb-3 last:pb-0">
                         @if(!$loop->last)
                             <div class="absolute left-2 top-3 bottom-0 w-0.5 bg-gray-200"></div>
                         @endif
                         
-                        <div class="absolute left-0 top-1 w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
-                            <i class="fas fa-circle text-blue-600 text-xs"></i>
+                        <div class="absolute left-0 top-1 w-4 h-4 rounded-full {{ $isAlih ? 'bg-purple-100' : 'bg-blue-100' }} flex items-center justify-center">
+                            <i class="fas fa-circle {{ $isAlih ? 'text-purple-600' : 'text-blue-600' }} text-xs"></i>
                         </div>
                         
                         <div>
                             <div class="flex justify-between items-start">
                                 <p class="font-medium text-gray-900 text-sm">
-                                    {{ $statusLabels[$log->status_baru] ?? $log->status_baru }}
+                                    {{ $isAlih ? 'Penanggung jawab dialihkan' : ($statusLabels[$log->status_baru] ?? $log->status_baru) }}
                                 </p>
                                 <span class="text-xs text-gray-500" title="{{ \App\Support\help_s\HelpTimeline::wib($log->created_at, 'd/m/Y H:i') }}">
                                     {{ $log->created_at->diffForHumans() }}
