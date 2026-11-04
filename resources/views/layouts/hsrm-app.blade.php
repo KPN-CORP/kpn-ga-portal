@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,9 +11,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
-
-    <!-- Bootstrap CSS (for modal) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -27,6 +24,7 @@
             --navy: 30 41 59;          /* slate-800 - panel dropdown */
             --navy-deep: 15 23 42;     /* slate-900 */
         }
+        [x-cloak] { display: none !important; }
         html { zoom: 0.8; }
         body { font-family: 'Inter', sans-serif; background-color: #f7f8fa; color: rgb(var(--ink)); }
 
@@ -180,13 +178,13 @@
                x-data="sidebarComponent({{ $openGroupInit ? "'{$openGroupInit}'" : 'null' }})">
 
             <!-- Logo -->
-            <div class="p-4 soft-border-bottom border-b flex items-center gap-2">
+            <div class="p-5 shrink-0 soft-border-bottom border-b flex items-center gap-2">
                 <div class="flex items-center space-x-3 min-w-0">
-                    <div class="brand-badge w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
-                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-5 h-5">
+                    <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6">
                     </div>
                     <div class="min-w-0">
-                        <h1 class="text-base font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight truncate">GA Portal</h1>
                         <p class="text-xs text-gray-500 tracking-wide">HSR Management</p>
                     </div>
                 </div>
@@ -194,7 +192,7 @@
 
             <!-- Navigation -->
             <nav class="flex-1 min-h-0 overflow-y-auto p-3">
-                <p class="mt-1 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
+                <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
                 <ul class="space-y-1">
                     <li>
                         <a href="{{ route('dashboard') }}" title="Dashboard GA"
@@ -377,7 +375,7 @@
                     <a href="{{ route('logout') }}"
                        onclick="event.preventDefault(); document.getElementById('logout-form-profile').submit();"
                        class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition">
-                        <i class="fas fa-sign-out-alt mr-3 text-gray-500"></i>Logout
+                        <i class="fas fa-sign-out-alt mr-3 text-gray-500"></i>Keluar
                     </a>
                     <form id="logout-form-profile" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
                 </div>
@@ -385,7 +383,7 @@
                 <button @click="openProfile = !openProfile" class="w-full flex items-center space-x-3 p-1 rounded-lg hover:bg-gray-50 transition">
                     <div class="avatar-ring w-10 h-10 rounded-full flex items-center justify-center shrink-0">
                         <span class="font-semibold text-blue-600 text-sm">
-                            {{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}
+                            {{ strtoupper(substr(auth()->user()->username ?? auth()->user()->name ?? 'AD', 0, 2)) }}
                         </span>
                     </div>
                     <div class="min-w-0 text-left flex-1">
@@ -426,30 +424,37 @@
                         {{ session('error') }}
                     </div>
                 @endif
+                @if(session('warning'))
+                    <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-4 rounded-lg">
+                        {{ session('warning') }}
+                    </div>
+                @endif
+                @if($errors->any())
+                    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
                 @yield('content')
             </main>
         </div>
     </div>
 
-    <!-- Modal File Viewer -->
-    <div class="modal fade" id="fileModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">View File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <div id="fileViewer" style="min-height:400px; display:flex; align-items:center; justify-content:center;">
-                        <p class="text-gray-500">Loading...</p>
-                    </div>
-                </div>
+    <!-- Modal File Viewer (tanpa Bootstrap) -->
+    <div id="fileModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/50 p-4"
+         onclick="if (event.target === this) closeFileModal()">
+        <div class="bg-white rounded-xl soft-shadow w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div class="flex items-center justify-between px-5 py-3 soft-border-bottom border-b">
+                <h5 class="font-semibold text-gray-800">View File</h5>
+                <button type="button" onclick="closeFileModal()" aria-label="Close"
+                        class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="fileViewer" class="flex items-center justify-center" style="min-height:400px;">
+                <p class="text-gray-500">Loading...</p>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('alpine:init', () => {
             window.sidebarComponent = function(initialGroup) {
@@ -496,21 +501,33 @@
             });
         });
 
+        function closeFileModal() {
+            const modal = document.getElementById('fileModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('fileViewer').innerHTML = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeFileModal();
+        });
+
         function viewFile(url, fileType = null) {
             const viewer = document.getElementById('fileViewer');
             let ext = fileType;
             if (!ext) {
-                ext = url.split('.').pop().toLowerCase();
+                ext = url.split('?')[0].split('.').pop().toLowerCase();
             }
             if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
-                viewer.innerHTML = `<img src="${url}" class="img-fluid" style="max-height:80vh; width:auto;">`;
+                viewer.innerHTML = `<img src="${url}" style="max-height:80vh; max-width:100%; width:auto;">`;
             } else if (ext === 'pdf') {
                 viewer.innerHTML = `<iframe src="${url}" width="100%" height="600px" style="border:none;"></iframe>`;
             } else {
-                viewer.innerHTML = `<a href="${url}" target="_blank" class="btn btn-primary">Download File</a>`;
+                viewer.innerHTML = `<a href="${url}" target="_blank" class="inline-block px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Download File</a>`;
             }
-            const modal = new bootstrap.Modal(document.getElementById('fileModal'));
-            modal.show();
+            const modal = document.getElementById('fileModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
         }
     </script>
 

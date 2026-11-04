@@ -46,7 +46,10 @@ class DetailController extends IDCardBaseController
         // tombol nonaktifkan/aktifkan di halaman detail (aturan sama dengan NonaktifController)
         $canToggleAktif = $canProses && $data->status === 'approved';
 
-        return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending', 'canToggleAktif'));
+        // Admin boleh edit lantai semua kartu yang sudah disetujui & masih aktif (belum lewat masa aktif)
+        $canEditLantai = $canProses && (RequestIdCard::find($id)?->can_edit_lantai ?? false);
+
+        return view('idcard.detail', compact('data', 'logs', 'canProses', 'isPending', 'canToggleAktif', 'canEditLantai'));
     }
 
     public function edit($id)
@@ -56,12 +59,15 @@ class DetailController extends IDCardBaseController
         }
 
         $data = RequestIdCard::findOrFail($id);
-        if ($data->status !== 'pending') {
-            return redirect()->route('idcard.detail', $id)->with('error', 'Request yang sudah diproses tidak dapat diedit.');
+        if ($data->status !== 'pending' && !$data->can_edit_lantai) {
+            return redirect()->route('idcard.detail', $id)->with('error', 'Hanya request pending atau kartu yang masih aktif yang dapat diedit.');
         }
 
+        // Kartu sudah disetujui selain visitor: hanya lantai yang boleh diubah
+        $lantaiSaja = $data->status !== 'pending' && $data->kategori !== 'visitor';
+
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
-        return view('idcard.edit', compact('data', 'bisnisUnits'));
+        return view('idcard.edit', compact('data', 'bisnisUnits', 'lantaiSaja'));
     }
 
     public function update(Request $req, $id)
@@ -71,21 +77,49 @@ class DetailController extends IDCardBaseController
         }
 
         $item = RequestIdCard::findOrFail($id);
-        if ($item->status !== 'pending') {
-            return back()->with('error', 'Request yang sudah diproses tidak dapat diedit.');
+        $editVisitorAktif = $item->status !== 'pending';
+        if ($editVisitorAktif && !$item->can_edit_lantai) {
+            return back()->with('error', 'Hanya request pending atau kartu yang masih aktif yang dapat diedit.');
         }
 
-        $kategori = $req->kategori;
+        // Kartu sudah disetujui selain visitor: hanya lantai (keterangan) yang diubah
+        if ($editVisitorAktif && $item->kategori !== 'visitor') {
+            $v = Validator::make($req->all(), ['keterangan' => 'required|string|max:255']);
+            if ($v->fails()) {
+                return back()->withErrors($v)->withInput();
+            }
+
+            $lama = $item->keterangan;
+            $item->keterangan = $req->keterangan;
+            $item->updated_at = now();
+            $item->save();
+
+            DB::table('request_idcard_logs')->insert([
+                'request_id' => $id,
+                'action' => 'updated',
+                'action_by' => Auth::id(),
+                'notes' => 'Lantai diubah oleh admin: "' . $lama . '" -> "' . $req->keterangan . '"',
+                'created_at' => now()
+            ]);
+
+            return redirect()->route('idcard.detail', $id)->with('success', 'Lantai berhasil diperbarui.');
+        }
+
+        // Visitor aktif (sudah disetujui): kategori terkunci
+        $kategori = $editVisitorAktif ? 'visitor' : $req->kategori;
 
         $validationRules = [
             'nik'      => 'required|string|max:50',
             'nama'     => 'required|string|max:100',
-            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,perubahan_lantai',
+            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,visitor',
             'bisnis_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'keterangan' => 'required|string|max:255'
         ];
 
-        if ($kategori !== 'magang_extend') {
+        if ($editVisitorAktif) {
+            // NIK visitor dibuat otomatis & tidak diubah saat edit
+            $validationRules['nik'] = 'required|string|max:50';
+        } elseif ($kategori !== 'magang_extend') {
             $validationRules['nik'] = [
                 'required',
                 'string',
@@ -107,9 +141,12 @@ class DetailController extends IDCardBaseController
             $validationRules['foto'] = 'nullable|image|mimes:jpg,jpeg,png|max:10240';
         }
 
-        if (in_array($kategori, ['magang', 'magang_extend'])) {
+        if (in_array($kategori, ['magang', 'magang_extend', 'visitor'])) {
             $validationRules['masa_berlaku'] = 'required|date';
-            $validationRules['sampai_tanggal'] = 'required|date|after:masa_berlaku';
+            // Visitor boleh kunjungan 1 hari (sampai = mulai), magang harus setelah tanggal mulai
+            $validationRules['sampai_tanggal'] = $kategori === 'visitor'
+                ? 'required|date|after_or_equal:masa_berlaku'
+                : 'required|date|after:masa_berlaku';
             if ($kategori === 'magang') {
                 $validationRules['nomor_kartu'] = [
                     'required',
@@ -125,8 +162,11 @@ class DetailController extends IDCardBaseController
                         }
                     }
                 ];
-            } else {
+            } elseif ($kategori === 'magang_extend') {
                 $validationRules['nomor_kartu'] = 'required|string|max:50';
+            } else {
+                // visitor: nomor kartu (kata/angka) diisi saat approve; wajib bila sudah disetujui
+                $validationRules['nomor_kartu'] = $editVisitorAktif ? 'required|string|max:50' : 'nullable|string|max:50';
             }
         }
 
@@ -134,7 +174,7 @@ class DetailController extends IDCardBaseController
             $validationRules['bukti_bayar'] = 'nullable|mimes:jpg,jpeg,png,pdf|max:10240';
         }
 
-        $validator = Validator::make($req->all(), $validationRules);
+        $validator = Validator::make($req->merge(['kategori' => $kategori])->all(), $validationRules);
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
         }
@@ -179,7 +219,7 @@ class DetailController extends IDCardBaseController
                 $item->tanggal_join = $req->tanggal_join;
             }
 
-            if (in_array($kategori, ['magang', 'magang_extend'])) {
+            if (in_array($kategori, ['magang', 'magang_extend', 'visitor'])) {
                 $item->masa_berlaku = $req->masa_berlaku;
                 $item->sampai_tanggal = $req->sampai_tanggal;
                 $item->nomor_kartu = $req->nomor_kartu;
@@ -196,7 +236,9 @@ class DetailController extends IDCardBaseController
                 'request_id' => $id,
                 'action' => 'updated',
                 'action_by' => Auth::id(),
-                'notes' => 'Request ID Card diedit oleh admin',
+                'notes' => $editVisitorAktif
+                    ? 'Data visitor aktif diedit oleh admin (lantai/masa aktif/nomor kartu)'
+                    : 'Request ID Card diedit oleh admin',
                 'created_at' => now()
             ]);
 

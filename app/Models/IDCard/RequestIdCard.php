@@ -20,8 +20,16 @@ class RequestIdCard extends Model
         'ganti_kartu'      => 'Ganti Kartu',
         'magang'           => 'Magang',
         'magang_extend'    => 'Magang Extend',
-        'perubahan_lantai' => 'Perubahan Lantai',
+        'visitor'          => 'Visitor',
     ];
+
+    // Kategori lama (data historis). Tidak muncul lagi di pilihan form/filter.
+    public const KATEGORI_LEGACY = [
+        'perubahan_lantai' => 'Perubahan Lantai (lama)',
+    ];
+
+    // Kategori yang punya masa aktif (Masa Berlaku s/d Sampai Tanggal) + nomor kartu
+    public const KATEGORI_PERIODE = ['magang', 'magang_extend', 'visitor'];
 
     public const STATUS_LABELS = [
         'pending'  => 'Menunggu',
@@ -30,7 +38,7 @@ class RequestIdCard extends Model
     ];
 
     // Kategori yang kartunya tidak punya masa berlaku (kartu tetap)
-    public const KATEGORI_TETAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'perubahan_lantai'];
+    public const KATEGORI_TETAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'perubahan_lantai'];  // perubahan_lantai = data lama
 
     protected $fillable = [
         'nik',
@@ -95,7 +103,7 @@ class RequestIdCard extends Model
 
     public function getKategoriTextAttribute()
     {
-        return self::KATEGORI_LABELS[$this->kategori] ?? $this->kategori;
+        return self::KATEGORI_LABELS[$this->kategori] ?? self::KATEGORI_LEGACY[$this->kategori] ?? $this->kategori;
     }
 
     /**
@@ -143,6 +151,19 @@ class RequestIdCard extends Model
             return ['state' => 'segera', 'label' => 'Habis ' . $days . ' hari', 'class' => 'bg-orange-100 text-orange-800', 'range' => $range, 'days' => $days];
         }
         return ['state' => 'aktif', 'label' => 'Aktif', 'class' => 'bg-green-100 text-green-800', 'range' => $range, 'days' => $days];
+    }
+
+    /**
+     * Visitor yang masih aktif: sudah disetujui, is_active = 1, dan belum lewat
+     * Sampai Tanggal (hari terakhir masih dihitung aktif).
+     */
+    public function getIsVisitorAktifAttribute(): bool
+    {
+        return $this->kategori === 'visitor'
+            && $this->status === 'approved'
+            && (bool) $this->is_active
+            && $this->sampai_tanggal
+            && !now()->startOfDay()->gt($this->sampai_tanggal->copy()->startOfDay());
     }
 
     public function getCanProcessAttribute()

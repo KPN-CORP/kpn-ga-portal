@@ -21,16 +21,19 @@ class ApprovalController extends IDCardBaseController
             return back()->with('error', 'Request sudah diproses.');
         }
 
-        // Validasi untuk magang/magang_extend
-        if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+        // Validasi untuk magang/magang_extend/visitor (nomor kartu diisi saat approve)
+        if (in_array($item->kategori, RequestIdCard::KATEGORI_PERIODE)) {
             $rules = [];
             if ($item->kategori === 'magang') {
                 $rules['nomor_kartu'] = 'required|string|max:50|unique:request_idcard,nomor_kartu,' . $id;
             } else {
+                // magang_extend & visitor: bebas kata atau angka (mis. "VISITOR 05" / "1234")
                 $rules['nomor_kartu'] = 'required|string|max:50';
             }
             if ($req->has('sampai_tanggal') && !empty($req->sampai_tanggal)) {
-                $rules['sampai_tanggal'] = 'date|after:masa_berlaku';
+                $rules['sampai_tanggal'] = $item->kategori === 'visitor'
+                    ? 'date|after_or_equal:' . optional($item->masa_berlaku)->format('Y-m-d')
+                    : 'date|after:masa_berlaku';
             }
             $validator = Validator::make($req->all(), $rules);
             if ($validator->fails()) {
@@ -40,7 +43,7 @@ class ApprovalController extends IDCardBaseController
 
         DB::beginTransaction();
         try {
-            if (in_array($item->kategori, ['magang', 'magang_extend'])) {
+            if (in_array($item->kategori, RequestIdCard::KATEGORI_PERIODE)) {
                 if ($req->has('nomor_kartu') && !empty($req->nomor_kartu)) {
                     $item->nomor_kartu = $req->nomor_kartu;
                 }

@@ -587,6 +587,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('request')
             ->middleware('check.idcard.access:request');
 
+        Route::get('/search-existing', [IDCardRequestController::class, 'searchExisting'])
+            ->name('search-existing')
+            ->middleware('check.idcard.access:request');
+
         Route::post('/', [IDCardRequestController::class, 'store'])
             ->name('store')
             ->middleware('check.idcard.access:request');
@@ -878,3 +882,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/upload', [ImageController::class, 'index'])->name('image.form');
     Route::post('/upload', [ImageController::class, 'upload'])->name('image.upload');
 });
+
+require __DIR__.'/budget_web.php';

@@ -422,7 +422,9 @@ class HsrmEquipmentController extends Controller
             }
         }
 
-        // Validasi kuota untuk tipe yang sudah ada (bukan custom)
+        // Kuota TIDAK lagi memblokir approve (konsisten dengan create/update).
+        // Jika melebihi kuota, tetap di-approve tapi tampilkan pesan peringatan.
+        $quotaWarning = null;
         if ($equipment->equipment_type_id) {
             $quota = HsrmEquipmentQuota::where('area_id', $equipment->area_id)
                         ->where('equipment_type_id', $equipment->equipment_type_id)
@@ -438,9 +440,8 @@ class HsrmEquipmentController extends Controller
 
                 $newTotal = $activeItems + ($equipment->total_items ?? 1);
                 if ($newTotal > $quota->quota) {
-                    return back()->withErrors([
-                        'error' => 'Kuota untuk tipe peralatan ini sudah penuh (maksimal '.$quota->quota.' item aktif, saat ini '.$activeItems.' aktif). Tidak bisa approve.'
-                    ]);
+                    $quotaWarning = 'Perhatian: jumlah item aktif untuk tipe ini menjadi ' . $newTotal
+                        . ' dan melebihi kuota (' . $quota->quota . ').';
                 }
             }
         }
@@ -468,7 +469,11 @@ class HsrmEquipmentController extends Controller
             'new_data' => $equipment->toArray(),
         ]);
 
-        return redirect()->back()->with('success', 'Equipment approved. Custom type has been added if any.');
+        $redirect = redirect()->back()->with('success', 'Equipment approved. Custom type has been added if any.');
+        if ($quotaWarning) {
+            $redirect->with('warning', $quotaWarning);
+        }
+        return $redirect;
     }
 
     public function revision($id)

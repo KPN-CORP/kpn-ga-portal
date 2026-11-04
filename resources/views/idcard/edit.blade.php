@@ -12,10 +12,28 @@
     <form action="{{ route('idcard.update', $data->id) }}" method="POST" enctype="multipart/form-data">
         @csrf @method('PUT')
 
+        @if(!empty($lantaiSaja))
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 rounded mb-4">
+                Kartu ini sudah disetujui. Hanya <strong>Lantai Kerja / Keterangan</strong> yang dapat diubah.
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-sm">
+                <div><p class="text-gray-500">Kategori</p><p class="font-medium">{{ $data->kategori_text }}</p></div>
+                <div><p class="text-gray-500">Nama</p><p class="font-medium uppercase">{{ $data->nama }}</p></div>
+                <div><p class="text-gray-500">NIK</p><p class="font-medium">{{ $data->nik ?? '-' }}</p></div>
+                <div><p class="text-gray-500">Bisnis Unit</p><p class="font-medium">{{ optional($bisnisUnits->firstWhere('id_bisnis_unit', $data->bisnis_unit_id))->nama_bisnis_unit ?? '-' }}</p></div>
+            </div>
+        @else
+        @php $kunciVisitor = $data->status !== 'pending'; @endphp
+        @if($kunciVisitor)
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 rounded mb-4">
+                Visitor ini masih aktif, sehingga Anda dapat mengubah lantai, masa aktif, dan nomor kartu. Kategori tidak dapat diubah.
+            </div>
+            <input type="hidden" name="kategori" value="visitor">
+        @endif
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
                 <label class="block text-sm font-medium mb-1">Kategori *</label>
-                <select name="kategori" id="kategori" class="w-full border p-2 rounded" required>
+                <select name="kategori" id="kategori" class="w-full border p-2 rounded" required {{ $kunciVisitor ? 'disabled' : '' }}>
                     <option value="">Pilih Kategori</option>
                     @foreach(\App\Models\IDCard\RequestIdCard::KATEGORI_LABELS as $value => $label)
                         <option value="{{ $value }}" {{ old('kategori', $data->kategori) === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -28,7 +46,7 @@
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">NIK *</label>
-                <input type="text" name="nik" value="{{ old('nik', $data->nik) }}" class="w-full border p-2 rounded" required>
+                <input type="text" name="nik" value="{{ old('nik', $data->nik) }}" class="w-full border p-2 rounded {{ $kunciVisitor ? 'bg-gray-100' : '' }}" {{ $kunciVisitor ? 'readonly' : '' }} required>
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Bisnis Unit *</label>
@@ -42,6 +60,7 @@
         </div>
 
         <div id="dynamicFields" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"></div>
+        @endif
 
         <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Lantai Kerja / Keterangan *</label>
@@ -92,28 +111,31 @@
             `;
         }
 
-        if (val === 'magang' || val === 'magang_extend') {
+        if (val === 'magang' || val === 'magang_extend' || val === 'visitor') {
             html += `
                 <div>
                     <label class="block text-sm font-medium mb-1">Masa Berlaku *</label>
-                    <input type="date" name="masa_berlaku" value="{{ old('masa_berlaku', $data->masa_berlaku) }}" class="w-full border p-2 rounded" required>
+                    <input type="date" name="masa_berlaku" value="{{ old('masa_berlaku', optional($data->masa_berlaku)->format('Y-m-d')) }}" class="w-full border p-2 rounded" required>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Sampai Tanggal *</label>
-                    <input type="date" name="sampai_tanggal" value="{{ old('sampai_tanggal', $data->sampai_tanggal) }}" class="w-full border p-2 rounded" required>
+                    <input type="date" name="sampai_tanggal" value="{{ old('sampai_tanggal', optional($data->sampai_tanggal)->format('Y-m-d')) }}" class="w-full border p-2 rounded" required>
                 </div>
+                ${(val === 'visitor' && {{ $data->status === 'pending' ? 'true' : 'false' }}) ? '' : `
                 <div>
                     <label class="block text-sm font-medium mb-1">Nomor Kartu *</label>
                     <input type="text" name="nomor_kartu" value="{{ old('nomor_kartu', $data->nomor_kartu) }}" class="w-full border p-2 rounded" required>
-                </div>
+                </div>`}
             `;
         }
 
         dynamicFields.innerHTML = html;
     }
 
-    kategoriSelect.addEventListener('change', renderFields);
-    renderFields();
+    if (kategoriSelect) {
+        kategoriSelect.addEventListener('change', renderFields);
+        renderFields();
+    }
 
     // cegah submit ganda
     const editForm = document.querySelector('form[method="POST"]');

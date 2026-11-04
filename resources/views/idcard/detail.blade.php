@@ -19,6 +19,7 @@
         'aktifkan_satu'    => ['Kartu diaktifkan',    'bg-green-100',  'text-green-600',  'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
     ];
     $isMagang = in_array($data->kategori, ['magang', 'magang_extend']);
+    $isPeriode = $isMagang || $data->kategori === 'visitor';
 @endphp
 <div class="bg-white shadow rounded-lg p-6">
     <h2 class="text-2xl font-semibold mb-4 text-left">Detail Request ID Card</h2>
@@ -94,7 +95,7 @@
                         @endif
                     </div>
                 @endif
-                @if($isMagang)
+                @if($isPeriode)
                     <div><p class="text-sm text-gray-500">Nomor Kartu</p><p class="font-medium font-mono">{{ $data->nomor_kartu ?? '-' }}</p></div>
                     <div><p class="text-sm text-gray-500">Masa Berlaku</p><p class="font-medium">{{ $fmt($data->masa_berlaku) }}</p></div>
                     <div><p class="text-sm text-gray-500">Sampai Tanggal</p><p class="font-medium">{{ $fmt($data->sampai_tanggal) }}</p></div>
@@ -137,11 +138,11 @@
             </div>
             <form action="{{ route('idcard.approve', $data->id) }}" method="POST" class="mb-6" id="approveForm">
                 @csrf
-                @if($isMagang)
+                @if($isPeriode)
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Kartu *</label>
-                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="Contoh: MAG20240115001" maxlength="50" required>
+                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="{{ $data->kategori === 'visitor' ? 'Kata atau angka, contoh: VISITOR 05 / 1234' : 'Contoh: MAG20240115001' }}" maxlength="50" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Sampai Tanggal (Opsional)</label>
@@ -181,6 +182,9 @@
             <p class="text-sm text-gray-600">
                 Kartu ini saat ini <strong>{{ $data->is_active ? 'aktif' : 'nonaktif' }}</strong>.
             </p>
+            @if(!empty($canEditLantai))
+                <a href="{{ route('idcard.edit', $data->id) }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">{{ $data->kategori === 'visitor' ? 'Edit Visitor' : 'Edit Lantai' }}</a>
+            @endif
             @if($data->is_active)
                 <button type="button" data-toggle-card="nonaktif" data-id="{{ $data->id }}" data-nama="{{ $data->nama }}" data-nomor="{{ $data->nomor_kartu }}"
                         class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700">Nonaktifkan Kartu</button>
