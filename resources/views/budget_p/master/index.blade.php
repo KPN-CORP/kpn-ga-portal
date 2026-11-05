@@ -36,20 +36,24 @@
     <p class="lbl">Kunci hanya menutup perubahan budget bulanan untuk Dept Head dan PIC. Tagihan tetap bisa diinput, dan Admin tetap bisa mengubah.</p>
 </div>
 @else
-<p class="lbl" style="margin-bottom:14px">Anda bisa menambah kategori dan subkategori baru. Mengubah nama, urutan, status, atau menghapus dilakukan Admin karena dipakai bersama oleh semua Dept Head.</p>
+<p class="lbl" style="margin-bottom:14px">Anda bisa menambah kategori dan subkategori baru. Kategori yang Anda buat hanya terlihat oleh Anda dan PIC Anda, tidak bercampur dengan Dept Head lain. Mengubah nama, urutan, status, atau menghapus dilakukan Admin.</p>
 @endif
 
 <div class="card">
     <h3>Kategori dan subkategori</h3>
     @foreach($kategori as $k)
         <details class="kat" open>
-            <summary><b>{{ $k->nama }}</b> <span class="lbl">(urut {{ $k->urut }}, {{ $k->aktif ? 'aktif' : 'nonaktif' }}, {{ $k->subs->count() }} subkategori)</span></summary>
+            <summary><b>{{ $k->nama }}</b> <span class="tag t-sub" style="margin-left:6px">{{ $k->pemilik->name ?? ($k->dept_head_user_id ? 'Dept Head #' . $k->dept_head_user_id : 'Umum') }}</span> <span class="lbl">(urut {{ $k->urut }}, {{ $k->aktif ? 'aktif' : 'nonaktif' }}, {{ $k->subs->count() }} subkategori)</span></summary>
             <div class="isi">
                 @if($admin)
                 <form method="post" action="{{ route('budgeting.master.simpan') }}" class="row" style="margin:6px 0 12px">
                     @csrf <input type="hidden" name="jenis" value="kategori"><input type="hidden" name="id" value="{{ $k->id }}">
                     <input name="nama" value="{{ $k->nama }}" required maxlength="255" aria-label="Nama kategori">
                     <input type="number" name="urut" value="{{ $k->urut }}" min="0" style="width:80px" aria-label="Urutan">
+                    <select name="dept_head_user_id" aria-label="Pemilik kategori">
+                        <option value="">Umum (semua)</option>
+                        @foreach($pilihanPemilik as $id => $nm)<option value="{{ $id }}" @selected((int) $k->dept_head_user_id === (int) $id)>{{ $nm }}</option>@endforeach
+                    </select>
                     <label><input type="hidden" name="aktif" value="0"><input type="checkbox" name="aktif" value="1" @checked($k->aktif)> Aktif</label>
                     <button class="btn sm pr">Simpan kategori</button>
                 </form>
@@ -89,6 +93,14 @@
         @csrf <input type="hidden" name="jenis" value="kategori"><input type="hidden" name="aktif" value="1">
         <input name="nama" placeholder="Kategori baru" required maxlength="255">
         <input type="number" name="urut" value="{{ $kategori->count() + 1 }}" min="0" style="width:80px" aria-label="Urutan">
+        @if($admin || $pilihanPemilik->count() > 1)
+            <select name="dept_head_user_id" aria-label="Untuk Dept Head" @if(!$admin) required @endif>
+                @if($admin)<option value="">Umum (semua)</option>@else<option value="">Untuk Dept Head...</option>@endif
+                @foreach($pilihanPemilik as $id => $nm)<option value="{{ $id }}">{{ $nm }}</option>@endforeach
+            </select>
+        @elseif($pilihanPemilik->count() === 1)
+            <input type="hidden" name="dept_head_user_id" value="{{ $pilihanPemilik->keys()->first() }}">
+        @endif
         <button class="btn pr">Tambah kategori</button>
     </form>
 </div>

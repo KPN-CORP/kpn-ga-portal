@@ -21,13 +21,13 @@ class KategoriController extends Controller
         $user = $r->user();
         $tahun = BudgetTahun::pilih($r->query('tahun'));
 
-        $kategori = BudgetKategori::where('aktif', true)->orderBy('urut')
+        $kategori = BudgetKategori::terlihatOleh($user)->where('aktif', true)->orderBy('urut')
             ->with(['subs' => fn ($q) => $q->where('aktif', true)])->get();
 
         $jumlah = BudgetItem::terlihatOleh($user)->where('aktif', true)
             ->selectRaw('sub_id, COUNT(*) AS c')->groupBy('sub_id')->pluck('c', 'sub_id');
 
-        $subAktif = $r->filled('sub') ? BudgetSub::with('kategori')->find($r->query('sub')) : null;
+        $subAktif = $r->filled('sub') ? BudgetSub::terlihatOleh($user)->with('kategori')->find($r->query('sub')) : null;
         $items = $subAktif ? BudgetRingkas::perItem($user, $tahun, ['sub_id' => $subAktif->id]) : collect();
 
         return view('budget_p.kategori.index', [

@@ -18,6 +18,8 @@
             --accent: 59 130 246;      /* blue-500 */
             --accent-dark: 37 99 235;  /* blue-600 */
             --ink: 30 41 59;           /* slate-800 */
+            --side-navy: 30 41 59;     /* slate-800 - panel dropdown */
+            --side-navy-deep: 15 23 42;/* slate-900 */
 
             /* Variabel untuk isi halaman budget (dipakai view & inline style) */
             --bg:#f7f8fa; --card:#fff; --mu:#64748b; --ln:#e2e8f0;
@@ -64,6 +66,36 @@
             background: rgb(var(--accent-dark));
         }
         .sidebar-link.active i{ color: rgb(var(--accent-dark)); }
+
+        /* Dropdown group - panel navy gelap saat terbuka */
+        .nav-group{ position: relative; border-radius: .75rem; overflow: hidden; transition: background-color .3s ease, box-shadow .3s ease; }
+        .nav-group.open{
+            background: linear-gradient(180deg, rgb(var(--side-navy)), rgb(var(--side-navy-deep)));
+            box-shadow: 0 8px 20px rgba(15,23,42,.25);
+        }
+        .dropdown-toggle{ cursor:pointer; user-select:none; min-height:2.75rem; transition: background-color .2s ease, color .2s ease; }
+        .dropdown-toggle:hover{ background-color: rgba(248,250,252,0.9); }
+        .dropdown-toggle i, .dropdown-toggle span{ transition: color .2s ease; }
+        .nav-group.open .dropdown-toggle{ background-color: transparent; }
+        .nav-group.open .dropdown-toggle:hover{ background-color: rgba(255,255,255,.06); }
+        .nav-group.open .dropdown-toggle i,
+        .nav-group.open .dropdown-toggle span{ color: #fff; }
+        .dropdown-toggle .fa-chevron-down{ transition: transform .25s ease; color: rgb(148 163 184); }
+        .nav-group.open .fa-chevron-down{ transform: rotate(180deg); color: #fff; }
+
+        .dropdown-content{ overflow:hidden; transition: max-height .3s ease, opacity .25s ease; opacity: 0; max-height: 0; }
+        .dropdown-content.open{ max-height: 600px; opacity: 1; }
+        .dropdown-content.closed{ max-height: 0 !important; opacity: 0; }
+
+        .dropdown-child .sidebar-link{
+            font-size:.875rem; padding:.55rem 1rem .55rem 2.6rem;
+            color: rgba(255,255,255,.65);
+        }
+        .dropdown-child .sidebar-link:hover{ background-color: rgba(255,255,255,.06); color:#fff; transform:none; }
+        .dropdown-child .sidebar-link i{ color: rgba(255,255,255,.45); }
+        .dropdown-child .sidebar-link.active{ background: rgba(255,255,255,.1); color: #fff; font-weight: 600; }
+        .dropdown-child .sidebar-link.active::before{ background: rgb(96 165 250); }
+        .dropdown-child .sidebar-link.active i{ color: rgb(96 165 250); }
 
         .overlay{ display:none; position:fixed; inset:0; background: rgba(15,23,42,.25); backdrop-filter: blur(1px); z-index:50; }
         .overlay.active{ display:block; }
@@ -122,7 +154,7 @@
         .bud .bar i.er{background:var(--er)}
         .bud .bd{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;border:1px solid currentColor}
         .bud .b-ok{color:var(--ok)}.bud .b-wn{color:var(--wn)}.bud .b-er{color:var(--er)}.bud .b-mu{color:var(--mu)}
-        .bud .msg{padding:9px 13px;border-radius:8px;margin-bottom:14px;border:1px solid;background:var(--card)}
+        .bud .msg{scroll-margin-top:80px;padding:9px 13px;border-radius:8px;margin-bottom:14px;border:1px solid;background:var(--card)}
         .bud .msg.ok{color:var(--ok)}.bud .msg.er{color:var(--er)}.bud .msg.wn{color:var(--wn)}
         .bud details.kat{border:1px solid rgba(226,232,240,.7);border-radius:10px;background:var(--card);margin-bottom:10px}
         .bud details.kat>summary{cursor:pointer;padding:10px 14px;list-style:none}
@@ -148,6 +180,21 @@
         .bud .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
 
         .bud .tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;margin-right:8px;vertical-align:1px}
+        .bud details.dept{margin-bottom:18px}
+        .bud details.dept>summary{cursor:pointer;list-style:none;padding:14px 16px;background:#0f172a;color:#fff;border-radius:10px}
+        .bud details.dept>summary::-webkit-details-marker{display:none}
+        .bud details.dept>summary .nm>b{font-size:16px}
+        .bud details.dept>summary .lbl{color:rgba(255,255,255,.75)}
+        .bud details.dept>summary>.pg::before{color:#fff}
+        .bud details.dept>summary .bar{background:rgba(255,255,255,.25)}
+        .bud details.dept>summary .bar i{background:#fff}
+        .bud details.dept>summary .bar i.wn{background:#fde68a}
+        .bud details.dept>summary .bar i.er{background:#fecaca}
+        .bud details.dept>summary .bd{color:#fff;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.5)}
+        .bud details.dept>summary .bd.b-wn{color:#fde68a}
+        .bud details.dept>summary .bd.b-er{color:#fecaca}
+        .bud .tag.t-dept{background:rgba(255,255,255,.2);color:#fff}
+        .bud details.dept>.isi-dept{margin:10px 0 0 10px;padding:4px 0 4px 14px;border-left:2px solid #cbd5e1}
         .bud details.kat.lv1{--kc:#1f3a5f;border:1px solid var(--kc);border-left-width:6px;overflow:hidden}
         .bud details.kat.lv1.c1{--kc:#0f766e}
         .bud details.kat.lv1.c2{--kc:#6d28d9}
@@ -234,91 +281,110 @@
                         <a href="{{ route('budgeting.dashboard') }}" title="Dashboard Budget"
                            class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('budgeting.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
-                            <span>Dashboard Budget</span>
+                            <span>Dashboard</span>
                         </a>
                     </li>
 
                     <!-- Grup: Pembudgetan -->
-                    <li>
-                        <button type="button" @click="g = g === 'pembudgetan' ? '' : 'pembudgetan'" title="Pembudgetan"
-                                class="sidebar-link w-full flex items-center p-3 rounded-lg text-gray-700 {{ $grupBudget ? 'font-semibold text-blue-600' : '' }}">
-                            <i class="fas fa-calculator w-5 mr-3 {{ $grupBudget ? 'text-blue-600' : 'text-gray-400' }}"></i>
-                            <span>Pembudgetan</span>
-                            <i class="fas fa-chevron-down ml-auto text-[10px] text-gray-400 transition-transform duration-200" :class="g === 'pembudgetan' ? 'rotate-180' : ''"></i>
-                        </button>
-                        <ul x-show="g === 'pembudgetan'" x-transition x-cloak class="mt-1 ml-5 pl-3 border-l soft-border space-y-1">
-                            <li>
-                                <a href="{{ route('budgeting.kategori') }}"
-                                   class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.kategori*') ? 'active' : '' }}" style="min-height:2.5rem">
-                                    <span>Kategori Budget</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ route('budgeting.budget.index') }}"
-                                   class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.budget.*') ? 'active' : '' }}" style="min-height:2.5rem">
-                                    <span>Rencana Budget</span>
-                                </a>
-                            </li>
-                        </ul>
+                    <li class="nav-group" :class="{ open: g === 'pembudgetan' }">
+                        <div @click="g = g === 'pembudgetan' ? '' : 'pembudgetan'" title="Pembudgetan"
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-calculator w-5 mr-3 text-gray-400"></i>
+                                <span class="font-medium">Pembudgetan</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                        <div class="dropdown-content" :class="g === 'pembudgetan' ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 pb-2">
+                                <li>
+                                    <a href="{{ route('budgeting.kategori') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.kategori*') ? 'active' : '' }}">
+                                        <i class="fas fa-tags w-4 mr-3"></i>
+                                        <span>Kategori Budget</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('budgeting.budget.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.budget.*') ? 'active' : '' }}">
+                                        <i class="fas fa-wallet w-4 mr-3"></i>
+                                        <span>Rencana Budget</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
 
                     <!-- Grup: Pencatatan -->
-                    <li>
-                        <button type="button" @click="g = g === 'pencatatan' ? '' : 'pencatatan'" title="Pencatatan"
-                                class="sidebar-link w-full flex items-center p-3 rounded-lg text-gray-700 {{ $grupCatat ? 'font-semibold text-blue-600' : '' }}">
-                            <i class="fas fa-pen-to-square w-5 mr-3 {{ $grupCatat ? 'text-blue-600' : 'text-gray-400' }}"></i>
-                            <span>Pencatatan</span>
-                            <i class="fas fa-chevron-down ml-auto text-[10px] text-gray-400 transition-transform duration-200" :class="g === 'pencatatan' ? 'rotate-180' : ''"></i>
-                        </button>
-                        <ul x-show="g === 'pencatatan'" x-transition x-cloak class="mt-1 ml-5 pl-3 border-l soft-border space-y-1">
-                            <li>
-                                <a href="{{ route('budgeting.tagihan.index') }}"
-                                   class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.tagihan.*') ? 'active' : '' }}" style="min-height:2.5rem">
-                                    <span>Realisasi Budget</span>
-                                </a>
-                            </li>
-                        </ul>
+                    <li class="nav-group" :class="{ open: g === 'pencatatan' }">
+                        <div @click="g = g === 'pencatatan' ? '' : 'pencatatan'" title="Pencatatan"
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-pen-to-square w-5 mr-3 text-gray-400"></i>
+                                <span class="font-medium">Pencatatan</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                        <div class="dropdown-content" :class="g === 'pencatatan' ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 pb-2">
+                                <li>
+                                    <a href="{{ route('budgeting.tagihan.index') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.tagihan.*') ? 'active' : '' }}">
+                                        <i class="fas fa-file-invoice-dollar w-4 mr-3"></i>
+                                        <span>Realisasi Budget</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </li>
 
                     <!-- Grup: Pengaturan -->
-                    <li>
-                        <button type="button" @click="g = g === 'pengaturan' ? '' : 'pengaturan'" title="Pengaturan"
-                                class="sidebar-link w-full flex items-center p-3 rounded-lg text-gray-700 {{ $grupAtur ? 'font-semibold text-blue-600' : '' }}">
-                            <i class="fas fa-gear w-5 mr-3 {{ $grupAtur ? 'text-blue-600' : 'text-gray-400' }}"></i>
-                            <span>Pengaturan</span>
-                            <i class="fas fa-chevron-down ml-auto text-[10px] text-gray-400 transition-transform duration-200" :class="g === 'pengaturan' ? 'rotate-180' : ''"></i>
-                        </button>
-                        <ul x-show="g === 'pengaturan'" x-transition x-cloak class="mt-1 ml-5 pl-3 border-l soft-border space-y-1">
-                            @if($peranBudget === 'admin')
+                    <li class="nav-group" :class="{ open: g === 'pengaturan' }">
+                        <div @click="g = g === 'pengaturan' ? '' : 'pengaturan'" title="Pengaturan"
+                             class="dropdown-toggle flex items-center justify-between p-3 rounded-lg text-gray-700">
+                            <div class="flex items-center">
+                                <i class="fas fa-gear w-5 mr-3 text-gray-400"></i>
+                                <span class="font-medium">Pengaturan</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
+                        <div class="dropdown-content" :class="g === 'pengaturan' ? 'open' : 'closed'">
+                            <ul class="dropdown-child space-y-1 pb-2">
+                                @if($peranBudget === 'admin')
                                 <li>
                                     <a href="{{ route('budgeting.master') }}"
-                                       class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.master*') ? 'active' : '' }}" style="min-height:2.5rem">
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.master*') ? 'active' : '' }}">
+                                        <i class="fas fa-database w-4 mr-3"></i>
                                         <span>Master Data</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a href="{{ route('budgeting.akses') }}"
-                                       class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.akses*') ? 'active' : '' }}" style="min-height:2.5rem">
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.akses*') ? 'active' : '' }}">
+                                        <i class="fas fa-user-shield w-4 mr-3"></i>
                                         <span>Hak Akses</span>
                                     </a>
                                 </li>
-                            @else
+                                @else
                                 <li>
                                     <a href="{{ route('budgeting.master') }}"
-                                       class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.master*') ? 'active' : '' }}" style="min-height:2.5rem">
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.master*') ? 'active' : '' }}">
+                                        <i class="fas fa-folder-plus w-4 mr-3"></i>
                                         <span>Tambah Kategori</span>
                                     </a>
                                 </li>
                                 @if($peranBudget === 'dept_head')
-                                    <li>
-                                        <a href="{{ route('budgeting.akses') }}"
-                                           class="sidebar-link flex items-center px-3 py-2 rounded-lg text-sm text-gray-600 {{ request()->routeIs('budgeting.akses*') ? 'active' : '' }}" style="min-height:2.5rem">
-                                            <span>PIC Saya</span>
-                                        </a>
-                                    </li>
+                                <li>
+                                    <a href="{{ route('budgeting.akses') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.akses*') ? 'active' : '' }}">
+                                        <i class="fas fa-user-tie w-4 mr-3"></i>
+                                        <span>PIC Saya</span>
+                                    </a>
+                                </li>
                                 @endif
-                            @endif
-                        </ul>
+                                @endif
+                            </ul>
+                        </div>
                     </li>
 
                 </ul>
@@ -332,7 +398,7 @@
                      class="profile-menu bg-white soft-shadow rounded-lg soft-border border py-2 z-50">
                     <div class="px-4 py-2 text-sm text-gray-500 soft-border-bottom border-b">
                         <p class="font-medium text-gray-700">{{ $namaUser }}</p>
-                        <p class="text-xs">{{ \App\Support\budget_s\BudgetPeran::label($peranBudget) }}</p>
+                        <p class="text-xs">{{ \App\Support\budget_s\BudgetPeran::labelUser(auth()->user()) }}</p>
                     </div>
                     <a href="{{ route('logout') }}"
                        onclick="event.preventDefault(); document.getElementById('logout-form-profile').submit();"
@@ -350,7 +416,7 @@
                     </div>
                     <div class="min-w-0 text-left flex-1">
                         <h3 class="font-medium text-gray-800 truncate">{{ $namaUser }}</h3>
-                        <p class="text-xs text-gray-500 truncate">{{ \App\Support\budget_s\BudgetPeran::label($peranBudget) }}</p>
+                        <p class="text-xs text-gray-500 truncate">{{ \App\Support\budget_s\BudgetPeran::labelUser(auth()->user()) }}</p>
                     </div>
                     <i class="fas fa-ellipsis-vertical text-gray-400 text-sm"></i>
                 </button>
@@ -365,9 +431,9 @@
                 @endif
 
                 <div class="bud">
-                    @if(session('ok'))<div class="msg ok" role="status">{{ session('ok') }}</div>@endif
+                    @if(session('ok'))<div class="msg ok" id="pesan" role="status">{{ session('ok') }}</div>@endif
                     @if($errors->any())
-                        <div class="msg er" role="alert">
+                        <div class="msg er" id="pesan" role="alert">
                             @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
                         </div>
                     @endif
@@ -428,7 +494,7 @@
           const box=document.getElementById('grafik-isi'), jd=document.getElementById('grafik-judul');
           jd.textContent='Memuat...'; box.innerHTML=''; buka('modal-grafik');
           const r=await fetch(URL_GRAFIK+'?'+new URLSearchParams(params),{headers:{Accept:'application/json'}});
-          if(!r.ok){jd.textContent='Grafik gagal dimuat';return}
+          if(!r.ok){jd.textContent='Grafik gagal dimuat';box.innerHTML='<p class="lbl">Kode '+r.status+(r.status===403?': Anda tidak berhak melihat data ini.':'. Muat ulang halaman lalu coba lagi.')+'</p>';return}
           const d=await r.json(); jd.textContent=d.judul;
           const max=Math.max(1,...d.budget,...d.realisasi);
           let h='<div class="chart">';
@@ -439,12 +505,17 @@
           h+='</div><p class="lbl"><span class="sw" style="background:var(--navy)"></span>Budget <span class="sw" style="background:var(--teal);margin-left:12px"></span>Realisasi (merah bila melebihi budget bulan itu)</p>';
           h+='<div class="scroll"><table><tr><th>Bulan</th><th class="n">Budget</th><th class="n">Realisasi</th></tr>';
           d.labels.forEach((l,i)=>{h+=`<tr><td>${esc(l)}</td><td class="n">${rp(d.budget[i])}</td><td class="n">${rp(d.realisasi[i])}</td></tr>`});
+          const tb=d.budget.reduce((a,b)=>a+b,0), tr=d.realisasi.reduce((a,b)=>a+b,0);
+          h+=`<tr><th>Total (${d.jumlah_item} item)</th><th class="n">${rp(tb)}</th><th class="n">${rp(tr)}</th></tr>`;
           box.innerHTML=h+'</table></div>';
         }
 
-        /* Cari user: input teks -> daftar hasil -> isi hidden id + label */
+        /* Cari user: input teks -> daftar hasil -> isi hidden id + label (nama tetap tampil di kotak setelah dipilih) */
         function pasangCariUser(inp,list,hid,lab){
+          const kosong='Belum ada user dipilih.';
           let t; inp.addEventListener('input',()=>{
+            // mengetik ulang = pilihan sebelumnya dibatalkan
+            hid.value=''; lab.textContent=kosong; lab.style.color=''; lab.style.fontWeight='';
             clearTimeout(t); const q=inp.value.trim();
             if(q.length<2){list.innerHTML='';return}
             t=setTimeout(async()=>{
@@ -454,7 +525,11 @@
               d.forEach(u=>{
                 const b=document.createElement('button'); b.type='button'; b.className='li';
                 b.textContent=u.name+' - '+u.email+(u.employee_no?' ('+u.employee_no+')':'')+(u.peran?' [sudah: '+u.peran+']':'');
-                b.onclick=()=>{hid.value=u.id;lab.textContent='Dipilih: '+u.name+' ('+u.email+')';list.innerHTML='';inp.value=''};
+                b.onclick=()=>{
+                  hid.value=u.id; inp.value=u.name; list.innerHTML='';
+                  lab.textContent='Dipilih: '+u.name+' ('+u.email+')'+(u.peran?' - peran saat ini: '+u.peran:'');
+                  lab.style.color='var(--ok)'; lab.style.fontWeight='600';
+                };
                 list.appendChild(b);
               });
             },250);

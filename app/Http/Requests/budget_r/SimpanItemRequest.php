@@ -14,7 +14,7 @@ class SimpanItemRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        if (!BudgetPeran::isAdmin($user) && !BudgetPeran::isDeptHead($user)) {
+        if (BudgetPeran::peran($user) === null) {
             return false;
         }
         if ($this->filled('id')) {
@@ -28,7 +28,11 @@ class SimpanItemRequest extends FormRequest
     {
         return [
             'id' => ['nullable', 'integer'],
-            'sub_id' => ['required', 'integer', 'exists:budget_sub,id'],
+            'sub_id' => ['required', 'integer', 'exists:budget_sub,id', function ($attr, $val, $fail) {
+                if (!\App\Models\budget_m\BudgetSub::terlihatOleh($this->user())->whereKey($val)->exists()) {
+                    $fail('Subkategori tidak tersedia untuk Anda.');
+                }
+            }],
             'nama' => ['required', 'string', 'max:255'],
             'bu' => ['required', 'string', 'max:255'],
             'pt' => ['required', 'string', 'max:255'],
@@ -53,9 +57,9 @@ class SimpanItemRequest extends FormRequest
             }
 
             // Pemilik item: Dept Head selalu dirinya sendiri; Admin wajib memilih Dept Head aktif.
-            $head = BudgetPeran::isDeptHead($user) ? $user->id : (int) $this->input('dept_head_user_id');
+            $head = BudgetPeran::tentukanKepala($user, $this->input('dept_head_user_id'));
             if (!$head) {
-                $v->errors()->add('dept_head_user_id', 'Dept Head pemilik item wajib dipilih.');
+                $v->errors()->add('dept_head_user_id', 'Departemen pemilik item wajib dipilih.');
                 return;
             }
             $headAktif = BudgetAkses::where('user_id', $head)->where('peran', BudgetPeran::DEPT_HEAD)->where('aktif', true)->exists();

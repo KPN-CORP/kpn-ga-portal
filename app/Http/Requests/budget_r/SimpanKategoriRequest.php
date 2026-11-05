@@ -9,8 +9,8 @@ use Illuminate\Validation\Rule;
 class SimpanKategoriRequest extends FormRequest
 {
     /**
-     * Menambah kategori/subkategori baru: Admin, Dept Head, dan PIC.
-     * Mengubah (ada id): hanya Admin, karena kategori dipakai bersama oleh semua Dept Head.
+     * Menambah kategori/subkategori baru: Admin, Dept Head, dan PIC (milik Dept Head masing-masing).
+     * Mengubah (ada id): hanya Admin.
      */
     public function authorize(): bool
     {
@@ -23,19 +23,16 @@ class SimpanKategoriRequest extends FormRequest
 
     public function rules(): array
     {
-        $baru = !$this->filled('id');
-
         $nama = ['required', 'string', 'max:255'];
-        if ($baru) {
-            $nama[] = $this->input('jenis') === 'sub'
-                ? Rule::unique('budget_sub', 'nama')->where('kategori_id', (int) $this->input('kategori_id'))
-                : Rule::unique('budget_kategori', 'nama');
+        if (!$this->filled('id') && $this->input('jenis') === 'sub') {
+            $nama[] = Rule::unique('budget_sub', 'nama')->where('kategori_id', (int) $this->input('kategori_id'));
         }
 
         return [
             'jenis' => ['required', 'in:kategori,sub'],
             'id' => ['nullable', 'integer'],
             'kategori_id' => ['required_if:jenis,sub', 'nullable', 'integer', 'exists:budget_kategori,id'],
+            'dept_head_user_id' => ['nullable', 'integer'],
             'nama' => $nama,
             'urut' => ['nullable', 'integer', 'min:0'],
             'aktif' => ['nullable', 'boolean'],

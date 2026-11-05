@@ -25,7 +25,7 @@ class TemplateController extends Controller
             $o = fopen('php://output', 'w');
             fwrite($o, "\xEF\xBB\xBF"); // BOM agar Excel membaca UTF-8
             fputcsv($o, array_merge(
-                ['Tahun', 'Kategori', 'Subkategori', 'Item', 'BU', 'PT', 'Dept Head', 'PIC'],
+                ['Tahun', 'Kategori', 'Subkategori', 'Item', 'BU', 'PT', 'Departemen', 'PIC'],
                 array_values(BudgetFormat::BULAN_SINGKAT),
                 ['Total Budget', 'Realisasi', 'Persen']
             ), ';');
@@ -33,7 +33,7 @@ class TemplateController extends Controller
             foreach ($items as $i) {
                 $bulan = ($map->get($i->id) ?? collect())->pluck('nominal', 'bulan');
                 $baris = [$tahun, $i->sub->kategori->nama, $i->sub->nama, $i->nama, $i->bu, $i->pt,
-                    $i->deptHead?->name, $i->pic?->name];
+                    \App\Support\budget_s\BudgetPeran::namaDept($i->dept_head_user_id), $i->pic?->name];
                 foreach (range(1, 12) as $b) {
                     $baris[] = BudgetFormat::angka($bulan->get($b));
                 }

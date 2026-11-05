@@ -12,17 +12,19 @@ class SimpanAksesRequest extends FormRequest
         return BudgetPeran::isAdmin($this->user());
     }
 
+    /** Admin hanya mengatur Admin dan Dept Head. PIC ditambah dan dilepas oleh Dept Head. */
     public function rules(): array
     {
         return [
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'peran' => ['required', 'in:admin,dept_head,pic'],
+            'peran' => ['required', 'in:admin,dept_head'],
+            'nama_dept' => ['nullable', 'string', 'max:100'],
             'aktif' => ['nullable', 'boolean'],
         ];
     }
 
     public function attributes(): array
     {
-        return ['user_id' => 'user'];
+        return ['user_id' => 'user', 'nama_dept' => 'nama departemen'];
     }
 }

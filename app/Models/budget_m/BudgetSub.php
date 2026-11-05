@@ -15,6 +15,11 @@ class BudgetSub extends Model
         return $this->belongsTo(BudgetKategori::class, 'kategori_id');
     }
 
+    public function scopeTerlihatOleh($q, $user = null)
+    {
+        return $q->whereHas('kategori', fn ($k) => $k->terlihatOleh($user));
+    }
+
     public function items()
     {
         return $this->hasMany(BudgetItem::class, 'sub_id');

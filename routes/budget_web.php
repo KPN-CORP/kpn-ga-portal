@@ -23,7 +23,7 @@ $cek = CekAksesBudget::class;
 
 Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->group(function () use ($cek) {
 
-    // Semua peran (admin, dept head, PIC): data otomatis disaring sesuai hak
+    // Semua peran (admin, Dept, PIC): data otomatis disaring sesuai hak
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/grafik', [GrafikController::class, 'data'])->name('grafik');
     Route::get('/kategori', [KategoriController::class, 'index'])->name('kategori');
@@ -39,24 +39,33 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
     Route::get('/master', [MasterController::class, 'index'])->name('master');
     Route::post('/master/kategori', [MasterController::class, 'simpanKategori'])->name('master.simpan');
 
-    // Admin dan Dept Head
-    Route::middleware($cek . ':admin,dept_head')->group(function () {
+    // Admin, Dept, dan PIC (PIC punya akses data yang sama dengan Dept-nya)
+    Route::middleware($cek . ':admin,dept_head,pic')->group(function () {
         Route::post('/budget/item', [BudgetAllController::class, 'simpanItem'])->name('budget.item.simpan');
         Route::delete('/budget/item/{item}', [BudgetAllController::class, 'hapusItem'])->name('budget.item.hapus');
         Route::post('/budget/salin', [BudgetAllController::class, 'salinTahun'])->name('budget.salin');
 
-        Route::get('/akses', [AksesController::class, 'index'])->name('akses');
-        Route::post('/akses/pic', [AksesController::class, 'tambahPic'])->name('akses.pic.tambah');
-        Route::delete('/akses/pic/{picHead}', [AksesController::class, 'lepasPic'])->name('akses.pic.lepas');
-
-        Route::get('/lookup/user', [LookupController::class, 'user'])->name('lookup.user');
         Route::get('/lookup/bu', [LookupController::class, 'bu'])->name('lookup.bu');
         Route::get('/lookup/pt', [LookupController::class, 'pt'])->name('lookup.pt');
+    });
+
+    // Admin dan Dept
+    Route::middleware($cek . ':admin,dept_head')->group(function () {
+        Route::get('/akses', [AksesController::class, 'index'])->name('akses');
+        Route::get('/lookup/user', [LookupController::class, 'user'])->name('lookup.user');
+    });
+
+    // Hanya Dept yang menambah dan melepas PIC
+    Route::middleware($cek . ':dept_head')->group(function () {
+        Route::post('/akses/pic', [AksesController::class, 'tambahPic'])->name('akses.pic.tambah');
+        Route::delete('/akses/pic/{picHead}', [AksesController::class, 'lepasPic'])->name('akses.pic.lepas');
     });
 
     // Khusus Admin
     Route::middleware($cek . ':admin')->group(function () {
         Route::post('/akses', [AksesController::class, 'simpan'])->name('akses.simpan');
+        Route::delete('/akses/{akses}', [AksesController::class, 'hapus'])->whereNumber('akses')->name('akses.hapus');
+        Route::post('/akses/pindah', [AksesController::class, 'pindahDept'])->name('akses.pindah');
 
         Route::post('/master/tahun', [MasterController::class, 'tambahTahun'])->name('master.tahun');
         Route::post('/master/tahun/{tahun}/kunci', [MasterController::class, 'kunci'])->whereNumber('tahun')->name('master.kunci');

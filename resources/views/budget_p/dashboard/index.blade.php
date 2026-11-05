@@ -8,63 +8,37 @@
 
 @if($kpi['jumlah'] === 0)
     @include('budget_p.partials.kosong', [
-        'pesan' => $peran === 'pic'
-            ? 'Belum ada item yang ditunjuk ke Anda. Minta Dept Head menunjuk Anda pada item budget.'
-            : 'Belum ada item budget untuk filter ini.',
-        'tautan' => $peran === 'pic' ? null : route('budgeting.budget.index', ['tahun' => $tahun]),
+        'pesan' => 'Belum ada item budget untuk filter ini.',
+        'tautan' => route('budgeting.budget.index', ['tahun' => $tahun]),
         'teksTautan' => 'Buka halaman Budget',
     ])
 @else
     @include('budget_p.partials.kartu-kpi')
 
     <div class="row" style="margin-bottom:12px">
-        <button type="button" class="btn" data-g="{{ json_encode(array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']])) }}" onclick="grafik(JSON.parse(this.dataset.g))">Grafik bulanan</button>
+        <button type="button" class="btn" data-g="{{ json_encode(array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']])) }}" onclick="grafik(JSON.parse(this.dataset.g))">Grafik semua</button>
         <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh CSV</a>
     </div>
 
-    @foreach($perKategori as $k)
-        @php $perSub = $k['items']->groupBy(fn ($i) => $i->sub->id)->sortBy(fn ($g) => $g->first()->sub->urut); @endphp
-        <details class="kat lv1 c{{ $loop->index % 5 }}" name="grup-kategori" @if($loop->first) open @endif>
-            <summary>
-                @include('budget_p.partials.baris-progres', [
-                    'tag' => 'kategori', 'nama' => $k['nama'],
-                    'sub' => $perSub->count() . ' sub kategori, ' . $k['items']->count() . ' item',
-                    'budget' => $k['budget'], 'realisasi' => $k['realisasi'], 'persen' => $k['persen'], 'status' => $k['status'],
-                ])
-            </summary>
-            <div class="isi">
-                @foreach($perSub as $grup)
-                    @php
-                        $sb = (float) $grup->sum('budget');
-                        $sr = (float) $grup->sum('realisasi');
-                    @endphp
-                    <details class="sub" open>
-                        <summary>
-                            @include('budget_p.partials.baris-progres', [
-                                'tag' => 'sub', 'nama' => $grup->first()->sub->nama,
-                                'sub' => $grup->count() . ' item',
-                                'budget' => $sb, 'realisasi' => $sr,
-                                'persen' => $sb > 0 ? round($sr / $sb * 100, 1) : null,
-                                'status' => \App\Support\budget_s\BudgetStatus::dari($sb, $sr),
-                            ])
-                        </summary>
-                        <div class="isi-sub">
-                            @foreach($grup->sortBy('nama') as $i)
-                                <div class="itm">
-                                    @include('budget_p.partials.baris-progres', [
-                                        'nama' => $i->nama,
-                                        'sub' => ($i->bu ?: '-') . ' / ' . ($i->pt ?: '-') . ' - PIC: ' . ($i->pic->name ?? 'belum ditunjuk'),
-                                        'budget' => $i->budget, 'realisasi' => $i->realisasi, 'persen' => $i->persen, 'status' => $i->status,
-                                        'itemId' => $i->id,
-                                    ])
-                                </div>
-                            @endforeach
-                        </div>
-                    </details>
-                @endforeach
-            </div>
-        </details>
-    @endforeach
+    @if($perDept)
+        @foreach($perDept as $dp)
+            <details class="dept" name="grup-dept" @if($loop->first) open @endif>
+                <summary>
+                    @include('budget_p.partials.baris-progres', [
+                        'tag' => 'dept', 'nama' => $dp['nama'],
+                        'sub' => 'Dept: ' . $dp['orang'] . ', ' . $dp['jumlah'] . ' item' . ($dp['bu'] ? ', BU: ' . $dp['bu'] : ''),
+                        'budget' => $dp['budget'], 'realisasi' => $dp['realisasi'], 'persen' => $dp['persen'], 'status' => $dp['status'],
+                        'grafik' => array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']]) + ['dept' => $dp['id']],
+                    ])
+                </summary>
+                <div class="isi-dept">
+                    @include('budget_p.partials.blok-kategori', ['daftarKategori' => $dp['perKategori'], 'ns' => 'd' . $loop->index, 'deptId' => $dp['id']])
+                </div>
+            </details>
+        @endforeach
+    @else
+        @include('budget_p.partials.blok-kategori', ['daftarKategori' => $perKategori, 'ns' => 'tunggal'])
+    @endif
 @endif
 
 @include('budget_p.partials.modal-grafik')
@@ -72,11 +46,12 @@
 
 @push('scripts')
 <script>
-/* Akordeon kategori: membuka satu kategori menutup kategori lain (cadangan untuk browser tanpa atribut name pada details) */
-document.querySelectorAll('details.kat.lv1').forEach(function (d) {
+/* Akordeon: membuka satu panel menutup panel lain dalam grup yang sama (atribut name) */
+document.querySelectorAll('details.kat.lv1, details.dept').forEach(function (d) {
     d.addEventListener('toggle', function () {
         if (!d.open) return;
-        document.querySelectorAll('details.kat.lv1').forEach(function (o) { if (o !== d) o.open = false; });
+        var n = d.getAttribute('name');
+        document.querySelectorAll('details[name="' + n + '"]').forEach(function (o) { if (o !== d) o.open = false; });
     });
 });
 </script>

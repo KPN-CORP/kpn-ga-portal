@@ -140,13 +140,13 @@
                         <span>Timeline</span>
                     </a>
                 </li>
-                <li>
+                <!-- <li>
                     <a href="{{ route('help.grafik') }}" title="Grafik"
                        class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('help.grafik*') ? 'active' : '' }}">
                         <i class="fas fa-chart-bar w-5 mr-3 text-gray-400"></i>
                         <span>Grafik</span>
                     </a>
-                </li>
+                </li> -->
 
                 @endif
 

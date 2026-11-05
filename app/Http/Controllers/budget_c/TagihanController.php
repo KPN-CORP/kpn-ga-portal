@@ -20,6 +20,9 @@ class TagihanController extends Controller
         $semuaItem = BudgetItem::terlihatOleh($user)->where('aktif', true)->with('sub.kategori')->orderBy('nama')->get();
         $itemBisaInput = $semuaItem->filter(fn ($i) => BudgetPeran::bisaInputTagihan($i, $user))->values();
 
+        // Kategori diambil dari relasi yang sudah di-load (tanpa query tambahan)
+        $kategori = $semuaItem->pluck('sub.kategori')->filter()->unique('id')->sortBy('nama')->values();
+
         $q = BudgetTagihan::with(['item.sub.kategori', 'penginput'])
             ->whereIn('item_id', BudgetItem::terlihatOleh($user)->select('id'))
             ->where('tahun', $tahun)
@@ -39,6 +42,7 @@ class TagihanController extends Controller
             'tahunRow' => BudgetTahun::where('tahun', $tahun)->first(),
             'semuaItem' => $semuaItem,
             'itemBisaInput' => $itemBisaInput,
+            'kategori' => $kategori,
             'daftar' => $q->orderByDesc('bulan')->orderByDesc('id')->paginate(25)->withQueryString(),
             'ringkas' => $ringkas,
             'filter' => ['bulan' => $r->query('bulan'), 'item_id' => $r->query('item_id')],

@@ -51,12 +51,17 @@ class BudgetAllController extends Controller
         // Daftar untuk form item: Admin memilih Dept Head; PIC difilter per Dept Head lewat JS.
         $kepala = collect();
         if ($peran === BudgetPeran::ADMIN) {
-            $kepala = BudgetAkses::with('user')->where('peran', BudgetPeran::DEPT_HEAD)->where('aktif', true)->get()
-                ->map(fn ($a) => ['id' => $a->user_id, 'nama' => $a->user?->name ?? ('#' . $a->user_id)])->values();
+            $kepala = BudgetAkses::where('peran', BudgetPeran::DEPT_HEAD)->where('aktif', true)->get()
+                ->map(fn ($a) => ['id' => $a->user_id, 'nama' => BudgetPeran::namaDeptLengkap($a->user_id)])->values();
+        } elseif ($peran === BudgetPeran::PIC) {
+            $kepala = collect(BudgetPeran::kepalaIds($user))
+                ->map(fn ($id) => ['id' => $id, 'nama' => BudgetPeran::namaDept($id)])->values();
         }
+        $headTetap = $peran === BudgetPeran::DEPT_HEAD ? (int) $user->id
+            : ($peran === BudgetPeran::PIC && $kepala->count() === 1 ? (int) $kepala->first()['id'] : null);
         $picMap = [];
         BudgetPicHead::with('pic')->where('aktif', true)
-            ->when($peran === BudgetPeran::DEPT_HEAD, fn ($q) => $q->where('dept_head_user_id', $user->id))
+            ->when($peran === BudgetPeran::DEPT_HEAD || $peran === BudgetPeran::PIC, fn ($q) => $q->whereIn('dept_head_user_id', BudgetPeran::kepalaIds($user)))
             ->get()->each(function ($p) use (&$picMap) {
                 $picMap[$p->dept_head_user_id][] = ['id' => $p->pic_user_id, 'nama' => $p->pic?->name ?? ('#' . $p->pic_user_id)];
             });
@@ -71,11 +76,12 @@ class BudgetAllController extends Controller
             'nominal' => $nominal,
             'bolehIsi' => $bolehIsi,
             'bolehUbah' => $bolehUbah,
-            'kategoriList' => BudgetKategori::where('aktif', true)->orderBy('urut')->get(),
-            'subList' => BudgetSub::with('kategori')->where('aktif', true)->get()
+            'kategoriList' => BudgetKategori::terlihatOleh($user)->where('aktif', true)->orderBy('urut')->get(),
+            'subList' => BudgetSub::terlihatOleh($user)->with('kategori')->where('aktif', true)->get()
                 ->sortBy(fn ($s) => [$s->kategori->urut, $s->urut])->values(),
             'buList' => BudgetRingkas::buTersedia($user),
             'kepala' => $kepala,
+            'headTetap' => $headTetap,
             'picMap' => $picMap,
             'filter' => ['bu' => $r->query('bu'), 'kategori_id' => $r->query('kategori_id'), 'q' => $r->query('q')],
         ]);
@@ -86,9 +92,7 @@ class BudgetAllController extends Controller
         $data = Arr::except($r->validated(), ['id']);
         $data['aktif'] = $r->boolean('aktif', true);
         $data['pic_user_id'] = $r->filled('pic_user_id') ? (int) $r->input('pic_user_id') : null;
-        $data['dept_head_user_id'] = BudgetPeran::isDeptHead($r->user())
-            ? $r->user()->id
-            : (int) $r->input('dept_head_user_id');
+        $data['dept_head_user_id'] = BudgetPeran::tentukanKepala($r->user(), $r->input('dept_head_user_id'));
 
         if ($r->filled('id')) {
             BudgetItem::findOrFail($r->input('id'))->update($data);

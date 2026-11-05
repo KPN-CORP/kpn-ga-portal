@@ -24,6 +24,13 @@ class BudgetRingkas
         if (!empty($filter['sub_id'])) {
             $q->where('sub_id', $filter['sub_id']);
         }
+        // dept = id Dept Head; 0 = item tanpa Dept Head ("Umum"). Pakai isset karena '0' dianggap kosong oleh empty().
+        if (isset($filter['dept']) && $filter['dept'] !== '') {
+            $dept = (int) $filter['dept'];
+            $dept > 0
+                ? $q->where('dept_head_user_id', $dept)
+                : $q->where(fn ($w) => $w->whereNull('dept_head_user_id')->orWhere('dept_head_user_id', 0));
+        }
         if (!empty($filter['kategori_id'])) {
             $q->whereHas('sub', fn ($s) => $s->where('kategori_id', $filter['kategori_id']));
         }
@@ -58,6 +65,7 @@ class BudgetRingkas
             $b = (float) $g->sum('budget');
             $r = (float) $g->sum('realisasi');
             return [
+                'id' => $kat->id,
                 'urut' => $kat->urut,
                 'nama' => $kat->nama,
                 'budget' => $b,

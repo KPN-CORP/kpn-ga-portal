@@ -9,7 +9,7 @@
     <div><span class="lbl">Kategori / subkategori</span><div>{{ $item->sub->kategori->nama }} / {{ $item->sub->nama }}</div></div>
     <div><span class="lbl">BU</span><div>{{ $item->bu ?: '-' }}</div></div>
     <div><span class="lbl">PT</span><div>{{ $item->pt ?: '-' }}</div></div>
-    <div><span class="lbl">Dept Head</span><div>{{ $item->deptHead->name ?? '-' }}</div></div>
+    <div><span class="lbl">Departemen</span><div>{{ \App\Support\budget_s\BudgetPeran::namaDept($item->dept_head_user_id) }}</div></div>
     <div><span class="lbl">PIC</span><div>{{ $item->pic->name ?? 'Belum ditunjuk' }}</div></div>
 </div>
 @if($item->sumber || $item->keterangan)

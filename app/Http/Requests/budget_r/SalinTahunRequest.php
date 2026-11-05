@@ -9,7 +9,7 @@ class SalinTahunRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return BudgetPeran::isAdmin($this->user()) || BudgetPeran::isDeptHead($this->user());
+        return BudgetPeran::peran($this->user()) !== null;
     }
 
     public function rules(): array

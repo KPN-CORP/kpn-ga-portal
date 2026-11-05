@@ -3,7 +3,7 @@
 @section('content')
 @php
     $F = \App\Support\budget_s\BudgetFormat::class;
-    $bisaKelola = in_array($peran, ['admin', 'dept_head'], true);
+    $bisaKelola = in_array($peran, ['admin', 'dept_head', 'pic'], true);
 @endphp
 
 @include('budget_p.partials.header-tahun', ['judul' => 'Budget bulanan'])
@@ -25,7 +25,7 @@
 
 @if($items->isEmpty())
     @include('budget_p.partials.kosong', [
-        'pesan' => $peran === 'pic' ? 'Belum ada item yang ditunjuk ke Anda.' : 'Belum ada item budget. Mulai dengan menekan "Item baru".',
+        'pesan' => 'Belum ada item budget. Mulai dengan menekan "Item baru".',
     ])
 @else
 <div class="card scroll" style="padding:0">
@@ -46,7 +46,7 @@
         @endif
         @php $nm = $nominal->get($i->id); $boleh = $bolehIsi[$i->id]; @endphp
         <tr>
-            <td style="min-width:170px"><b>{{ $i->nama }}</b><div class="lbl">Dept Head: {{ $i->deptHead->name ?? '-' }}</div></td>
+            <td style="min-width:170px"><b>{{ $i->nama }}</b><div class="lbl">Dept: {{ \App\Support\budget_s\BudgetPeran::namaDept($i->dept_head_user_id) }}</div></td>
             <td style="min-width:150px">{{ $i->bu ?: '-' }}<div class="lbl">{{ $i->pt ?: '-' }}</div></td>
             <td>{{ $i->pic->name ?? '-' }}</td>
             @foreach(range(1, 12) as $b)
@@ -100,10 +100,10 @@
                 <label><span>Nama item</span><input name="nama" id="it-nama" required maxlength="255"></label>
                 <label><span>BU (dari HCIS)</span><select name="bu" id="it-bu" required onchange="muatPt()"></select></label>
                 <label><span>PT (dari HCIS)</span><select name="pt" id="it-pt" required></select></label>
-                @if($peran === 'admin')
-                    <label><span>Dept Head pemilik</span>
+                @if($peran === 'admin' || $kepala->count() > 1)
+                    <label><span>Departemen pemilik</span>
                         <select name="dept_head_user_id" id="it-head" required onchange="isiPic()">
-                            <option value="">Pilih Dept Head</option>
+                            <option value="">Pilih departemen</option>
                             @foreach($kepala as $h)<option value="{{ $h['id'] }}">{{ $h['nama'] }}</option>@endforeach
                         </select>
                     </label>
@@ -113,7 +113,7 @@
             </div>
             <label style="display:block;margin-top:10px"><span class="lbl">Keterangan</span><textarea name="keterangan" id="it-ket" rows="2" maxlength="1000"></textarea></label>
             <label style="display:block;margin-top:8px"><input type="hidden" name="aktif" value="0"><input type="checkbox" name="aktif" value="1" id="it-aktif" checked> Item aktif</label>
-            <p class="lbl">PIC yang bisa dipilih hanya bawahan Dept Head pemilik item. PIC mengisi budget bulanan dan tagihan pada item ini.</p>
+            <p class="lbl">PIC yang dipilih adalah penanggung jawab item ini. Semua PIC dari departemen yang sama tetap bisa mengakses item ini.</p>
             <div class="row" style="justify-content:flex-end"><button class="btn pr">Simpan item</button></div>
         </form>
     </dialog>
@@ -124,7 +124,7 @@
 @if($bisaKelola)
 <script>
 const URL_BU = @json(route('budgeting.lookup.bu')), URL_PT = @json(route('budgeting.lookup.pt'));
-const PIC_MAP = @json($picMap), PERAN = @json($peran), MY_ID = @json(auth()->id());
+const PIC_MAP = @json($picMap), PERAN = @json($peran), MY_ID = @json(auth()->id()), HEAD_TETAP = @json($headTetap);
 const $e = id => document.getElementById(id), JH = {headers:{Accept:'application/json'}};
 let buSiap = false;
 
@@ -142,7 +142,7 @@ async function muatPt(pilih){
   if (pilih) s.value = pilih;
 }
 function isiPic(pilih){
-  const head = PERAN === 'admin' ? $e('it-head').value : MY_ID;
+  const head = $e('it-head') ? $e('it-head').value : HEAD_TETAP;
   const d = PIC_MAP[head] || [];
   $e('it-pic').innerHTML = '<option value="">(belum ditunjuk)</option>' + d.map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('');
   if (pilih) $e('it-pic').value = String(pilih);
@@ -156,7 +156,7 @@ async function itemEdit(btn){
   $e('it-form').reset(); $e('item-judul').textContent = 'Ubah item';
   $e('it-id').value = d.id; $e('it-sub').value = d.sub_id; $e('it-nama').value = d.nama;
   $e('it-sumber').value = d.sumber || ''; $e('it-ket').value = d.keterangan || ''; $e('it-aktif').checked = !!d.aktif;
-  if (PERAN === 'admin') $e('it-head').value = d.dept_head_user_id;
+  if ($e('it-head')) $e('it-head').value = d.dept_head_user_id;
   await muatBu(); $e('it-bu').value = d.bu || ''; await muatPt(d.pt); isiPic(d.pic_user_id); buka('modal-item');
 }
 </script>
