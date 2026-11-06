@@ -25,6 +25,7 @@
 
 <form method="get" class="card fb" id="tg-filter">
     <input type="hidden" name="tahun" value="{{ $tahun }}">
+    <input type="hidden" name="per" value="{{ $perHalaman }}">
     <label><span class="lbl">Bulan</span>
         <select name="bulan" data-cari onchange="this.form.submit()">
             <option value="">Semua</option>
@@ -78,13 +79,14 @@
             : 'Belum ada realisasi untuk filter ini. Tekan "Catat realisasi" untuk menambah.',
     ])
 @else
-<div class="card scroll" style="padding:0">
+<div class="card scroll tbl-beku" style="padding:0">
 <table>
-    <tr><th>Bulan</th><th>Item</th><th class="n">Tagihan</th><th class="n">PPN</th><th class="n">Biaya materai</th><th class="n">Total</th><th>Keterangan</th><th>Diinput oleh</th><th></th></tr>
+    <thead><tr><th class="beku" style="min-width:230px;max-width:280px">Item</th><th>Bulan</th><th class="n">Tagihan</th><th class="n">PPN</th><th class="n">Biaya materai</th><th class="n">Total</th><th>Keterangan</th><th>Diinput oleh</th><th></th></tr></thead>
+    <tbody>
     @foreach($daftar as $t)
         <tr>
+            <td class="beku" style="min-width:230px;max-width:280px"><b>{{ $t->item->nama }}</b><div class="lbl">{{ $t->item->sub->kategori->nama }} / {{ $t->item->sub->nama }}</div></td>
             <td>{{ $F::BULAN[$t->bulan] }}@if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd b-wn" title="Item ini punya lebih dari satu tagihan di bulan ini">{{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan</span></div>@endif</td>
-            <td><b>{{ $t->item->nama }}</b><div class="lbl">{{ $t->item->sub->kategori->nama }} / {{ $t->item->sub->nama }}</div></td>
             <td class="n">{{ $F::rupiah($t->tagihan) }}</td>
             <td class="n">{{ $F::rupiah($t->ppn) }}</td>
             <td class="n">{{ $F::rupiah($t->biaya_materai) }}</td>
@@ -100,12 +102,22 @@
             </td>
         </tr>
     @endforeach
+    </tbody>
 </table>
 </div>
-<div class="row">
-    @if($daftar->previousPageUrl())<a class="btn sm" href="{{ $daftar->previousPageUrl() }}">Sebelumnya</a>@endif
-    <span class="lbl">Halaman {{ $daftar->currentPage() }} dari {{ $daftar->lastPage() }}</span>
-    @if($daftar->nextPageUrl())<a class="btn sm" href="{{ $daftar->nextPageUrl() }}">Berikutnya</a>@endif
+<div class="row" style="margin-top:8px;justify-content:space-between">
+    <span class="lbl">Menampilkan {{ $daftar->firstItem() }}-{{ $daftar->lastItem() }} dari {{ $daftar->total() }} realisasi</span>
+    <span class="row">
+        @if($daftar->previousPageUrl())<a class="btn sm" href="{{ $daftar->previousPageUrl() }}">Sebelumnya</a>@endif
+        <span class="lbl">Halaman {{ $daftar->currentPage() }} dari {{ $daftar->lastPage() }}</span>
+        @if($daftar->nextPageUrl())<a class="btn sm" href="{{ $daftar->nextPageUrl() }}">Berikutnya</a>@endif
+    </span>
+    <span class="row">
+        <span class="lbl">Tampil per halaman</span>
+        @foreach([25, 50, 100] as $n)
+            <a class="btn sm {{ $perHalaman === $n ? 'pr' : '' }}" href="{{ request()->fullUrlWithQuery(['per' => $n, 'page' => 1]) }}">{{ $n }}</a>
+        @endforeach
+    </span>
 </div>
 @endif
 

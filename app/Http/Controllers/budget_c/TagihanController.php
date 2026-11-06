@@ -61,7 +61,8 @@ class TagihanController extends Controller
             'total' => (float) (clone $q)->sum('total'),
         ];
 
-        $daftar = $q->orderByDesc('bulan')->orderByDesc('id')->paginate(25)->withQueryString();
+        $perHalaman = in_array((int) $r->query('per'), [25, 50, 100], true) ? (int) $r->query('per') : 25;
+        $daftar = $q->orderByDesc('bulan')->orderByDesc('id')->paginate($perHalaman)->withQueryString();
 
         // Item + bulan yang punya lebih dari satu tagihan (supaya kelihatan kalau terinput dobel)
         $jumlahPerBulan = $daftar->isEmpty() ? collect() : BudgetTagihan::where('tahun', $tahun)
@@ -79,6 +80,7 @@ class TagihanController extends Controller
             'itemBisaInput' => $itemBisaInput,
             'kategori' => $kategori,
             'daftar' => $daftar,
+            'perHalaman' => $perHalaman,
             'jumlahPerBulan' => $jumlahPerBulan,
             'ringkas' => $ringkas,
             'subList' => $semuaItem->pluck('sub')->filter()->unique('id')
