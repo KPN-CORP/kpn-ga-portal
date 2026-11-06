@@ -55,11 +55,10 @@
             </div>
         </div>
 
-        {{-- Foto Dashboard Speedometer (sebelum & sesudah). Log lama belum punya foto ini,
+        {{-- Foto full Dashboard Speedometer (setelah pengisian). Log lama belum punya foto ini,
              jadi saat edit tidak dipaksa; kalau diisi, foto lama diganti. --}}
         @foreach([
-            'photo_dashboard_before' => 'Foto Dashboard Speedometer SEBELUM Pengisian',
-            'photo_dashboard_after'  => 'Foto Dashboard Speedometer SESUDAH Pengisian',
+            'photo_dashboard_after' => 'Foto Full Dashboard Speedometer (Setelah Pengisian)',
         ] as $field => $label)
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">

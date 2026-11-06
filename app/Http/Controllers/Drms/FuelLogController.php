@@ -171,15 +171,13 @@ class FuelLogController extends Controller
             'odometer_start' => 'required|integer|min:0',
             'fuel_liters' => 'required|numeric|min:0.01',
             'fuel_total_price' => 'required|numeric|min:0',
-            // 3 foto wajib saat input baru: struk + dashboard speedometer sebelum & sesudah
+            // 2 foto wajib saat input baru: struk + foto full dashboard speedometer setelah pengisian
             'receipt_file' => 'required|image|max:5120',
-            'photo_dashboard_before' => 'required|image|max:5120',
             'photo_dashboard_after' => 'required|image|max:5120',
             'notes' => 'nullable|string',
         ], [
             'receipt_file.required' => 'Foto struk pengisian wajib diisi.',
-            'photo_dashboard_before.required' => 'Foto dashboard speedometer SEBELUM pengisian wajib diisi.',
-            'photo_dashboard_after.required' => 'Foto dashboard speedometer SESUDAH pengisian wajib diisi.',
+            'photo_dashboard_after.required' => 'Foto full dashboard speedometer setelah pengisian wajib diisi.',
         ]);
 
         // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
@@ -196,8 +194,7 @@ class FuelLogController extends Controller
         $validated['is_verified'] = 0;
 
         $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
-        $validated['photo_dashboard_before'] = ImageHelper::compressAndStore($request->file('photo_dashboard_before'), 'fuel_dashboards/before');
-        $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards/after');
+        $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards');
 
         FuelLog::create($validated);
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM berhasil disimpan.');
@@ -241,7 +238,6 @@ class FuelLogController extends Controller
             'receipt_file' => 'nullable|image|max:5120',
             // Saat edit foto dashboard boleh kosong (tidak diganti). Log lama (sebelum fitur
             // ini ada) memang belum punya foto dashboard, jadi tidak dipaksa saat edit.
-            'photo_dashboard_before' => 'nullable|image|max:5120',
             'photo_dashboard_after' => 'nullable|image|max:5120',
             'notes' => 'nullable|string',
         ]);
@@ -269,13 +265,9 @@ class FuelLogController extends Controller
             if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
             $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
         }
-        if ($request->hasFile('photo_dashboard_before')) {
-            if ($log->photo_dashboard_before) ImageHelper::deleteImage($log->photo_dashboard_before);
-            $validated['photo_dashboard_before'] = ImageHelper::compressAndStore($request->file('photo_dashboard_before'), 'fuel_dashboards/before');
-        }
         if ($request->hasFile('photo_dashboard_after')) {
             if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
-            $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards/after');
+            $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards');
         }
         $log->update($validated);
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM diperbarui.');
@@ -305,7 +297,6 @@ class FuelLogController extends Controller
     {
         $log = FuelLog::findOrFail($id);
         if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
-        if ($log->photo_dashboard_before) ImageHelper::deleteImage($log->photo_dashboard_before);
         if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
         $log->delete();
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM dihapus.');
@@ -327,8 +318,8 @@ class FuelLogController extends Controller
             $isDefaultPeriod = true;
         }
 
+        // Semua log masuk analitik, termasuk yang BELUM diverifikasi (tidak ada filter is_verified).
         $query = FuelLog::with('vehicle')
-            ->where('is_verified', 1)
             ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)));
 
         // Filter per kendaraan
@@ -460,7 +451,7 @@ class FuelLogController extends Controller
     }
 
     /**
-     * Pengisian terverifikasi TERAKHIR sebelum $dateFrom untuk tiap kendaraan di $logs.
+     * Pengisian TERAKHIR (verified maupun pending) sebelum $dateFrom untuk tiap kendaraan di $logs.
      * Dipakai sebagai pembanding (odometer awal) untuk pengisian pertama di dalam periode filter.
      * Mengikuti scope BU yang sama dengan query analitik. 2 query saja, tidak per kendaraan.
      *
@@ -472,8 +463,7 @@ class FuelLogController extends Controller
 
         $vehicleIds = $logs->pluck('vehicle_id')->unique()->values()->all();
 
-        $base = fn () => FuelLog::where('is_verified', 1)
-            ->whereIn('vehicle_id', $vehicleIds)
+        $base = fn () => FuelLog::whereIn('vehicle_id', $vehicleIds)
             ->whereDate('filling_date', '<', $dateFrom)
             ->when($buId, fn ($q) => $q->whereHas('vehicle', fn ($sq) => $sq->where('business_unit_id', $buId)));
 

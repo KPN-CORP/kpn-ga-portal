@@ -536,7 +536,7 @@
         </div>
         @empty
         <div class="sm:col-span-2 bg-white rounded-lg shadow-sm p-4 text-center text-gray-500 text-sm">
-            Belum ada data terverifikasi untuk filter ini.
+            Belum ada data untuk filter ini.
         </div>
         @endforelse
     </div>
@@ -637,7 +637,7 @@
                     <td class="px-6 py-4">{{ $data['count'] }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data terverifikasi untuk filter ini.</td></tr>
+                <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data untuk filter ini.</td></tr>
                 @endforelse
             </tbody>
         </table>

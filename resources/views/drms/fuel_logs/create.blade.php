@@ -147,23 +147,16 @@
 
             </div>
 
-            {{-- 3 FOTO WAJIB (kamera hanya untuk mobile):
-                 1) Dashboard Speedometer SEBELUM pengisian
-                 2) Dashboard Speedometer SESUDAH pengisian
-                 3) Struk / bukti pengisian --}}
+            {{-- 2 FOTO WAJIB (kamera hanya untuk mobile), diambil SETELAH pengisian:
+                 1) Foto full Dashboard Speedometer
+                 2) Struk / bukti pengisian --}}
             @php
                 $photoFields = [
                     [
-                        'key'   => 'photo_dashboard_before',
-                        'label' => 'Foto Dashboard Speedometer SEBELUM Pengisian',
-                        'hint'  => 'Foto seluruh dashboard speedometer (odometer, indikator BBM/baterai) sebelum mengisi, langsung dari kamera.',
-                        'empty' => 'Dashboard Speedometer Sebelum',
-                    ],
-                    [
                         'key'   => 'photo_dashboard_after',
-                        'label' => 'Foto Dashboard Speedometer SESUDAH Pengisian',
+                        'label' => 'Foto Full Dashboard Speedometer (Setelah Pengisian)',
                         'hint'  => 'Foto seluruh dashboard speedometer (odometer, indikator BBM/baterai) setelah mengisi, langsung dari kamera.',
-                        'empty' => 'Dashboard Speedometer Sesudah',
+                        'empty' => 'Dashboard Speedometer',
                     ],
                     [
                         'key'   => 'receipt_file',
@@ -173,6 +166,13 @@
                     ],
                 ];
             @endphp
+
+            {{-- Catatan urutan foto untuk yang mengisi --}}
+            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p class="font-semibold mb-1">📸 Catatan: 2 foto wajib, langsung dari kamera</p>
+                <p><strong>Setelah mengisi:</strong> foto struk dan foto full Dashboard Speedometer.</p>
+                <p class="text-xs mt-2 text-amber-700">Pastikan seluruh dashboard (odometer dan indikator BBM/baterai) terlihat jelas dan tidak buram.</p>
+            </div>
 
             @foreach($photoFields as $pf)
             <div class="mb-4 photo-field" data-key="{{ $pf['key'] }}" data-empty="{{ $pf['empty'] }}">
@@ -329,7 +329,7 @@
     ];
 
     // Daftar 3 foto wajib (harus sama dengan key di $photoFields)
-    const PHOTO_KEYS = ['photo_dashboard_before', 'photo_dashboard_after', 'receipt_file'];
+    const PHOTO_KEYS = ['photo_dashboard_after', 'receipt_file'];
 
     document.addEventListener('DOMContentLoaded', function () {
 
@@ -452,7 +452,7 @@
                     searchInput.setCustomValidity('');
                 }
 
-                // 3 foto wajib (dashboard sebelum, dashboard sesudah, struk). Validasi manual
+                // 2 foto wajib (dashboard, struk). Validasi manual
                 // di sini karena atribut `required` pada <input type="file"> yang disembunyikan
                 // (class="hidden" / display:none) tidak dicek oleh sebagian browser.
                 let firstMissing = null;
@@ -489,7 +489,7 @@
         }
 
         /* =====================================================
-         * KAMERA (3 foto: dashboard sebelum, dashboard sesudah, struk)
+         * KAMERA (2 foto: dashboard, struk)
          * ===================================================== */
         const MAX_SIZE = 5 * 1024 * 1024; // samakan dengan max:5120 di server
 

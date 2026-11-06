@@ -63,10 +63,9 @@ class ImageController extends Controller
             if ($requestBu == $buId) return;
         }
 
-        // Struk + foto dashboard speedometer sebelum/sesudah pada log BBM
+        // Struk + foto dashboard speedometer (setelah pengisian) pada log BBM
         $fuelLog = \App\Models\Drms\FuelLog::where(function ($q) use ($path) {
             $q->where('receipt_file', $path)
-              ->orWhere('photo_dashboard_before', $path)
               ->orWhere('photo_dashboard_after', $path);
         })->first();
         if ($fuelLog && $fuelLog->vehicle && $fuelLog->vehicle->business_unit_id == $buId) return;
@@ -95,7 +94,6 @@ class ImageController extends Controller
 
         $fuelLog = \App\Models\Drms\FuelLog::where(function ($q) use ($path) {
             $q->where('receipt_file', $path)
-              ->orWhere('photo_dashboard_before', $path)
               ->orWhere('photo_dashboard_after', $path);
         })->first();
         if ($fuelLog && $fuelLog->driver_id == $driverId) return;
