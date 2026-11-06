@@ -148,6 +148,13 @@
         .bud th{font-weight:600;color:var(--mu);font-size:12.5px;white-space:nowrap}
         .bud td.n,.bud th.n{text-align:right;white-space:nowrap}
         .bud .scroll{overflow-x:auto}
+        /* Tabel budget bulanan: tinggi dibatasi, geser di dalam kotak, header dan kolom Item dibekukan */
+        .bud .tbl-beku{overflow:auto;max-height:calc(100vh - 220px);min-height:340px;overscroll-behavior:contain}
+        .bud .tbl-beku table{border-collapse:separate;border-spacing:0}
+        .bud .tbl-beku thead th{position:sticky;top:0;z-index:3;background:var(--card);box-shadow:0 1px 0 var(--ln)}
+        .bud .tbl-beku .beku{position:sticky;left:0;z-index:2;background:var(--card);box-shadow:1px 0 0 var(--ln)}
+        .bud .tbl-beku thead th.beku{z-index:4}
+        .bud .tbl-beku .grp-label{position:sticky;left:10px;display:inline-block}
         .bud .bar{height:8px;border-radius:4px;background:var(--bar);overflow:hidden;min-width:90px}
         .bud .bar i{display:block;height:100%;background:var(--teal)}
         .bud .bar i.wn{background:var(--amber)}
@@ -179,6 +186,24 @@
         .bud .chart .m small{font-size:11px;color:var(--mu)}
         .bud .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
 
+        /* Baris filter: kolom dan lebar seragam */
+        .bud .fb{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 12px;align-items:end;padding:12px 14px}
+        .bud .fb>label{display:block;min-width:0;margin:0}
+        .bud .fb>label>.lbl{display:block;margin-bottom:3px}
+        .bud .fb input,.bud .fb select{width:100%;box-sizing:border-box;height:36px}
+        .bud .fb .fb-act{display:flex;gap:8px;align-items:center;height:36px}
+        /* Dropdown yang bisa diketik (select[data-cari]) */
+        .bud .cs{position:relative}
+        .bud .cs>select{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;pointer-events:none}
+        .bud .cs-in{width:100%;box-sizing:border-box;padding-right:28px;text-overflow:ellipsis;background:var(--card) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%2364748b' stroke-width='1.6'/></svg>") no-repeat right 10px center}
+        .bud .cs-in:disabled{opacity:.6;cursor:not-allowed}
+        .bud .cs-ls{display:none;position:absolute;z-index:80;left:0;right:0;top:calc(100% + 2px);max-height:240px;overflow:auto;background:var(--card);border:1px solid var(--ln);border-radius:6px;box-shadow:0 6px 18px rgba(15,23,42,.14);margin:0;padding:3px;list-style:none}
+        .bud .cs.open .cs-ls{display:block}
+        .bud .cs-ls li{padding:6px 9px;border-radius:4px;cursor:pointer;font-size:13.5px}
+        .bud .cs-ls li.on{background:var(--bar)}
+        .bud .cs-ls li.sel{font-weight:600}
+        .bud .cs-ls li.kosong{color:var(--mu);cursor:default}
+
         .bud .tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;margin-right:8px;vertical-align:1px}
         .bud details.dept{margin-bottom:18px}
         .bud details.dept>summary{cursor:pointer;list-style:none;padding:14px 16px;background:#0f172a;color:#fff;border-radius:10px}
@@ -195,23 +220,19 @@
         .bud details.dept>summary .bd.b-er{color:#fecaca}
         .bud .tag.t-dept{background:rgba(255,255,255,.2);color:#fff}
         .bud details.dept>.isi-dept{margin:10px 0 0 10px;padding:4px 0 4px 14px;border-left:2px solid #cbd5e1}
-        .bud details.kat.lv1{--kc:#1f3a5f;border:1px solid var(--kc);border-left-width:6px;overflow:hidden}
-        .bud details.kat.lv1.c1{--kc:#0f766e}
-        .bud details.kat.lv1.c2{--kc:#6d28d9}
-        .bud details.kat.lv1.c3{--kc:#b45309}
-        .bud details.kat.lv1.c4{--kc:#be123c}
-        .bud details.kat.lv1>summary{padding:14px 16px;background:var(--kc);color:#fff}
+        /* Kategori: latar terang lembut + garis aksen berwarna di kiri (tidak lagi blok warna pekat) */
+        .bud details.kat.lv1{--kc:#4a6485;--kb:#f1f4f8;border:1px solid #e2e8f0;border-left:5px solid var(--kc);overflow:hidden}
+        .bud details.kat.lv1.c1{--kc:#4f8a83;--kb:#f0f6f5}
+        .bud details.kat.lv1.c2{--kc:#7b6fa6;--kb:#f4f2f9}
+        .bud details.kat.lv1.c3{--kc:#a8814a;--kb:#f8f5ef}
+        .bud details.kat.lv1.c4{--kc:#a8566b;--kb:#f8f1f3}
+        .bud details.kat.lv1>summary{padding:14px 16px;background:var(--kb);color:#1e293b}
+        .bud details.kat.lv1>summary:hover{filter:brightness(.98)}
         .bud details.kat.lv1>summary .nm>b{font-size:15px}
-        .bud details.kat.lv1>summary .lbl{color:rgba(255,255,255,.82)}
-        .bud details.kat.lv1>summary>.pg::before{color:#fff}
-        .bud details.kat.lv1>summary .bar{background:rgba(255,255,255,.28)}
-        .bud details.kat.lv1>summary .bar i{background:#fff}
-        .bud details.kat.lv1>summary .bar i.wn{background:#fde68a}
-        .bud details.kat.lv1>summary .bar i.er{background:#fecaca}
-        .bud details.kat.lv1>summary .bd{color:#fff;background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.55)}
-        .bud details.kat.lv1>summary .bd.b-wn{color:#fde68a}
-        .bud details.kat.lv1>summary .bd.b-er{color:#fecaca}
-        .bud details.kat.lv1>summary .tag.t-kat{background:rgba(255,255,255,.22);color:#fff}
+        .bud details.kat.lv1>summary .bar i{background:var(--kc)}
+        .bud details.kat.lv1>summary .bar i.wn{background:var(--amber)}
+        .bud details.kat.lv1>summary .bar i.er{background:var(--er)}
+        .bud details.kat.lv1>summary .tag.t-kat,.bud details.kat.lv1>summary .tag.t-kategori{background:#fff;color:var(--kc);border:1px solid var(--kc)}
         .bud details.kat.lv1 .isi{padding:4px 14px 14px}
         .bud .tag.t-sub{background:color-mix(in srgb,var(--kc,#1f3a5f) 16%,#fff);color:var(--kc,#1f3a5f)}
         .bud details.sub{margin:10px 0 0 18px;border:1px solid color-mix(in srgb,var(--kc,#1f3a5f) 30%,#fff);border-left:4px solid var(--kc,#1f3a5f);border-radius:0 8px 8px 0;background:#fff}
@@ -535,6 +556,73 @@
             },250);
           });
         }
+    </script>
+
+    <!-- Dropdown yang bisa diketik: select[data-cari] dipakai apa adanya (nilai, required, onchange), tampilannya diganti kotak ketik + daftar -->
+    <script>
+        function csBuat(sel){
+          if(sel._cs) return sel._cs;
+          const w=document.createElement('div'); w.className='cs';
+          sel.parentNode.insertBefore(w,sel);
+          const inp=document.createElement('input'); inp.type='text'; inp.className='cs-in'; inp.autocomplete='off';
+          inp.setAttribute('role','combobox'); inp.setAttribute('aria-expanded','false');
+          const ul=document.createElement('ul'); ul.className='cs-ls'; ul.setAttribute('role','listbox');
+          w.append(inp,ul,sel); sel.tabIndex=-1;
+          let li=[], aktif=-1;
+          const teks=()=>{const o=sel.options[sel.selectedIndex]; return o&&o.value!==''?o.text:''};
+          const sinkron=()=>{
+            const kosong=[...sel.options].find(o=>o.value==='');
+            inp.value=teks(); inp.placeholder=kosong?kosong.text:'Ketik untuk mencari';
+            inp.disabled=sel.disabled;
+          };
+          const soroti=n=>{
+            li.forEach(x=>x.classList.remove('on'));
+            aktif=li.length?Math.max(0,Math.min(n,li.length-1)):-1;
+            if(aktif>=0){li[aktif].classList.add('on'); li[aktif].scrollIntoView({block:'nearest'})}
+          };
+          const render=q=>{
+            ul.innerHTML=''; li=[];
+            const k=q.trim().toLowerCase();
+            [...sel.options].forEach(o=>{
+              if(o.value===''){ if(k) return; }
+              else if(k && !o.text.toLowerCase().includes(k)) return;
+              const e=document.createElement('li'); e.textContent=o.text; e.setAttribute('role','option');
+              if(o.value===sel.value && o.value!=='') e.classList.add('sel');
+              e.addEventListener('mousedown',ev=>{ev.preventDefault(); pilih(o.value)});
+              ul.appendChild(e); li.push(e);
+            });
+            if(!li.length){const e=document.createElement('li'); e.className='kosong'; e.textContent='Tidak ada yang cocok'; ul.appendChild(e)}
+            soroti(k?0:-1);
+          };
+          const buka=()=>{ if(inp.disabled) return; w.classList.add('open'); inp.setAttribute('aria-expanded','true'); render(''); inp.select(); };
+          const tutup=()=>{ w.classList.remove('open'); inp.setAttribute('aria-expanded','false'); sinkron(); };
+          function pilih(v){
+            const beda=sel.value!==v; sel.value=v; tutup();
+            if(beda) sel.dispatchEvent(new Event('change',{bubbles:true}));
+          }
+          inp.addEventListener('focus',buka);
+          inp.addEventListener('click',()=>{ if(!w.classList.contains('open')) buka(); });
+          inp.addEventListener('input',()=>{ w.classList.add('open'); render(inp.value); });
+          inp.addEventListener('blur',tutup);
+          inp.addEventListener('keydown',e=>{
+            if(e.key==='ArrowDown'){e.preventDefault(); if(!w.classList.contains('open')) buka(); else soroti(aktif+1)}
+            else if(e.key==='ArrowUp'){e.preventDefault(); soroti(aktif-1)}
+            else if(e.key==='Enter' && w.classList.contains('open')){
+              e.preventDefault();
+              const dipilih=li[aktif>=0?aktif:(li.length===1?0:-1)];
+              if(dipilih) dipilih.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));
+            }
+            else if(e.key==='Escape'){tutup(); inp.blur()}
+          });
+          sel.addEventListener('change',sinkron);
+          if(sel.form) sel.form.addEventListener('reset',()=>setTimeout(sinkron,0));
+          new MutationObserver(sinkron).observe(sel,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});
+          sel._cs={sinkron}; sinkron();
+          return sel._cs;
+        }
+        /* Panggil setelah mengubah nilai select lewat kode (select.value = ...) supaya kotak ketiknya ikut berubah */
+        function csSync(sel){ if(sel && sel._cs) sel._cs.sinkron(); }
+        document.querySelectorAll('select[data-cari]').forEach(csBuat);
     </script>
 
     @stack('scripts')

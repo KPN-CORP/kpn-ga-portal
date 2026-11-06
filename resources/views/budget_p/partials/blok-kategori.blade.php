@@ -1,11 +1,11 @@
 {{-- params: $daftarKategori (hasil BudgetRingkas::perKategori), $ns (nama grup akordeon); opsional: $deptId (grafik dibatasi ke Dept itu). $tahun dan $filter diwarisi dari halaman. --}}
 @php
-    $dasarGrafik = array_filter(['tahun' => $tahun, 'bu' => $filter['bu'] ?? null], fn ($v) => $v !== null && $v !== '');
+    $dasarGrafik = array_filter(['tahun' => $tahun, 'bu' => $filter['bu'] ?? null, 'pt' => $filter['pt'] ?? null], fn ($v) => $v !== null && $v !== '');
     if (isset($deptId)) { $dasarGrafik['dept'] = $deptId; }
 @endphp
     @foreach($daftarKategori as $k)
-        @php $perSub = $k['items']->groupBy(fn ($i) => $i->sub->id)->sortBy(fn ($g) => $g->first()->sub->urut); @endphp
-        <details class="kat lv1 c{{ $loop->index % 5 }}" name="grup-kategori-{{ $ns }}" @if($loop->first) open @endif>
+        @php $perSub = $k['items']->groupBy(fn ($i) => $i->sub->id)->sortBy(fn ($g) => [(int) $g->first()->sub->urut, mb_strtolower($g->first()->sub->nama)]); @endphp
+        <details class="kat lv1 c{{ $loop->index % 5 }}" name="grup-kategori-{{ $ns }}">
             <summary>
                 @include('budget_p.partials.baris-progres', [
                     'tag' => 'kategori', 'nama' => $k['nama'],

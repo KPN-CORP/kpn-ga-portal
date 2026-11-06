@@ -17,6 +17,7 @@ class TemplateController extends Controller
         $tahun = BudgetTahun::pilih($r->query('tahun'));
         $items = BudgetRingkas::perItem($r->user(), $tahun, [
             'bu' => $r->query('bu'),
+            'pt' => $r->query('pt'),
             'kategori_id' => $r->query('kategori_id'),
         ]);
         $map = BudgetBulan::where('tahun', $tahun)->whereIn('item_id', $items->pluck('id'))->get()->groupBy('item_id');

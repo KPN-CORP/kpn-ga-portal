@@ -21,11 +21,15 @@ class KategoriController extends Controller
         $user = $r->user();
         $tahun = BudgetTahun::pilih($r->query('tahun'));
 
-        $kategori = BudgetKategori::terlihatOleh($user)->where('aktif', true)->orderBy('urut')
-            ->with(['subs' => fn ($q) => $q->where('aktif', true)])->get();
+        $kategori = BudgetKategori::terlihatOleh($user)->where('aktif', true)
+            ->with(['subs' => fn ($q) => $q->where('aktif', true)])->get()->sortBy(fn ($k) => $k->kunciUrut())->values();
 
-        $jumlah = BudgetItem::terlihatOleh($user)->where('aktif', true)
+        $jumlah = BudgetItem::terlihatOleh($user)->berlakuDi($tahun)
             ->selectRaw('sub_id, COUNT(*) AS c')->groupBy('sub_id')->pluck('c', 'sub_id');
+
+        // Kategori dan subkategori hanya tampil bila punya item di tahun ini (tahun baru kosong sampai item disalin)
+        $kategori = $kategori->each(fn ($k) => $k->setRelation('subs', $k->subs->filter(fn ($s) => ($jumlah[$s->id] ?? 0) > 0)->values()))
+            ->filter(fn ($k) => $k->subs->isNotEmpty())->values();
 
         $subAktif = $r->filled('sub') ? BudgetSub::terlihatOleh($user)->with('kategori')->find($r->query('sub')) : null;
         $items = $subAktif ? BudgetRingkas::perItem($user, $tahun, ['sub_id' => $subAktif->id]) : collect();

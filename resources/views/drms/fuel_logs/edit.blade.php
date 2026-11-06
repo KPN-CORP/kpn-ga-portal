@@ -55,6 +55,29 @@
             </div>
         </div>
 
+        {{-- Foto Dashboard Speedometer (sebelum & sesudah). Log lama belum punya foto ini,
+             jadi saat edit tidak dipaksa; kalau diisi, foto lama diganti. --}}
+        @foreach([
+            'photo_dashboard_before' => 'Foto Dashboard Speedometer SEBELUM Pengisian',
+            'photo_dashboard_after'  => 'Foto Dashboard Speedometer SESUDAH Pengisian',
+        ] as $field => $label)
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">
+                {{ $label }}
+                @if($log->$field)
+                    <span class="text-gray-400 font-normal">(biarkan kosong jika tidak mengganti)</span>
+                @endif
+            </label>
+            <input type="file" name="{{ $field }}" accept="image/*" capture="environment"
+                   class="w-full border rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            @if($log->$field)
+                <a href="{{ route('drms.private.image', $log->$field) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
+            @else
+                <p class="text-xs text-gray-400 mt-1">Log ini belum punya foto dashboard speedometer.</p>
+            @endif
+        </div>
+        @endforeach
+
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">
                 Upload Struk

@@ -17,6 +17,21 @@ class BudgetKategori extends Model
         return $this->hasMany(BudgetSub::class, 'kategori_id')->orderBy('urut')->orderBy('nama');
     }
 
+    /**
+     * Kunci urutan tampil: nama Dept (A-Z) dulu, lalu nama orangnya, baru angka "urut", lalu nama kategori.
+     * Kategori tanpa pemilik ("Umum") paling akhir.
+     */
+    public function kunciUrut(): array
+    {
+        return [
+            $this->dept_head_user_id ? 0 : 1,
+            mb_strtolower(BudgetPeran::namaDept($this->dept_head_user_id)),
+            mb_strtolower(BudgetPeran::namaOrang($this->dept_head_user_id)),
+            (int) $this->urut,
+            mb_strtolower($this->nama),
+        ];
+    }
+
     public function pemilik()
     {
         return $this->belongsTo(User::class, 'dept_head_user_id');

@@ -31,6 +31,7 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
     Route::get('/budget', [BudgetAllController::class, 'index'])->name('budget.index');
     Route::post('/budget/bulan', [BudgetAllController::class, 'simpanBulan'])->name('budget.bulan');
     Route::get('/tagihan', [TagihanController::class, 'index'])->name('tagihan.index');
+    Route::get('/tagihan/cek', [TagihanController::class, 'cek'])->name('tagihan.cek');
     Route::post('/tagihan', [TagihanController::class, 'simpan'])->name('tagihan.simpan');
     Route::delete('/tagihan/{tagihan}', [TagihanController::class, 'hapus'])->name('tagihan.hapus');
     Route::get('/unduh', [TemplateController::class, 'unduh'])->name('unduh');

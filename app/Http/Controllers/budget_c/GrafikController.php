@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
  *   kategori_id            -> grafik per kategori
  *   dept (id Dept Head, 0 = Umum) -> grafik per departemen
  *   (tanpa itu)            -> grafik semua item sesuai filter dashboard (bu)
- * dept, kategori_id, sub_id, dan bu boleh digabung (mis. kategori di dalam satu dept).
+ * dept, kategori_id, sub_id, bu, dan pt boleh digabung (mis. kategori di dalam satu dept).
  * Hak akses selalu lewat BudgetRingkas::perItem (terlihatOleh), jadi user tidak bisa melihat data milik dept lain.
  */
 class GrafikController extends Controller
@@ -39,6 +39,7 @@ class GrafikController extends Controller
         } else {
             $filter = [
                 'bu' => $r->query('bu'),
+                'pt' => $r->query('pt'),
                 'kategori_id' => $r->query('kategori_id'),
                 'sub_id' => $r->query('sub_id'),
                 'dept' => $r->query('dept'),
@@ -58,6 +59,9 @@ class GrafikController extends Controller
             }
             if ($r->filled('bu')) {
                 $label[] = 'BU: ' . $r->query('bu');
+            }
+            if ($r->filled('pt')) {
+                $label[] = 'PT: ' . $r->query('pt');
             }
             if (!$label) {
                 $label[] = 'Semua item';

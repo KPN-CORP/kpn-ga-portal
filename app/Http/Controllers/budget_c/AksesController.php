@@ -9,6 +9,7 @@ use App\Models\budget_m\BudgetItem;
 use App\Models\budget_m\BudgetKategori;
 use App\Models\budget_m\BudgetSub;
 use App\Models\budget_m\BudgetPicHead;
+use App\Support\budget_s\BudgetCatat;
 use App\Support\budget_s\BudgetPeran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,9 @@ class AksesController extends Controller
         });
         BudgetPeran::lupakan($uid);
 
+        $baru = BudgetAkses::where('user_id', $uid)->first();
+        BudgetCatat::tulis($lama ? 'ubah' : 'tambah', 'akses', $baru?->id, 'user #' . $uid . ' peran ' . $peranBaru, $lama?->getAttributes(), $baru?->getAttributes());
+
         return back()->withFragment('pesan')->with('ok', 'Akses disimpan.');
     }
 
@@ -114,6 +118,7 @@ class AksesController extends Controller
             BudgetPicHead::updateOrCreate(['pic_user_id' => $picId, 'dept_head_user_id' => $head], ['aktif' => true]);
         });
         BudgetPeran::lupakan($picId);
+        BudgetCatat::tulis('tambah', 'pic', $picId, 'PIC user #' . $picId . ' ke Dept user #' . $head, null, ['pic_user_id' => $picId, 'dept_head_user_id' => $head]);
 
         return back()->withFragment('pesan')->with('ok', 'PIC ditambahkan. PIC memiliki akses yang sama dengan Anda untuk data departemen ini.');
     }
@@ -130,6 +135,7 @@ class AksesController extends Controller
         $picId = (int) $picHead->pic_user_id;
         $headId = (int) $picHead->dept_head_user_id;
         $akesDihapus = false;
+        $sebelumPh = $picHead->getAttributes();
 
         DB::transaction(function () use ($picHead, $picId, $headId, &$akesDihapus) {
             $picHead->delete();
@@ -140,6 +146,7 @@ class AksesController extends Controller
             }
         });
         BudgetPeran::lupakan($picId);
+        BudgetCatat::tulis('hapus', 'pic', $picId, 'PIC user #' . $picId . ' dilepas dari Dept user #' . $headId, $sebelumPh, ['akses_dihapus' => $akesDihapus]);
 
         return back()->withFragment('pesan')->with('ok', $akesDihapus
             ? 'PIC dilepas dan hak aksesnya dihapus.'
@@ -169,12 +176,14 @@ class AksesController extends Controller
             }
         }
 
+        $sebelum = $akses->getAttributes();
         DB::transaction(function () use ($akses, $uid) {
             BudgetPicHead::where('pic_user_id', $uid)->orWhere('dept_head_user_id', $uid)->delete();
             BudgetItem::where('pic_user_id', $uid)->update(['pic_user_id' => null]);
             $akses->delete();
         });
         BudgetPeran::lupakan($uid);
+        BudgetCatat::tulis('hapus', 'akses', $sebelum['id'] ?? null, 'user #' . $uid . ' peran ' . ($sebelum['peran'] ?? '-'), $sebelum, null);
 
         return back()->withFragment('pesan')->with('ok', 'Hak akses dihapus.');
     }
@@ -240,6 +249,8 @@ class AksesController extends Controller
         foreach (BudgetPicHead::where('dept_head_user_id', $ke)->pluck('pic_user_id') as $picId) {
             BudgetPeran::lupakan($picId);
         }
+
+        BudgetCatat::tulis('pindah', 'akses', $ke, 'Dept user #' . $dari . ' dipindah ke Dept user #' . $ke, ['dari' => $dari], ['ke' => $ke, 'item' => $jumlah]);
 
         return back()->withFragment('pesan')->with('ok', $jumlah . ' item beserta PIC dan kategorinya dipindahkan ke ' . BudgetPeran::namaDept($ke) . '. Akun lama sekarang bisa diubah atau dihapus.');
     }

@@ -13,13 +13,16 @@ class BudgetRingkas
     public static function perItem($user, int $tahun, array $filter = []): Collection
     {
         $q = BudgetItem::terlihatOleh($user)
-            ->where('aktif', true)
+            ->berlakuDi($tahun)
             ->with(['sub.kategori', 'deptHead', 'pic'])
             ->withSum(['bulan as budget' => fn ($b) => $b->where('tahun', $tahun)], 'nominal')
             ->withSum(['tagihan as realisasi' => fn ($t) => $t->where('tahun', $tahun)], 'total');
 
         if (!empty($filter['bu'])) {
             $q->where('bu', $filter['bu']);
+        }
+        if (!empty($filter['pt'])) {
+            $q->where('pt', $filter['pt']);
         }
         if (!empty($filter['sub_id'])) {
             $q->where('sub_id', $filter['sub_id']);
@@ -68,13 +71,14 @@ class BudgetRingkas
                 'id' => $kat->id,
                 'urut' => $kat->urut,
                 'nama' => $kat->nama,
+                'kunci' => $kat->kunciUrut(),
                 'budget' => $b,
                 'realisasi' => $r,
                 'persen' => $b > 0 ? round($r / $b * 100, 1) : null,
                 'status' => BudgetStatus::dari($b, $r),
                 'items' => $g->sortBy('nama')->values(),
             ];
-        })->sortBy('urut')->values();
+        })->sortBy('kunci')->values();
     }
 
     /** @return array{budget: array<int,float>, realisasi: array<int,float>} indeks 1..12 */
@@ -101,5 +105,52 @@ class BudgetRingkas
     {
         return BudgetItem::terlihatOleh($user)->whereNotNull('bu')->where('bu', '<>', '')
             ->distinct()->orderBy('bu')->pluck('bu')->all();
+    }
+
+    public static function ptTersedia($user): array
+    {
+        return BudgetItem::terlihatOleh($user)->whereNotNull('pt')->where('pt', '<>', '')
+            ->distinct()->orderBy('pt')->pluck('pt')->all();
+    }
+
+    /**
+     * Pilihan filter yang saling singkron (Kategori, BU, PT): tiap daftar hanya berisi nilai yang masih punya item
+     * setelah dua filter lainnya diterapkan. Pilihan yang sedang aktif selalu ikut ditampilkan.
+     *
+     * @return array{kategori: array<int,string>, sub: array<int,string>, bu: array<int,string>, pt: array<int,string>}
+     */
+    public static function opsiFilter($user, int $tahun, array $f): array
+    {
+        $baris = BudgetItem::terlihatOleh($user)->berlakuDi($tahun)->with('sub:id,kategori_id')->get(['id', 'sub_id', 'bu', 'pt']);
+
+        $kat = (string) ($f['kategori_id'] ?? '');
+        $sb = (string) ($f['sub_id'] ?? '');
+        $bu = (string) ($f['bu'] ?? '');
+        $pt = (string) ($f['pt'] ?? '');
+
+        // $abaikan = filter yang sedang dihitung pilihannya (tidak ikut membatasi dirinya sendiri)
+        // Kategori adalah induk Sub, jadi pilihan Kategori tidak dibatasi oleh Sub yang dipilih
+        $cocok = fn ($i, string $abaikan) =>
+            ($abaikan === 'kategori' || $kat === '' || (string) ($i->sub->kategori_id ?? '') === $kat)
+            && (in_array($abaikan, ['kategori', 'sub'], true) || $sb === '' || (string) $i->sub_id === $sb)
+            && ($abaikan === 'bu' || $bu === '' || (string) $i->bu === $bu)
+            && ($abaikan === 'pt' || $pt === '' || (string) $i->pt === $pt);
+
+        $daftar = function (string $abaikan, callable $nilai, string $aktif) use ($baris, $cocok) {
+            $v = $baris->filter(fn ($i) => $cocok($i, $abaikan))->map($nilai)
+                ->filter(fn ($x) => $x !== null && $x !== '')->map(fn ($x) => (string) $x)->unique()->values()->all();
+            if ($aktif !== '' && !in_array($aktif, $v, true)) {
+                $v[] = $aktif;
+            }
+            sort($v, SORT_NATURAL | SORT_FLAG_CASE);
+            return $v;
+        };
+
+        return [
+            'kategori' => $daftar('kategori', fn ($i) => $i->sub->kategori_id ?? null, $kat),
+            'sub' => $daftar('sub', fn ($i) => $i->sub_id, $sb),
+            'bu' => $daftar('bu', fn ($i) => $i->bu, $bu),
+            'pt' => $daftar('pt', fn ($i) => $i->pt, $pt),
+        ];
     }
 }

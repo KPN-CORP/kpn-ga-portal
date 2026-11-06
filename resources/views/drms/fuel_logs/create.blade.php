@@ -4,7 +4,7 @@
 {{-- Tampilan khusus mobile --}}
 <div class="block md:hidden">
     <div class="container mx-auto max-w-2xl">
-        <h1 class="text-2xl font-bold mb-4">Validasi Pengisian (Odometer + Struk)</h1>
+        <h1 class="text-2xl font-bold mb-4">Validasi Pengisian (Dashboard + Struk)</h1>
 
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -147,17 +147,44 @@
 
             </div>
 
-            {{-- Bukti Pengisian (kamera hanya untuk mobile) --}}
-            <div class="mb-4">
+            {{-- 3 FOTO WAJIB (kamera hanya untuk mobile):
+                 1) Dashboard Speedometer SEBELUM pengisian
+                 2) Dashboard Speedometer SESUDAH pengisian
+                 3) Struk / bukti pengisian --}}
+            @php
+                $photoFields = [
+                    [
+                        'key'   => 'photo_dashboard_before',
+                        'label' => 'Foto Dashboard Speedometer SEBELUM Pengisian',
+                        'hint'  => 'Foto seluruh dashboard speedometer (odometer, indikator BBM/baterai) sebelum mengisi, langsung dari kamera.',
+                        'empty' => 'Dashboard Speedometer Sebelum',
+                    ],
+                    [
+                        'key'   => 'photo_dashboard_after',
+                        'label' => 'Foto Dashboard Speedometer SESUDAH Pengisian',
+                        'hint'  => 'Foto seluruh dashboard speedometer (odometer, indikator BBM/baterai) setelah mengisi, langsung dari kamera.',
+                        'empty' => 'Dashboard Speedometer Sesudah',
+                    ],
+                    [
+                        'key'   => 'receipt_file',
+                        'label' => 'Foto Struk Pengisian',
+                        'hint'  => 'Tekan ikon kamera untuk mengambil foto struk pengisian.',
+                        'empty' => 'Foto Struk Pengisian',
+                    ],
+                ];
+            @endphp
+
+            @foreach($photoFields as $pf)
+            <div class="mb-4 photo-field" data-key="{{ $pf['key'] }}" data-empty="{{ $pf['empty'] }}">
 
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Ambil Foto Validasi <span class="text-red-500">*</span>
+                    {{ $pf['label'] }} <span class="text-red-500">*</span>
                 </label>
 
                 <div class="flex items-center gap-3">
 
                     {{-- Tombol Kamera (mobile) --}}
-                    <label for="receipt_file"
+                    <label for="{{ $pf['key'] }}"
                            class="w-14 h-14 flex items-center justify-center
                                   bg-blue-600 text-white rounded-full
                                   cursor-pointer hover:bg-blue-700
@@ -182,39 +209,39 @@
 
                     </label>
 
-                    {{-- Input file dengan capture --}}
-                    {{-- Atribut capture diatur lewat JS: untuk kendaraan listrik
-                         dilepas (boleh pilih dari galeri hp), selain itu tetap
-                         "environment" supaya hanya bisa ambil foto langsung. --}}
+                    {{-- Input file dengan capture.
+                         Foto dashboard: SELALU kamera langsung (capture="environment").
+                         Foto struk: untuk kendaraan listrik atribut capture dilepas lewat JS
+                         (boleh pilih dari galeri hp), selain itu tetap kamera langsung. --}}
                     <input type="file"
-                           id="receipt_file"
-                           name="receipt_file"
+                           id="{{ $pf['key'] }}"
+                           name="{{ $pf['key'] }}"
                            accept="image/*"
                            capture="environment"
                            required
                            class="hidden">
 
                     {{-- Status File --}}
-                    <span id="receipt_file_name"
+                    <span id="{{ $pf['key'] }}_name"
                           class="text-sm text-gray-500">
-                        Foto Odometer + Struk Pengisian
+                        {{ $pf['empty'] }}
                     </span>
 
                 </div>
 
                 {{-- Preview --}}
-                <div id="receipt_preview"
+                <div id="{{ $pf['key'] }}_preview"
                      class="hidden mt-3">
 
                     <div class="relative inline-block">
 
-                        <img id="receipt_preview_img"
+                        <img id="{{ $pf['key'] }}_preview_img"
                              src=""
-                             alt="Preview Bukti Pengisian"
+                             alt="Preview {{ $pf['empty'] }}"
                              class="w-40 h-40 object-cover rounded-lg border shadow">
 
                         <button type="button"
-                                id="remove_receipt"
+                                id="{{ $pf['key'] }}_remove"
                                 class="absolute -top-2 -right-2
                                        w-7 h-7
                                        bg-red-600 text-white
@@ -230,14 +257,15 @@
                 </div>
 
                 <p class="text-xs text-gray-400 mt-2">
-                    Tekan ikon kamera untuk mengambil foto bukti pengisian.
+                    {{ $pf['hint'] }}
                 </p>
 
-                <p id="receipt_error" class="hidden text-xs text-red-600 font-medium mt-1">
-                    Foto bukti pengisian wajib diisi.
+                <p id="{{ $pf['key'] }}_error" class="hidden text-xs text-red-600 font-medium mt-1">
+                    {{ $pf['label'] }} wajib diisi.
                 </p>
 
             </div>
+            @endforeach
 
             {{-- Catatan --}}
             <div class="mb-4">
@@ -299,6 +327,9 @@
         },
         @endforeach
     ];
+
+    // Daftar 3 foto wajib (harus sama dengan key di $photoFields)
+    const PHOTO_KEYS = ['photo_dashboard_before', 'photo_dashboard_after', 'receipt_file'];
 
     document.addEventListener('DOMContentLoaded', function () {
 
@@ -421,18 +452,26 @@
                     searchInput.setCustomValidity('');
                 }
 
-                // Foto bukti pengisian wajib diisi. Validasi manual di sini karena
-                // atribut `required` pada <input type="file"> yang disembunyikan
+                // 3 foto wajib (dashboard sebelum, dashboard sesudah, struk). Validasi manual
+                // di sini karena atribut `required` pada <input type="file"> yang disembunyikan
                 // (class="hidden" / display:none) tidak dicek oleh sebagian browser.
-                if (!receiptFile.files || receiptFile.files.length === 0) {
+                let firstMissing = null;
+                PHOTO_KEYS.forEach(function (key) {
+                    const input = document.getElementById(key);
+                    const err = document.getElementById(key + '_error');
+                    if (!input.files || input.files.length === 0) {
+                        err.classList.remove('hidden');
+                        if (!firstMissing) firstMissing = err;
+                    } else {
+                        err.classList.add('hidden');
+                    }
+                });
+                if (firstMissing) {
                     e.preventDefault();
-                    receiptError.classList.remove('hidden');
                     if (!hasError) {
-                        receiptError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     hasError = true;
-                } else {
-                    receiptError.classList.add('hidden');
                 }
             });
 
@@ -450,14 +489,9 @@
         }
 
         /* =====================================================
-         * KAMERA / RECEIPT
+         * KAMERA (3 foto: dashboard sebelum, dashboard sesudah, struk)
          * ===================================================== */
-        const receiptFile = document.getElementById('receipt_file');
-        const receiptFileName = document.getElementById('receipt_file_name');
-        const receiptPreview = document.getElementById('receipt_preview');
-        const receiptPreviewImg = document.getElementById('receipt_preview_img');
-        const removeReceipt = document.getElementById('remove_receipt');
-        const receiptError = document.getElementById('receipt_error');
+        const MAX_SIZE = 5 * 1024 * 1024; // samakan dengan max:5120 di server
 
         // Kompres foto di browser sebelum diupload, supaya tidak kena limit
         // "max:5120" (5MB) di server sebelum sempat dikompres ulang di backend.
@@ -505,48 +539,60 @@
             });
         }
 
-        receiptFile.addEventListener('change', async function () {
-            if (this.files && this.files.length > 0) {
-                let file = this.files[0];
-                const MAX_SIZE = 5 * 1024 * 1024; // samakan dengan max:5120 di server
+        function setupPhotoField(key) {
+            const wrap        = document.querySelector('.photo-field[data-key="' + key + '"]');
+            const emptyText   = wrap.getAttribute('data-empty');
+            const fileInput   = document.getElementById(key);
+            const fileName    = document.getElementById(key + '_name');
+            const preview     = document.getElementById(key + '_preview');
+            const previewImg  = document.getElementById(key + '_preview_img');
+            const removeBtn   = document.getElementById(key + '_remove');
+            const errorEl     = document.getElementById(key + '_error');
 
-                if (file.type.startsWith('image/') && file.size > MAX_SIZE) {
-                    receiptFileName.textContent = 'Mengompres foto...';
-                    try {
-                        const compressed = await compressImage(file, 1600, 0.7);
-                        if (compressed.size < file.size) {
-                            file = compressed;
-                            const dt = new DataTransfer();
-                            dt.items.add(file);
-                            receiptFile.files = dt.files;
+            fileInput.addEventListener('change', async function () {
+                if (this.files && this.files.length > 0) {
+                    let file = this.files[0];
+
+                    if (file.type.startsWith('image/') && file.size > MAX_SIZE) {
+                        fileName.textContent = 'Mengompres foto...';
+                        try {
+                            const compressed = await compressImage(file, 1600, 0.7);
+                            if (compressed.size < file.size) {
+                                file = compressed;
+                                const dt = new DataTransfer();
+                                dt.items.add(file);
+                                fileInput.files = dt.files;
+                            }
+                        } catch (err) {
+                            console.error('Gagal kompres foto:', err);
                         }
-                    } catch (err) {
-                        console.error('Gagal kompres foto:', err);
                     }
+
+                    fileName.textContent = file.name;
+                    fileName.classList.remove('text-gray-500');
+                    fileName.classList.add('text-green-600');
+                    errorEl.classList.add('hidden');
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        previewImg.src = e.target.result;
+                        preview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
                 }
+            });
 
-                receiptFileName.textContent = file.name;
-                receiptFileName.classList.remove('text-gray-500');
-                receiptFileName.classList.add('text-green-600');
-                receiptError.classList.add('hidden');
+            removeBtn.addEventListener('click', function () {
+                fileInput.value = '';
+                previewImg.src = '';
+                preview.classList.add('hidden');
+                fileName.textContent = emptyText;
+                fileName.classList.remove('text-green-600');
+                fileName.classList.add('text-gray-500');
+            });
+        }
 
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    receiptPreviewImg.src = e.target.result;
-                    receiptPreview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        removeReceipt.addEventListener('click', function () {
-            receiptFile.value = '';
-            receiptPreviewImg.src = '';
-            receiptPreview.classList.add('hidden');
-            receiptFileName.textContent = 'Ambil foto bukti pengisian';
-            receiptFileName.classList.remove('text-green-600');
-            receiptFileName.classList.add('text-gray-500');
-        });
+        PHOTO_KEYS.forEach(setupPhotoField);
 
     });
 </script>

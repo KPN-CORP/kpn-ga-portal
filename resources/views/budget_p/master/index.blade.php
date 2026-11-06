@@ -1,5 +1,9 @@
 @extends('layouts.app-budget-sidebar')
-@php $admin = ($budgetPeran ?? null) === 'admin'; @endphp
+@php
+    $admin = ($budgetPeran ?? null) === 'admin';
+    // Tahun yang ditampilkan di keterangan: satu tahun bila difilter, selain itu semua tahun (lama ke baru)
+    $tampilTahun = $tahunPilih ? [$tahunPilih] : collect($daftarTahun)->sort()->values()->all();
+@endphp
 @section('title', $admin ? 'Master' : 'Kategori baru')
 @section('content')
 <div class="top"><h2>{{ $admin ? 'Master budget' : 'Tambah kategori dan subkategori' }}</h2></div>
@@ -41,9 +45,22 @@
 
 <div class="card">
     <h3>Kategori dan subkategori</h3>
+    <form method="get" class="fb" style="padding:0 0 12px">
+        <label><span class="lbl">Tahun</span>
+            <select name="tahun" data-cari onchange="this.form.submit()">
+                <option value="semua" @selected($tahunPilih === null)>Semua tahun</option>
+                @foreach($daftarTahun as $t)<option value="{{ $t }}" @selected((int) $tahunPilih === (int) $t)>{{ $t }}</option>@endforeach
+            </select>
+        </label>
+    </form>
+    <p class="lbl" style="margin-bottom:10px">Label hijau = ada item di tahun itu, abu-abu = belum ada. Pilih satu tahun untuk hanya melihat kategori dan subkategori di tahun tersebut.</p>
     @foreach($kategori as $k)
-        <details class="kat" open>
-            <summary><b>{{ $k->nama }}</b> <span class="tag t-sub" style="margin-left:6px">{{ $k->pemilik->name ?? ($k->dept_head_user_id ? 'Dept Head #' . $k->dept_head_user_id : 'Umum') }}</span> <span class="lbl">(urut {{ $k->urut }}, {{ $k->aktif ? 'aktif' : 'nonaktif' }}, {{ $k->subs->count() }} subkategori)</span></summary>
+        <details class="kat">
+            <summary><span class="tag t-sub" style="margin-right:6px">{{ $k->dept_head_user_id ? \App\Support\budget_s\BudgetPeran::namaDeptLengkap($k->dept_head_user_id) : 'Umum' }}</span> <b>{{ $k->nama }}</b> <span class="lbl">(urut {{ $k->urut }}, {{ $k->aktif ? 'aktif' : 'nonaktif' }}, {{ $k->subs->count() }} subkategori)</span>
+                @foreach($tampilTahun as $y)
+                    @if($k->subs->contains(fn ($x) => isset($tahunSub[$x->id][$y])))<span class="bd b-ok" style="margin-left:4px">{{ $y }}</span>@else<span class="bd b-mu" style="margin-left:4px">{{ $y }}</span>@endif
+                @endforeach
+            </summary>
             <div class="isi">
                 @if($admin)
                 <form method="post" action="{{ route('budgeting.master.simpan') }}" class="row" style="margin:6px 0 12px">
@@ -77,6 +94,12 @@
                         <form method="post" action="{{ route('budgeting.master.sub.hapus', $s) }}" onsubmit="return confirm('Hapus subkategori ini?')">@csrf @method('DELETE')<button class="btn sm dg">Hapus</button></form>
                     </div>
                     @endif
+                    <div class="lbl" style="margin:0 0 8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                        @foreach($tampilTahun as $y)
+                            @if(($tahunSub[$s->id][$y] ?? 0) > 0)<span class="bd b-ok">{{ $y }}: {{ $tahunSub[$s->id][$y] }} item</span>@else<span class="bd b-mu">{{ $y }}: belum ada</span>@endif
+                        @endforeach
+                        @if(!empty($kepalaSub[$s->id]))<span>Dept: {{ implode(', ', $kepalaSub[$s->id]) }}</span>@endif
+                    </div>
                 @endforeach
 
                 <form method="post" action="{{ route('budgeting.master.simpan') }}" class="row" style="border-top:1px solid var(--ln);padding-top:10px">

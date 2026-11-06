@@ -30,6 +30,24 @@
         <div><dt class="text-sm text-gray-500">Diverifikasi Pada</dt><dd class="font-medium">{{ $log->verified_at ? $log->verified_at->format('d M Y H:i') : '-' }}</dd></div>
         @endif
         <div class="col-span-2"><dt class="text-sm text-gray-500">Catatan</dt><dd class="font-medium">{{ $log->notes ?? '-' }}</dd></div>
+        <div><dt class="text-sm text-gray-500">Dashboard Sebelum</dt>
+            <dd>
+                @if($log->photo_dashboard_before)
+                    <a href="{{ route('drms.private.image', $log->photo_dashboard_before) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
+                @else
+                    <span class="font-medium">-</span>
+                @endif
+            </dd>
+        </div>
+        <div><dt class="text-sm text-gray-500">Dashboard Sesudah</dt>
+            <dd>
+                @if($log->photo_dashboard_after)
+                    <a href="{{ route('drms.private.image', $log->photo_dashboard_after) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
+                @else
+                    <span class="font-medium">-</span>
+                @endif
+            </dd>
+        </div>
         @if($log->receipt_file)
         <div class="col-span-2"><dt class="text-sm text-gray-500">Struk</dt><dd><a href="{{ route('drms.private.image', $log->receipt_file) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Struk</a></dd></div>
         @endif

@@ -63,7 +63,12 @@ class ImageController extends Controller
             if ($requestBu == $buId) return;
         }
 
-        $fuelLog = \App\Models\Drms\FuelLog::where('receipt_file', $path)->first();
+        // Struk + foto dashboard speedometer sebelum/sesudah pada log BBM
+        $fuelLog = \App\Models\Drms\FuelLog::where(function ($q) use ($path) {
+            $q->where('receipt_file', $path)
+              ->orWhere('photo_dashboard_before', $path)
+              ->orWhere('photo_dashboard_after', $path);
+        })->first();
         if ($fuelLog && $fuelLog->vehicle && $fuelLog->vehicle->business_unit_id == $buId) return;
 
         $service = \App\Models\Drms\ServiceSchedule::where('invoice_file', $path)->first();
@@ -88,7 +93,11 @@ class ImageController extends Controller
             if ($log->request && $log->request->driver_id == $driverId) return;
         }
 
-        $fuelLog = \App\Models\Drms\FuelLog::where('receipt_file', $path)->first();
+        $fuelLog = \App\Models\Drms\FuelLog::where(function ($q) use ($path) {
+            $q->where('receipt_file', $path)
+              ->orWhere('photo_dashboard_before', $path)
+              ->orWhere('photo_dashboard_after', $path);
+        })->first();
         if ($fuelLog && $fuelLog->driver_id == $driverId) return;
 
         abort(403);

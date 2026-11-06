@@ -58,6 +58,52 @@
             ];
         };
 
+        // Data untuk popup "Lihat hitungan" PARAMETER RATA-RATA per kendaraan (sesuai filter aktif):
+        // daftar efisiensi tiap pengisian -> dijumlah -> dibagi jumlah pengisian -> deviasi dari standar.
+        $avgCalcPayload = function ($data) use ($devSteps) {
+            $rows = collect($data['rows'] ?? [])
+                ->filter(fn ($r) => $r['distance'] !== null && $r['efficiency'] !== null)
+                ->values();
+            if ($rows->isEmpty() || $data['actual_efficiency'] === null) return null;
+
+            $firstRow = collect($data['rows'])->first();
+            $baseline = ($firstRow['previous_outside'] ?? false)
+                ? [
+                    'date' => $firstRow['previous_date']->format('d M Y'),
+                    'odo'  => number_format($firstRow['previous_odometer'], 0, ',', '.'),
+                  ]
+                : null;
+
+            $from = request('date_from');
+            $to   = request('date_to');
+            $period = ($from || $to)
+                ? ($from ? Carbon::parse($from)->format('d M Y') : 'awal') . ' – ' . ($to ? Carbon::parse($to)->format('d M Y') : 'sekarang')
+                : 'Semua periode';
+
+            $st = $devSteps($data['efficiency_standard'], $data['actual_efficiency']);
+
+            return [
+                'type'      => 'avg',
+                'plate'     => $data['plate_number'],
+                'period'    => $period,
+                'unit'      => $data['unit_label'],
+                'fuel_unit' => $data['fuel_unit_label'],
+                'items'     => $rows->map(fn ($r) => [
+                    'date'     => $r['current_date']->format('d M Y'),
+                    'distance' => number_format($r['distance'], 0, ',', '.'),
+                    'liters'   => number_format($r['liters'], 2, ',', '.'),
+                    'eff'      => number_format($r['efficiency'], 2),
+                ])->all(),
+                'n'         => $rows->count(),
+                'sum'       => number_format(round($rows->sum('efficiency'), 2), 2),
+                'avg'       => number_format($data['actual_efficiency'], 2),
+                'std'       => $data['efficiency_standard'],
+                'a' => $st['a'], 'b' => $st['b'],
+                'c' => $data['deviation_percent'],   // sama persis dengan angka yang tampil di tabel
+                'baseline'  => $baseline,
+            ];
+        };
+
         // Pisahkan total liter (BBM) dan total kWh (listrik) supaya tidak dijumlah campur 1 angka.
         $totalLiterBbm   = collect($result)->where('fuel_unit_label', 'Liter')->sum('total_liters');
         $totalKwhListrik = collect($result)->where('fuel_unit_label', 'kWh')->sum('total_liters');
@@ -113,13 +159,19 @@
                 <button type="submit" class="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     🔍 Tampilkan
                 </button>
-                @if(request()->anyFilled(['business_unit_id', 'vehicle_id', 'date_from', 'date_to']))
+                @if(collect(request()->query())->filter()->isNotEmpty())
                     <a href="{{ route('drms.fuel-logs.analytics') }}" class="flex-1 lg:flex-none text-center bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         Reset
                     </a>
                 @endif
             </div>
         </form>
+
+        @if(!empty($isDefaultPeriod))
+            <p class="text-xs text-blue-600 mt-3">
+                Menampilkan <strong>3 bulan terakhir</strong> (default). Klik <strong>Semua Periode</strong> atau ubah tanggal untuk periode lain.
+            </p>
+        @endif
 
         {{-- Quick filter periode --}}
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t">
@@ -133,7 +185,7 @@
                 Bulan Lalu ({{ $lastMonthLabel }})
             </a>
             @if(request()->filled('date_from') || request()->filled('date_to'))
-                <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id')])) }}"
+                <a href="{{ route('drms.fuel-logs.analytics', array_filter(['business_unit_id' => request('business_unit_id'), 'vehicle_id' => request('vehicle_id'), 'period' => 'all'])) }}"
                    class="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
                     Semua Periode
                 </a>
@@ -254,6 +306,9 @@
                     Sebelumnya:
                     @if($row['previous_date'])
                         {{ $row['previous_date']->format('d M Y') }} (odo {{ number_format($row['previous_odometer'], 0, ',', '.') }} km)
+                        @if($row['previous_outside'] ?? false)
+                            <span class="text-[11px] text-blue-500">· sebelum periode filter</span>
+                        @endif
                     @else
                         <span class="italic text-gray-400">Pengisian pertama</span>
                     @endif
@@ -303,6 +358,9 @@
                             @if($row['previous_date'])
                                 {{ $row['previous_date']->format('d M Y') }}<br>
                                 <span class="text-xs text-gray-400">odo {{ number_format($row['previous_odometer'], 0, ',', '.') }} km</span>
+                                @if($row['previous_outside'] ?? false)
+                                    <br><span class="text-[11px] text-blue-500">sebelum periode filter</span>
+                                @endif
                             @else
                                 <span class="text-gray-400 italic">Pengisian pertama</span>
                             @endif
@@ -347,19 +405,6 @@
             </table>
         </div>
 
-        {{-- POPUP HITUNGAN --}}
-        <div id="calc_modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 p-4">
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-4 text-sm text-gray-700">
-                <div class="flex justify-between items-start mb-3">
-                    <h4 id="calc_title" class="font-semibold text-gray-800"></h4>
-                    <button type="button" id="calc_close" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
-                </div>
-                <div id="calc_body" class="space-y-3"></div>
-                <p class="text-xs text-gray-400 mt-3">Minus = lebih irit dari standar.</p>
-                <button type="button" id="calc_close2" class="mt-3 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold">Tutup</button>
-            </div>
-        </div>
-
         {{-- ESTIMASI KE DEPAN --}}
         @if($vehicleDetail['estimate'])
             @php $est = $vehicleDetail['estimate']; @endphp
@@ -392,7 +437,7 @@
     <p class="text-xs text-gray-500 mb-4">
         📊 Angka di tabel ini adalah <strong>rangkuman dari seluruh pengisian</strong> pada periode yang dipilih:
         Parameter = rata-rata km per liter/kWh dari semua pengisian, Deviasi = selisih rata-rata itu dengan standar.
-        Klik nomor plat untuk melihat hitungan tiap pengisian.
+        Klik <strong>🧮 Lihat hitungan</strong> untuk melihat cara hitung rata-rata, atau klik nomor plat untuk melihat hitungan tiap pengisian.
     </p>
     @endif
 
@@ -421,11 +466,15 @@
                         <div class="text-sm">{{ number_format($data['actual_efficiency'], 2) }} {{ $data['unit_label'] }}</div>
                         <div class="text-xs text-gray-400">standar {{ $data['efficiency_standard'] }}</div>
                         @if($data['warning_level'] === 'red')
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 -{{ $data['deviation_percent'] }}%</span>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold">🔴 {{ $data['deviation_percent'] }}%</span>
                         @elseif($data['warning_level'] === 'yellow')
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">🟡 -{{ $data['deviation_percent'] }}%</span>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">🟡 {{ $data['deviation_percent'] }}%</span>
                         @else
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢</span>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">🟢 {{ $data['deviation_percent'] }}%</span>
+                        @endif
+                        @php $avgCalc = $avgCalcPayload($data); @endphp
+                        @if($avgCalc)
+                            <div><button type="button" class="calc-btn mt-1 text-[11px] text-blue-600 hover:underline" data-calc="{{ json_encode($avgCalc) }}">🧮 Lihat hitungan</button></div>
                         @endif
                     @else
                         <span class="text-gray-400 text-xs">Efisiensi: -</span>
@@ -531,16 +580,20 @@
                             </div>
                             @if($data['warning_level'] === 'red')
                                 <span class="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold" title="Boros signifikan, lebih dari 10% di bawah standar">
-                                    🔴 -{{ $data['deviation_percent'] }}%
+                                    🔴 {{ $data['deviation_percent'] }}%
                                 </span>
                             @elseif($data['warning_level'] === 'yellow')
                                 <span class="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold" title="Mulai boros, lebih dari 5% di bawah standar">
-                                    🟡 -{{ $data['deviation_percent'] }}%
+                                    🟡 {{ $data['deviation_percent'] }}%
                                 </span>
                             @else
                                 <span class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold" title="Sesuai atau lebih baik dari standar">
-                                    🟢 
+                                    🟢 {{ $data['deviation_percent'] }}%
                                 </span>
+                            @endif
+                            @php $avgCalc = $avgCalcPayload($data); @endphp
+                            @if($avgCalc)
+                                <div><button type="button" class="calc-btn mt-1 text-[11px] text-blue-600 hover:underline" data-calc="{{ json_encode($avgCalc) }}">🧮 Lihat hitungan</button></div>
                             @endif
                         @else
                             <span class="text-gray-400" title="Butuh minimal 2 riwayat pengisian untuk menghitung efisiensi">-</span>
@@ -594,7 +647,20 @@
         Catatan: efisiensi &amp; estimasi dihitung dari selisih odometer antar pengisian yang berurutan.
         Standar efisiensi: mobil BBM 8 km/L, mobil listrik 6 km/kWh. Deviasi &gt;5% di bawah standar = warning kuning, &gt;10% = warning merah.
         Klik nomor plat untuk lihat riwayat pengisian lengkap satu-satu.
+        Kalau filter &quot;Dari Tanggal&quot; dipakai, pengisian pertama di periode dibandingkan dengan pengisian terakhir sebelum periode (bukan dianggap pengisian pertama).
     </p>
+    {{-- POPUP HITUNGAN (dipakai riwayat per pengisian DAN parameter rata-rata per kendaraan) --}}
+    <div id="calc_modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-4 text-sm text-gray-700">
+            <div class="flex justify-between items-start mb-3">
+                <h4 id="calc_title" class="font-semibold text-gray-800"></h4>
+                <button type="button" id="calc_close" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div id="calc_body" class="space-y-3"></div>
+            <p class="text-xs text-gray-400 mt-3">Minus = lebih irit dari standar.</p>
+            <button type="button" id="calc_close2" class="mt-3 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold">Tutup</button>
+        </div>
+    </div>
 </div>
 
 
@@ -693,7 +759,31 @@
         const body = document.getElementById('calc_body');
         const title = document.getElementById('calc_title');
 
+        function openAvg(d) {
+            title.textContent = '🧮 Hitungan Parameter — ' + d.plate;
+            const lines = d.items.map(function (it) {
+                return '<p>' + it.date + ': ' + it.distance + ' ÷ ' + it.liters + ' = <strong>' + it.eff + '</strong></p>';
+            }).join('');
+            body.innerHTML =
+                '<p class="text-xs text-gray-500">Sesuai filter: <strong>' + d.period + '</strong></p>' +
+                (d.baseline
+                    ? '<p class="text-xs text-blue-600">Pengisian pertama di periode ini dibandingkan dengan pengisian terakhir sebelum periode (' + d.baseline.date + ', odo ' + d.baseline.odo + ' km).</p>'
+                    : '') +
+                '<div><p class="font-semibold">1. ' + d.unit + ' tiap pengisian</p>' + lines +
+                '<p class="text-xs text-gray-400">jarak ÷ ' + d.fuel_unit + ' diisi, per pengisian</p></div>' +
+                '<div><p class="font-semibold">2. Rata-rata (' + d.n + ' pengisian)</p>' +
+                '<p>a) Jumlah = ' + d.sum + '</p>' +
+                '<p>b) ' + d.sum + ' ÷ ' + d.n + ' = <strong>' + d.avg + ' ' + d.unit + '</strong></p></div>' +
+                '<div><p class="font-semibold">3. Deviasi (standar ' + d.std + ')</p>' +
+                '<p>a) ' + d.std + ' − ' + d.avg + ' = ' + d.a + '</p>' +
+                '<p>b) ' + d.a + ' ÷ ' + d.std + ' = ' + d.b + '</p>' +
+                '<p>c) ' + d.b + ' × 100 = <strong>' + d.c + '%</strong></p></div>';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
         function open(d) {
+            if (d.type === 'avg') { openAvg(d); return; }
             title.textContent = '🧮 Hitungan — ' + d.date;
             body.innerHTML =
                 '<div><p class="font-semibold">1. Jarak</p>' +

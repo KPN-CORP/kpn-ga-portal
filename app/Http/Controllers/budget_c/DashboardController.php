@@ -16,9 +16,10 @@ class DashboardController extends Controller
     {
         $user = $r->user();
         $tahun = BudgetTahun::pilih($r->query('tahun'));
-        $filter = ['bu' => $r->query('bu'), 'kategori_id' => $r->query('kategori_id')];
+        $filter = ['bu' => $r->query('bu'), 'pt' => $r->query('pt'), 'kategori_id' => $r->query('kategori_id')];
 
         $items = BudgetRingkas::perItem($user, $tahun, $filter);
+        $opsi = BudgetRingkas::opsiFilter($user, $tahun, $filter);
         $peran = BudgetPeran::peran($user);
 
         // Admin: data dipisah per Dept Head supaya jelas milik siapa
@@ -49,8 +50,10 @@ class DashboardController extends Controller
             'perKategori' => BudgetRingkas::perKategori($items),
             'perDept' => $perDept,
             'filter' => $filter,
-            'kategoriList' => BudgetKategori::terlihatOleh($user)->where('aktif', true)->orderBy('urut')->get(),
-            'buList' => BudgetRingkas::buTersedia($user),
+            'kategoriList' => BudgetKategori::terlihatOleh($user)->where('aktif', true)->get()->sortBy(fn ($k) => $k->kunciUrut())
+                ->filter(fn ($k) => in_array((string) $k->id, $opsi['kategori'], true))->values(),
+            'buList' => $opsi['bu'],
+            'ptList' => $opsi['pt'],
             'peran' => $peran,
         ]);
     }

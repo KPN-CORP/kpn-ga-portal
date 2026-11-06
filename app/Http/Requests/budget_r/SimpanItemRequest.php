@@ -41,6 +41,11 @@ class SimpanItemRequest extends FormRequest
             'sumber' => ['nullable', 'string', 'max:100'],
             'keterangan' => ['nullable', 'string', 'max:1000'],
             'aktif' => ['nullable', 'boolean'],
+            // Item baru: mulai berlaku di tahun halaman yang sedang dibuka.
+            'tahun_mulai' => ['nullable', 'integer', 'exists:budget_tahun,tahun'],
+            // Ubah item: 'semua' = perbaiki di semua tahun, 'mulai' = item baru mulai tahun_berlaku (tahun lama tidak berubah).
+            'mode' => ['nullable', 'in:semua,mulai'],
+            'tahun_berlaku' => ['nullable', 'required_if:mode,mulai', 'integer', 'exists:budget_tahun,tahun'],
         ];
     }
 

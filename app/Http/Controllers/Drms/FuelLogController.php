@@ -171,8 +171,15 @@ class FuelLogController extends Controller
             'odometer_start' => 'required|integer|min:0',
             'fuel_liters' => 'required|numeric|min:0.01',
             'fuel_total_price' => 'required|numeric|min:0',
-            'receipt_file' => 'nullable|image|max:5120',
+            // 3 foto wajib saat input baru: struk + dashboard speedometer sebelum & sesudah
+            'receipt_file' => 'required|image|max:5120',
+            'photo_dashboard_before' => 'required|image|max:5120',
+            'photo_dashboard_after' => 'required|image|max:5120',
             'notes' => 'nullable|string',
+        ], [
+            'receipt_file.required' => 'Foto struk pengisian wajib diisi.',
+            'photo_dashboard_before.required' => 'Foto dashboard speedometer SEBELUM pengisian wajib diisi.',
+            'photo_dashboard_after.required' => 'Foto dashboard speedometer SESUDAH pengisian wajib diisi.',
         ]);
 
         // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
@@ -188,9 +195,9 @@ class FuelLogController extends Controller
         $validated['user_id'] = Auth::id();
         $validated['is_verified'] = 0;
 
-        if ($request->hasFile('receipt_file')) {
-            $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
-        }
+        $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
+        $validated['photo_dashboard_before'] = ImageHelper::compressAndStore($request->file('photo_dashboard_before'), 'fuel_dashboards/before');
+        $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards/after');
 
         FuelLog::create($validated);
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM berhasil disimpan.');
@@ -232,6 +239,10 @@ class FuelLogController extends Controller
             'fuel_liters' => 'required|numeric|min:0.01',
             'fuel_total_price' => 'required|numeric|min:0',
             'receipt_file' => 'nullable|image|max:5120',
+            // Saat edit foto dashboard boleh kosong (tidak diganti). Log lama (sebelum fitur
+            // ini ada) memang belum punya foto dashboard, jadi tidak dipaksa saat edit.
+            'photo_dashboard_before' => 'nullable|image|max:5120',
+            'photo_dashboard_after' => 'nullable|image|max:5120',
             'notes' => 'nullable|string',
         ]);
 
@@ -257,6 +268,14 @@ class FuelLogController extends Controller
         if ($request->hasFile('receipt_file')) {
             if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
             $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
+        }
+        if ($request->hasFile('photo_dashboard_before')) {
+            if ($log->photo_dashboard_before) ImageHelper::deleteImage($log->photo_dashboard_before);
+            $validated['photo_dashboard_before'] = ImageHelper::compressAndStore($request->file('photo_dashboard_before'), 'fuel_dashboards/before');
+        }
+        if ($request->hasFile('photo_dashboard_after')) {
+            if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
+            $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards/after');
         }
         $log->update($validated);
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM diperbarui.');
@@ -286,6 +305,8 @@ class FuelLogController extends Controller
     {
         $log = FuelLog::findOrFail($id);
         if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
+        if ($log->photo_dashboard_before) ImageHelper::deleteImage($log->photo_dashboard_before);
+        if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
         $log->delete();
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM dihapus.');
     }
@@ -294,6 +315,17 @@ class FuelLogController extends Controller
     {
         $lockedBuId = $this->getBusinessUnitId();           // null = superadmin
         $buId = $this->effectiveBusinessUnitId($request);
+
+        // Default periode: 3 bulan terakhir sampai hari ini, kalau tidak ada filter tanggal sama sekali.
+        // Pilih "Semua Periode" (period=all) atau kosongkan kedua tanggal lalu Tampilkan untuk melihat semuanya.
+        $isDefaultPeriod = false;
+        if (!$request->has('date_from') && !$request->has('date_to') && $request->query('period') !== 'all') {
+            $request->merge([
+                'date_from' => now()->subMonthsNoOverflow(3)->format('Y-m-d'),
+                'date_to'   => now()->format('Y-m-d'),
+            ]);
+            $isDefaultPeriod = true;
+        }
 
         $query = FuelLog::with('vehicle')
             ->where('is_verified', 1)
@@ -314,10 +346,15 @@ class FuelLogController extends Controller
 
         $logs = $query->orderBy('vehicle_id')->orderBy('filling_date')->get();
 
+        // Kalau filter "Dari Tanggal" dipakai, pengisian PERTAMA di dalam periode tidak lagi
+        // dianggap "pengisian pertama" (tanpa pembanding), tapi dibandingkan dengan pengisian
+        // TERAKHIR sebelum periode (per kendaraan) sebagai angka awal.
+        $baselines = $this->baselineFillsBefore($logs, $request->date_from, $buId);
+
         $grouped = $logs->groupBy('vehicle_id');
         $result = [];
         foreach ($grouped as $vehicleId => $items) {
-            $detail = $this->buildVehicleFillDetail($items);
+            $detail = $this->buildVehicleFillDetail($items, $baselines[$vehicleId] ?? null);
             if (!$detail) continue;
             $vehicle = $detail['vehicle'];
 
@@ -375,6 +412,8 @@ class FuelLogController extends Controller
                 'last_interval_distance' => $lastRow['distance'] ?? null,
                 'last_interval_efficiency' => $lastRow['efficiency'] ?? null,
                 'last_interval_warning' => $lastRow['warning_level'] ?? null,
+                // Seluruh baris riwayat (sesuai filter) -- dipakai popup "Lihat hitungan" rata-rata
+                'rows' => $detail['rows'],
                 // Estimasi ke depan, langsung tampil tanpa perlu klik
                 'estimate' => $detail['estimate'],
             ];
@@ -408,15 +447,53 @@ class FuelLogController extends Controller
         // kapan/berapa jauh lagi & isi berikutnya kira-kira berapa".
         $vehicleDetail = null;
         if ($request->filled('vehicle_id') && $logs->isNotEmpty()) {
-            $vehicleDetail = $this->buildVehicleFillDetail($logs);
+            $vehicleDetail = $this->buildVehicleFillDetail($logs, $baselines[(int) $request->vehicle_id] ?? null);
         }
 
         $businessUnits = $this->businessUnitOptions($lockedBuId);
         $filterBusinessUnitId = $buId;
 
         return view('drms.fuel_logs.analytics', compact(
-            'result', 'summary', 'vehicles', 'vehicleDetail', 'businessUnits', 'filterBusinessUnitId'
+            'result', 'summary', 'vehicles', 'vehicleDetail', 'businessUnits', 'filterBusinessUnitId',
+            'isDefaultPeriod'
         ));
+    }
+
+    /**
+     * Pengisian terverifikasi TERAKHIR sebelum $dateFrom untuk tiap kendaraan di $logs.
+     * Dipakai sebagai pembanding (odometer awal) untuk pengisian pertama di dalam periode filter.
+     * Mengikuti scope BU yang sama dengan query analitik. 2 query saja, tidak per kendaraan.
+     *
+     * @return array<int, FuelLog>  key = vehicle_id
+     */
+    private function baselineFillsBefore($logs, $dateFrom, $buId): array
+    {
+        if (!$dateFrom || $logs->isEmpty()) return [];
+
+        $vehicleIds = $logs->pluck('vehicle_id')->unique()->values()->all();
+
+        $base = fn () => FuelLog::where('is_verified', 1)
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->whereDate('filling_date', '<', $dateFrom)
+            ->when($buId, fn ($q) => $q->whereHas('vehicle', fn ($sq) => $sq->where('business_unit_id', $buId)));
+
+        // Tanggal pengisian terakhir sebelum periode, per kendaraan
+        $lastDates = $base()
+            ->selectRaw('vehicle_id, MAX(filling_date) as last_date')
+            ->groupBy('vehicle_id')
+            ->pluck('last_date', 'vehicle_id');
+        if ($lastDates->isEmpty()) return [];
+
+        $candidates = $base()->where(function ($w) use ($lastDates) {
+            foreach ($lastDates as $vehicleId => $date) {
+                $w->orWhere(fn ($q) => $q->where('vehicle_id', $vehicleId)->whereDate('filling_date', $date));
+            }
+        })->get();
+
+        // Kalau ada beberapa isi di hari yang sama, ambil yang odometernya paling tinggi
+        return $candidates->groupBy('vehicle_id')
+            ->map(fn ($g) => $g->sortBy([['odometer_start', 'desc'], ['id', 'desc']])->first())
+            ->all();
     }
 
     /**
@@ -425,8 +502,10 @@ class FuelLogController extends Controller
      * pengisian paling baru.
      *
      * @param  \Illuminate\Support\Collection  $items  FuelLog milik SATU kendaraan, urut tanggal (lama -> baru)
+     * @param  FuelLog|null  $baseline  pengisian terakhir SEBELUM periode filter (kalau ada), jadi
+     *                                  pembanding untuk pengisian pertama di periode
      */
-    private function buildVehicleFillDetail($items)
+    private function buildVehicleFillDetail($items, $baseline = null)
     {
         $vehicle = $items->first()->vehicle ?? null;
         if (!$vehicle) return null;
@@ -438,7 +517,8 @@ class FuelLogController extends Controller
 
         // ----- Riwayat per pasangan pengisian (sebelum vs sekarang) -----
         $rows = [];
-        $prev = null;
+        $prev = $baseline;
+        $prevIsBaseline = $baseline !== null;
         foreach ($items as $item) {
             $distance = null;
             $efficiency = null;
@@ -463,6 +543,8 @@ class FuelLogController extends Controller
             $rows[] = [
                 'previous_date'     => $prev->filling_date ?? null,
                 'previous_odometer' => $prev->odometer_start ?? null,
+                // true = pembanding berasal dari pengisian SEBELUM periode filter
+                'previous_outside'  => $prevIsBaseline,
                 'current_date'      => $item->filling_date,
                 'current_odometer'  => $item->odometer_start,
                 'liters'            => $item->fuel_liters,
@@ -474,6 +556,7 @@ class FuelLogController extends Controller
             ];
 
             $prev = $item;
+            $prevIsBaseline = false;
         }
 
         // ----- Estimasi ke depan, dianggap "kalau isi sekarang" (dari pengisian TERAKHIR) -----
@@ -490,7 +573,7 @@ class FuelLogController extends Controller
 
             // Rata-rata jarak hari antar pengisian, dari seluruh riwayat tanggal.
             $dateDiffs = [];
-            $prevDate = null;
+            $prevDate = $baseline ? $baseline->filling_date : null;
             foreach ($items as $item) {
                 if ($prevDate !== null && $item->filling_date) {
                     $dateDiffs[] = $prevDate->diffInDays($item->filling_date);

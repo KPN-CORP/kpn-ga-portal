@@ -18,6 +18,10 @@ class SalinTahunRequest extends FormRequest
             'dari' => ['required', 'integer', 'exists:budget_tahun,tahun'],
             'ke' => ['required', 'integer', 'exists:budget_tahun,tahun', 'different:dari'],
             'timpa' => ['nullable', 'boolean'],
+            'angka' => ['nullable', 'boolean'],
+            'kategori_id' => ['nullable', 'integer'],
+            'sub_id' => ['nullable', 'integer'],
+            'item_id' => ['nullable', 'integer'],
         ];
     }
 }

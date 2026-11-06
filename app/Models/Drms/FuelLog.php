@@ -12,7 +12,8 @@ class FuelLog extends Model
     protected $fillable = [
         'vehicle_id', 'driver_id', 'user_id', 'filling_date',
         'odometer_start', 'fuel_liters', 'fuel_price_per_liter', 'total_cost',
-        'receipt_file', 'is_verified', 'verified_by', 'verified_at', 'notes'
+        'receipt_file', 'photo_dashboard_before', 'photo_dashboard_after',
+        'is_verified', 'verified_by', 'verified_at', 'notes'
     ];
 
     protected $casts = [

@@ -22,7 +22,7 @@
                 </div>
             </details>
         @empty
-            @include('budget_p.partials.kosong', ['pesan' => 'Belum ada kategori. Admin menambahkannya di menu Master.'])
+            @include('budget_p.partials.kosong', ['pesan' => 'Belum ada kategori dan item di tahun ' . $tahun . '. Ambil dari tahun lain lewat "Salin dari tahun lain" di halaman Budget bulanan.'])
         @endforelse
     </div>
 
@@ -44,7 +44,7 @@
                                 <td>{{ $i->pic->name ?? '-' }}</td>
                                 <td class="n">{{ $F::rupiah($i->budget) }}</td>
                                 <td class="n">{{ $F::rupiah($i->realisasi) }}</td>
-                                <td><span class="bd {{ $i->status['kelas'] }}">{{ $F::persen($i->persen) }} - {{ $i->status['label'] }}</span></td>
+                                <td><span class="bd {{ $i->status['kelas'] }}">{{ $F::persen($i->persen) }}</span></td>
                             </tr>
                         @endforeach
                     </table>

@@ -4,7 +4,7 @@
 @php $F = \App\Support\budget_s\BudgetFormat::class; @endphp
 
 @include('budget_p.partials.header-tahun', ['judul' => 'Dashboard budget'])
-@include('budget_p.partials.filter', ['pakaiKategori' => true, 'pakaiBu' => true, 'pakaiQ' => false])
+@include('budget_p.partials.filter', ['pakaiKategori' => true, 'pakaiBu' => true, 'pakaiPt' => true, 'pakaiQ' => false])
 
 @if($kpi['jumlah'] === 0)
     @include('budget_p.partials.kosong', [
@@ -16,19 +16,19 @@
     @include('budget_p.partials.kartu-kpi')
 
     <div class="row" style="margin-bottom:12px">
-        <button type="button" class="btn" data-g="{{ json_encode(array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']])) }}" onclick="grafik(JSON.parse(this.dataset.g))">Grafik semua</button>
-        <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh CSV</a>
+        <button type="button" class="btn" data-g="{{ json_encode(array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}" onclick="grafik(JSON.parse(this.dataset.g))">Grafik semua</button>
+        <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh CSV</a>
     </div>
 
     @if($perDept)
         @foreach($perDept as $dp)
-            <details class="dept" name="grup-dept" @if($loop->first) open @endif>
+            <details class="dept" name="grup-dept">
                 <summary>
                     @include('budget_p.partials.baris-progres', [
                         'tag' => 'dept', 'nama' => $dp['nama'],
                         'sub' => 'Dept: ' . $dp['orang'] . ', ' . $dp['jumlah'] . ' item' . ($dp['bu'] ? ', BU: ' . $dp['bu'] : ''),
                         'budget' => $dp['budget'], 'realisasi' => $dp['realisasi'], 'persen' => $dp['persen'], 'status' => $dp['status'],
-                        'grafik' => array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'kategori_id' => $filter['kategori_id']]) + ['dept' => $dp['id']],
+                        'grafik' => array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']]) + ['dept' => $dp['id']],
                     ])
                 </summary>
                 <div class="isi-dept">
