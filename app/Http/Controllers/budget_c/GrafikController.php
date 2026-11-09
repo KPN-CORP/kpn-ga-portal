@@ -30,6 +30,7 @@ class GrafikController extends Controller
         $user = $r->user();
         $tahun = BudgetTahun::pilih($r->query('tahun'));
         $label = [];
+        $items = null;
 
         if ($r->filled('item_id')) {
             $item = BudgetItem::findOrFail($r->query('item_id'));
@@ -67,10 +68,23 @@ class GrafikController extends Controller
                 $label[] = 'Semua item';
             }
 
-            $ids = BudgetRingkas::perItem($user, $tahun, $filter)->pluck('id')->all();
+            $items = BudgetRingkas::perItem($user, $tahun, $filter);
+            $ids = $items->pluck('id')->all();
         }
 
         $d = BudgetRingkas::bulanan($ids, $tahun);
+
+        // Admin: total per Dept Head untuk pie masing-masing (hanya bila diminta lewat pie=1)
+        $perDept = null;
+        if ($items && $r->boolean('pie') && BudgetPeran::peran($user) === BudgetPeran::ADMIN) {
+            $perDept = $items->groupBy('dept_head_user_id')->map(fn ($g, $id) => [
+                'id' => (int) $id,
+                'nama' => BudgetPeran::namaDept($id),
+                'jumlah' => $g->count(),
+                'budget' => (float) $g->sum('budget'),
+                'realisasi' => (float) $g->sum('realisasi'),
+            ])->sortBy(fn ($x) => mb_strtolower($x['nama']))->values();
+        }
 
         return response()->json([
             'judul' => implode(' | ', $label) . ' (' . $tahun . ')',
@@ -78,6 +92,7 @@ class GrafikController extends Controller
             'labels' => array_values(BudgetFormat::BULAN_SINGKAT),
             'budget' => array_values($d['budget']),
             'realisasi' => array_values($d['realisasi']),
+            'per_dept' => $perDept,
         ]);
     }
 }

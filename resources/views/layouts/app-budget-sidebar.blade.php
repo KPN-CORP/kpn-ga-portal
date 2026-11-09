@@ -510,25 +510,163 @@
         function rp(n){return 'Rp '+Math.round(Number(n)||0).toLocaleString('id-ID')}
         function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML}
 
-        /* Grafik budget vs realisasi (tanpa library): params = {tahun, item_id?, bu?, kategori_id?} */
+        /* Grafik budget vs realisasi (tanpa library): params = {tahun, item_id?, bu?, kategori_id?, pie?}
+           Batang Budget dan Realisasi per bulan + garis kumulatif (realisasi vs budget sampai bulan itu, %).
+           Satu popup per bulan berisi budget, realisasi, dan kumulatif sekaligus. params.pie = tambah pie Realisasi dan Sisa budget
+           (untuk Admin: juga pie tiap Dept Head). */
+        let gfBulan = [];
+        function ringkasRp(n){
+          const a=Math.abs(n), f=(x,s)=>(Math.round(x*10)/10).toLocaleString('id-ID')+s;
+          return a>=1e9?f(n/1e9,' M'):a>=1e6?f(n/1e6,' jt'):a>=1e3?f(n/1e3,' rb'):String(Math.round(n));
+        }
+        function sumbuRapi(max){
+          const raw=(max/4)||1, p=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/p;
+          const step=(f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;
+          return {step, top:Math.ceil(max/step)*step};
+        }
+        function warnaPersen(p){ return p>100?'var(--er)':p>=80?'var(--wn)':'var(--ok)'; }
+        function grafikBatang(d){
+          const W=760,H=310,L=58,R=46,T=24,B=30, pw=W-L-R, ph=H-T-B, n=d.labels.length;
+          const {step,top}=sumbuRapi(Math.max(1,...d.budget,...d.realisasi));
+          let cb=0,cr=0,last=-1; d.realisasi.forEach((v,i)=>{ if(v>0) last=i; });
+          gfBulan=d.labels.map((l,i)=>{
+            cb+=d.budget[i]; cr+=d.realisasi[i];
+            return {label:l,budget:d.budget[i],real:d.realisasi[i],kumB:cb,kumR:cr,pct:(i<=last&&cb>0)?cr/cb*100:null};
+          });
+          const mp=Math.max(100,Math.ceil(Math.max(0,...gfBulan.map(b=>b.pct===null?0:b.pct))/25)*25);
+          const yv=v=>T+ph-v/top*ph, yp=p=>T+ph-p/mp*ph, slot=pw/n, bw=Math.min(22,slot*0.34);
+          let s=`<div id="gf-wrap" style="position:relative"><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Grafik per bulan">`;
+          for(let k=0;k<=Math.round(top/step);k++){
+            const v=k*step, y=yv(v);
+            s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" style="stroke:var(--ln)"/><text x="${L-6}" y="${y+4}" text-anchor="end" style="font-size:11px;fill:var(--mu)">${ringkasRp(v)}</text>`;
+          }
+          s+=`<text x="${L-6}" y="11" text-anchor="end" style="font-size:10.5px;font-weight:600;fill:var(--mu)">Rupiah per bulan</text>`
+            +`<text x="${W-R+6}" y="11" style="font-size:10.5px;font-weight:600;fill:var(--mu)">% sejak awal tahun</text>`;
+          const langkahP=mp<=100?25:mp<=200?50:100;
+          for(let p=0;p<=mp;p+=langkahP) s+=`<text x="${W-R+6}" y="${yp(p)+4}" style="font-size:11px;fill:var(--mu)">${p}%</text>`;
+          // garis acuan 100% = sesuai rencana
+          s+=`<line x1="${L}" x2="${W-R}" y1="${yp(100)}" y2="${yp(100)}" style="stroke:var(--mu);stroke-width:1;stroke-dasharray:5 4"/>`
+            +`<text x="${W-R-4}" y="${yp(100)-4}" text-anchor="end" style="font-size:10px;fill:var(--mu)">100% = sesuai rencana</text>`;
+          d.labels.forEach((l,i)=>{
+            const cx=L+slot*i+slot/2, b=d.budget[i], r=d.realisasi[i], over=r>b&&r>0;
+            s+=`<rect class="gf-bg" data-i="${i}" x="${L+slot*i}" y="${T}" width="${slot}" height="${ph}" style="fill:var(--navy);opacity:0"/>`
+              +`<rect x="${cx-bw-1}" y="${yv(b)}" width="${bw}" height="${T+ph-yv(b)}" rx="2" style="fill:#8aa0b8"/>`
+              +`<rect x="${cx+1}" y="${yv(r)}" width="${bw}" height="${T+ph-yv(r)}" rx="2" style="fill:${over?'var(--er)':'#2563eb'}"/>`
+              +`<text x="${cx}" y="${H-10}" text-anchor="middle" style="font-size:11px;fill:var(--mu)">${esc(l)}</text>`;
+          });
+          const titik=gfBulan.map((b,i)=>b.pct===null?null:[L+slot*i+slot/2,yp(b.pct),b.pct]).filter(Boolean);
+          if(titik.length){
+            s+=`<polyline class="gf-garis" points="${titik.map(t=>t[0]+','+t[1]).join(' ')}" style="fill:none;stroke:var(--navy);stroke-width:2"/>`;
+            titik.forEach(t=>{ s+=`<circle class="gf-garis" cx="${t[0]}" cy="${t[1]}" r="4" style="fill:${warnaPersen(t[2])};stroke:var(--card);stroke-width:1.5"/>`; });
+          }
+          // area sentuh per bulan: satu popup berisi ketiganya
+          d.labels.forEach((l,i)=>{ s+=`<rect class="gf-hit" data-i="${i}" x="${L+slot*i}" y="${T}" width="${slot}" height="${ph}" style="fill:transparent;cursor:default"/>`; });
+          s+='</svg><div id="gf-tip" style="position:absolute;display:none;pointer-events:none;z-index:5;min-width:210px;padding:8px 10px;background:var(--card);border:1px solid var(--ln);border-radius:8px;box-shadow:0 6px 18px rgba(15,23,42,.18);font-size:12.5px;line-height:1.5"></div></div>';
+          s+='<div class="row" style="margin-top:6px;justify-content:space-between;gap:10px;align-items:flex-start"><p class="lbl" style="margin:0">'
+            +'<span class="sw" style="background:#8aa0b8"></span>Budget per bulan <span class="sw" style="background:#2563eb;margin-left:10px"></span>Realisasi per bulan (merah bila melebihi budget bulan itu) '
+            +'<span class="sw" style="background:var(--navy);margin-left:10px"></span>Garis: pemakaian sejak awal tahun, titik '
+            +'<span class="sw" style="background:var(--ok)"></span>&lt;80% <span class="sw" style="background:var(--wn)"></span>80-100% <span class="sw" style="background:var(--er)"></span>&gt;100%</p>'
+            +'<button type="button" class="btn sm" id="gf-tombol-garis" onclick="gfGaris()">Sembunyikan garis</button></div>'
+            +'<p class="lbl" style="margin-top:6px"><b>Cara baca:</b> batang mengikuti angka rupiah di kiri (per bulan). Garis mengikuti persen di kanan: total realisasi dari Januari sampai bulan itu dibagi total budget dari Januari sampai bulan itu. '
+            +'Di bawah garis putus-putus 100% berarti pemakaian masih di bawah rencana.</p>';
+          return s;
+        }
+        function tipBulan(i){
+          const b=gfBulan[i]; if(!b) return '';
+          const lebih=b.real>b.budget&&b.real>0, selisih=b.kumB-b.kumR, awal=gfBulan[0].label;
+          const pBulan=b.budget>0?Math.round(b.real/b.budget*1000)/10:null;
+          let h=`<b>${esc(b.label)}</b>`
+            +`<div class="lbl" style="margin-top:4px;font-weight:600">Bulan ${esc(b.label)} saja</div>`
+            +`<div class="row" style="justify-content:space-between;gap:12px"><span><span class="sw" style="background:#8aa0b8"></span>Budget</span><b>${rp(b.budget)}</b></div>`
+            +`<div class="row" style="justify-content:space-between;gap:12px"><span><span class="sw" style="background:${lebih?'var(--er)':'#2563eb'}"></span>Realisasi</span><b>${rp(b.real)}</b></div>`
+            +(pBulan===null?'':`<div class="lbl">Terpakai ${pBulan}% dari budget bulan ini</div>`);
+          h+=`<div style="border-top:1px solid var(--ln);margin-top:6px;padding-top:6px"><div class="lbl" style="font-weight:600">Sejak ${esc(awal)} sampai ${esc(b.label)}</div>`
+            +`<div class="row" style="justify-content:space-between;gap:12px"><span>Realisasi</span><b>${rp(b.kumR)}</b></div>`
+            +`<div class="row" style="justify-content:space-between;gap:12px"><span>Budget</span><b>${rp(b.kumB)}</b></div>`
+            +(b.pct===null?'<div class="lbl">Belum ada realisasi.</div>'
+              :`<div style="margin-top:2px"><b style="color:${warnaPersen(b.pct)}">Terpakai ${Math.round(b.pct*10)/10}%</b> <span class="lbl">| ${selisih>=0?'sisa':'lebih'} ${rp(Math.abs(selisih))}</span></div>`)
+            +'</div>';
+          return h;
+        }
+        function gfGaris(){
+          const w=document.getElementById('gf-wrap'), t=document.getElementById('gf-tombol-garis'); if(!w||!t) return;
+          const sembunyi=t.dataset.s!=='1'; t.dataset.s=sembunyi?'1':'0';
+          w.querySelectorAll('.gf-garis').forEach(x=>x.style.display=sembunyi?'none':'');
+          t.textContent=sembunyi?'Tampilkan garis':'Sembunyikan garis';
+        }
+        function pasangTip(box){
+          const wrap=box.querySelector('#gf-wrap'), tip=box.querySelector('#gf-tip'); if(!wrap||!tip) return;
+          const bg=i=>wrap.querySelector(`.gf-bg[data-i="${i}"]`);
+          const tampil=(e,i)=>{
+            wrap.querySelectorAll('.gf-bg').forEach(x=>x.style.opacity=0); const k=bg(i); if(k) k.style.opacity=.08;
+            tip.innerHTML=tipBulan(i); tip.style.display='block';
+            const w=wrap.getBoundingClientRect(), x=(e.clientX||0)-w.left, y=(e.clientY||0)-w.top;
+            tip.style.left=Math.max(0,Math.min(x+14,w.width-tip.offsetWidth-4))+'px';
+            tip.style.top=Math.max(0,Math.min(y+14,w.height-tip.offsetHeight-4))+'px';
+          };
+          const sembunyi=()=>{ tip.style.display='none'; wrap.querySelectorAll('.gf-bg').forEach(x=>x.style.opacity=0); };
+          wrap.querySelectorAll('.gf-hit').forEach(el=>{
+            const i=+el.dataset.i;
+            el.addEventListener('mouseenter',e=>tampil(e,i)); el.addEventListener('mousemove',e=>tampil(e,i));
+            el.addEventListener('mouseleave',sembunyi);
+            el.addEventListener('touchstart',e=>{ const t=e.touches[0]; tampil({clientX:t.clientX,clientY:t.clientY},i); },{passive:true});
+          });
+        }
+        // Pie Realisasi vs Sisa budget; ukuran = lebar piksel
+        function pieSvg(tb,tr,ukuran){
+          const over=tr>tb, p1=Math.min(1,tr/tb), pr=Math.round(tr/tb*1000)/10, ps=Math.round(Math.max(0,tb-tr)/tb*1000)/10;
+          const cx=110, cy=110, r=100, warnaR=over?'var(--er)':'#2563eb', warnaS='#cbd5e1';
+          const pt=a=>[cx+r*Math.cos(a-Math.PI/2), cy+r*Math.sin(a-Math.PI/2)];
+          const irisan=(a0,a1,w)=>{ const [x0,y0]=pt(a0),[x1,y1]=pt(a1); return `<path d="M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${a1-a0>Math.PI?1:0} 1 ${x1},${y1} Z" style="fill:${w};stroke:var(--card);stroke-width:2"/>`; };
+          const teks=(a0,a1,t,w)=>{ const m=(a0+a1)/2, x=cx+r*0.62*Math.cos(m-Math.PI/2), y=cy+r*0.62*Math.sin(m-Math.PI/2); return `<text x="${x}" y="${y+5}" text-anchor="middle" style="font-size:17px;font-weight:700;fill:${w}">${t}</text>`; };
+          const a1=p1*2*Math.PI;
+          let s=`<svg viewBox="0 0 220 220" style="width:${ukuran}px;max-width:100%;height:auto" role="img" aria-label="Realisasi dan sisa budget">`;
+          if(p1>=1) s+=`<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:${warnaR}"/>`+teks(0,2*Math.PI,pr+'%','#fff');
+          else if(p1<=0) s+=`<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:${warnaS}"/>`+teks(0,2*Math.PI,ps+'%','#334155');
+          else {
+            s+=irisan(0,a1,warnaR)+irisan(a1,2*Math.PI,warnaS);
+            if(p1>=0.06) s+=teks(0,a1,pr+'%','#fff');
+            if(1-p1>=0.06) s+=teks(a1,2*Math.PI,ps+'%','#334155');
+          }
+          return s+'</svg>';
+        }
+        function legendaPie(tb,tr){
+          const over=tr>tb, sisa=Math.max(0,tb-tr), pr=Math.round(tr/tb*1000)/10, ps=Math.round(sisa/tb*1000)/10, wr=over?'var(--er)':'#2563eb';
+          return `<div class="row" style="gap:8px;margin-bottom:6px"><span class="sw" style="background:${wr}"></span><b>Realisasi</b> <span>${rp(tr)}</span> <b>${pr}%</b></div>`
+            +`<div class="row" style="gap:8px;margin-bottom:6px"><span class="sw" style="background:#cbd5e1"></span><b>Sisa budget</b> <span>${rp(sisa)}</span> <b>${ps}%</b></div>`
+            +`<div class="lbl">Total budget ${rp(tb)}</div>`
+            +(over?`<div style="margin-top:4px;color:var(--er);font-weight:600">Melebihi budget ${rp(tr-tb)} (${Math.round((tr/tb-1)*1000)/10}%)</div>`:'');
+        }
+        function grafikPie(tb,tr){
+          if(!(tb>0)) return '<p class="lbl">Pie tidak bisa dibuat karena budget masih 0.</p>';
+          return '<div class="row" style="gap:20px;align-items:center;flex-wrap:wrap">'+pieSvg(tb,tr,220)+'<div style="min-width:220px;flex:1">'+legendaPie(tb,tr)+'</div></div>';
+        }
+        // Admin: satu pie per Dept Head
+        function grafikPieDept(list){
+          let h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">';
+          list.forEach(x=>{
+            h+='<div style="border:1px solid var(--ln);border-radius:10px;padding:10px">'
+              +`<b>${esc(x.nama)}</b> <span class="lbl">(${x.jumlah} item)</span><div style="text-align:center;margin:8px 0">`
+              +(x.budget>0?pieSvg(x.budget,x.realisasi,150):'<p class="lbl">Budget masih 0.</p>')+'</div>'
+              +(x.budget>0?legendaPie(x.budget,x.realisasi):'')+'</div>';
+          });
+          return h+'</div>';
+        }
         async function grafik(params){
           const box=document.getElementById('grafik-isi'), jd=document.getElementById('grafik-judul');
           jd.textContent='Memuat...'; box.innerHTML=''; buka('modal-grafik');
           const r=await fetch(URL_GRAFIK+'?'+new URLSearchParams(params),{headers:{Accept:'application/json'}});
           if(!r.ok){jd.textContent='Grafik gagal dimuat';box.innerHTML='<p class="lbl">Kode '+r.status+(r.status===403?': Anda tidak berhak melihat data ini.':'. Muat ulang halaman lalu coba lagi.')+'</p>';return}
           const d=await r.json(); jd.textContent=d.judul;
-          const max=Math.max(1,...d.budget,...d.realisasi);
-          let h='<div class="chart">';
-          d.labels.forEach((l,i)=>{
-            const b=d.budget[i]/max*100, s=d.realisasi[i]/max*100, over=d.realisasi[i]>d.budget[i]&&d.realisasi[i]>0;
-            h+=`<div class="m" title="${esc(l)}: budget ${rp(d.budget[i])}, realisasi ${rp(d.realisasi[i])}"><div class="bb"><i style="height:${b}%;background:var(--navy)"></i><i style="height:${s}%;background:${over?'var(--er)':'var(--teal)'}"></i></div><small>${esc(l)}</small></div>`;
-          });
-          h+='</div><p class="lbl"><span class="sw" style="background:var(--navy)"></span>Budget <span class="sw" style="background:var(--teal);margin-left:12px"></span>Realisasi (merah bila melebihi budget bulan itu)</p>';
-          h+='<div class="scroll"><table><tr><th>Bulan</th><th class="n">Budget</th><th class="n">Realisasi</th></tr>';
-          d.labels.forEach((l,i)=>{h+=`<tr><td>${esc(l)}</td><td class="n">${rp(d.budget[i])}</td><td class="n">${rp(d.realisasi[i])}</td></tr>`});
           const tb=d.budget.reduce((a,b)=>a+b,0), tr=d.realisasi.reduce((a,b)=>a+b,0);
+          let h='<b>Grafik per bulan</b>'+grafikBatang(d);
+          if(params.pie) h+='<div style="margin-top:14px"><b>Realisasi dan sisa budget</b><div style="margin-top:8px">'+grafikPie(tb,tr)+'</div></div>';
+          if(params.pie && d.per_dept && d.per_dept.length) h+='<div style="margin-top:14px"><b>Per Dept Head</b><div style="margin-top:8px">'+grafikPieDept(d.per_dept)+'</div></div>';
+          h+='<div class="scroll" style="margin-top:14px"><table><tr><th>Bulan</th><th class="n">Budget</th><th class="n">Realisasi</th></tr>';
+          d.labels.forEach((l,i)=>{h+=`<tr><td>${esc(l)}</td><td class="n">${rp(d.budget[i])}</td><td class="n">${rp(d.realisasi[i])}</td></tr>`});
           h+=`<tr><th>Total (${d.jumlah_item} item)</th><th class="n">${rp(tb)}</th><th class="n">${rp(tr)}</th></tr>`;
           box.innerHTML=h+'</table></div>';
+          pasangTip(box);
         }
 
         /* Cari user: input teks -> daftar hasil -> isi hidden id + label (nama tetap tampil di kotak setelah dipilih) */

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\budget_c;
 
 use App\Http\Controllers\Controller;
-use App\Models\budget_m\BudgetKategori;
 use App\Models\budget_m\BudgetTahun;
 use App\Support\budget_s\BudgetPeran;
 use App\Support\budget_s\BudgetStatus;
@@ -18,8 +17,10 @@ class DashboardController extends Controller
         $tahun = BudgetTahun::pilih($r->query('tahun'));
         $filter = ['bu' => $r->query('bu'), 'pt' => $r->query('pt'), 'kategori_id' => $r->query('kategori_id')];
 
-        $items = BudgetRingkas::perItem($user, $tahun, $filter);
-        $opsi = BudgetRingkas::opsiFilter($user, $tahun, $filter);
+        // Item dimuat sekali tanpa filter; penyaringan dan pilihan dropdown dihitung dari data yang sama (hemat query)
+        $semua = BudgetRingkas::perItem($user, $tahun);
+        $items = BudgetRingkas::saring($semua, $filter);
+        $opsi = BudgetRingkas::opsiDariItem($semua, $filter);
         $peran = BudgetPeran::peran($user);
 
         // Admin: data dipisah per Dept Head supaya jelas milik siapa
@@ -49,9 +50,23 @@ class DashboardController extends Controller
             'kpi' => BudgetRingkas::kpi($items),
             'perKategori' => BudgetRingkas::perKategori($items),
             'perDept' => $perDept,
+            // Item yang melebihi budget (terbesar dulu), dipakai popup di kartu Pemakaian
+            'melebihi' => $items->filter(fn ($i) => $i->status['kode'] === 'lebih')
+                ->map(fn ($i) => [
+                    'id' => $i->id,
+                    'nama' => $i->nama,
+                    'kategori' => $i->sub->kategori->nama ?? '-',
+                    'sub' => $i->sub->nama ?? '-',
+                    'dept' => BudgetPeran::namaDept($i->dept_head_user_id),
+                    'pt' => $i->pt,
+                    'budget' => (float) $i->budget,
+                    'realisasi' => (float) $i->realisasi,
+                    'lebih' => (float) $i->realisasi - (float) $i->budget,
+                    'persen' => $i->persen,
+                ])->sortByDesc('lebih')->values(),
             'filter' => $filter,
-            'kategoriList' => BudgetKategori::terlihatOleh($user)->where('aktif', true)->get()->sortBy(fn ($k) => $k->kunciUrut())
-                ->filter(fn ($k) => in_array((string) $k->id, $opsi['kategori'], true))->values(),
+            'kategoriList' => $semua->pluck('sub.kategori')->filter()->unique('id')
+                ->filter(fn ($k) => in_array((string) $k->id, $opsi['kategori'], true))->sortBy(fn ($k) => $k->kunciUrut())->values(),
             'buList' => $opsi['bu'],
             'ptList' => $opsi['pt'],
             'peran' => $peran,

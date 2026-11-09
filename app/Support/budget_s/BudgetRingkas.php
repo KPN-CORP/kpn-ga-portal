@@ -123,6 +123,23 @@ class BudgetRingkas
     {
         $baris = BudgetItem::terlihatOleh($user)->berlakuDi($tahun)->with('sub:id,kategori_id')->get(['id', 'sub_id', 'bu', 'pt']);
 
+        return self::opsiDariItem($baris, $f);
+    }
+
+    /** Terapkan filter (bu, pt, kategori_id, sub_id) pada item yang sudah dimuat (item harus membawa relasi sub). */
+    public static function saring(Collection $items, array $f): Collection
+    {
+        return $items->filter(fn ($i) =>
+            (empty($f['bu']) || (string) $i->bu === (string) $f['bu'])
+            && (empty($f['pt']) || (string) $i->pt === (string) $f['pt'])
+            && (empty($f['kategori_id']) || (string) ($i->sub->kategori_id ?? '') === (string) $f['kategori_id'])
+            && (empty($f['sub_id']) || (string) $i->sub_id === (string) $f['sub_id'])
+        )->values();
+    }
+
+    /** Sama dengan opsiFilter, tapi dari item yang sudah ada di memori (tanpa query tambahan). */
+    public static function opsiDariItem(Collection $baris, array $f): array
+    {
         $kat = (string) ($f['kategori_id'] ?? '');
         $sb = (string) ($f['sub_id'] ?? '');
         $bu = (string) ($f['bu'] ?? '');

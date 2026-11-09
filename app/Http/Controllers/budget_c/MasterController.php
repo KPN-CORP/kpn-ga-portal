@@ -75,6 +75,7 @@ class MasterController extends Controller
     {
         $r->validate(['tahun' => ['required', 'integer', 'between:2000,2100', 'unique:budget_tahun,tahun']]);
         $baru = BudgetTahun::create(['tahun' => (int) $r->input('tahun')]);
+        BudgetTahun::lupakanDaftar();
         BudgetCatat::tulis('tambah', 'tahun', $baru->id, 'Tahun anggaran ' . $baru->tahun, null, $baru->getAttributes(), ['tahun' => (int) $baru->tahun]);
         return back()->with('ok', 'Tahun anggaran ' . $r->input('tahun') . ' ditambahkan.');
     }
