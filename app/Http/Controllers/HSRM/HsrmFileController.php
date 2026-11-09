@@ -177,6 +177,15 @@ class HsrmFileController extends Controller
 
     private function getPath($item, $old_index = null)
     {
+        // File versi lama yang belum diarsipkan: masih tersimpan di snapshot
+        // selama update menunggu keputusan approve/reject.
+        if ($old_index === 'previous') {
+            if (!$item->hasPendingUpdate()) {
+                return null;
+            }
+            $snapshot = $item->previous_data ?? [];
+            return $snapshot['attachment_path'] ?? $snapshot['photo_path'] ?? null;
+        }
         if ($old_index !== null && isset($item->old_attachments[$old_index])) {
             $old = $item->old_attachments[$old_index];
             return $old['path'] ?? null;

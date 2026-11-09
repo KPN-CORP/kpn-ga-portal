@@ -111,6 +111,27 @@
             @endif
         </div>
 
+        {{-- ATTACHMENT LAMA (sebelum update, menunggu approval) --}}
+        @php
+            $prevPath = null;
+            if ($equipment->hasPendingUpdate()) {
+                $prevPath = (($equipment->previous_data ?? [])['photo_path'] ?? null);
+            }
+            $showPrev = $prevPath
+                && $prevPath !== $equipment->photo_path
+                && \Illuminate\Support\Facades\Storage::disk('public')->exists($prevPath);
+        @endphp
+        @if($showPrev)
+        <div class="col-span-2">
+            <label class="text-sm text-gray-500">Previous Photo (before update, awaiting approval)</label>
+            <a href="{{ route('hsrm.file.download', ['type' => 'equipment', 'id' => $equipment->id, 'old_index' => 'previous']) }}"
+               target="_blank"
+               class="text-orange-600 hover:underline inline-flex items-center gap-1">
+                <i class="fas fa-history"></i> View Previous Photo ({{ basename($prevPath) }})
+            </a>
+        </div>
+        @endif
+
         {{-- OLD ATTACHMENTS --}}
         @if($equipment->old_attachments && count($equipment->old_attachments) > 0)
         <div class="col-span-2 mt-4">
