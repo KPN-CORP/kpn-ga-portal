@@ -541,7 +541,7 @@
             s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" style="stroke:var(--ln)"/><text x="${L-6}" y="${y+4}" text-anchor="end" style="font-size:11px;fill:var(--mu)">${ringkasRp(v)}</text>`;
           }
           s+=`<text x="${L-6}" y="11" text-anchor="end" style="font-size:10.5px;font-weight:600;fill:var(--mu)">Rupiah per bulan</text>`
-            +`<text x="${W-R+6}" y="11" style="font-size:10.5px;font-weight:600;fill:var(--mu)">% sejak awal tahun</text>`;
+            +`<text x="${W-R+6}" y="11" style="font-size:10.5px;font-weight:600;fill:var(--mu)">% kumulatif</text>`;
           const langkahP=mp<=100?25:mp<=200?50:100;
           for(let p=0;p<=mp;p+=langkahP) s+=`<text x="${W-R+6}" y="${yp(p)+4}" style="font-size:11px;fill:var(--mu)">${p}%</text>`;
           // garis acuan 100% = sesuai rencana
@@ -557,6 +557,8 @@
           const titik=gfBulan.map((b,i)=>b.pct===null?null:[L+slot*i+slot/2,yp(b.pct),b.pct]).filter(Boolean);
           if(titik.length){
             s+=`<polyline class="gf-garis" points="${titik.map(t=>t[0]+','+t[1]).join(' ')}" style="fill:none;stroke:var(--navy);stroke-width:2"/>`;
+            const u=titik[titik.length-1];
+            s+=`<text class="gf-garis" x="${Math.min(u[0]+8,W-R-2)}" y="${u[1]-11}" text-anchor="end" style="font-size:12px;font-weight:700;fill:var(--navy)">Garis kumulatif</text>`;
             titik.forEach(t=>{ s+=`<circle class="gf-garis" cx="${t[0]}" cy="${t[1]}" r="4" style="fill:${warnaPersen(t[2])};stroke:var(--card);stroke-width:1.5"/>`; });
           }
           // area sentuh per bulan: satu popup berisi ketiganya
@@ -564,10 +566,10 @@
           s+='</svg><div id="gf-tip" style="position:absolute;display:none;pointer-events:none;z-index:5;min-width:210px;padding:8px 10px;background:var(--card);border:1px solid var(--ln);border-radius:8px;box-shadow:0 6px 18px rgba(15,23,42,.18);font-size:12.5px;line-height:1.5"></div></div>';
           s+='<div class="row" style="margin-top:6px;justify-content:space-between;gap:10px;align-items:flex-start"><p class="lbl" style="margin:0">'
             +'<span class="sw" style="background:#8aa0b8"></span>Budget per bulan <span class="sw" style="background:#2563eb;margin-left:10px"></span>Realisasi per bulan (merah bila melebihi budget bulan itu) '
-            +'<span class="sw" style="background:var(--navy);margin-left:10px"></span>Garis: pemakaian sejak awal tahun, titik '
+            +'<span class="sw" style="background:var(--navy);margin-left:10px"></span><b style="color:var(--navy);font-size:13px">Garis kumulatif</b> = pemakaian sejak awal tahun (%), titik '
             +'<span class="sw" style="background:var(--ok)"></span>&lt;80% <span class="sw" style="background:var(--wn)"></span>80-100% <span class="sw" style="background:var(--er)"></span>&gt;100%</p>'
-            +'<button type="button" class="btn sm" id="gf-tombol-garis" onclick="gfGaris()">Sembunyikan garis</button></div>'
-            +'<p class="lbl" style="margin-top:6px"><b>Cara baca:</b> batang mengikuti angka rupiah di kiri (per bulan). Garis mengikuti persen di kanan: total realisasi dari Januari sampai bulan itu dibagi total budget dari Januari sampai bulan itu. '
+            +'<button type="button" class="btn sm" id="gf-tombol-garis" onclick="gfGaris()">Sembunyikan garis kumulatif</button></div>'
+            +'<p class="lbl" style="margin-top:6px"><b style="color:var(--navy);font-size:13px">Cara baca garis kumulatif:</b> batang mengikuti angka rupiah di kiri (per bulan). <b>Garis kumulatif</b> mengikuti persen di kanan: total realisasi dari Januari sampai bulan itu dibagi total budget dari Januari sampai bulan itu. '
             +'Di bawah garis putus-putus 100% berarti pemakaian masih di bawah rencana.</p>';
           return s;
         }
@@ -580,7 +582,7 @@
             +`<div class="row" style="justify-content:space-between;gap:12px"><span><span class="sw" style="background:#8aa0b8"></span>Budget</span><b>${rp(b.budget)}</b></div>`
             +`<div class="row" style="justify-content:space-between;gap:12px"><span><span class="sw" style="background:${lebih?'var(--er)':'#2563eb'}"></span>Realisasi</span><b>${rp(b.real)}</b></div>`
             +(pBulan===null?'':`<div class="lbl">Terpakai ${pBulan}% dari budget bulan ini</div>`);
-          h+=`<div style="border-top:1px solid var(--ln);margin-top:6px;padding-top:6px"><div class="lbl" style="font-weight:600">Sejak ${esc(awal)} sampai ${esc(b.label)}</div>`
+          h+=`<div style="border-top:1px solid var(--ln);margin-top:6px;padding-top:6px"><div class="lbl" style="font-weight:700;color:var(--navy)">Garis kumulatif: ${esc(awal)} sampai ${esc(b.label)}</div>`
             +`<div class="row" style="justify-content:space-between;gap:12px"><span>Realisasi</span><b>${rp(b.kumR)}</b></div>`
             +`<div class="row" style="justify-content:space-between;gap:12px"><span>Budget</span><b>${rp(b.kumB)}</b></div>`
             +(b.pct===null?'<div class="lbl">Belum ada realisasi.</div>'
@@ -592,7 +594,7 @@
           const w=document.getElementById('gf-wrap'), t=document.getElementById('gf-tombol-garis'); if(!w||!t) return;
           const sembunyi=t.dataset.s!=='1'; t.dataset.s=sembunyi?'1':'0';
           w.querySelectorAll('.gf-garis').forEach(x=>x.style.display=sembunyi?'none':'');
-          t.textContent=sembunyi?'Tampilkan garis':'Sembunyikan garis';
+          t.textContent=sembunyi?'Tampilkan garis kumulatif':'Sembunyikan garis kumulatif';
         }
         function pasangTip(box){
           const wrap=box.querySelector('#gf-wrap'), tip=box.querySelector('#gf-tip'); if(!wrap||!tip) return;

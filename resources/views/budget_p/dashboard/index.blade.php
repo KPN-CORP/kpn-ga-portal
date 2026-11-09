@@ -17,7 +17,7 @@
 
     <div class="row" style="margin-bottom:12px">
         <button type="button" class="btn" data-g="{{ json_encode(array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']]) + ['pie' => 1]) }}" onclick="grafik(JSON.parse(this.dataset.g))">Grafik semua</button>
-        <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh CSV</a>
+        <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh Excel</a>
     </div>
 
     @if($perDept)

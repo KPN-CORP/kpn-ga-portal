@@ -20,7 +20,7 @@
         <button type="button" class="btn pr" onclick="itemBaru()">Item baru</button>
         <button type="button" class="btn" onclick="buka('modal-salin')">Salin dari tahun lain</button>
     @endif
-    <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh CSV</a>
+    <a class="btn" href="{{ route('budgeting.unduh', array_filter(['tahun' => $tahun, 'bu' => $filter['bu'], 'pt' => $filter['pt'], 'kategori_id' => $filter['kategori_id']])) }}">Unduh Excel</a>
 </div>
 
 @if(!$adaFilter)
