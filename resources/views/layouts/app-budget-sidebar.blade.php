@@ -154,6 +154,31 @@
         .bud .tbl-beku thead th{position:sticky;top:0;z-index:3;background:var(--card);box-shadow:0 1px 0 var(--ln)}
         .bud .tbl-beku .beku{position:sticky;left:0;z-index:2;background:var(--card);box-shadow:1px 0 0 var(--ln)}
         .bud .tbl-beku thead th.beku{z-index:4}
+        .bud .tbl-beku tfoot th{position:sticky;bottom:0;z-index:3;background:var(--card);box-shadow:0 -1px 0 var(--ln)}
+        .bud .tbl-beku tfoot th.beku{z-index:4}
+
+        /* Halaman Kategori: kedua kolom punya TINGGI TETAP yang sama (tidak bergantung jumlah item,
+           dan sama sejak akses pertama sebelum subkategori dipilih).
+           --jml-baris = jumlah baris item yang terlihat; ubah 12 menjadi 10 bila ingin tepat 10 item */
+        .bud .grid2.grid-kat{--baris:37px;--jml-baris:12;--tinggi:calc(var(--baris) * var(--jml-baris) + 190px);align-items:start}
+        .bud .grid-kat .kat-nav,.bud .grid-kat .kat-det{height:var(--tinggi);min-width:0}
+        .bud .grid-kat .kat-nav{
+            overflow:auto;
+            overscroll-behavior:contain;
+            padding-right:4px;
+        }
+        .bud .grid-kat .kat-det{display:flex;flex-direction:column}
+        .bud .grid-kat .kat-det>*{flex:1;min-height:0;margin-bottom:0}
+        .bud .grid-kat .kat-card{display:flex;flex-direction:column}
+        .bud .grid-kat .kat-card .tbl-beku{flex:1;min-height:0;max-height:none}
+        .bud .grid-kat .kat-card tbody tr{height:var(--baris)}
+        .bud .grid-kat .kat-card tbody td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+        @media (max-width:860px){
+            .bud .grid-kat .kat-nav,.bud .grid-kat .kat-det{height:auto}
+            .bud .grid-kat .kat-nav{max-height:50vh}
+            .bud .grid-kat .kat-card .tbl-beku{flex:none;max-height:70vh}
+        }
+
         .bud .tbl-beku .grp-label{position:sticky;left:10px;display:inline-block}
         .bud .bar{height:8px;border-radius:4px;background:var(--bar);overflow:hidden;min-width:90px}
         .bud .bar i{display:block;height:100%;background:var(--teal)}
@@ -540,8 +565,8 @@
             const v=k*step, y=yv(v);
             s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" style="stroke:var(--ln)"/><text x="${L-6}" y="${y+4}" text-anchor="end" style="font-size:11px;fill:var(--mu)">${ringkasRp(v)}</text>`;
           }
-          s+=`<text x="${L-6}" y="11" text-anchor="end" style="font-size:10.5px;font-weight:600;fill:var(--mu)">Rupiah per bulan</text>`
-            +`<text x="${W-R+6}" y="11" style="font-size:10.5px;font-weight:600;fill:var(--mu)">% kumulatif</text>`;
+          s+=`<text x="4" y="11" style="font-size:10.5px;font-weight:600;fill:var(--mu)">Rupiah per bulan</text>`
+            +`<text x="${W-4}" y="11" text-anchor="end" style="font-size:10.5px;font-weight:600;fill:var(--mu)">% kumulatif</text>`;
           const langkahP=mp<=100?25:mp<=200?50:100;
           for(let p=0;p<=mp;p+=langkahP) s+=`<text x="${W-R+6}" y="${yp(p)+4}" style="font-size:11px;fill:var(--mu)">${p}%</text>`;
           // garis acuan 100% = sesuai rencana
