@@ -5,6 +5,7 @@ namespace App\Http\Controllers\budget_c;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\budget_r\SimpanTagihanRequest;
 use App\Models\budget_m\BudgetBulan;
+use App\Models\budget_m\BudgetForm;
 use App\Models\budget_m\BudgetItem;
 use App\Models\budget_m\BudgetTagihan;
 use App\Models\budget_m\BudgetTahun;
@@ -19,8 +20,11 @@ class TagihanController extends Controller
         $user = $r->user();
         $tahun = BudgetTahun::pilih($r->query('tahun'));
 
+        // Item yang dipakai form aktif terkunci dari input manual (diisi lewat menu Isi Form)
+        $terkunci = BudgetForm::idItemTerkunci();
+
         $semuaItem = BudgetItem::terlihatOleh($user)->berlakuDi($tahun)->with('sub.kategori')->orderBy('nama')->get();
-        $itemBisaInput = $semuaItem->filter(fn ($i) => BudgetPeran::bisaInputTagihan($i, $user))->values();
+        $itemBisaInput = $semuaItem->filter(fn ($i) => BudgetPeran::bisaInputTagihan($i, $user) && !in_array($i->id, $terkunci, true))->values();
 
         // Untuk form Catat realisasi: item yang bisa dicatat user di setiap tahun (kolom Tahun di form bisa diganti)
         $daftarTahun = BudgetTahun::daftar();
@@ -32,14 +36,14 @@ class TagihanController extends Controller
             $gabungan = $gabungan->concat($it);
         }
         $gabungan = $gabungan->unique('id')->values();
-        $izin = $gabungan->filter(fn ($i) => BudgetPeran::bisaInputTagihan($i, $user))->pluck('id')->flip();
+        $izin = $gabungan->filter(fn ($i) => BudgetPeran::bisaInputTagihan($i, $user) && !in_array($i->id, $terkunci, true))->pluck('id')->flip();
         $itemModal = $gabungan->filter(fn ($i) => $izin->has($i->id))->values();
         $idPerTahun = collect($perTahun)->map(fn ($ids) => array_values(array_filter($ids, fn ($id) => $izin->has($id))))->all();
 
         // Kategori diambil dari relasi yang sudah di-load (tanpa query tambahan)
         $kategori = $semuaItem->pluck('sub.kategori')->filter()->unique('id')->sortBy('nama')->values();
 
-        $q = BudgetTagihan::with(['item.sub.kategori', 'penginput'])
+        $q = BudgetTagihan::with(['item.sub.kategori', 'penginput', 'isian.form'])
             ->whereIn('item_id', BudgetItem::terlihatOleh($user)->select('id'))
             ->where('tahun', $tahun)
             ->when($r->query('bulan'), fn ($x, $v) => $x->where('bulan', $v))
@@ -78,6 +82,7 @@ class TagihanController extends Controller
             'tahunRow' => BudgetTahun::where('tahun', $tahun)->first(),
             'semuaItem' => $semuaItem,
             'itemBisaInput' => $itemBisaInput,
+            'terkunci' => $terkunci,
             'kategori' => $kategori,
             'daftar' => $daftar,
             'perHalaman' => $perHalaman,
@@ -103,7 +108,7 @@ class TagihanController extends Controller
         $item = BudgetItem::findOrFail($d['item_id']);
         abort_unless(BudgetPeran::bisaInputTagihan($item, $r->user()), 403);
 
-        $baris = BudgetTagihan::with('penginput')
+        $baris = BudgetTagihan::with(['penginput', 'isian.form'])
             ->where('item_id', $item->id)->where('tahun', $d['tahun'])->where('bulan', $d['bulan'])
             ->orderBy('id')->get();
 
@@ -117,6 +122,7 @@ class TagihanController extends Controller
                 'total' => (float) $t->total,
                 'keterangan' => $t->keterangan,
                 'oleh' => $t->penginput->name ?? '-',
+                'dari_form' => $t->isian?->form?->nama,
                 'dibuat' => optional($t->created_at)->format('d/m/Y H:i'),
                 'diubah' => ($t->updated_at && $t->created_at && $t->updated_at->diffInSeconds($t->created_at) > 60) ? $t->updated_at->format('d/m/Y H:i') : null,
             ])->values(),
@@ -128,6 +134,11 @@ class TagihanController extends Controller
         $user = $r->user();
         $item = BudgetItem::findOrFail($r->input('item_id'));
         abort_unless(BudgetPeran::bisaInputTagihan($item, $user), 403);
+
+        // Item terkunci: hanya boleh diisi lewat form (penjagaan di server, bukan hanya menyembunyikan tombol)
+        if (BudgetForm::itemTerkunci($item->id)) {
+            return back()->withInput()->withErrors(['tagihan' => $this->pesanKunci($item)]);
+        }
 
         $tagihan = (float) $r->input('tagihan');
         $ppn = (float) $r->input('ppn', 0);
@@ -152,6 +163,9 @@ class TagihanController extends Controller
         if ($r->filled('id')) {
             $baris = BudgetTagihan::with('item')->findOrFail($r->input('id'));
             abort_unless(BudgetPeran::bisaInputTagihan($baris->item, $user), 403);
+            if ($pesan = $this->pesanBarisTerkunci($baris)) {
+                return back()->withInput()->withErrors(['tagihan' => $pesan]);
+            }
             $sebelum = $baris->getAttributes();
             $baris->update($data);
             BudgetCatat::tulis('ubah', 'tagihan', $baris->id, $item->nama, $sebelum, $baris->getAttributes(), ['item_id' => $baris->item_id, 'tahun' => $baris->tahun]);
@@ -166,9 +180,29 @@ class TagihanController extends Controller
     public function hapus(Request $r, BudgetTagihan $tagihan)
     {
         abort_unless(BudgetPeran::bisaInputTagihan($tagihan->item, $r->user()), 403);
+        if ($pesan = $this->pesanBarisTerkunci($tagihan)) {
+            return back()->withErrors(['tagihan' => $pesan]);
+        }
         $sebelum = $tagihan->getAttributes();
         $tagihan->delete();
         BudgetCatat::tulis('hapus', 'tagihan', $tagihan->id, $tagihan->item->nama ?? null, $sebelum, null, ['item_id' => $tagihan->item_id, 'tahun' => $tagihan->tahun]);
         return back()->with('ok', 'Tagihan dihapus.');
+    }
+    protected function pesanKunci(BudgetItem $item): string
+    {
+        return 'Item "' . $item->nama . '" terkunci dari input manual karena dipakai form "' . (BudgetForm::namaPengunci($item->id) ?? '-')
+            . '". Catat realisasinya lewat menu Isi Form.';
+    }
+
+    /** Pesan penolakan bila baris berasal dari form, atau item barisnya sedang terkunci. Null = boleh diubah. */
+    protected function pesanBarisTerkunci(BudgetTagihan $baris): ?string
+    {
+        if ($baris->isian_id) {
+            return 'Baris ini berasal dari form. Ubah atau hapus lewat menu Isi Form, bukan dari halaman Realisasi.';
+        }
+        if (BudgetForm::itemTerkunci((int) $baris->item_id)) {
+            return $this->pesanKunci($baris->item);
+        }
+        return null;
     }
 }

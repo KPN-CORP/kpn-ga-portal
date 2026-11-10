@@ -86,7 +86,7 @@
     @foreach($daftar as $t)
         <tr>
             <td class="beku" style="min-width:230px;max-width:280px"><b>{{ $t->item->nama }}</b><div class="lbl">{{ $t->item->sub->kategori->nama }} / {{ $t->item->sub->nama }}</div></td>
-            <td>{{ $F::BULAN[$t->bulan] }}@if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd b-wn" title="Item ini punya lebih dari satu tagihan di bulan ini">{{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan</span></div>@endif</td>
+            <td>{{ $F::BULAN[$t->bulan] }}@if($t->isian_id)<div class="lbl">Form: {{ $t->isian->form->nama ?? '-' }}</div>@endif @if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd b-wn" title="Item ini punya lebih dari satu tagihan di bulan ini">{{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan</span></div>@endif</td>
             <td class="n">{{ $F::rupiah($t->tagihan) }}</td>
             <td class="n">{{ $F::rupiah($t->ppn) }}</td>
             <td class="n">{{ $F::rupiah($t->biaya_materai) }}</td>
@@ -94,7 +94,12 @@
             <td>{{ $t->keterangan }}</td>
             <td>{{ $t->penginput->name ?? '-' }}<div class="lbl">{{ optional($t->created_at)->format('d/m/Y H:i') }}@if($t->updated_at && $t->created_at && $t->updated_at->diffInSeconds($t->created_at) > 60) | diubah {{ $t->updated_at->format('d/m/Y H:i') }}@endif</div></td>
             <td class="n">
-                @if($itemBisaInput->contains('id', $t->item_id))
+                @if($t->isian_id)
+                    <span class="bd b-mu" title="Baris ini dicatat dari form. Ubah lewat menu Isi Form.">Dari form</span>
+                    <a class="btn sm" href="{{ route('budgeting.isian', ['form' => $t->isian->form_id, 'tahun' => $t->tahun]) }}">Buka</a>
+                @elseif(in_array($t->item_id, $terkunci, true))
+                    <span class="bd b-mu" title="Item ini dikunci oleh form. Tagihan manual lama tidak bisa diubah selama form aktif.">Terkunci</span>
+                @elseif($itemBisaInput->contains('id', $t->item_id))
                     <button type="button" class="btn sm" data-tg="{{ json_encode(['id' => $t->id, 'item_id' => $t->item_id, 'tahun' => $t->tahun, 'bulan' => $t->bulan,
                         'tagihan' => $F::angka($t->tagihan), 'ppn' => $F::angka($t->ppn), 'biaya_materai' => $F::angka($t->biaya_materai), 'keterangan' => $t->keterangan]) }}" onclick="tagihanEdit(this)">Ubah</button>
                     <form method="post" action="{{ route('budgeting.tagihan.hapus', $t) }}" style="display:inline" onsubmit="return confirm('Hapus tagihan ini?')">@csrf @method('DELETE')<button class="btn sm dg">Hapus</button></form>
@@ -249,7 +254,7 @@ function renderInfo(){
       const sedang = String(r.id) === String(editId);
       h += '<div class="row" style="gap:8px;padding:3px 0;border-top:1px solid var(--ln)"><b>' + rp(r.total) + '</b>'
         + '<span class="lbl" style="flex:1">' + esc(r.keterangan || '-') + ' | ' + esc(r.oleh) + ' | ' + esc(r.dibuat) + (r.diubah ? ' | diubah ' + esc(r.diubah) : '') + '</span>'
-        + (sedang ? '<span class="bd b-wn">sedang diubah</span>' : '<button type="button" class="btn sm" onclick="muatBaris(' + r.id + ')">Ubah</button>') + '</div>';
+        + (r.dari_form ? '<span class="bd b-mu">dari form ' + esc(r.dari_form) + '</span>' : sedang ? '<span class="bd b-wn">sedang diubah</span>' : '<button type="button" class="btn sm" onclick="muatBaris(' + r.id + ')">Ubah</button>') + '</div>';
     });
     h += '</div>';
     if(editId) h += '<div style="margin-top:6px"><button type="button" class="btn sm" onclick="barisBaru()">Tambah tagihan baru</button></div>';

@@ -3,7 +3,9 @@
 use App\Http\Controllers\budget_c\AksesController;
 use App\Http\Controllers\budget_c\BudgetAllController;
 use App\Http\Controllers\budget_c\DashboardController;
+use App\Http\Controllers\budget_c\FormController;
 use App\Http\Controllers\budget_c\GrafikController;
+use App\Http\Controllers\budget_c\IsianController;
 use App\Http\Controllers\budget_c\KategoriController;
 use App\Http\Controllers\budget_c\LookupController;
 use App\Http\Controllers\budget_c\MasterController;
@@ -46,6 +48,15 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
         Route::delete('/budget/item/{item}', [BudgetAllController::class, 'hapusItem'])->name('budget.item.hapus');
         Route::post('/budget/salin', [BudgetAllController::class, 'salinTahun'])->name('budget.salin');
 
+        // Form realisasi buatan pengguna (hak per item dan per Dept dicek di controller)
+        Route::get('/form', [FormController::class, 'index'])->name('form');
+        Route::post('/form', [FormController::class, 'simpan'])->name('form.simpan');
+        Route::post('/form/{form}/arsip', [FormController::class, 'arsip'])->whereNumber('form')->name('form.arsip');
+        Route::delete('/form/{form}', [FormController::class, 'hapus'])->whereNumber('form')->name('form.hapus');
+        Route::get('/isian', [IsianController::class, 'index'])->name('isian');
+        Route::post('/isian', [IsianController::class, 'simpan'])->name('isian.simpan');
+        Route::delete('/isian/{isian}', [IsianController::class, 'hapus'])->whereNumber('isian')->name('isian.hapus');
+
         Route::get('/lookup/bu', [LookupController::class, 'bu'])->name('lookup.bu');
         Route::get('/lookup/pt', [LookupController::class, 'pt'])->name('lookup.pt');
     });
@@ -67,6 +78,8 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
         Route::post('/akses', [AksesController::class, 'simpan'])->name('akses.simpan');
         Route::delete('/akses/{akses}', [AksesController::class, 'hapus'])->whereNumber('akses')->name('akses.hapus');
         Route::post('/akses/pindah', [AksesController::class, 'pindahDept'])->name('akses.pindah');
+
+        Route::post('/form/pengaturan', [FormController::class, 'pengaturan'])->name('form.pengaturan');
 
         Route::post('/master/tahun', [MasterController::class, 'tambahTahun'])->name('master.tahun');
         Route::post('/master/tahun/{tahun}/kunci', [MasterController::class, 'kunci'])->whereNumber('tahun')->name('master.kunci');

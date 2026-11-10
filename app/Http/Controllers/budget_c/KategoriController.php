@@ -56,11 +56,16 @@ class KategoriController extends Controller
         $real = BudgetTagihan::where('item_id', $item->id)->where('tahun', $tahun)
             ->selectRaw('bulan, SUM(total) AS t')->groupBy('bulan')->pluck('t', 'bulan');
 
+        // Rincian per bulan: semua tagihan item ini di tahun itu (satu bulan bisa punya banyak invoice)
+        $rincian = BudgetTagihan::with(['penginput', 'isian.form'])->where('item_id', $item->id)->where('tahun', $tahun)
+            ->orderBy('bulan')->orderBy('id')->get()->groupBy('bulan');
+
         return view('budget_p.partials.panel-item', [
             'item' => $item,
             'tahun' => $tahun,
             'budget' => $budget,
             'real' => $real,
+            'rincian' => $rincian,
             'bisaUbah' => BudgetPeran::bisaUbahItem($item, $r->user()),
         ]);
     }

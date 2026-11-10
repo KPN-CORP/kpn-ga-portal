@@ -281,8 +281,8 @@
         $peranBudget = $budgetPeran ?? null;
         $namaUser = auth()->user()->username ?? auth()->user()->name ?? 'User';
         $grupBudget = request()->routeIs('budgeting.kategori*', 'budgeting.budget.*');
-        $grupCatat  = request()->routeIs('budgeting.tagihan.*');
-        $grupAtur   = request()->routeIs('budgeting.master*', 'budgeting.akses*');
+        $grupCatat  = request()->routeIs('budgeting.tagihan.*', 'budgeting.isian*');
+        $grupAtur   = request()->routeIs('budgeting.master*', 'budgeting.akses*', 'budgeting.form*');
     @endphp
 
     <div id="overlay" class="overlay"></div>
@@ -380,6 +380,13 @@
                                         <span>Realisasi Budget</span>
                                     </a>
                                 </li>
+                                <li>
+                                    <a href="{{ route('budgeting.isian') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.isian*') ? 'active' : '' }}">
+                                        <i class="fas fa-file-pen w-4 mr-3"></i>
+                                        <span>Isi Form</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </li>
@@ -429,6 +436,13 @@
                                 </li>
                                 @endif
                                 @endif
+                                <li>
+                                    <a href="{{ route('budgeting.form') }}"
+                                       class="sidebar-link flex items-center rounded-lg {{ request()->routeIs('budgeting.form*') ? 'active' : '' }}">
+                                        <i class="fas fa-table-list w-4 mr-3"></i>
+                                        <span>Form Realisasi</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </li>
