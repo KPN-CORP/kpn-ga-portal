@@ -5,14 +5,15 @@ namespace App\Http\Controllers\FinGrabc;
 use App\Http\Controllers\Controller;
 use App\Services\FinGrab\BcrImporter;
 use App\Services\FinGrab\FinGrabPayload;
+use App\Services\FinGrab\InvoiceImporter;
 use App\Support\FinGrabAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/** Halaman terpisah untuk upload zip/xlsx BCR bulanan. Hanya superadmin dan Corporate. */
+/** Halaman terpisah untuk upload zip/xlsx BCR dan PDF invoice bulanan. Hanya superadmin dan Corporate. */
 class FinGrabUploadController extends Controller
 {
-    private const MAX_ENTRIES = 50;            // maksimal file bcr_*.xlsx per zip
+    private const MAX_ENTRIES = 50;            // maksimal file bcr_*.xlsx (dan invoice_*.pdf) per zip
     private const MAX_ENTRY_BYTES = 52428800;  // 50 MB per file di dalam zip
 
     public function form()
@@ -34,15 +35,23 @@ class FinGrabUploadController extends Controller
 
         $request->validate([
             'files' => ['required', 'array', 'min:1'],
-            'files.*' => ['file', 'mimes:zip,xlsx,xls', 'max:51200'],
+            'files.*' => ['file', 'mimes:zip,xlsx,xls,pdf', 'max:51200'],
         ]);
 
         $paths = [];
         $names = [];
+        $invPaths = [];
+        $invNames = [];
         $temps = [];
 
         foreach ($request->file('files') as $f) {
-            if (strtolower($f->getClientOriginalExtension()) !== 'zip') {
+            $ext = strtolower($f->getClientOriginalExtension());
+            if ($ext === 'pdf') {
+                $invPaths[] = $f->getRealPath();
+                $invNames[] = $f->getClientOriginalName();
+                continue;
+            }
+            if ($ext !== 'zip') {
                 $paths[] = $f->getRealPath();
                 $names[] = $f->getClientOriginalName();
                 continue;
@@ -56,24 +65,38 @@ class FinGrabUploadController extends Controller
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $base = basename($zip->getNameIndex($i)); // basename: nama di dalam zip tidak dipakai sebagai path
                 $stat = $zip->statIndex($i);
-                if (!preg_match('/^bcr_.*\.xlsx$/i', $base) || $stat['size'] > self::MAX_ENTRY_BYTES || ++$n > self::MAX_ENTRIES) {
-                    continue; // invoice PDF dan file lain diabaikan
+                $isBcr = (bool) preg_match('/^bcr_.*\.xlsx$/i', $base);
+                $isInv = (bool) preg_match('/^invoice_.*\.pdf$/i', $base);
+                if ((!$isBcr && !$isInv) || $stat['size'] > self::MAX_ENTRY_BYTES || ++$n > self::MAX_ENTRIES * 2) {
+                    continue; // file lain diabaikan
                 }
                 $tmp = tempnam(sys_get_temp_dir(), 'fg_');
                 file_put_contents($tmp, $zip->getFromIndex($i));
-                $paths[] = $tmp;
-                $names[] = $base;
+                if ($isInv) {
+                    $invPaths[] = $tmp;
+                    $invNames[] = $base;
+                } else {
+                    $paths[] = $tmp;
+                    $names[] = $base;
+                }
                 $temps[] = $tmp;
             }
             $zip->close();
         }
 
-        if (!$paths) {
-            return back()->withErrors(['files' => 'Tidak ada file bcr_*.xlsx yang ditemukan.']);
+        if (!$paths && !$invPaths) {
+            return back()->withErrors(['files' => 'Tidak ada file bcr_*.xlsx atau invoice_*.pdf yang ditemukan.']);
         }
 
         try {
-            $summary = (new BcrImporter())->import($paths, $names, auth()->id());
+            $summary = $paths
+                ? (new BcrImporter())->import($paths, $names, auth()->id())
+                : ['files' => 0, 'total' => 0, 'new' => 0, 'updated' => 0, 'unchanged' => 0, 'duplicates' => 0, 'matched_id' => 0,
+                   'matched_email' => 0, 'unmatched' => 0, 'pt_unmapped' => 0, 'pt_unmapped_names' => [], 'skipped' => 0,
+                   'bcr_keys' => [], 'period_from' => null, 'period_to' => null];
+
+            // Invoice PDF: simpan, lalu bagikan fee dan PPN ke transaksi BCR yang berpasangan (juga untuk BCR yang baru diunggah).
+            $summary['inv'] = (new InvoiceImporter())->import($invPaths, $invNames, $summary['bcr_keys'] ?? []);
         } finally {
             foreach ($temps as $t) {
                 @unlink($t);

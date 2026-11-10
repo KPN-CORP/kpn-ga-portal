@@ -1016,6 +1016,43 @@ class HelpTiketApprovalController extends Controller
      */
 
     /**
+     * Otorisasi akses lampiran (dipakai preview & download).
+     * Boleh: pelapor tiket, petugas yang ditugaskan, user yang lolos canAccessTicket,
+     * atau petugas GA Help (ga_help_proses).
+     */
+    private function otorisasiLampiran(HelpLampiran $lampiran): void
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->pelanggan) {
+            abort(403, 'Data pelanggan belum terhubung.');
+        }
+
+        $tiket = $lampiran->tiket;
+
+        if (!$tiket) {
+            abort(404, 'Tiket untuk lampiran ini tidak ditemukan.');
+        }
+
+        $idPelanggan = $user->pelanggan->id_pelanggan;
+
+        $isPelapor  = $tiket->pelapor_id == $idPelanggan;
+        $isAssigned = $tiket->ditugaskan_ke == $idPelanggan;
+        $isStaff    = \Illuminate\Support\Facades\DB::table('tb_access_menu')
+                        ->where('username', $user->username)
+                        ->where('ga_help_proses', 1)
+                        ->exists();
+
+        if (!$isPelapor && !$isAssigned && !$isStaff && !$user->canAccessTicket($tiket)) {
+            Log::warning('Akses lampiran ditolak', [
+                'user_id'     => $user->id,
+                'lampiran_id' => $lampiran->id,
+            ]);
+            abort(403, 'Anda tidak memiliki akses ke file ini.');
+        }
+    }
+
+    /**
      * Simpan file lampiran
      */
     private function simpanLampiran($tiket, $file, $tipe, $penggunaId)

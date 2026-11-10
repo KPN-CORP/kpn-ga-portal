@@ -23,7 +23,7 @@
       return m?m[1]:/plantation|sawit|palm|agro|kebun/.test(t)?'Plantations':/propert|realty|estate/.test(t)?'Property':/downstream|hilir|oleo|refiner/.test(t)?'Downstream':/kpn|corporate|holding/.test(t)?'KPN Corporation':null
     };
     /* === STATE === */
-    let role='all',mode='rp',tab=PAGE,RW=[],SP=null;
+    let role='all',mode='rp',tab=PAGE,RW=[],SP=null,incl=false;
     const HC=new Map(),HCE=new Map(),GCM={};
     const SORT={dt:{c:0,d:1},et:{c:5,d:-1}};
     const F={c:'',t:'',m:'',v:'',g:'',b:'',u:'',o:'',e:''};
@@ -48,7 +48,7 @@
     function enrich(){
       RW=X.rows.map(r=>{
         const e=X.em[r[3]],h0=e[0]&&HC.get(e[0]),h1=h0||(e[2]&&HCE.get(e[2]))||null,h=e[8]?{group_company:e[5],unit:e[6],office_area:e[7]}:h1, mt=e[8]?(e[8]=='id'?'Cocok via ID':e[8]=='email'?'Cocok via email':'Tidak ada di HCIS'):h1?(h0?'Cocok via ID':'Cocok via email'):(HC.size?'Tidak ada di HCIS':'HCIS belum dimuat'), ok=mt.startsWith('Cocok'),gc=ok?(h.group_company||'-'):'-',bu=r[9]||buOfPT(CO[r[1]]),gbu=ok?(GCM[gc]||guess(gc)):null;
-        return{d:r[0],c:r[1],g:r[2],e:r[3],v:r[4],a:r[5],h:r[6],y:r[7],i:r[8],en:e[9]||e[1],eg:e[1],id:e[0],bu,gc,un:ok?cu(h.unit):'Belum cocok',of:ok?h.office_area||'-':'Belum cocok',st:mt,mis:!!gbu&&gbu!='KPN Corporation'&&gbu!=bu}
+        return{d:r[0],c:r[1],g:r[2],e:r[3],v:r[4],a0:r[5],f:r[10]||0,p:r[11]||0,a:r[5]+(incl?(r[10]||0)+(r[11]||0):0),h:r[6],y:r[7],i:r[8],en:e[9]||e[1],eg:e[1],id:e[0],bu,gc,un:ok?cu(h.unit):'Belum cocok',of:ok?h.office_area||'-':'Belum cocok',st:mt,mis:!!gbu&&gbu!='KPN Corporation'&&gbu!=bu}
       });
       RW.forEach(r=>{
         r.q={c:String(r.c),t:r.d.slice(0,4),m:r.d.slice(5,7),v:String(r.v),g:String(r.g),b:r.bu,u:r.un,o:r.of,e:String(r.e)}
@@ -189,9 +189,10 @@
     const cut=(s,n)=>!s?'-':s.length>n?s.slice(0,n)+'…':s;
     function openDet(r){
       const D0=dt0(r),x=D0.x,rw=(l,v)=>`<tr><td class="mu">${l}</td><td>${v}</td></tr>`;
-      const fare=x[6]==null?rw('Total tarif',`<b>${idr(r.a)}</b><br><span class="mu">BCR GrabFood tidak memuat rincian tarif</span>`):rw('Tarif dasar',idr(x[6]))+rw('Promo',idr(x[7]))+rw('Tol dan surcharge',idr(x[8]))+rw('Late fee',idr(x[9]))+rw('Biaya lain',idr(x[10]))+rw('Total tarif',`<b>${idr(r.a)}</b>`);
+      const fare=x[6]==null?rw('Total tarif',`<b>${idr(r.a0)}</b><br><span class="mu">BCR GrabFood tidak memuat rincian tarif</span>`):rw('Tarif dasar',idr(x[6]))+rw('Promo',idr(x[7]))+rw('Tol dan surcharge',idr(x[8]))+rw('Late fee',idr(x[9]))+rw('Biaya lain',idr(x[10]))+rw('Total tarif',`<b>${idr(r.a0)}</b>`);
+      const feeRows=(r.f||r.p)?rw('Management Fee (bagian invoice)',idr(r.f))+rw('PPN atas fee',idr(r.p))+rw('Total tagihan',`<b>${idr(r.a0+r.f+r.p)}</b>`):'';
       const d=$('#dlg');
-      d.innerHTML=`<div class="sh"><b>${VN[r.v]} · ${esc(D0.k)}${x[11]?' · '+esc(x[11]):''}</b><button id="dx" aria-label="Tutup">&times;</button></div><table>${rw('Waktu',r.d.slice(8)+'/'+r.d.slice(5,7)+'/'+r.d.slice(0,4)+', jam '+String(r.h).padStart(2,'0'))}${rw('Booking / Trip code',esc(D0.k)+' / '+(x[11]?esc(x[11]):'-'))}${rw('Karyawan',esc(r.en)+(r.eg&&r.eg!=r.en?'<br><span class="mu">Nama di Grab: '+esc(r.eg)+'</span>':'')+'<br><span class="mu">'+esc(r.id||'tanpa ID')+' · '+esc(r.st)+'</span>')}${rw('Bisnis unit › Unit',esc(r.bu)+' › '+esc(r.un)+'<br><span class="mu">BU dari PT penagih: '+esc(CO[r.c])+'</span>')}${rw('Office area',esc(r.of))+rw('Grup HCIS',esc(r.gc))}${rw('Service',esc(X.gr[r.g])+(x[5]?' · '+esc(x[5]):''))}${rw('Keterangan',esc(x[4]||'-'))}${rw('Jarak',x[3]+' km')}${rw('Dari',esc(x[0]||'-'))}${x[2]?rw('Singgah',esc(x[2])):''}${rw('Tujuan',esc(x[1]||'-'))}${fare}</table>`;
+      d.innerHTML=`<div class="sh"><b>${VN[r.v]} · ${esc(D0.k)}${x[11]?' · '+esc(x[11]):''}</b><button id="dx" aria-label="Tutup">&times;</button></div><table>${rw('Waktu',r.d.slice(8)+'/'+r.d.slice(5,7)+'/'+r.d.slice(0,4)+', jam '+String(r.h).padStart(2,'0'))}${rw('Booking / Trip code',esc(D0.k)+' / '+(x[11]?esc(x[11]):'-'))}${rw('Karyawan',esc(r.en)+(r.eg&&r.eg!=r.en?'<br><span class="mu">Nama di Grab: '+esc(r.eg)+'</span>':'')+'<br><span class="mu">'+esc(r.id||'tanpa ID')+' · '+esc(r.st)+'</span>')}${rw('Bisnis unit › Unit',esc(r.bu)+' › '+esc(r.un)+'<br><span class="mu">BU dari PT penagih: '+esc(CO[r.c])+'</span>')}${rw('Office area',esc(r.of))+rw('Grup HCIS',esc(r.gc))}${rw('Service',esc(X.gr[r.g])+(x[5]?' · '+esc(x[5]):''))}${rw('Keterangan',esc(x[4]||'-'))}${rw('Jarak',x[3]+' km')}${rw('Dari',esc(x[0]||'-'))}${x[2]?rw('Singgah',esc(x[2])):''}${rw('Tujuan',esc(x[1]||'-'))}${fare}${feeRows}</table>`;
       $('#dx').onclick=()=>d.close();
       d.onclick=e=>{
         if(e.target==d)d.close()
@@ -218,7 +219,7 @@
       }
       $('#sp').hidden=false;
       $('#sp').innerHTML=`<div class="sh"><b>${esc(SP.t)}</b><button id="sx" aria-label="Tutup">&times;</button></div><input id="sq" type="search" class="sq" placeholder="Cari nama atau ID karyawan" value="${esc(SP.q)}" aria-label="Cari karyawan"><div class="ss"><div><span class="mu">Transaksi</span><b>${num(a.length)}</b></div><div><span class="mu">Total pengeluaran</span><b>${idr(tot)}</b></div><div><span class="mu">Karyawan</span><b>${emp}</b></div><div><span class="mu">Rata-rata per transaksi</span><b>${a.length?idr(tot/a.length):'-'}</b></div></div>
-    <div class="w"><table><tr><th>Tanggal</th><th>Karyawan</th><th>Rute (klik untuk rincian)</th><th class="r">Tarif</th></tr>${SP.list.length?SP.list.map((r,i)=>`<tr class="dr" tabindex="0" data-i="${i}"><td>${r.d.slice(8)}/${r.d.slice(5,7)}<br><span class="mu">${String(r.h).padStart(2,'0')}:00 · ${VN[r.v]}</span></td><td>${esc(r.en)}<br><span class="mu">${esc(r.bu)} › ${esc(r.un)}</span></td><td class="ad" title="${esc(dt0(r).x[0]+' → '+dt0(r).x[1])}">${esc(cut(dt0(r).x[0],30))}<br><span class="mu">${esc(cut(dt0(r).x[1],30))}</span></td><td class="r">${idr(r.a)}<br><span class="mu">${dt0(r).x[6]==null?'tarif food':'dasar '+idr(dt0(r).x[6])}</span></td></tr>`).join(''):'<tr><td colspan="4" class="mu">Tidak ada transaksi yang sesuai.</td></tr>'}</table></div>
+    <div class="w"><table><tr><th>Tanggal</th><th>Karyawan</th><th>Rute (klik untuk rincian)</th><th class="r">Nilai</th></tr>${SP.list.length?SP.list.map((r,i)=>`<tr class="dr" tabindex="0" data-i="${i}"><td>${r.d.slice(8)}/${r.d.slice(5,7)}<br><span class="mu">${String(r.h).padStart(2,'0')}:00 · ${VN[r.v]}</span></td><td>${esc(r.en)}<br><span class="mu">${esc(r.bu)} › ${esc(r.un)}</span></td><td class="ad" title="${esc(dt0(r).x[0]+' → '+dt0(r).x[1])}">${esc(cut(dt0(r).x[0],30))}<br><span class="mu">${esc(cut(dt0(r).x[1],30))}</span></td><td class="r">${idr(r.a)}<br><span class="mu">${dt0(r).x[6]==null?'tarif food':'dasar '+idr(dt0(r).x[6])}</span></td></tr>`).join(''):'<tr><td colspan="4" class="mu">Tidak ada transaksi yang sesuai.</td></tr>'}</table></div>
     <div class="pgn"><button type="button" id="spp"${SP.pg?'':' disabled'}>‹ Sebelumnya</button><span class="mu">Halaman ${SP.pg+1} dari ${pages}${a.length?' · '+(SP.pg*PG+1)+'-'+Math.min(a.length,(SP.pg+1)*PG)+' dari '+num(a.length):''}</span><button type="button" id="spn"${SP.pg<pages-1?'':' disabled'}>Berikutnya ›</button></div>`;
       $('#sx').onclick=closeSP;
       const sq=$('#sq');
@@ -415,10 +416,10 @@
       }}});
       rows.forEach(r=>byD[r.d]=(byD[r.d]||0)+r.a);
       const da=Object.entries(byD).sort((a,b)=>b[1]-a[1]);
-      $('#kp').innerHTML=`<div class="p k" style="--c:${cv('--ln')}"><span class="mu">Total transaksi</span><b>${num(base.length)}</b><span class="mu">${idr(sm0(base))}</span></div>`+[0,1,2].map(v=>{
+      $('#kp').innerHTML=`<div class="p k" style="--c:${cv('--ln')}"><span class="mu">Total transaksi</span><b>${num(rows.length)}</b><span class="mu">Reimbursement ${idr(rows.reduce((s,r)=>s+r.a0,0))}</span><span class="mu" style="display:block">Total tagihan ${idr(rows.reduce((s,r)=>s+r.a0+r.f+r.p,0))}</span></div>`+[0,1,2].map(v=>{
         const a=base.filter(r=>r.v==v);
-        return`<button class="p k${F.v==v?' sel':''}" style="--c:${col[v]}" data-v="${v}"><span class="mu">${VN[v]}</span><b>${num(a.length)}</b><span class="mu">${idr(sm0(a))}</span></button>`
-      }).join('')+`<div class="p k" style="--c:${cv('--cm')}"><span class="mu">Pengeluaran harian tertinggi</span><b style="font-size:18px">${da.length?idr(da[0][1]):'-'}</b><span class="mu">${da.length?da[0][0]:''}</span></div>`;
+        return`<button class="p k${F.v==v?' sel':''}" style="--c:${col[v]}" data-v="${v}"><span class="mu">${VN[v]}</span><b>${num(a.length)}</b><span class="mu">${idr(a.reduce((s,r)=>s+r.a0,0))}</span></button>`
+      }).join('')+`<div class="p k" style="--c:${cv('--cx')}" title="Dibagi ke setiap transaksi sebanding dengan nominalnya; jumlahnya sama dengan invoice"><span class="mu">Management Fee + PPN</span><b style="font-size:18px">${idr(rows.reduce((s,r)=>s+r.f+r.p,0))}</b><span class="mu">Fee ${idr(rows.reduce((s,r)=>s+r.f,0))} · PPN ${idr(rows.reduce((s,r)=>s+r.p,0))}</span></div>`+`<div class="p k" style="--c:${cv('--cm')}"><span class="mu">Pengeluaran harian tertinggi</span><b style="font-size:18px">${da.length?idr(da[0][1]):'-'}</b><span class="mu">${da.length?da[0][0]:''}</span></div>`;
       document.querySelectorAll('#kp button').forEach(b=>b.onclick=()=>{
         F.v=F.v===b.dataset.v?'':b.dataset.v;
         refill();
@@ -772,6 +773,18 @@
       $('#m1').classList.remove('on');
       render()
     };
+    /* Pilihan nilai: reimbursement saja, atau total tagihan (reimbursement + Management Fee + PPN) */
+    if($('#n1')&&$('#n2')){
+      const setIncl=v=>{
+        incl=v;
+        $('#n2').classList.toggle('on',v);
+        $('#n1').classList.toggle('on',!v);
+        RW.forEach(r=>{r.a=r.a0+(incl?r.f+r.p:0)});
+        render()
+      };
+      $('#n1').onclick=()=>setIncl(false);
+      $('#n2').onclick=()=>setIncl(true)
+    }
     enrich();
     refill();
     /* === Grafik terlipat seperti daftar; klik judul atau tombol untuk membuka (pilihan diingat di browser) === */

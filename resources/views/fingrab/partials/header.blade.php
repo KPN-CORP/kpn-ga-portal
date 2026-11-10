@@ -9,6 +9,8 @@
     @if($hitung ?? false)
       <span class="mu">Tampilkan berdasarkan:</span>
       <span class="tg"><button id="m1" class="on">Nilai (Rp)</button><button id="m2">Jumlah transaksi</button></span>
+      <span class="mu">Nilai:</span>
+      <span class="tg"><button id="n1" class="on" title="Hanya biaya perjalanan/pesanan (reimbursement)">Reimbursement</button><button id="n2" title="Reimbursement + Management Fee + PPN, sama seperti invoice">Total tagihan (+fee &amp; PPN)</button></span>
     @else
       <span hidden><button id="m1"></button><button id="m2"></button></span>
     @endif

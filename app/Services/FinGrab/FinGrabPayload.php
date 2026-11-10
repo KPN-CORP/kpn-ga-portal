@@ -38,7 +38,7 @@ class FinGrabPayload
     {
         $q = FinGrabTransaction::query()
             ->select([
-                'id', 'trx_date', 'pt_name', 'group_name', 'vertical', 'amount', 'trx_hour', 'city',
+                'id', 'trx_date', 'pt_name', 'group_name', 'vertical', 'amount', 'fee_amount', 'vat_amount', 'trx_hour', 'city',
                 'booking_id', 'trip_code', 'billing_type', 'id_bisnis_unit',
                 'employee_id', 'employee_name', 'employee_email', 'employee_id_status', 'employee_id_hint',
                 'hcis_group_company', 'hcis_unit', 'hcis_office_area', 'hcis_match',
@@ -82,18 +82,22 @@ class FinGrabPayload
                 ];
             }
 
-            // Baris slim: [tanggal, PT, group, karyawan, tipe, nominal, jam, kota, id transaksi, Bisnis unit]
+            // Baris slim: [tanggal, PT, group, karyawan, tipe, nominal, jam, kota, id transaksi, Bisnis unit, fee, PPN]
+            // nominal = reimbursement (tanpa fee); fee dan PPN dialokasikan dari invoice (FeeAllocator), dilipat sama seperti tip/refund.
+            $ex = $extra[$t->id] ?? [0, 0, 0];
             $rows[] = [
                 $t->trx_date->format('Y-m-d'),
                 $coIx[$t->pt_name] ?? 0,
                 $grIx[$t->group_name] ?? 0,
                 $emIx[$key],
                 self::VERTICAL[$t->vertical] ?? 0,
-                (int) $t->amount + (int) ($extra[$t->id] ?? 0),
+                (int) $t->amount + $ex[0],
                 (int) $t->trx_hour,
                 $ciIx[$t->city ?: '-'] ?? 0,
                 (int) $t->id,
                 $t->id_bisnis_unit ? ($buNames[$t->id_bisnis_unit] ?? 'Belum terpetakan') : 'Belum terpetakan',
+                (int) $t->fee_amount + $ex[1],
+                (int) $t->vat_amount + $ex[2],
             ];
         }
 
@@ -135,7 +139,7 @@ class FinGrabPayload
     }
 
     /**
-     * @return array{0: \Illuminate\Support\Collection, 1: array<int,int>} [baris tanpa tip/refund yang terlipat, id transaksi => total tip+refund]
+     * @return array{0: \Illuminate\Support\Collection, 1: array<int,array{0:int,1:int,2:int}>} [baris tanpa tip/refund yang terlipat, id transaksi => [nominal, fee, PPN] tip+refund]
      */
     private static function foldAdjustments($all): array
     {
@@ -159,7 +163,8 @@ class FinGrabPayload
             }
             $baseId = $base[$key($t) . '|' . $ym($t)] ?? null;
             if ($baseId !== null) {
-                $extra[$baseId] = ($extra[$baseId] ?? 0) + (int) $t->amount;
+                $e = $extra[$baseId] ?? [0, 0, 0];
+                $extra[$baseId] = [$e[0] + (int) $t->amount, $e[1] + (int) $t->fee_amount, $e[2] + (int) $t->vat_amount];
                 $folded[$t->id] = true;
             }
         }

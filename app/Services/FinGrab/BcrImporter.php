@@ -50,8 +50,15 @@ class BcrImporter
     public function import(array $paths, array $names, ?int $userId): array
     {
         $rows = [];
-        foreach ($paths as $path) {
+        $bcrKeys = [];
+        foreach ($paths as $i => $path) {
+            // Angka di nama file bcr_<angka>_... = pasangan invoice_<angka>_... (dipakai untuk membagi fee dan PPN)
+            $bcrNo = preg_match('/^bcr_(\d+)_/i', (string) ($names[$i] ?? ''), $mm) ? $mm[1] : null;
+            if ($bcrNo !== null) {
+                $bcrKeys[$bcrNo] = true;
+            }
             foreach ($this->readSheet($path) as $r) {
+                $r['__BCR_NO'] = $bcrNo;
                 $rows[] = $r;
             }
         }
@@ -75,13 +82,14 @@ class BcrImporter
                 'hint' => $hint, 'mail' => Str::lower(trim((string) ($r['EMPLOYEE_EMAIL_ADDRESS'] ?? ''))),
                 'name' => Str::lower(trim((string) ($r['EMPLOYEE_NAME'] ?? ''))), 'r' => $r,
                 'bt' => $this->billingType($r['BILLING_TYPE'] ?? null),
+                'bcr' => $r['__BCR_NO'] ?? null,
             ];
         }
 
         $clean = $this->applyIdOverrides($clean);
         $hcis = $this->loadHcis($clean);
 
-        return DB::transaction(function () use ($clean, $hcis, $names, $userId, $skipped) {
+        return DB::transaction(function () use ($clean, $hcis, $names, $userId, $skipped, $bcrKeys) {
             $batchId = DB::table('fingrab_batches')->insertGetId([
                 'uploaded_by' => $userId, 'files' => implode(', ', $names),
                 'created_at' => now(), 'updated_at' => now(),
@@ -119,6 +127,7 @@ class BcrImporter
                     'batch_id' => $batchId,
                     'booking_id' => $c['booking'],
                     'trip_code' => Str::limit($c['trip'], 100, ''),
+                    'bcr_no' => $c['bcr'],
                     'trx_date' => $c['date'],
                     'trx_hour' => $c['hour'],
                     'vertical' => Str::lower(trim((string) ($r['VERTICAL'] ?? ''))),
@@ -214,6 +223,11 @@ class BcrImporter
                         }
                     }
 
+                    // File xlsx tanpa pola nama bcr_<angka>_ (bcr_no kosong) tidak boleh menghapus bcr_no yang sudah tersimpan.
+                    if (array_key_exists('bcr_no', $diff) && $diff['bcr_no'] === null) {
+                        unset($diff['bcr_no']);
+                    }
+
                     if ($diff) {
                         DB::table('fingrab_transactions')->where('id', $old->id)
                             ->update($diff + ['batch_id' => $batchId, 'updated_at' => $now]);
@@ -241,6 +255,7 @@ class BcrImporter
                 'pt_unmapped' => $stat['pt_unmapped'],
                 'pt_unmapped_names' => array_keys($unmappedPt),
                 'skipped' => $skipped,
+                'bcr_keys' => array_keys($bcrKeys),
                 'period_from' => $dates ? min($dates) : null,
                 'period_to' => $dates ? max($dates) : null,
             ];

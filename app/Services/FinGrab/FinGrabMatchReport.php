@@ -57,7 +57,20 @@ class FinGrabMatchReport
                 });
         }
 
+        // Rekonsiliasi invoice: hanya Corporate (invoice milik PT penagih, bukan satu Bisnis unit).
+        $invoices = null;
+        if ($scope['all']) {
+            $invoices = DB::table('fingrab_invoices as i')
+                ->leftJoin('fingrab_transactions as t', 't.invoice_id', '=', 'i.id')
+                ->groupBy('i.id')
+                ->orderByDesc('i.invoice_date')->orderByDesc('i.id')
+                ->limit(120)
+                ->selectRaw('i.*, COUNT(t.id) AS bcr_rows, COALESCE(SUM(t.amount),0) AS bcr_total, COALESCE(SUM(t.fee_amount),0) AS alloc_fee, COALESCE(SUM(t.vat_amount),0) AS alloc_vat')
+                ->get();
+        }
+
         return [
+            'invoices' => $invoices,
             'email' => $email, 'email_cut' => $email->count() >= $limitE,
             'idname' => $idname, 'idname_cut' => $idname->count() >= $limitI,
             'manual' => $manual,

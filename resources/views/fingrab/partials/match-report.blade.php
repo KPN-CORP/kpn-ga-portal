@@ -3,6 +3,9 @@
   $tipe = ['id' => 'ID', 'email' => 'Email', 'name' => 'Nama'];
 @endphp
 <div class="mx" style="display:grid;gap:14px">
+  @if (($M['invoices'] ?? null) !== null)
+    @include('fingrab.partials.invoice-report', ['inv' => $M['invoices']])
+  @endif
   <details class="p">
     <summary>Cocok via email ({{ $M['email']->count() }}{{ $M['email_cut'] ? '+' : '' }} karyawan)</summary>
     <p class="mu">ID di file Grab tidak cocok atau kosong, lalu dicocokkan lewat email ke karyawan HCIS berikut. Periksa apakah pasangannya benar.</p>

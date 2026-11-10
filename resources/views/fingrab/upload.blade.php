@@ -6,7 +6,7 @@
 <div class="space-y-6 text-sm text-gray-800">
     <div>
         <h2 class="text-xl font-semibold text-gray-800">Upload BCR Grab</h2>
-        <p class="text-xs text-gray-500">Unggah file zip dari Grab (atau file xlsx BCR langsung). Hanya file <code>bcr_*.xlsx</code> di dalam zip yang dibaca, PDF invoice diabaikan.</p>
+        <p class="text-xs text-gray-500">Unggah file zip dari Grab (atau file xlsx BCR dan PDF invoice langsung). Di dalam zip dibaca <code>bcr_*.xlsx</code> (transaksi) dan <code>invoice_*.pdf</code> (Management Fee dan PPN). Pasangan BCR dan invoice dikenali dari angka di nama file.</p>
     </div>
 
     @if(session('fingrab_summary'))
@@ -18,6 +18,21 @@
                 <li>Baris kembar di file (Booking ID dan Trip code sama, hanya satu dipakai): {{ $s['duplicates'] ?? 0 }}</li>
                 <li>Data baru: {{ $s['new'] ?? 0 }}, diperbarui (isinya berubah): {{ $s['updated'] ?? 0 }}, tidak berubah: {{ $s['unchanged'] ?? 0 }}</li>
                 <li>Cocok HCIS lewat ID: {{ $s['matched_id'] }}, lewat email: {{ $s['matched_email'] }}, belum cocok: {{ $s['unmatched'] }}</li>
+                @if(!empty($s['inv']['invoices']) || !empty($s['inv']['errors']))
+                    @foreach($s['inv']['invoices'] as $iv)
+                        <li>Invoice {{ $iv['invoice_no'] }} ({{ $iv['new'] ? 'baru' : 'diperbarui' }}): fee Rp {{ number_format($iv['fee'], 0, ',', '.') }}, PPN Rp {{ number_format($iv['vat'], 0, ',', '.') }}</li>
+                    @endforeach
+                    @foreach($s['inv']['alloc'] as $k => $a)
+                        @if($a['status'] === 'ok')
+                            <li>BCR {{ $k }}: fee dan PPN dibagi ke {{ number_format($a['rows']) }} transaksi (fee Rp {{ number_format($a['fee'], 0, ',', '.') }}, PPN Rp {{ number_format($a['vat'], 0, ',', '.') }}; {{ number_format($a['updated']) }} baris diperbarui)</li>
+                        @elseif($a['status'] === 'no_rows')
+                            <li class="text-amber-700">BCR {{ $k }}: invoice tersimpan, tetapi belum ada transaksi BCR dengan nomor ini. Unggah file bcr_{{ $k }}_*.xlsx juga.</li>
+                        @endif
+                    @endforeach
+                    @foreach($s['inv']['errors'] as $er)
+                        <li class="text-red-700">{{ $er }}</li>
+                    @endforeach
+                @endif
                 <li>PT belum terpetakan ke Bisnis unit: {{ $s['pt_unmapped'] }}@if(!empty($s['pt_unmapped_names'])) ({{ implode(', ', $s['pt_unmapped_names']) }})@endif</li>
                 <li>Baris dilewati (tanpa Booking ID atau waktu): {{ $s['skipped'] }}</li>
             </ul>
@@ -35,8 +50,8 @@
           class="bg-white border rounded-xl p-5 space-y-4" x-data="{ busy: false }" @submit="busy = true">
         @csrf
         <div>
-            <label for="files" class="block text-sm font-medium text-gray-700 mb-1">File zip atau xlsx (boleh lebih dari satu)</label>
-            <input id="files" type="file" name="files[]" accept=".zip,.xlsx,.xls" multiple required
+            <label for="files" class="block text-sm font-medium text-gray-700 mb-1">File zip, xlsx, atau PDF invoice (boleh lebih dari satu)</label>
+            <input id="files" type="file" name="files[]" accept=".zip,.xlsx,.xls,.pdf" multiple required
                    class="block w-full text-sm border rounded-lg p-2 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700">
             <p class="mt-1 text-xs text-gray-500">Upload ulang aman: data dicocokkan per Booking ID. Data baru ditambah, data yang isinya berubah diperbarui (hanya kolom yang berubah), data yang sama tidak disentuh, dan data yang tidak ada di file tidak dihapus.</p>
         </div>
