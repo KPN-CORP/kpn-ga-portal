@@ -487,10 +487,17 @@ class FuelLogController extends Controller
                 'estimate' => $detail['estimate'],
             ];
         }
+        // Urutkan: kendaraan dengan pengisian PALING BARU di atas.
+        // Yang tidak punya tanggal isi terakhir ditaruh paling bawah.
         usort($result, function ($a, $b) {
-            if ($a['actual_efficiency'] === null) return 1;
-            if ($b['actual_efficiency'] === null) return -1;
-            return $a['actual_efficiency'] <=> $b['actual_efficiency'];
+            $da = $a['last_fill_date'] ? \Carbon\Carbon::parse($a['last_fill_date'])->timestamp : null;
+            $db = $b['last_fill_date'] ? \Carbon\Carbon::parse($b['last_fill_date'])->timestamp : null;
+
+            if ($da === null && $db === null) return strcmp((string) $a['plate_number'], (string) $b['plate_number']);
+            if ($da === null) return 1;
+            if ($db === null) return -1;
+
+            return $db <=> $da; // terbaru dulu
         });
 
         // Ringkasan total keseluruhan untuk periode/filter yang sedang aktif

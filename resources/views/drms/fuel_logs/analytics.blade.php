@@ -274,7 +274,7 @@
 
         {{-- HP & tablet: tampilan kartu --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
-            @foreach($vehicleDetail['rows'] as $row)
+            @foreach(array_reverse($vehicleDetail['rows']) as $row)
             @php
                 $cardBg = match($row['warning_level'] ?? null) {
                     'red' => 'bg-red-50 border-red-200',
@@ -345,7 +345,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($vehicleDetail['rows'] as $row)
+                    @foreach(array_reverse($vehicleDetail['rows']) as $row)
                     @php
                         $rowBg = match($row['warning_level'] ?? null) {
                             'red' => 'bg-red-50',
