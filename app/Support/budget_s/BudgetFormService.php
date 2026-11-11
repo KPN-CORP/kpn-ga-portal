@@ -73,7 +73,11 @@ class BudgetFormService
             $sebelum = $isian ? $isian->getAttributes() : null;
 
             // Nilai field arsip yang sudah tersimpan tetap dipertahankan; yang aktif ditimpa input baru
-            $data = array_merge($isian?->data ?? [], $in['data'] ?? []);
+            // JANGAN pakai array_merge: kunci angka (id field) akan dinomori ulang 0,1,2... dan nilai bergeser ke field lain
+            $data = (array) ($isian?->data ?? []);
+            foreach (($in['data'] ?? []) as $fid => $v) {
+                $data[(string) $fid] = $v;
+            }
             $data = array_filter($data, fn ($v) => $v !== null && $v !== '');
 
             $kolom = [

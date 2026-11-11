@@ -86,7 +86,13 @@ class FuelLogController extends Controller
             $query->where('vehicle_id', $request->vehicle_id);
         }
         if ($request->filled('status')) {
-            $query->where('is_verified', $request->status == 'verified' ? 1 : 0);
+            if ($request->status === 'draft') {
+                $query->where('is_draft', 1);
+            } elseif ($request->status === 'verified') {
+                $query->where('is_draft', 0)->where('is_verified', 1);
+            } else { // pending = sudah final tapi belum diverifikasi
+                $query->where('is_draft', 0)->where('is_verified', 0);
+            }
         }
 
         // Filter Bulan (default: bulan sekarang), kecuali sudah pakai filter tanggal manual.
@@ -100,9 +106,11 @@ class FuelLogController extends Controller
         // PENTING: hitung statistik dari QUERY PENUH (semua filter di atas sudah masuk,
         // sebelum di-paginate) — supaya angkanya total keseluruhan, bukan cuma 20 data
         // di halaman yang sedang tampil.
-        $totalLogs     = (clone $query)->count();
-        $verifiedCount = (clone $query)->where('is_verified', 1)->count();
-        $pendingCount  = (clone $query)->where('is_verified', 0)->count();
+        // Draft TIDAK ikut dihitung di statistik (belum ada liter/harga), dihitung terpisah.
+        $draftCount    = (clone $query)->where('is_draft', 1)->count();
+        $totalLogs     = (clone $query)->where('is_draft', 0)->count();
+        $verifiedCount = (clone $query)->where('is_draft', 0)->where('is_verified', 1)->count();
+        $pendingCount  = (clone $query)->where('is_draft', 0)->where('is_verified', 0)->count();
 
         // Liter (BBM) dan kWh (Listrik) dipisah, bukan digabung jadi satu angka —
         // karena satuannya beda, jumlahin keduanya jadi satu tidak ada artinya.
@@ -113,13 +121,13 @@ class FuelLogController extends Controller
         // bukan true), jadi harus eksplisit ikutkan whereNull juga supaya kendaraan
         // yang fuel_type-nya belum diisi tetap terhitung sebagai BBM (default), bukan
         // hilang dari kedua total.
-        $bbmQuery = (clone $query)->whereHas('vehicle', function ($q) {
+        $bbmQuery = (clone $query)->where('is_draft', 0)->whereHas('vehicle', function ($q) {
             $q->where('fuel_type', '!=', 'Listrik')->orWhereNull('fuel_type');
         });
         $totalLiters = (clone $bbmQuery)->sum('fuel_liters');
         $totalCostBbm = (clone $bbmQuery)->sum('total_cost');
 
-        $listrikQuery = (clone $query)->whereHas('vehicle', fn($q) => $q->where('fuel_type', 'Listrik'));
+        $listrikQuery = (clone $query)->where('is_draft', 0)->whereHas('vehicle', fn($q) => $q->where('fuel_type', 'Listrik'));
         $totalKwh = (clone $listrikQuery)->sum('fuel_liters');
         $totalCostListrik = (clone $listrikQuery)->sum('total_cost');
 
@@ -136,7 +144,7 @@ class FuelLogController extends Controller
         $businessUnits = $this->businessUnitOptions($lockedBuId);
         $filterBusinessUnitId = $buId;
         return view('drms.fuel_logs.index', compact(
-            'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount',
+            'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount', 'draftCount',
             'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik',
             'businessUnits', 'filterBusinessUnitId'
         ));
@@ -163,41 +171,101 @@ class FuelLogController extends Controller
         return view('drms.fuel_logs.create', compact('vehicles', 'driver'));
     }
 
-    public function store(Request $request)
+    /**
+     * Aturan validasi foto + data pengisian, tergantung mode simpan.
+     *
+     * - Mode DRAFT  : cukup kendaraan, tanggal, odometer, dan foto dashboard SEBELUM pengisian.
+     *                 Liter, harga, foto sesudah, dan struk boleh kosong (driver masih antri/mengisi).
+     * - Mode SUBMIT : semua wajib (liter, harga, foto dashboard sebelum + sesudah, struk).
+     *
+     * @param  FuelLog|null $log  log yang sedang diedit (null = input baru). Foto yang sudah
+     *                            tersimpan di log tidak wajib diupload ulang.
+     */
+    private function rulesFor(bool $isDraft, ?FuelLog $log = null): array
     {
-        $validated = $request->validate([
-            'vehicle_id' => 'required|exists:drms_vehicles,id',
-            'filling_date' => 'required|date',
+        // Foto wajib hanya untuk input BARU atau saat draft diselesaikan. Edit log final lama
+        // (termasuk log sebelum fitur foto dashboard ada) tidak dipaksa upload ulang.
+        $strictPhotos = !$isDraft && ($log === null || $log->is_draft);
+
+        $photo = function (string $field) use ($strictPhotos, $log) {
+            $alreadyHas = $log && $log->$field;
+            return ($strictPhotos && !$alreadyHas)
+                ? 'required|image|max:5120'
+                : 'nullable|image|max:5120';
+        };
+
+        return [
+            'vehicle_id'     => 'required|exists:drms_vehicles,id',
+            'filling_date'   => 'required|date',
             'odometer_start' => 'required|integer|min:0',
-            'fuel_liters' => 'required|numeric|min:0.01',
-            'fuel_total_price' => 'required|numeric|min:0',
-            // 2 foto wajib saat input baru: struk + foto full dashboard speedometer setelah pengisian
-            'receipt_file' => 'required|image|max:5120',
-            'photo_dashboard_after' => 'required|image|max:5120',
-            'notes' => 'nullable|string',
-        ], [
-            'receipt_file.required' => 'Foto struk pengisian wajib diisi.',
-            'photo_dashboard_after.required' => 'Foto full dashboard speedometer setelah pengisian wajib diisi.',
-        ]);
+            'fuel_liters'    => $isDraft ? 'nullable|numeric|min:0.01' : 'required|numeric|min:0.01',
+            'fuel_total_price' => $isDraft ? 'nullable|numeric|min:0' : 'required|numeric|min:0',
+            // Foto sebelum pengisian: wajib saat input baru (draft maupun kirim) dan TIDAK bisa
+            // diubah setelah tersimpan, jadi tidak divalidasi/diproses sama sekali saat edit.
+            'photo_dashboard_before' => $log === null ? 'required|image|max:5120' : 'prohibited',
+            'photo_dashboard_after'  => $photo('photo_dashboard_after'),
+            'receipt_file'           => $photo('receipt_file'),
+            'notes'          => 'nullable|string',
+        ];
+    }
+
+    private function rulesMessages(): array
+    {
+        return [
+            'photo_dashboard_before.required' => 'Foto Km dan Indikator BBM/Baterai Sebelum Pengisian wajib diisi.',
+            'photo_dashboard_after.required'  => 'Foto Km dan Indikator BBM/Baterai Setelah Pengisian wajib diisi.',
+            'receipt_file.required'           => 'Foto struk pengisian wajib diisi.',
+            'fuel_liters.required'            => 'Jumlah liter/kWh wajib diisi.',
+            'fuel_total_price.required'       => 'Harga total wajib diisi.',
+        ];
+    }
+
+    /**
+     * Isi total_cost & harga per liter dari input form. Kosong (draft) -> null.
+     */
+    private function applyCost(array $validated): array
+    {
+        $price  = $validated['fuel_total_price'] ?? null;
+        $liters = $validated['fuel_liters'] ?? null;
 
         // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
         // Harga per liter hanya info turunan, tidak dipakai untuk menghitung biaya.
-        $validated['total_cost'] = $validated['fuel_total_price'];
-        $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
-            ? round($validated['fuel_total_price'] / $validated['fuel_liters'], 2)
-            : 0;
+        $validated['total_cost'] = $price;
+        $validated['fuel_price_per_liter'] = ($price !== null && $liters !== null && $liters > 0)
+            ? round($price / $liters, 2)
+            : null;
         unset($validated['fuel_total_price']);
+        return $validated;
+    }
+
+    public function store(Request $request)
+    {
+        // save_mode: "draft" (simpan dulu, lengkapi setelah selesai mengisi) atau "submit".
+        $isDraft = $request->input('save_mode') === 'draft';
+
+        $validated = $request->validate($this->rulesFor($isDraft), $this->rulesMessages());
+        $validated = $this->applyCost($validated);
 
         $driver = Auth::user()->driver;
         $validated['driver_id'] = $driver ? $driver->id : null;
         $validated['user_id'] = Auth::id();
         $validated['is_verified'] = 0;
+        $validated['is_draft'] = $isDraft ? 1 : 0;
 
-        $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
-        $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards');
+        $validated['photo_dashboard_before'] = ImageHelper::compressAndStore($request->file('photo_dashboard_before'), 'fuel_dashboards');
+        foreach (['photo_dashboard_after' => 'fuel_dashboards', 'receipt_file' => 'fuel_receipts'] as $field => $dir) {
+            if ($request->hasFile($field)) {
+                $validated[$field] = ImageHelper::compressAndStore($request->file($field), $dir);
+            } else {
+                unset($validated[$field]);
+            }
+        }
 
         FuelLog::create($validated);
-        return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM berhasil disimpan.');
+
+        return redirect()->route('drms.fuel-logs.index')->with('success', $isDraft
+            ? 'Draft tersimpan. Setelah selesai mengisi, buka draft ini lalu tekan Lengkapi.'
+            : 'Log BBM berhasil disimpan.');
     }
 
     public function show($id)
@@ -229,26 +297,14 @@ class FuelLogController extends Controller
     public function update(Request $request, $id)
     {
         $log = FuelLog::findOrFail($id);
-        $validated = $request->validate([
-            'vehicle_id' => 'required|exists:drms_vehicles,id',
-            'filling_date' => 'required|date',
-            'odometer_start' => 'required|integer|min:0',
-            'fuel_liters' => 'required|numeric|min:0.01',
-            'fuel_total_price' => 'required|numeric|min:0',
-            'receipt_file' => 'nullable|image|max:5120',
-            // Saat edit foto dashboard boleh kosong (tidak diganti). Log lama (sebelum fitur
-            // ini ada) memang belum punya foto dashboard, jadi tidak dipaksa saat edit.
-            'photo_dashboard_after' => 'nullable|image|max:5120',
-            'notes' => 'nullable|string',
-        ]);
 
-        // Total biaya = angka di nota, disimpan APA ADANYA (tidak dihitung dari liter x harga).
-        // Harga per liter hanya info turunan, tidak dipakai untuk menghitung biaya.
-        $validated['total_cost'] = $validated['fuel_total_price'];
-        $validated['fuel_price_per_liter'] = $validated['fuel_liters'] > 0
-            ? round($validated['fuel_total_price'] / $validated['fuel_liters'], 2)
-            : 0;
-        unset($validated['fuel_total_price']);
+        // Log yang masih DRAFT: boleh disimpan sebagai draft lagi (save_mode=draft) atau
+        // diselesaikan (save_mode=submit -> semua data + foto sesudah + struk wajib).
+        // Log yang sudah final: selalu divalidasi penuh seperti sebelumnya.
+        $isDraft = $log->is_draft && $request->input('save_mode') === 'draft';
+
+        $validated = $request->validate($this->rulesFor($isDraft, $log), $this->rulesMessages());
+        $validated = $this->applyCost($validated);
 
         // PERBAIKAN: sebelumnya driver_id selalu ditimpa dengan driver milik user yang sedang
         // login (Auth::user()->driver). Ini membuat nama driver hilang setiap kali admin
@@ -261,21 +317,40 @@ class FuelLogController extends Controller
         }
         // Jika bukan driver pemilik log (mis. admin), driver_id yang sudah tersimpan tidak diubah.
 
-        if ($request->hasFile('receipt_file')) {
-            if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
-            $validated['receipt_file'] = ImageHelper::compressAndStore($request->file('receipt_file'), 'fuel_receipts');
+        $photoDirs = [
+            'photo_dashboard_after'  => 'fuel_dashboards',
+            'receipt_file'           => 'fuel_receipts',
+        ];
+        foreach ($photoDirs as $field => $dir) {
+            if ($request->hasFile($field)) {
+                if ($log->$field) ImageHelper::deleteImage($log->$field);
+                $validated[$field] = ImageHelper::compressAndStore($request->file($field), $dir);
+            } else {
+                unset($validated[$field]); // tidak diganti -> pertahankan foto lama
+            }
         }
-        if ($request->hasFile('photo_dashboard_after')) {
-            if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
-            $validated['photo_dashboard_after'] = ImageHelper::compressAndStore($request->file('photo_dashboard_after'), 'fuel_dashboards');
+
+        // Draft yang diselesaikan -> jadi log final (masuk analitik & bisa diverifikasi).
+        if ($log->is_draft && !$isDraft) {
+            $validated['is_draft'] = 0;
         }
+
         $log->update($validated);
-        return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM diperbarui.');
+
+        return redirect()->route('drms.fuel-logs.index')->with('success', $isDraft
+            ? 'Draft diperbarui.'
+            : ($log->wasChanged('is_draft') ? 'Log BBM berhasil dilengkapi.' : 'Log BBM diperbarui.'));
     }
 
     public function verify(Request $request, $id)
     {
         $log = FuelLog::with('vehicle')->findOrFail($id);
+
+        // Draft belum lengkap (liter, harga, foto sesudah, struk) -> belum boleh diverifikasi.
+        if ($log->is_draft) {
+            return redirect()->route('drms.fuel-logs.index')
+                ->with('error', 'Log masih berstatus draft, belum bisa diverifikasi.');
+        }
 
         // null = superadmin. Admin biasa hanya boleh log kendaraan BU-nya,
         // atau kendaraan khusus yang diberikan lewat drms_log_verifier_vehicles.
@@ -297,6 +372,7 @@ class FuelLogController extends Controller
     {
         $log = FuelLog::findOrFail($id);
         if ($log->receipt_file) ImageHelper::deleteImage($log->receipt_file);
+        if ($log->photo_dashboard_before) ImageHelper::deleteImage($log->photo_dashboard_before);
         if ($log->photo_dashboard_after) ImageHelper::deleteImage($log->photo_dashboard_after);
         $log->delete();
         return redirect()->route('drms.fuel-logs.index')->with('success', 'Log BBM dihapus.');
@@ -319,7 +395,9 @@ class FuelLogController extends Controller
         }
 
         // Semua log masuk analitik, termasuk yang BELUM diverifikasi (tidak ada filter is_verified).
+        // Draft tidak ikut analitik (belum ada liter/harga; odometernya juga belum final).
         $query = FuelLog::with('vehicle')
+            ->where('is_draft', 0)
             ->when($buId, fn($q) => $q->whereHas('vehicle', fn($sq) => $sq->where('business_unit_id', $buId)));
 
         // Filter per kendaraan
@@ -464,6 +542,7 @@ class FuelLogController extends Controller
         $vehicleIds = $logs->pluck('vehicle_id')->unique()->values()->all();
 
         $base = fn () => FuelLog::whereIn('vehicle_id', $vehicleIds)
+            ->where('is_draft', 0)
             ->whereDate('filling_date', '<', $dateFrom)
             ->when($buId, fn ($q) => $q->whereHas('vehicle', fn ($sq) => $sq->where('business_unit_id', $buId)));
 

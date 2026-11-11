@@ -86,7 +86,7 @@
     @foreach($daftar as $t)
         <tr>
             <td class="beku" style="min-width:230px;max-width:280px"><b>{{ $t->item->nama }}</b><div class="lbl">{{ $t->item->sub->kategori->nama }} / {{ $t->item->sub->nama }}</div></td>
-            <td>{{ $F::BULAN[$t->bulan] }}@if($t->isian_id)<div class="lbl">Form: {{ $t->isian->form->nama ?? '-' }}</div>@endif @if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd b-wn" title="Item ini punya lebih dari satu tagihan di bulan ini">{{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan</span></div>@endif</td>
+            <td>{{ $F::BULAN[$t->bulan] }}@if($t->isian_id)<div class="lbl">Form: {{ $t->isian->form->nama ?? '-' }}</div>@endif @if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd {{ $t->isian_id ? 'b-mu' : 'b-wn' }}" title="Item ini punya {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan di bulan ini; urutan 1 = yang dicatat paling awal">Tagihan ke-{{ $urutanTagihan[$t->id] ?? '?' }} dari {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }}</span></div>@endif</td>
             <td class="n">{{ $F::rupiah($t->tagihan) }}</td>
             <td class="n">{{ $F::rupiah($t->ppn) }}</td>
             <td class="n">{{ $F::rupiah($t->biaya_materai) }}</td>

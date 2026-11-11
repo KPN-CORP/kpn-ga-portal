@@ -59,9 +59,10 @@
             'parkir'     => ['label' => 'Parkir', 'icon' => '🅿️'],
             'bbm'        => ['label' => 'BBM', 'icon' => '⛽'],
             'cuci_mobil' => ['label' => 'Cuci Mobil', 'icon' => '🚿'],
+            'lainnya'    => ['label' => 'Lainnya', 'icon' => '📦'],
         ];
     @endphp
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         @foreach($cardMeta as $catKey => $meta)
             <div class="bg-white p-4 rounded-lg shadow-sm border text-center">
                 <p class="text-2xl">{{ $meta['icon'] }}</p>

@@ -47,7 +47,7 @@
         </table>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         @foreach(\App\Models\Drms\ExpenseReport::CATEGORIES as $key => $label)
             <div class="bg-white p-3 rounded-lg shadow-sm border text-center">
                 <p class="text-xs text-gray-500">{{ $label }}</p>

@@ -30,6 +30,7 @@ class ExpenseReport extends Model
         'parkir'     => 'Parkir',
         'bbm'        => 'BBM',
         'cuci_mobil' => 'Cuci Mobil',
+        'lainnya'    => 'Lainnya',
     ];
 
     public function driver()

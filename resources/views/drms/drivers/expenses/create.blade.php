@@ -39,6 +39,7 @@
                 'parkir'     => ['label' => 'Parkir', 'icon' => '🅿️'],
                 'bbm'        => ['label' => 'BBM', 'icon' => '⛽'],
                 'cuci_mobil' => ['label' => 'Cuci Mobil', 'icon' => '🚿'],
+                'lainnya'    => ['label' => 'Lainnya', 'icon' => '📦'],
             ];
         @endphp
 
@@ -54,6 +55,9 @@
                 {{-- baris pertama dimulai secara default --}}
             </div>
             <p class="text-xs text-gray-400 mt-2 empty-hint" id="empty-hint-{{ $catKey }}">Belum ada entri {{ $cat['label'] }}. Klik "++ Tambah {{ $cat['label'] }}" untuk menambah.</p>
+            @if($catKey === 'lainnya')
+                <p class="text-xs text-amber-600 mt-1">Untuk pengeluaran selain di atas. Keterangan wajib diisi (contoh: tambal ban).</p>
+            @endif
         </div>
         @endforeach
 
@@ -106,6 +110,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function addRow(category) {
         const container = document.getElementById('rows-' + category);
         const clone = template.content.cloneNode(true);
+        // Kategori "Lainnya": keterangan WAJIB supaya jelas pengeluaran apa.
+        // (Tanpa ini baris kosong 'Lainnya' tidak ikut terkirim, jadi required hanya
+        // berlaku kalau nominal diisi -> dicek di submit handler di bawah.)
+        if (category === 'lainnya') {
+            clone.querySelector('.row-description').placeholder = 'Keterangan (wajib), mis. uang makan';
+        }
         container.appendChild(clone);
         toggleEmptyHint(category);
         recalcTotal();
@@ -134,10 +144,26 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Mulai dengan 1 baris kosong per kategori supaya driver langsung bisa isi.
-    ['toll', 'parkir', 'bbm', 'cuci_mobil'].forEach(addRow);
+    ['toll', 'parkir', 'bbm', 'cuci_mobil', 'lainnya'].forEach(addRow);
 
     // Sebelum submit, ubah baris-baris di DOM menjadi input hidden items[category][i][field]
     form.addEventListener('submit', function (e) {
+        // "Lainnya" dengan nominal terisi wajib punya keterangan.
+        let missingDesc = null;
+        document.querySelectorAll('#rows-lainnya .expense-row').forEach(function (row) {
+            const amount = row.querySelector('.row-amount').value;
+            const desc = row.querySelector('.row-description');
+            if (amount && !desc.value.trim() && !missingDesc) missingDesc = desc;
+        });
+        if (missingDesc) {
+            e.preventDefault();
+            missingDesc.focus();
+            missingDesc.setCustomValidity('Keterangan wajib diisi untuk kategori Lainnya.');
+            missingDesc.reportValidity();
+            missingDesc.addEventListener('input', function () { missingDesc.setCustomValidity(''); }, { once: true });
+            return;
+        }
+
         document.querySelectorAll('.rows-container').forEach(function (container) {
             const category = container.id.replace('rows-', '');
             container.querySelectorAll('.expense-row').forEach(function (row, i) {

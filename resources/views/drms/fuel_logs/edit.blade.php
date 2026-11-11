@@ -2,7 +2,15 @@
 
 @section('content')
 <div class="container mx-auto max-w-2xl">
-    <h1 class="text-2xl font-bold mb-4">Edit Log</h1>
+    <h1 class="text-2xl font-bold mb-4">{{ $log->is_draft ? 'Lengkapi Pengisian' : 'Edit Log' }}</h1>
+
+    @if($log->is_draft)
+        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <p class="font-semibold mb-1">📝 Draft — belum dikirim</p>
+            <p>Foto sebelum pengisian sudah tersimpan. Setelah selesai mengisi, lengkapi jumlah, harga, foto km dan indikator setelah pengisian, dan struk, lalu tekan <strong>Selesaikan &amp; Kirim</strong>.</p>
+            <p class="text-xs mt-1 text-amber-700">Belum selesai? Tekan <strong>Simpan Draft</strong> untuk menyimpan yang sudah diisi.</p>
+        </div>
+    @endif
 
     @if($errors->any())
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -55,27 +63,42 @@
             </div>
         </div>
 
-        {{-- Foto full Dashboard Speedometer (setelah pengisian). Log lama belum punya foto ini,
-             jadi saat edit tidak dipaksa; kalau diisi, foto lama diganti. --}}
-        @foreach([
-            'photo_dashboard_after' => 'Foto Full Dashboard Speedometer (Setelah Pengisian)',
-        ] as $field => $label)
+        {{-- Foto km + indikator BBM/baterai SEBELUM & SETELAH pengisian.
+             Log lama (sebelum fitur ini ada) belum punya foto ini, jadi saat edit log final tidak
+             dipaksa. Draft yang sedang dilengkapi: foto sesudah + struk wajib (dikunci server). --}}
+        {{-- Foto SEBELUM pengisian: hanya bisa dilihat, tidak bisa diganti setelah tersimpan. --}}
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">
-                {{ $label }}
-                @if($log->$field)
-                    <span class="text-gray-400 font-normal">(biarkan kosong jika tidak mengganti)</span>
-                @endif
-            </label>
-            <input type="file" name="{{ $field }}" accept="image/*" capture="environment"
-                   class="w-full border rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-            @if($log->$field)
-                <a href="{{ route('drms.private.image', $log->$field) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
+            <label class="block text-sm font-medium text-gray-700">Foto Km dan Indikator BBM/Baterai Sebelum Pengisian</label>
+            @if($log->photo_dashboard_before)
+                <a href="{{ route('drms.private.image', $log->photo_dashboard_before) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto</a>
+                <p class="text-xs text-gray-400 mt-1">Foto ini terkunci dan tidak bisa diganti.</p>
             @else
-                <p class="text-xs text-gray-400 mt-1">Log ini belum punya foto dashboard speedometer.</p>
+                <p class="text-xs text-gray-400 mt-1">Log ini tidak punya foto sebelum pengisian.</p>
             @endif
         </div>
-        @endforeach
+
+        {{-- Foto SETELAH pengisian: log lama tidak dipaksa; draft yang dilengkapi wajib. --}}
+        @php $mustFill = $log->is_draft && !$log->photo_dashboard_after; @endphp
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">
+                Foto Km dan Indikator BBM/Baterai Setelah Pengisian
+                @if($log->photo_dashboard_after)
+                    <span class="text-gray-400 font-normal">(biarkan kosong jika tidak mengganti)</span>
+                @elseif($mustFill)
+                    <span class="text-red-500">*</span>
+                @endif
+            </label>
+            <input type="file" name="photo_dashboard_after" accept="image/*" capture="environment"
+                   @if($mustFill) required @endif
+                   class="w-full border rounded px-3 py-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            @if($log->photo_dashboard_after)
+                <a href="{{ route('drms.private.image', $log->photo_dashboard_after) }}" target="_blank" class="text-blue-600 text-sm">Lihat foto saat ini</a>
+            @elseif($mustFill)
+                <p class="text-xs text-red-500 mt-1">Foto ini wajib diisi untuk menyelesaikan pengisian.</p>
+            @else
+                <p class="text-xs text-gray-400 mt-1">Log ini belum punya foto ini.</p>
+            @endif
+        </div>
 
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700">
@@ -103,7 +126,13 @@
 
         <div class="flex justify-end space-x-2">
             <a href="{{ route('drms.fuel-logs.index') }}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Batal</a>
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update</button>
+            @if($log->is_draft)
+                {{-- formnovalidate: simpan draft tidak memaksa semua kolom/foto terisi --}}
+                <button type="submit" name="save_mode" value="draft" formnovalidate class="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600">Simpan Draft</button>
+                <button type="submit" name="save_mode" value="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Selesaikan &amp; Kirim</button>
+            @else
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update</button>
+            @endif
         </div>
     </form>
 </div>
@@ -125,7 +154,7 @@
             if (fuelType && fuelType.toLowerCase() === 'listrik') {
                 label = 'kWh';
             }
-            $('#fuel_unit_label').text(label + ' <span class="text-red-500">*</span>');
+            $('#fuel_unit_label').html(label + ' <span class="text-red-500">*</span>');
         });
 
         if ($('#vehicle_id').val()) {

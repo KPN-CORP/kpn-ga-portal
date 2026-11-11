@@ -8,6 +8,7 @@ use App\Models\budget_m\BudgetFormIsian;
 use App\Models\budget_m\BudgetPengaturan;
 use App\Models\budget_m\BudgetTahun;
 use App\Support\budget_s\BudgetFormService;
+use App\Support\budget_s\BudgetIsianExcel;
 use App\Support\budget_s\BudgetPeran;
 use Illuminate\Http\Request;
 
@@ -33,13 +34,7 @@ class IsianController extends Controller
             $form->load('fields');
             $bisaIsi = $form->aktif && BudgetPeran::bisaInputTagihan($form->item, $user);
 
-            $q = $form->isian()->with('penginput')
-                ->whereBetween('tanggal', [$tahun . '-01-01', $tahun . '-12-31'])
-                ->when($r->query('bulan'), fn ($x, $v) => $x->whereMonth('tanggal', (int) $v))
-                ->when(trim((string) $r->query('q')) !== '', function ($x) use ($r) {
-                    $v = '%' . trim((string) $r->query('q')) . '%';
-                    $x->where('no_dokumen', 'like', $v);
-                });
+            $q = $this->kueri($r, $form, $tahun);
 
             $ringkas = [
                 'dpp' => (float) (clone $q)->sum('dpp'),
@@ -73,6 +68,61 @@ class IsianController extends Controller
         ]);
     }
 
+    /** Kueri isian satu form: tahun, bulan, dan pencarian nomor dokumen. Dipakai tampilan dan unduhan agar hasilnya sama. */
+    protected function kueri(Request $r, BudgetForm $form, int $tahun)
+    {
+        return $form->isian()->with('penginput')
+            ->whereBetween('tanggal', [$tahun . '-01-01', $tahun . '-12-31'])
+            ->when($r->query('bulan'), fn ($x, $v) => $x->whereMonth('tanggal', (int) $v))
+            ->when(trim((string) $r->query('q')) !== '', function ($x) use ($r) {
+                $v = '%' . trim((string) $r->query('q')) . '%';
+                $x->where('no_dokumen', 'like', $v);
+            });
+    }
+
+    /** Unduh Excel: semua isian sesuai filter (tanpa dibatasi halaman), satu kolom per field form. */
+    public function unduh(Request $r)
+    {
+        $user = $r->user();
+        $tahun = BudgetTahun::pilih($r->query('tahun'));
+        $form = BudgetForm::terlihatOleh($user)->findOrFail((int) $r->query('form'));
+        $form->load('fields');
+
+        $isian = $this->kueri($r, $form, $tahun)->orderBy('tanggal')->orderBy('id')->get();
+
+        // Kolom: semua field aktif + field arsip yang masih punya nilai (data lama tetap ikut terunduh)
+        $kolom = $form->fields->filter(function ($f) use ($isian) {
+            return $f->aktif || $isian->contains(fn ($i) => array_key_exists($f->id, (array) ($i->data ?? [])));
+        })->values();
+
+        $judul = ['Tanggal', 'No. dokumen'];
+        $tipe = ['tanggal', 'teks'];
+        foreach ($kolom as $k) {
+            $judul[] = $k->label . ($k->aktif ? '' : ' (arsip)');
+            $tipe[] = $k->tipe === 'pilihan' ? 'teks' : $k->tipe;
+        }
+        $awalUang = count($judul);
+        array_push($judul, 'Jumlah (sebelum PPN)', 'PPN', 'Materai', 'Total', 'Diinput oleh', 'Waktu input');
+        array_push($tipe, 'uang', 'uang', 'uang', 'uang', 'teks', 'teks');
+
+        $baris = $isian->map(function ($i) use ($kolom) {
+            $sel = [$i->tanggal->format('Y-m-d'), $i->no_dokumen];
+            foreach ($kolom as $k) {
+                $sel[] = ((array) ($i->data ?? []))[$k->id] ?? null;
+            }
+            array_push($sel, (float) $i->dpp, (float) $i->ppn, (float) $i->materai, (float) $i->total,
+                $i->penginput->name ?? '-', optional($i->created_at)->format('d/m/Y H:i'));
+            return $sel;
+        })->all();
+
+        $isi = BudgetIsianExcel::buat($form->nama, $judul, $tipe, $baris, range($awalUang, $awalUang + 3));
+        $nama = trim(preg_replace('/[^A-Za-z0-9]+/', '-', $form->nama), '-') ?: 'form';
+
+        return response()->streamDownload(function () use ($isi) {
+            echo $isi;
+        }, "isian-{$nama}-{$tahun}.xlsx", ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
     public function simpan(Request $r)
     {
         $user = $r->user();
@@ -89,7 +139,7 @@ class IsianController extends Controller
             'kena_ppn' => ['nullable', 'boolean'],
             'kena_materai' => ['nullable', 'boolean'],
         ];
-        $nama = ['dpp' => 'nilai (DPP)', 'no_dokumen' => 'nomor dokumen'];
+        $nama = ['dpp' => 'jumlah (sebelum PPN)', 'no_dokumen' => 'nomor dokumen'];
         foreach ($form->fieldAktif as $f) {
             $aturan['f.' . $f->id] = $f->aturan();
             $nama['f.' . $f->id] = $f->label;

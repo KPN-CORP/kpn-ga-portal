@@ -141,6 +141,16 @@ class DriverExpenseReportController extends Controller
             return back()->withErrors('Perjalanan ini sudah pernah diisi laporan pengeluarannya. Satu perjalanan hanya boleh satu laporan.')->withInput();
         }
 
+        // Kategori "Lainnya" wajib ada keterangan (dicek di server, bukan cuma di JS).
+        // Dicek SEBELUM ada yang disimpan supaya tidak terjadi simpan setengah-setengah
+        // (perjalanan yang sudah terisi sebagian tidak bisa diisi ulang).
+        foreach ($data['items']['lainnya'] ?? [] as $row) {
+            if (!empty($row['amount']) && (float) $row['amount'] > 0
+                && trim((string) ($row['description'] ?? '')) === '') {
+                return back()->withErrors('Kategori Lainnya wajib diisi keterangannya (contoh: uang makan, tambal ban).')->withInput();
+            }
+        }
+
         $count = 0;
         foreach ($data['items'] as $category => $rows) {
             if (!in_array($category, $validCategories, true)) {
@@ -150,6 +160,7 @@ class DriverExpenseReportController extends Controller
                 if (empty($row['amount']) || (float) $row['amount'] <= 0) {
                     continue;
                 }
+
                 ExpenseReport::create([
                     'driver_id'   => $driver->id,
                     'request_id'  => $data['request_id'],
@@ -251,8 +262,10 @@ class DriverExpenseReportController extends Controller
         $data = $request->validate([
             'category'    => 'required|in:' . implode(',', array_keys(ExpenseReport::CATEGORIES)),
             'report_date' => 'required|date',
-            'description' => 'nullable|string|max:255',
+            'description' => 'required_if:category,lainnya|nullable|string|max:255',
             'amount'      => 'required|numeric|min:1',
+        ], [
+            'description.required_if' => 'Kategori Lainnya wajib diisi keterangannya.',
         ]);
 
         $expense->update($data);

@@ -86,7 +86,7 @@
         <p class="lbl" id="fm-kunci-info" style="margin:6px 0 0"></p>
 
         <h3 style="margin-top:16px">Field tambahan</h3>
-        <p class="lbl" style="margin:-4px 0 8px">Tanggal, nomor dokumen, nilai (DPP), PPN, materai, dan total sudah otomatis ada. Tambahkan field lain di sini (misalnya Nama tamu, Vendor, Rute).</p>
+        <p class="lbl" style="margin:-4px 0 8px">Tanggal, nomor dokumen, jumlah (sebelum PPN), PPN, materai, dan total sudah otomatis ada. Tambahkan field lain di sini (misalnya Nama tamu, Vendor, Rute).</p>
         <div id="fm-fields"></div>
         <div class="row" style="margin-top:8px"><button type="button" class="btn sm" onclick="tambahField()">+ Tambah field</button></div>
         <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn pr">Simpan form</button></div>

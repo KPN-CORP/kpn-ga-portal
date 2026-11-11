@@ -37,7 +37,7 @@
 </div>
 
 <div class="kpi">
-    <div class="card"><span class="lbl">Nilai (DPP)</span><b>{{ $F::rupiah($ringkas['dpp']) }}</b></div>
+    <div class="card"><span class="lbl">Jumlah (sebelum PPN)</span><b>{{ $F::rupiah($ringkas['dpp']) }}</b></div>
     <div class="card"><span class="lbl">PPN</span><b>{{ $F::rupiah($ringkas['ppn']) }}</b></div>
     <div class="card"><span class="lbl">Materai</span><b>{{ $F::rupiah($ringkas['materai']) }}</b></div>
     <div class="card"><span class="lbl">Total realisasi</span><b>{{ $F::rupiah($ringkas['total']) }}</b></div>
@@ -45,6 +45,7 @@
 
 <div class="row" style="margin-bottom:12px">
     @if($bisaIsi)<button type="button" class="btn pr" onclick="isianBaru()">Catat invoice</button>@endif
+    @unless($daftar->isEmpty())<a class="btn" href="{{ route('budgeting.isian.unduh', array_filter(['form' => $form->id, 'tahun' => $tahun, 'bulan' => $filter['bulan'], 'q' => $filter['q']])) }}">Unduh Excel</a>@endunless
 </div>
 
 @if($daftar->isEmpty())
@@ -55,7 +56,7 @@
     <thead><tr>
         <th>Tanggal</th><th>No. dokumen</th>
         @foreach($kolom as $k)<th>{{ $k->label }}@unless($k->aktif) <span class="lbl">(arsip)</span>@endunless</th>@endforeach
-        <th class="n">Nilai (DPP)</th><th class="n">PPN</th><th class="n">Materai</th><th class="n">Total</th><th>Diinput oleh</th><th></th>
+        <th class="n" title="Jumlah sebelum PPN dan materai">Jumlah<div class="lbl">sebelum PPN</div></th><th class="n">PPN</th><th class="n">Materai</th><th class="n">Total</th><th>Diinput oleh</th><th></th>
     </tr></thead>
     <tbody>
     @foreach($daftar as $i)
@@ -64,7 +65,7 @@
             <td>{{ $i->no_dokumen ?: '-' }}</td>
             @foreach($kolom as $k)
                 @php $v = ($i->data ?? [])[$k->id] ?? null; @endphp
-                <td @if($k->tipe === 'angka') class="n" @endif>{{ $v === null ? '-' : ($k->tipe === 'tanggal' ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y') : $v) }}</td>
+                <td @if($k->tipe === 'angka') class="n" @endif>{{ $v === null ? '-' : ($k->tipe === 'tanggal' ? (preg_match('/^\d{4}-\d{2}-\d{2}/', (string) $v) ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y') : $v) : $v) }}</td>
             @endforeach
             <td class="n">{{ $F::rupiah($i->dpp) }}</td>
             <td class="n">{{ $F::rupiah($i->ppn) }}</td>
@@ -115,14 +116,15 @@
                     @endif
                 </label>
             @endforeach
-            <label><span>Nilai / DPP (Rp)</span><input type="number" step="any" min="0" name="dpp" id="is-dpp" required oninput="hitungIsi()"></label>
+            <label><span>Jumlah (Rp)</span><input type="number" step="any" min="0" name="dpp" id="is-dpp" required oninput="hitungIsi()"></label>
         </div>
+        <p class="lbl" style="margin:6px 0 0">Catatan: isi <b>Jumlah sebelum PPN</b>. PPN dan materai ditambahkan otomatis di rincian di bawah.</p>
         <div class="row" style="margin-top:10px;gap:18px">
             @if($form->pakai_ppn)<label><input type="checkbox" name="kena_ppn" value="1" id="is-ppn" checked onchange="hitungIsi()"> Kena PPN</label>@endif
             @if($form->pakai_materai)<label><input type="checkbox" name="kena_materai" value="1" id="is-materai" onchange="hitungIsi()"> Pakai materai</label>@endif
         </div>
         <div class="card" style="margin:12px 0 0;background:var(--bg)">
-            <div class="row" style="justify-content:space-between"><span class="lbl">Nilai (DPP)</span><span id="v-dpp">Rp 0</span></div>
+            <div class="row" style="justify-content:space-between"><span class="lbl">Jumlah (sebelum PPN)</span><span id="v-dpp">Rp 0</span></div>
             <div class="row" style="justify-content:space-between"><span class="lbl" id="l-ppn">PPN</span><span id="v-ppn">Rp 0</span></div>
             <div class="row" style="justify-content:space-between"><span class="lbl">Materai</span><span id="v-materai">Rp 0</span></div>
             <div class="row" style="justify-content:space-between;border-top:1px solid var(--ln);margin-top:4px;padding-top:4px"><b>Total yang dicatat ke budget</b><b id="v-total">Rp 0</b></div>

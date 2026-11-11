@@ -18,6 +18,13 @@
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{{ session('error') }}</div>
     @endif
 
+    @if(($draftCount ?? 0) > 0)
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded mb-4 flex flex-wrap items-center justify-between gap-2">
+            <span>📝 Ada <strong>{{ $draftCount }}</strong> draft pengisian yang belum dilengkapi.</span>
+            <a href="{{ route('drms.fuel-logs.index', ['status' => 'draft', 'month' => 'all']) }}" class="text-sm font-semibold underline">Lihat draft</a>
+        </div>
+    @endif
+
     {{-- FILTER --}}
     <div class="bg-white rounded-lg shadow p-4 mb-6 border">
         <form method="GET" action="{{ route('drms.fuel-logs.index') }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -61,6 +68,7 @@
                     <option value="">Semua Status</option>
                     <option value="verified" {{ request('status') == 'verified' ? 'selected' : '' }}>✅ Terverifikasi</option>
                     <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>⏳ Pending</option>
+                    <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>📝 Draft</option>
                 </select>
             </div>
             <div>
@@ -154,12 +162,18 @@
                         <td class="px-6 py-4">{{ $log->driver->name ?? '-' }}</td>
                         <td class="px-6 py-4">{{ number_format($log->odometer_start, 0, ',', '.') }} km</td>
                         <td class="px-6 py-4">
-                            {{ number_format($log->fuel_liters, 2, ',', '.') }}
-                            {{ $log->vehicle->fuel_type == 'Listrik' ? 'kWh' : 'Liter' }}
+                            @if($log->fuel_liters !== null)
+                                {{ number_format($log->fuel_liters, 2, ',', '.') }}
+                                {{ $log->vehicle->fuel_type == 'Listrik' ? 'kWh' : 'Liter' }}
+                            @else
+                                -
+                            @endif
                         </td>
-                        <td class="px-6 py-4 font-semibold">Rp {{ number_format($log->total_cost, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-semibold">{{ $log->total_cost !== null ? 'Rp ' . number_format($log->total_cost, 0, ',', '.') : '-' }}</td>
                         <td class="px-6 py-4">
-                            @if($log->is_verified)
+                            @if($log->is_draft)
+                                <span class="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft</span>
+                            @elseif($log->is_verified)
                                 <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">✅ Terverifikasi</span>
                             @else
                                 <span class="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">⏳ Pending</span>
@@ -167,13 +181,13 @@
                         </td>
                         <td class="px-6 py-4 space-x-2 whitespace-nowrap">
                             <a href="{{ route('drms.fuel-logs.show', $log->id) }}" class="text-blue-600 hover:text-blue-800 text-sm">Detail</a>
-                            @if(!$log->is_verified && auth()->user()->isDrmsAdmin())
+                            @if(!$log->is_draft && !$log->is_verified && auth()->user()->isDrmsAdmin())
                                 <form action="{{ route('drms.fuel-logs.verify', $log->id) }}" method="POST" class="inline">
                                     @csrf @method('PATCH')
                                     <button type="submit" class="text-green-600 hover:text-green-800 text-sm">Verifikasi</button>
                                 </form>
                             @endif
-                            <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-green-600 hover:text-green-800 text-sm">Edit</a>
+                            <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="{{ $log->is_draft ? 'text-amber-600 hover:text-amber-800 font-semibold' : 'text-green-600 hover:text-green-800' }} text-sm">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
                             <form action="{{ route('drms.fuel-logs.destroy', $log->id) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Hapus</button>
@@ -204,7 +218,9 @@
                         <p class="font-semibold text-gray-800">{{ $log->vehicle->plate_number }}</p>
                         <p class="text-xs text-gray-500">{{ $log->vehicle->type }}</p>
                     </div>
-                    @if($log->is_verified)
+                    @if($log->is_draft)
+                        <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft</span>
+                    @elseif($log->is_verified)
                         <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">✅ Terverifikasi</span>
                     @else
                         <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">⏳ Pending</span>
@@ -218,14 +234,14 @@
                     <span>Odometer</span>
                     <span class="text-right">{{ number_format($log->odometer_start, 0, ',', '.') }} km</span>
                     <span>{{ $log->vehicle->fuel_type == 'Listrik' ? 'kWh' : 'Liter' }}</span>
-                    <span class="text-right">{{ number_format($log->fuel_liters, 2, ',', '.') }}</span>
+                    <span class="text-right">{{ $log->fuel_liters !== null ? number_format($log->fuel_liters, 2, ',', '.') : '-' }}</span>
                     <span class="font-semibold text-gray-800">Total</span>
-                    <span class="text-right font-semibold text-gray-800">Rp {{ number_format($log->total_cost, 0, ',', '.') }}</span>
+                    <span class="text-right font-semibold text-gray-800">{{ $log->total_cost !== null ? 'Rp ' . number_format($log->total_cost, 0, ',', '.') : '-' }}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 pt-1">
                     <a href="{{ route('drms.fuel-logs.show', $log->id) }}" class="text-center bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded text-xs font-semibold">Detail</a>
-                    <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-center bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-xs font-semibold">Edit</a>
-                    @if(!$log->is_verified && auth()->user()->isDrmsAdmin())
+                    <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-center {{ $log->is_draft ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600' }} text-white px-3 py-2 rounded text-xs font-semibold">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
+                    @if(!$log->is_draft && !$log->is_verified && auth()->user()->isDrmsAdmin())
                         <form action="{{ route('drms.fuel-logs.verify', $log->id) }}" method="POST">
                             @csrf @method('PATCH')
                             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold">Verifikasi</button>

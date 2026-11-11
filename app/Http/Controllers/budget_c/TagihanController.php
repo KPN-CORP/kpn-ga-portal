@@ -74,7 +74,21 @@ class TagihanController extends Controller
             ->selectRaw('item_id, bulan, COUNT(*) AS c')->groupBy('item_id', 'bulan')->get()
             ->mapWithKeys(fn ($b) => [$b->item_id . '-' . $b->bulan => (int) $b->c]);
 
+        // Nomor urut tiap tagihan di dalam item + bulan (1 = yang dicatat paling awal), supaya jelas "ke-2 dari 4"
+        $urutanTagihan = [];
+        if (!$daftar->isEmpty()) {
+            $hitung = [];
+            BudgetTagihan::where('tahun', $tahun)->whereIn('item_id', $daftar->pluck('item_id')->unique())
+                ->orderBy('id')->get(['id', 'item_id', 'bulan'])
+                ->each(function ($b) use (&$hitung, &$urutanTagihan) {
+                    $k = $b->item_id . '-' . $b->bulan;
+                    $hitung[$k] = ($hitung[$k] ?? 0) + 1;
+                    $urutanTagihan[$b->id] = $hitung[$k];
+                });
+        }
+
         return view('budget_p.tagihan.index', [
+            'urutanTagihan' => $urutanTagihan,
             'tahun' => $tahun,
             'daftarTahun' => $daftarTahun,
             'itemModal' => $itemModal,

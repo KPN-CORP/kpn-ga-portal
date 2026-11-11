@@ -54,6 +54,7 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
         Route::post('/form/{form}/arsip', [FormController::class, 'arsip'])->whereNumber('form')->name('form.arsip');
         Route::delete('/form/{form}', [FormController::class, 'hapus'])->whereNumber('form')->name('form.hapus');
         Route::get('/isian', [IsianController::class, 'index'])->name('isian');
+        Route::get('/isian/unduh', [IsianController::class, 'unduh'])->name('isian.unduh');
         Route::post('/isian', [IsianController::class, 'simpan'])->name('isian.simpan');
         Route::delete('/isian/{isian}', [IsianController::class, 'hapus'])->whereNumber('isian')->name('isian.hapus');
 

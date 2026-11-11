@@ -4,7 +4,7 @@
 {{-- Tampilan khusus mobile --}}
 <div class="block md:hidden">
     <div class="container mx-auto max-w-2xl">
-        <h1 class="text-2xl font-bold mb-4">Validasi Pengisian (Dashboard + Struk)</h1>
+        <h1 class="text-2xl font-bold mb-4">Pengisian BBM / Listrik</h1>
 
         @if($errors->any())
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -147,38 +147,54 @@
 
             </div>
 
-            {{-- 2 FOTO WAJIB (kamera hanya untuk mobile), diambil SETELAH pengisian:
-                 1) Foto full Dashboard Speedometer
-                 2) Struk / bukti pengisian --}}
+            {{-- 3 FOTO (kamera hanya untuk mobile):
+                 1) Foto km + indikator BBM/baterai SEBELUM pengisian  -> wajib untuk simpan draft
+                 2) Foto km + indikator BBM/baterai SETELAH pengisian  -> wajib untuk kirim final
+                 3) Struk / bukti pengisian                           -> wajib untuk kirim final --}}
             @php
                 $photoFields = [
                     [
+                        'key'   => 'photo_dashboard_before',
+                        'label' => 'Foto Km dan Indikator BBM/Baterai Sebelum Pengisian',
+                        'hint'  => 'Foto km (odometer) dan indikator BBM/baterai sebelum pengisian, langsung dari kamera.',
+                        'empty' => 'Foto Km dan Indikator BBM/Baterai Sebelum Pengisian',
+                        'phase' => 'before',
+                    ],
+                    [
                         'key'   => 'photo_dashboard_after',
-                        'label' => 'Foto Full Dashboard Speedometer (Setelah Pengisian)',
-                        'hint'  => 'Foto seluruh dashboard speedometer (odometer, indikator BBM/baterai) setelah mengisi, langsung dari kamera.',
-                        'empty' => 'Dashboard Speedometer',
+                        'label' => 'Foto Km dan Indikator BBM/Baterai Setelah Pengisian',
+                        'hint'  => 'Foto km (odometer) dan indikator BBM/baterai setelah pengisian, langsung dari kamera.',
+                        'empty' => 'Foto Km dan Indikator BBM/Baterai Setelah Pengisian',
+                        'phase' => 'after',
                     ],
                     [
                         'key'   => 'receipt_file',
                         'label' => 'Foto Struk Pengisian',
                         'hint'  => 'Tekan ikon kamera untuk mengambil foto struk pengisian.',
                         'empty' => 'Foto Struk Pengisian',
+                        'phase' => 'after',
                     ],
                 ];
             @endphp
 
-            {{-- Catatan urutan foto untuk yang mengisi --}}
+            {{-- Catatan alur untuk yang mengisi --}}
             <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <p class="font-semibold mb-1">📸 Catatan: 2 foto wajib, langsung dari kamera</p>
-                <p><strong>Setelah mengisi:</strong> foto struk dan foto full Dashboard Speedometer.</p>
-                <p class="text-xs mt-2 text-amber-700">Pastikan seluruh dashboard (odometer dan indikator BBM/baterai) terlihat jelas dan tidak buram.</p>
+                <p class="font-semibold mb-1">📸 Alur pengisian</p>
+                <p><strong>1. Sebelum mengisi:</strong> isi kendaraan, odometer, lalu foto km dan indikator BBM/baterai → tekan <strong>Simpan Draft</strong>.</p>
+                <p><strong>2. Setelah mengisi:</strong> buka draft di daftar log → tekan <strong>Lengkapi</strong> (liter, harga, foto km dan indikator setelah pengisian, struk).</p>
+                <p class="text-xs mt-2 text-amber-700">Kalau semua sudah siap sekarang, isi semuanya lalu tekan <strong>Simpan &amp; Kirim</strong>. Pastikan odometer dan indikator BBM/baterai terlihat jelas dan tidak buram.</p>
             </div>
 
             @foreach($photoFields as $pf)
             <div class="mb-4 photo-field" data-key="{{ $pf['key'] }}" data-empty="{{ $pf['empty'] }}">
 
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    {{ $pf['label'] }} <span class="text-red-500">*</span>
+                    {{ $pf['label'] }}
+                    @if($pf['phase'] === 'before')
+                        <span class="text-red-500">*</span>
+                    @else
+                        <span class="text-xs font-normal text-gray-400">(wajib saat Simpan &amp; Kirim)</span>
+                    @endif
                 </label>
 
                 <div class="flex items-center gap-3">
@@ -218,7 +234,6 @@
                            name="{{ $pf['key'] }}"
                            accept="image/*"
                            capture="environment"
-                           required
                            class="hidden">
 
                     {{-- Status File --}}
@@ -278,17 +293,27 @@
                           class="w-full border rounded px-3 py-2">{{ old('notes') }}</textarea>
             </div>
 
-            {{-- Button --}}
-            <div class="flex justify-end space-x-2">
+            {{-- Button: save_mode dikirim lewat input hidden (diisi saat tombol diklik) --}}
+            <input type="hidden" name="save_mode" id="save_mode" value="submit">
+            <div class="flex flex-wrap justify-end gap-2">
 
                 <a href="{{ route('drms.fuel-logs.index') }}"
                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
                     Batal
                 </a>
 
+                {{-- formnovalidate: draft hanya butuh kendaraan, odometer, foto sebelum (dicek manual di JS) --}}
                 <button type="submit"
+                        id="btn_draft"
+                        formnovalidate
+                        class="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600">
+                    Simpan Draft
+                </button>
+
+                <button type="submit"
+                        id="btn_submit"
                         class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Simpan
+                    Simpan &amp; Kirim
                 </button>
 
             </div>
@@ -328,8 +353,10 @@
         @endforeach
     ];
 
-    // Daftar 3 foto wajib (harus sama dengan key di $photoFields)
-    const PHOTO_KEYS = ['photo_dashboard_after', 'receipt_file'];
+    // Daftar foto (harus sama dengan key di $photoFields).
+    // Foto sebelum wajib di kedua mode; sesudah + struk hanya wajib saat Simpan & Kirim.
+    const PHOTO_KEYS = ['photo_dashboard_before', 'photo_dashboard_after', 'receipt_file'];
+    const PHOTO_REQUIRED_ALWAYS = ['photo_dashboard_before'];
 
     document.addEventListener('DOMContentLoaded', function () {
 
@@ -438,10 +465,28 @@
             }
         });
 
+        // Mode simpan ditentukan tombol yang diklik (draft / submit)
+        const saveModeInput = document.getElementById('save_mode');
+        document.getElementById('btn_draft').addEventListener('click', function () { saveModeInput.value = 'draft'; });
+        document.getElementById('btn_submit').addEventListener('click', function () { saveModeInput.value = 'submit'; });
+
         searchInput
             .closest('form')
             .addEventListener('submit', function (e) {
                 let hasError = false;
+                const isDraft = saveModeInput.value === 'draft';
+
+                // Draft dikirim dengan formnovalidate, jadi odometer dicek manual di sini.
+                if (isDraft) {
+                    const odo = document.querySelector('input[name="odometer_start"]');
+                    if (!odo.value) {
+                        e.preventDefault();
+                        odo.setCustomValidity('Odometer wajib diisi untuk menyimpan draft.');
+                        odo.reportValidity();
+                        odo.addEventListener('input', function () { odo.setCustomValidity(''); }, { once: true });
+                        return;
+                    }
+                }
 
                 if (!hiddenInput.value) {
                     e.preventDefault();
@@ -452,14 +497,16 @@
                     searchInput.setCustomValidity('');
                 }
 
-                // 2 foto wajib (dashboard, struk). Validasi manual
-                // di sini karena atribut `required` pada <input type="file"> yang disembunyikan
-                // (class="hidden" / display:none) tidak dicek oleh sebagian browser.
+                // Foto wajib divalidasi manual di sini karena atribut `required` pada
+                // <input type="file"> yang disembunyikan (display:none) tidak bisa difokuskan
+                // browser dan bisa membuat submit gagal tanpa pesan.
+                // Draft: hanya foto sebelum. Kirim: semua foto.
                 let firstMissing = null;
                 PHOTO_KEYS.forEach(function (key) {
                     const input = document.getElementById(key);
                     const err = document.getElementById(key + '_error');
-                    if (!input.files || input.files.length === 0) {
+                    const mustHave = !isDraft || PHOTO_REQUIRED_ALWAYS.includes(key);
+                    if (mustHave && (!input.files || input.files.length === 0)) {
                         err.classList.remove('hidden');
                         if (!firstMissing) firstMissing = err;
                     } else {
@@ -489,7 +536,7 @@
         }
 
         /* =====================================================
-         * KAMERA (2 foto: dashboard, struk)
+         * KAMERA (3 foto: dashboard sebelum, dashboard sesudah, struk)
          * ===================================================== */
         const MAX_SIZE = 5 * 1024 * 1024; // samakan dengan max:5120 di server
 
