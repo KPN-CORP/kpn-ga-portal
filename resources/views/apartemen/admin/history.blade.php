@@ -1,670 +1,433 @@
+{{-- Riwayat Penghuni Mess · diperbarui 13/11/2026 --}}
 @extends('layouts.app_apartadmin_sidebar')
 @section('content')
-<div class="p-4 md:p-6">
+@php
+    // URL chip: hapus filter tertentu (dan reset halaman). Rentang tanggal kembali ke bulan berjalan.
+    $removeUrl = function (array $keys) {
+        return route('apartemen.admin.history', request()->except(array_merge($keys, ['page'])));
+    };
+    // Rentang bulan berjalan (default) tidak dihitung sebagai filter aktif.
+    $hasFilter = request()->filled('search') || request()->filled('bisnis_unit') || !$isDefaultRange;
+    $nFilter   = (request()->filled('bisnis_unit') ? 1 : 0) + (!$isDefaultRange ? 1 : 0);
 
-    {{-- HEADER --}}
-    <div class="mb-6 md:mb-8">
-        {{-- Mobile: Judul di atas semua --}}
-        <div class="lg:hidden mb-4">
-            <h1 class="text-xl font-bold text-gray-800">Riwayat Permintaan</h1>
-            <p class="text-gray-600 text-xs mt-1">Lihat riwayat semua permintaan yang telah diproses</p>
+    // Istilah: Check-in / Pindah unit / Check-out.
+    $stepLabel = ['CHECKIN' => 'Check-in', 'DIPINDAH' => 'Pindah unit', 'SELESAI' => 'Check-out', 'DIBATALKAN' => 'Dibatalkan', 'BOOKING' => 'Jadwal disetujui'];
+    $stepTone  = ['CHECKIN' => 'blue', 'DIPINDAH' => 'indigo', 'SELESAI' => 'green', 'DIBATALKAN' => 'red', 'BOOKING' => 'gray'];
+    $tagLabel  = ['SELESAI' => 'Sudah check-out', 'DIBATALKAN' => 'Dibatalkan'];
+
+    // Catatan "Backfill ..." dibuat sistem: jamnya (21:00 / 19:00) bukan jam sebenarnya,
+    // jadi jam tidak ditampilkan dan catatannya disembunyikan.
+    $isBackfill = fn($e) => str_starts_with(trim((string) ($e->catatan ?? '')), 'Backfill');
+    $showNote   = fn($c) => !empty($c) && !str_starts_with(trim((string) $c), 'Backfill');
+    $fmtEv      = fn($e) => $e->created_at->format('d/m/Y') . ($isBackfill($e) ? '' : ' · ' . $e->created_at->format('H:i'));
+
+    // Nomor HP: diformat sekali per baris.
+    $formatHp = function ($raw) {
+        $raw = trim((string) $raw);
+        if ($raw === '' || $raw === '-') return null;
+        $d = preg_replace('/\D/', '', $raw);
+        if (strlen($d) < 10) return $raw;
+        if (substr($d, 0, 2) === '62') return '+62 ' . substr($d, 2, 3) . '-' . substr($d, 5, 4) . '-' . substr($d, 9);
+        if (substr($d, 0, 1) === '0')  return substr($d, 0, 4) . '-' . substr($d, 4, 4) . '-' . substr($d, 8);
+        return $raw;
+    };
+    // Avatar inisial dengan warna stabil per nama.
+    $initials = function ($name) {
+        $parts = preg_split('/\s+/', trim((string) $name)) ?: [];
+        $out = '';
+        foreach (array_slice($parts, 0, 2) as $w) { $out .= mb_strtoupper(mb_substr($w, 0, 1)); }
+        return $out ?: '?';
+    };
+    $tint = function ($name) {
+        $h = crc32((string) $name) % 360;
+        return "background:hsl($h 70% 93%);color:hsl($h 50% 30%)";
+    };
+    // Tanggal mulai dari kolom periode ("12/11/2026 - 20/11/2026"), dipakai bila Check-in tidak tercatat.
+    $periodeStart = function ($periode) {
+        $first = trim(explode(' - ', (string) $periode)[0]);
+        return preg_match('#^\d{2}/\d{2}/\d{4}$#', $first) ? $first : null;
+    };
+    $toDate = fn($s) => $s ? \Carbon\Carbon::createFromFormat('d/m/Y', $s)->startOfDay() : null;
+    // Jadwal yang disetujui untuk satu penempatan: mulai dari catatan pertama, selesai dari catatan lain
+    // (catatan "Dipindah" menyimpan tanggal pindah di bagian akhir periode, jadi tidak dipakai untuk tanggal selesai).
+    $stayRange = function (array $events) {
+        $re = '#^\d{2}/\d{2}/\d{4}$#';
+        $mulai = null; $selesai = null;
+        foreach ($events as $e) {
+            $parts = array_map('trim', explode(' - ', (string) $e->periode));
+            if ($mulai === null && isset($parts[0]) && preg_match($re, $parts[0])) $mulai = $parts[0];
+            if ($e->status_selesai !== 'DIPINDAH' && isset($parts[1]) && preg_match($re, $parts[1])) $selesai = $parts[1];
+        }
+        return [$mulai, $selesai];
+    };
+    $malamText = fn($n) => $n === null ? null : ($n === 0 ? 'kurang dari 1 malam' : $n . ' malam');
+    $hariText  = fn($n) => $n . ' hari';
+    // Selisih hari bertanda (positif bila $b setelah $a).
+    $selisih   = fn($a, $b) => (int) $a->copy()->startOfDay()->diffInDays($b->copy()->startOfDay(), false);
+@endphp
+
+<div class="w-full">
+
+    @if(session('success'))
+        <div class="ap-flash ok" role="status"><i class="fas fa-check-circle mt-0.5"></i><span>{{ session('success') }}</span></div>
+    @endif
+    @if(session('error'))
+        <div class="ap-flash err" role="alert"><i class="fas fa-exclamation-circle mt-0.5"></i><span>{{ session('error') }}</span></div>
+    @endif
+    @if($errors->any())
+        <div class="ap-flash err" role="alert"><i class="fas fa-exclamation-circle mt-0.5"></i>
+            <ul class="list-disc pl-4">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
+    @endif
 
-        {{-- ACTION BAR --}}
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 md:mb-6">
-            {{-- Desktop: Judul + Search --}}
-            <div class="hidden lg:flex items-center space-x-4 flex-1">
-                {{-- Judul Halaman --}}
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Riwayat</h1>
-                    <p class="text-gray-600 text-sm mt-1">Lihat riwayat Check In & Out</p>
-                </div>
-            </div>
+    <x-apartemen.page-header title="Riwayat Penghuni Mess" subtitle="Riwayat tinggal tiap penghuni, termasuk penghuni yang masih aktif: jadwal yang disetujui, check-in, pindah unit, dan check-out" />
 
-            {{-- Search Bar (Tengah di desktop, full width di mobile) --}}
-            <div class="w-full lg:w-auto lg:mx-4 lg:flex-1 lg:max-w-md order-first lg:order-none">
-                <div class="relative">
-                    <form action="{{ route('apartemen.admin.history') }}" method="GET">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="w-4 h-4 md:w-5 md:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                        <input type="text" name="search" value="{{ request('search') }}" 
-                               class="pl-10 pr-4 py-2 md:py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full" 
-                               placeholder="Cari nama/no HP penghuni...">
-                    </form>
-                </div>
-            </div>
-
-            {{-- Quick Actions - Konsisten dengan monitoring --}}
-            <div class="flex flex-wrap items-center gap-2 lg:gap-3 w-full lg:w-auto">
-                @php
-                    $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
-                    $unitCount = \App\Models\Apartemen\ApartemenUnit::count();
-                    $penghuniCount = \App\Models\Apartemen\ApartemenPenghuni::whereHas('assign', function($q) {
-                        $q->where('status', 'AKTIF');
-                    })->count();
-                @endphp
-                
-                {{-- Permintaan --}}
-                <a href="{{ route('apartemen.admin.index') }}" 
-                   class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-1 lg:flex-none justify-center min-w-[100px] md:min-w-0">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span class="font-medium text-gray-700 text-sm truncate">Permintaan</span>
-                    @if($pendingCount > 0)
-                    <span class="ml-1 md:ml-2 bg-blue-100 text-blue-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $pendingCount }}</span>
-                    @endif
-                </a>
-
-                {{-- Unit --}}
-                <a href="{{ route('apartemen.admin.apartemen') }}"
-                   class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-1 lg:flex-none justify-center min-w-[100px] md:min-w-0">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-green-600 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    <span class="font-medium text-gray-700 text-sm truncate">Unit</span>
-                    @if($unitCount > 0)
-                    <span class="ml-1 md:ml-2 bg-green-100 text-green-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $unitCount }}</span>
-                    @endif
-                </a>
-
-                {{-- Penghuni --}}
-                <a href="{{ route('apartemen.admin.monitoring') }}"
-                   class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex-1 lg:flex-none justify-center min-w-[100px] md:min-w-0">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-10A2.5 2.5 0 1121 10.5 2.5 2.5 0 0118.5 8z" />
-                    </svg>
-                    <span class="font-medium text-gray-700 text-sm truncate">Penghuni</span>
-                    @if($penghuniCount > 0)
-                    <span class="ml-1 md:ml-2 bg-blue-100 text-blue-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $penghuniCount }}</span>
-                    @endif
-                </a>
-
-                {{-- Riwayat Button --}}
-                <a href="{{ route('apartemen.admin.history') }}"
-                class="inline-flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg transition-colors flex-1 lg:flex-none justify-center min-w-[100px] md:min-w-0">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="font-medium text-blue-700 text-sm truncate">Riwayat</span>
-                    @if($histories->total() > 0)
-                    <span class="ml-1 md:ml-2 bg-blue-100 text-blue-800 text-xs px-1.5 md:px-2 py-0.5 rounded-full whitespace-nowrap">{{ $histories->total() }}</span>
-                    @endif
-                </a>
-            </div>
-        </div>
-
-        {{-- FILTER SECTION --}}
-        <div class="bg-white border border-gray-200 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div class="w-full">
-                    <form action="{{ route('apartemen.admin.history') }}" method="GET" class="space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
-                            <div class="md:col-span-2">
-                                <div class="flex items-center gap-2">
-                                    <input type="date" name="tanggal_mulai" value="{{ request('tanggal_mulai') }}" 
-                                           class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
-                                    <input type="date" name="tanggal_selesai" value="{{ request('tanggal_selesai') }}"
-                                           class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <select name="status_selesai" class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" onchange="this.form.submit()">
-                                    <option value="">Semua Status</option>
-                                    <option value="CHECKIN" {{ request('status_selesai') == 'CHECKIN' ? 'selected' : '' }}>Check In</option>
-                                    <option value="SELESAI" {{ request('status_selesai') == 'SELESAI' ? 'selected' : '' }}>Check Out</option>
-                                    <option value="DIPINDAH" {{ request('status_selesai') == 'DIPINDAH' ? 'selected' : '' }}>Dipindah</option>
-                                    <option value="DIBATALKAN" {{ request('status_selesai') == 'DIBATALKAN' ? 'selected' : '' }}>Dibatalkan</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <select name="bisnis_unit" class="border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" onchange="this.form.submit()">
-                                    <option value="">Semua Bisnis Unit</option>
-                                    @foreach($bisnisUnits as $bu)
-                                    <option value="{{ $bu->nama_bisnis_unit }}" {{ request('bisnis_unit') == $bu->nama_bisnis_unit ? 'selected' : '' }}>
-                                        {{ $bu->nama_bisnis_unit }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                            <div class="flex items-center gap-2 w-full sm:w-auto">
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium whitespace-nowrap w-full sm:w-auto">
-                                    Terapkan Filter
-                                </button>
-                                
-                                @if(request()->anyFilled(['tanggal_mulai', 'tanggal_selesai', 'status_selesai', 'bisnis_unit', 'search']))
-                                <a href="{{ route('apartemen.admin.history') }}" class="text-gray-600 hover:text-gray-800 text-xs md:text-sm font-medium whitespace-nowrap w-full sm:w-auto text-center">
-                                    Reset Filter
-                                </a>
-                                @endif
-                            </div>
-                            
-                            {{-- Info Filter Aktif --}}
-                            @if(request()->anyFilled(['tanggal_mulai', 'status_selesai', 'bisnis_unit']))
-                            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 sm:border-none w-full">
-                                <span class="text-xs text-gray-500">Filter aktif:</span>
-                                <div class="flex flex-wrap gap-1">
-                                    @if(request('status_selesai'))
-                                    <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium 
-                                        {{ request('status_selesai') == 'CHECKIN' ? 'bg-blue-100 text-blue-800' : 
-                                           (request('status_selesai') == 'SELESAI' ? 'bg-green-100 text-green-800' : 
-                                           (request('status_selesai') == 'DIPINDAH' ? 'bg-blue-100 text-blue-800' : 
-                                           'bg-red-100 text-red-800')) }} whitespace-nowrap">
-                                        {{ request('status_selesai') == 'CHECKIN' ? 'Check In' : 
-                                           (request('status_selesai') == 'SELESAI' ? 'Check Out' : 
-                                           (request('status_selesai') == 'DIPINDAH' ? 'Dipindah' : 
-                                           'Dibatalkan')) }}
-                                    </span>
-                                    @endif
-                                    @if(request('tanggal_mulai') && request('tanggal_selesai'))
-                                    <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
-                                        {{ \Carbon\Carbon::parse(request('tanggal_mulai'))->format('d/m') }} - {{ \Carbon\Carbon::parse(request('tanggal_selesai'))->format('d/m/Y') }}
-                                    </span>
-                                    @endif
-                                    @if(request('bisnis_unit'))
-                                    <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
-                                        {{ request('bisnis_unit') }}
-                                    </span>
-                                    @endif
-                                </div>
-                            </div>
-                            @endif
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+    {{-- RINGKASAN: dua kartu sama lebar. Angka mengikuti periode (default: bulan berjalan) dan filter. --}}
+    <div class="ap-kpis" style="--n:2">
+        <x-apartemen.stat-card :label="'Total history pemesanan · ' . $periodeLabel" :value="$stats['total']" color="blue" :href="null" :active="false"><i class="fas fa-history"></i></x-apartemen.stat-card>
+        <x-apartemen.stat-card :label="'Dibatalkan · ' . $periodeLabel" :value="$stats['batal']" color="red" :href="null" :active="false"><i class="fas fa-ban"></i></x-apartemen.stat-card>
     </div>
 
-    {{-- STATS --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-        @php
-            $totalHistory = \App\Models\Apartemen\ApartemenHistory::count();
-            $checkin = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'CHECKIN')->count();
-            $checkout = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'SELESAI')->count();
-            $transferred = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'DIPINDAH')->count();
-            $cancelled = \App\Models\Apartemen\ApartemenHistory::where('status_selesai', 'DIBATALKAN')->count();
-        @endphp
-        
-        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-            <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-gray-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+    {{-- FILTER --}}
+    <form action="{{ route('apartemen.admin.history') }}" method="GET" class="ap-card ap-filters p-3 md:p-4 mb-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5">
+            <div class="sm:col-span-2 lg:col-span-5 flex gap-2">
+                <div class="ap-search flex-1 min-w-0">
+                    <i class="fas fa-search"></i>
+                    <input type="search" name="search" value="{{ request('search') }}" placeholder="Cari nama, NIK, mess, unit" class="ap-input" aria-label="Cari">
+                    <button type="submit" class="ap-search-go">Cari</button>
                 </div>
-                <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Total Riwayat</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $totalHistory }}</p>
-                </div>
+                <button type="button" class="ap-fbtn" aria-expanded="false" onclick="const f=this.closest('form');f.classList.toggle('open');this.setAttribute('aria-expanded',f.classList.contains('open'))">
+                    <i class="fas fa-sliders-h"></i>Filter @if($nFilter)<span class="n">{{ $nFilter }}</span>@endif
+                </button>
             </div>
-        </div>
-        
-        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-            <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-blue-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Check In</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $checkin }}</p>
-                </div>
+            <div class="ap-fld lg:col-span-3">
+                <select name="bisnis_unit" class="ap-input" onchange="this.form.submit()" aria-label="Bisnis unit">
+                    <option value="">Semua bisnis unit</option>
+                    @foreach($bisnisUnits as $bu)
+                        <option value="{{ $bu->nama_bisnis_unit }}" {{ request('bisnis_unit') === $bu->nama_bisnis_unit ? 'selected' : '' }}>{{ $bu->nama_bisnis_unit }}</option>
+                    @endforeach
+                </select>
             </div>
-        </div>
-        
-        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-            <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-green-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Check Out</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $checkout }}</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
-            <div class="flex items-center">
-                <div class="p-1.5 md:p-2 rounded-lg bg-red-100 mr-2 md:mr-3">
-                    <svg class="w-4 h-4 md:w-5 md:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xs md:text-sm text-gray-500 truncate">Lainnya</p>
-                    <p class="text-lg md:text-xl font-bold text-gray-900 truncate">{{ $transferred + $cancelled }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- HISTORY LIST --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {{-- Table Header --}}
-        <div class="px-3 md:px-4 lg:px-6 py-3 md:py-4 border-b border-gray-200">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h3 class="text-base md:text-lg font-semibold text-gray-800">Riwayat</h3>
-                <div class="text-xs md:text-sm text-gray-500">
-                    Total: <span class="font-medium">{{ $histories->total() ?? 0 }}</span> riwayat
-                </div>
-            </div>
+            {{-- Tanggal: kirim otomatis hanya bila tahun sudah wajar (>= 2000). Saat tahun masih diketik
+                 ("0002", "0020", ...) browser memicu change, dan form tidak boleh terkirim dulu. --}}
+            <div class="ap-fld sm:col-span-2 lg:col-span-4"><div class="grid grid-cols-2 gap-2">
+                <input type="date" name="tanggal_mulai" value="{{ $rangeMulai }}" class="ap-input" onchange="if(!this.value||this.value.slice(0,4)>=2000)this.form.submit()" aria-label="Dari tanggal" title="Dari tanggal">
+                <input type="date" name="tanggal_selesai" value="{{ $rangeSelesai }}" class="ap-input" onchange="if(!this.value||this.value.slice(0,4)>=2000)this.form.submit()" aria-label="Sampai tanggal" title="Sampai tanggal">
+            </div></div>
         </div>
 
-        {{-- Table Content --}}
-        <div class="p-3 md:p-4 lg:p-6">
-            @if($histories->count() > 0)
-            <div class="overflow-x-auto -mx-3 md:mx-0">
-                <div class="min-w-full inline-block align-middle">
-                    <div class="overflow-hidden border border-gray-200 rounded-lg">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Penghuni</th>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Apartemen & Unit</th>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Kontak</th>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Periode</th>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-                                    <th class="py-2 px-2 md:px-3 lg:px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Tanggal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($histories as $history)
-                                @php
-                                    // PERBAIKAN: Ambil data dari relasi penghuni jika ada
-                                    // Cari penghuni berdasarkan id_karyawan atau nama
-                                    $penghuniData = null;
-                                    $no_hp = null;
-                                    $gol = null;
-                                    
-                                    // Coba ambil dari relasi jika ada
-                                    if (method_exists($history, 'penghuni') && $history->penghuni) {
-                                        $penghuniData = $history->penghuni;
-                                    } 
-                                    // Atau cari langsung dari model Penghuni
-                                    elseif (class_exists('App\\Models\\Apartemen\\ApartemenPenghuni')) {
-                                        $penghuniData = \App\Models\Apartemen\ApartemenPenghuni::where('id_karyawan', $history->id_karyawan)
-                                            ->orWhere('nama', $history->nama)
-                                            ->first();
-                                    }
-                                    
-                                    // Ambil no_hp dan gol jika ditemukan
-                                    if ($penghuniData) {
-                                        $no_hp = $penghuniData->no_hp ?? null;
-                                        $gol = $penghuniData->gol ?? null;
-                                    }
-                                    
-                                    // Format no_hp jika ada
-                                    $formattedNoHp = null;
-                                    if ($no_hp) {
-                                        $formattedNoHp = preg_replace('/[^\d]/', '', $no_hp);
-                                        if (strlen($formattedNoHp) >= 9) {
-                                            if (substr($formattedNoHp, 0, 2) == '62') {
-                                                // Format +62 xxx xxxx xxxx
-                                                $formattedNoHp = '+62 ' . substr($formattedNoHp, 2);
-                                            } elseif (substr($formattedNoHp, 0, 1) == '0') {
-                                                // Format 08xx xxxx xxxx
-                                                $formattedNoHp = substr($formattedNoHp, 0, 4) . ' ' . substr($formattedNoHp, 4);
-                                            }
-                                        }
-                                    }
-                                @endphp
-                                <tr class="hover:bg-gray-50">
-                                    {{-- Penghuni --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4">
-                                        <div class="min-w-0">
-                                            <div class="font-medium text-gray-900 text-sm truncate">{{ $history->nama }}</div>
-                                            <div class="text-xs text-gray-500 truncate max-w-[100px] md:max-w-none">{{ $history->id_karyawan }}</div>
-                                            <div class="text-xs text-gray-400 truncate max-w-[80px] md:max-w-none">{{ $history->unit_kerja ?? '-' }}</div>
-                                            {{-- TAMBAHKAN NO HP DI MOBILE --}}
-                                            <div class="md:hidden mt-1">
-                                                @php
-                                                    // Ambil langsung dari model
-                                                    $no_hp = $history->no_hp ?? null;
-                                                    $gol = $history->gol ?? null;
-                                                    
-                                                    // Format no_hp
-                                                    $formattedNoHp = null;
-                                                    if ($no_hp && !empty(trim($no_hp))) {
-                                                        $cleanNo = preg_replace('/[^\d]/', '', $no_hp);
-                                                        if (strlen($cleanNo) >= 10) {
-                                                            if (substr($cleanNo, 0, 2) == '62') {
-                                                                $formattedNoHp = '+62 ' . substr($cleanNo, 2, 3) . '-' . substr($cleanNo, 5, 4) . '-' . substr($cleanNo, 9);
-                                                            } elseif (substr($cleanNo, 0, 1) == '0') {
-                                                                $formattedNoHp = substr($cleanNo, 0, 4) . '-' . substr($cleanNo, 4, 4) . '-' . substr($cleanNo, 8);
-                                                            } else {
-                                                                $formattedNoHp = $no_hp;
-                                                            }
-                                                        } else {
-                                                            $formattedNoHp = $no_hp;
-                                                        }
-                                                    }
-                                                @endphp
-                                                
-                                                @if($formattedNoHp)
-                                                <div class="text-xs text-blue-600 flex items-center gap-1">
-                                                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                                                    </svg>
-                                                    <span class="truncate">{{ $formattedNoHp }}</span>
-                                                </div>
-                                                @endif
-                                                
-                                                @if($gol)
-                                                <div class="text-xs text-gray-600 mt-0.5">Gol. {{ $gol }}</div>
-                                                @endif
-                                            </div>
-                                    </td>
-
-                                    {{-- Apartemen & Unit (Mobile) --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 md:hidden">
-                                        <div class="text-xs">
-                                            <div class="font-medium text-gray-900 truncate max-w-[100px]">{{ $history->apartemen }}</div>
-                                            <div class="text-gray-500">Unit {{ $history->unit }}</div>
-                                            {{-- Periode di Mobile --}}
-                                            <div class="mt-1 text-gray-600 truncate max-w-[80px]">{{ $history->periode }}</div>
-                                        </div>
-                                    </td>
-
-                                    {{-- Apartemen & Unit (Desktop) --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 hidden md:table-cell">
-                                        <div class="font-medium text-gray-900 text-sm truncate">{{ $history->apartemen }}</div>
-                                        <div class="text-xs text-gray-500 truncate">Unit {{ $history->unit }}</div>
-                                    </td>
-
-                                    {{-- Kontak (No HP & Golongan) - Desktop --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 hidden lg:table-cell">
-                                        <div class="min-w-0">
-                                            @php
-                                                // Ambil langsung dari model karena tabel sudah punya kolom no_hp
-                                                $no_hp = $history->no_hp ?? null;
-                                                $gol = $history->gol ?? null;
-                                                
-                                                // Format no_hp jika ada
-                                                $formattedNoHp = null;
-                                                if ($no_hp && !empty(trim($no_hp))) {
-                                                    // Hapus semua karakter non-digit
-                                                    $cleanNo = preg_replace('/[^\d]/', '', $no_hp);
-                                                    
-                                                    // Format berdasarkan panjang
-                                                    if (strlen($cleanNo) >= 10) {
-                                                        if (substr($cleanNo, 0, 2) == '62') {
-                                                            // Format: +62 812-3456-7890
-                                                            $formattedNoHp = '+62 ' . substr($cleanNo, 2, 3) . '-' . substr($cleanNo, 5, 4) . '-' . substr($cleanNo, 9);
-                                                        } elseif (substr($cleanNo, 0, 1) == '0') {
-                                                            // Format: 0812-3456-7890
-                                                            $formattedNoHp = substr($cleanNo, 0, 4) . '-' . substr($cleanNo, 4, 4) . '-' . substr($cleanNo, 8);
-                                                        } elseif (strlen($cleanNo) == 10) {
-                                                            // Format: 0812345678 -> 0812-3456-78
-                                                            $formattedNoHp = substr($cleanNo, 0, 4) . '-' . substr($cleanNo, 4, 4) . '-' . substr($cleanNo, 8);
-                                                        } else {
-                                                            $formattedNoHp = $no_hp; // Tampilkan as-is jika tidak bisa diformat
-                                                        }
-                                                    } else {
-                                                        $formattedNoHp = $no_hp; // Tampilkan as-is jika terlalu pendek
-                                                    }
-                                                }
-                                            @endphp
-                                            
-                                            @if($formattedNoHp)
-                                            <div class="text-xs text-blue-600 flex items-center gap-1 mb-1">
-                                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                                                </svg>
-                                                <span class="truncate" title="{{ $no_hp }}">{{ $formattedNoHp }}</span>
-                                            </div>
-                                            @else
-                                            <div class="text-xs text-gray-400">-</div>
-                                            @endif
-                                            
-                                            @if($gol)
-                                            <div class="text-xs text-gray-600">Gol. {{ $gol }}</div>
-                                            @endif
-                                        </div>
-                                    </td>
-
-                                    {{-- Periode (Desktop) --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 hidden lg:table-cell">
-                                        <div class="text-sm text-gray-900 truncate">{{ $history->periode }}</div>
-                                        @if(!empty($history->catatan))
-                                        <div class="text-xs text-gray-500 truncate max-w-[180px] mt-1" title="{{ $history->catatan }}">
-                                            <i class="fas fa-sticky-note mr-1"></i>{{ $history->catatan }}
-                                        </div>
-                                        @endif
-                                    </td>
-
-                                    {{-- Status --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4">
-                                        @switch($history->status_selesai)
-                                            @case('CHECKIN')
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                                    </svg>
-                                                    Check in
-                                                </span>
-                                                @break
-                                                
-                                            @case('SELESAI')
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                                    </svg>
-                                                    Check out
-                                                </span>
-                                                @break
-                                                
-                                            @case('DIPINDAH')
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                                    </svg>
-                                                    Dipindah
-                                                </span>
-                                                @break
-                                                
-                                            @case('DIBATALKAN')
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 whitespace-nowrap">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                    </svg>
-                                                    Dibatalkan
-                                                </span>
-                                                @break
-                                                
-                                            @default
-                                                <span class="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 whitespace-nowrap">
-                                                    {{ $history->status_selesai }}
-                                                </span>
-                                        @endswitch
-                                    </td>
-
-                                    {{-- Tanggal (Mobile) --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 md:hidden">
-                                        <div class="text-xs">
-                                            <div class="text-gray-900">{{ $history->created_at->format('d/m') }}</div>
-                                            <div class="text-gray-500">{{ $history->created_at->format('H:i') }}</div>
-                                        </div>
-                                    </td>
-
-                                    {{-- Tanggal (Desktop) --}}
-                                    <td class="py-3 px-2 md:px-3 lg:px-4 hidden md:table-cell lg:table-cell">
-                                        <div class="text-sm text-gray-900 whitespace-nowrap">{{ $history->created_at->format('d/m/Y') }}</div>
-                                        <div class="text-xs text-gray-500">{{ $history->created_at->format('H:i') }}</div>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {{-- PAGINATION --}}
-            <div class="flex flex-col sm:flex-row items-center justify-between px-2 md:px-3 lg:px-4 py-3 border-t border-gray-200 gap-2 md:gap-3">
-                <div class="text-xs md:text-sm text-gray-700 text-center sm:text-left">
-                    <span class="font-medium">{{ $histories->firstItem() }}</span> - 
-                    <span class="font-medium">{{ $histories->lastItem() }}</span> dari 
-                    <span class="font-medium">{{ $histories->total() }}</span>
-                </div>
-                <div class="flex space-x-1 md:space-x-2">
-                    @if($histories->previousPageUrl())
-                        <a href="{{ $histories->previousPageUrl() }}" 
-                           class="px-2 md:px-3 py-1.5 md:py-2 border border-gray-300 rounded-md text-xs md:text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors whitespace-nowrap">
-                            ← Prev
-                        </a>
-                    @endif
-
-                    @if($histories->nextPageUrl())
-                        <a href="{{ $histories->nextPageUrl() }}" 
-                           class="px-2 md:px-3 py-1.5 md:py-2 border border-gray-300 rounded-md text-xs md:text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors whitespace-nowrap">
-                            Next →
-                        </a>
-                    @endif
-                </div>
-            </div>
-            @else
-            {{-- EMPTY STATE --}}
-            <div class="text-center py-8 md:py-12">
-                <div class="mx-auto w-12 h-12 md:w-16 md:h-16 lg:w-24 lg:h-24 bg-gray-100 rounded-full flex items-center justify-center mb-3 md:mb-4 lg:mb-6">
-                    <svg class="w-6 h-6 md:w-8 md:h-8 lg:w-12 lg:h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-1 md:mb-2">Belum ada riwayat</h3>
-                <p class="text-gray-500 max-w-xs md:max-w-md mx-auto text-xs md:text-sm">
-                    @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai') || request()->filled('bisnis_unit'))
-                    Tidak ditemukan riwayat yang sesuai dengan filter.
-                    @else
-                    Riwayat akan muncul setelah permintaan selesai diproses.
-                    @endif
-                </p>
-                @if(request()->filled('search') || request()->filled('tanggal_mulai') || request()->filled('status_selesai') || request()->filled('bisnis_unit'))
-                <a href="{{ route('apartemen.admin.history') }}" 
-                   class="mt-3 md:mt-4 inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 border border-transparent text-xs md:text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Reset Filter
-                </a>
+        @if($hasFilter)
+            <div class="ap-filter-row">
+                <span class="text-xs text-gray-500 mr-1">Filter aktif</span>
+                @if(request('search'))
+                    <a href="{{ $removeUrl(['search']) }}" class="chip">“{{ request('search') }}” <i class="fas fa-times"></i></a>
                 @endif
+                @if(request('bisnis_unit'))
+                    <a href="{{ $removeUrl(['bisnis_unit']) }}" class="chip">{{ request('bisnis_unit') }} <i class="fas fa-times"></i></a>
+                @endif
+                @if(!$isDefaultRange)
+                    <a href="{{ $removeUrl(['tanggal_mulai', 'tanggal_selesai']) }}" class="chip">
+                        {{ $rangeMulai ? \Carbon\Carbon::parse($rangeMulai)->format('d/m/Y') : '…' }} – {{ $rangeSelesai ? \Carbon\Carbon::parse($rangeSelesai)->format('d/m/Y') : '…' }}
+                        <i class="fas fa-times"></i>
+                    </a>
+                @endif
+                <a href="{{ route('apartemen.admin.history') }}" class="ap-link ml-auto">Reset semua</a>
             </div>
-            @endif
-        </div>
-    </div>
+        @endif
+    </form>
 
+    {{-- DAFTAR PENGHUNI: satu baris per orang --}}
+    <div class="ap-card overflow-hidden">
+        <div class="ap-listhead">
+            <h3>Daftar penghuni</h3>
+            <p><b>{{ number_format($histories->total()) }}</b> penghuni · {{ $periodeLabel }}{{ (request()->filled('search') || request()->filled('bisnis_unit')) ? ' · sesuai filter' : '' }}</p>
+        </div>
+
+        @if($histories->count() > 0)
+        <div class="md:overflow-x-auto">
+            <table class="ap-table ap-hist">
+                <thead>
+                    <tr>
+                        <th>Penghuni</th>
+                        <th>Mess &amp; Unit</th>
+                        <th>Jadwal disetujui</th>
+                        <th>Realisasi</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($histories as $h)
+                    @php
+                        $hp     = $formatHp($h->no_hp);
+                        $stays  = $journeys[$h->id_karyawan] ?? [[$h]];
+                        $stay   = $stays[0];
+                        $older  = array_slice($stays, 1);
+
+                        // Ringkasan penempatan terbaru.
+                        $evs    = collect($stay);
+                        $in     = $evs->firstWhere('status_selesai', 'CHECKIN');
+                        $out    = $evs->firstWhere('status_selesai', 'SELESAI');
+                        $cancel = $evs->firstWhere('status_selesai', 'DIBATALKAN');
+                        $moves  = $evs->where('status_selesai', 'DIPINDAH')->count();
+                        $lastEv = end($stay);
+                        $lastSt = $lastEv->status_selesai;
+                        $open   = !in_array($lastSt, ['SELESAI', 'DIBATALKAN'], true);   // belum check-out / belum ditutup
+                        // Penempatan yang sedang berjalan (jadwal disetujui, unit saat ini, waktu check-in).
+                        $bk       = $open ? ($bookings[$h->id_karyawan] ?? null) : null;
+                        $inAt     = $in ? $in->created_at : ($bk['checkin_at'] ?? null);
+                        $inFromBk = !$in && $inAt;                        // check-in ada di data penempatan, tidak di riwayat
+                        $notYetIn = $open && $bk && !$bk['checkin_at'];   // jadwal sudah disetujui, belum check-in
+                        if (!$open)          { $tagText = $tagLabel[$lastSt];        $tagTone = $stepTone[$lastSt]; }
+                        elseif ($notYetIn)   { $tagText = 'Belum check-in';          $tagTone = 'yellow'; }
+                        elseif ($inAt)       { $tagText = 'Belum check-out';         $tagTone = 'blue'; }
+                        else                 { $tagText = 'Check-in belum tercatat'; $tagTone = 'yellow'; }
+
+                        // Lama menginap (malam).
+                        $days = null;
+                        if ($inAt) {
+                            $end  = $out ? $out->created_at : now();
+                            $days = (int) abs($inAt->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()));
+                        }
+
+                        // Tanggal check-in / check-out. Jam hanya dipakai bila asli (bukan backfill).
+                        $masukJadwal = false;
+                        if ($inAt)   { $masuk = $inAt->format('d/m/Y'); }
+                        elseif ($bk) { $masuk = $bk['mulai']->format('d/m/Y'); $masukJadwal = true; }
+                        else         { $masuk = $periodeStart($stay[0]->periode) ?? '-'; $masukJadwal = $masuk !== '-'; }
+                        $masukJam = null;
+                        if ($in && !$isBackfill($in)) { $masukJam = $in->created_at->format('H:i'); }
+                        elseif ($inFromBk)            { $masukJam = $inAt->format('H:i'); }
+                        $keluar       = $out ? $out->created_at->format('d/m/Y') : null;
+                        $keluarJam    = ($out && !$isBackfill($out)) ? $out->created_at->format('H:i') : null;
+                        $keluarJadwal = (!$out && $bk && $bk['selesai']) ? $bk['selesai']->format('d/m/Y') : null;
+
+                        // Jadwal disetujui + lama jadwal (malam).
+                        // (Nama $stMulai/$stSelesai sengaja berbeda dari $rangeMulai/$rangeSelesai milik filter tanggal.)
+                        [$stMulai, $stSelesai] = $stayRange($stay);
+                        if ($bk) {
+                            $jm = $bk['mulai']->copy()->startOfDay();
+                            $js = $bk['selesai'] ? $bk['selesai']->copy()->startOfDay() : null;
+                        } else {
+                            $jm = $toDate($stMulai);
+                            $js = $toDate($stSelesai);
+                        }
+                        $jadwal       = $jm ? $jm->format('d/m/Y') . ' – ' . ($js ? $js->format('d/m/Y') : '…') : null;
+                        $jadwalMalam  = ($jm && $js) ? (int) abs($jm->diffInDays($js)) : null;
+
+                        // Keterlambatan dibanding jadwal yang disetujui (hari).
+                        //  - Check-in telat   : tanggal check-in tercatat setelah jadwal mulai.
+                        //  - Check-out telat  : tanggal check-out (atau hari ini, bila belum check-out) setelah jadwal selesai.
+                        $telatIn  = ($inAt && $jm) ? max(0, $selisih($jm, $inAt)) : 0;
+                        $telatOut = 0;
+                        if ($js) {
+                            if ($out)       { $telatOut = max(0, $selisih($js, $out->created_at)); }
+                            elseif ($inAt)  { $telatOut = max(0, $selisih($js, now())); }
+                        }
+                        // Sudah check-in, belum check-out, dan jadwal keluar sudah lewat -> merah.
+                        if ($open && $inAt && $telatOut > 0) { $tagTone = 'red'; }
+
+                        // Unit: unit awal -> pindah -> unit sekarang.
+                        $messName = $bk ? $bk['apartemen'] : $lastEv->apartemen;
+                        $unitPath = [];
+                        foreach ($stay as $e) { if ($e->status_selesai === 'DIPINDAH') $unitPath[] = $e->unit; }
+                        $unitFinal = $bk ? $bk['unit'] : ($lastSt === 'DIPINDAH' ? null : $lastEv->unit);
+                        if ($unitFinal !== null) { $unitPath[] = $unitFinal; }
+                        $unitText = $unitPath ? implode(' → ', $unitPath) . ($unitFinal === null ? ' → …' : '') : '-';
+                        $cancelNoIn = $lastSt === 'DIBATALKAN' && !$in;
+
+                        // Rincian hanya ditampilkan bila ada tambahan yang tidak ada di ringkasan:
+                        // pindah unit, atau catatan. Check-in / Check-out polos sudah ada di ringkasan.
+                        $detailEvents = $evs->filter(fn($e) => $e->status_selesai === 'DIPINDAH' || $showNote($e->catatan))->values();
+                    @endphp
+                    <tr class="ap-row">
+                        {{-- PENGHUNI --}}
+                        <td class="c-person">
+                            <div class="ap-person">
+                                <span class="ap-avatar" style="{{ $tint($h->nama) }}">{{ $initials($h->nama) }}</span>
+                                <div class="min-w-0">
+                                    <div class="ap-name">{{ $h->nama }}</div>
+                                    <div class="ap-sub">{{ $h->id_karyawan }}@if($h->unit_kerja && $h->unit_kerja !== '-') · {{ $h->unit_kerja }}@endif</div>
+                                    @if($hp || ($h->gol && $h->gol !== '-'))
+                                    <div class="ap-sub">
+                                        @if($hp)<a href="tel:{{ preg_replace('/[^\d+]/', '', $hp) }}" class="text-blue-600 hover:underline"><i class="fas fa-phone"></i>{{ $hp }}</a>@endif
+                                        @if($h->gol && $h->gol !== '-')<span class="{{ $hp ? 'ml-2' : '' }}">Gol. {{ $h->gol }}</span>@endif
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </td>
+
+                        {{-- MESS & UNIT --}}
+                        <td class="c-mess">
+                            <div class="ap-name">{{ $messName }}</div>
+                            <div class="ap-sub"><i class="fas fa-door-open"></i>Unit {{ $unitText }}</div>
+                        </td>
+
+                        {{-- JADWAL DISETUJUI --}}
+                        <td class="c-jadwal">
+                            @if($jadwal)
+                                <div class="ap-date"><i class="far fa-calendar-check"></i>{{ $jadwal }}</div>
+                                @if($jadwalMalam !== null)<div class="ap-sub">{{ $jadwalMalam }} malam</div>@endif
+                            @else
+                                <div class="ap-sub">Tidak tercatat</div>
+                            @endif
+                        </td>
+
+                        {{-- REALISASI: Check-in, Check-out, lama menginap --}}
+                        <td class="c-real">
+                            @if($cancelNoIn)
+                                <div class="ap-sum-line"><i class="fas fa-ban"></i>Tidak jadi check-in</div>
+                                <div class="ap-sub">Dibatalkan {{ $cancel->created_at->format('d/m/Y') }}</div>
+                                @if($showNote($cancel->catatan))
+                                    <div class="ap-note ap-note-cancel"><i class="far fa-comment-dots"></i><span>{{ $cancel->catatan }}</span></div>
+                                @endif
+                            @else
+                                <div class="ap-sum-line"><i class="fas fa-sign-in-alt"></i><span class="lbl">Check-in</span><b>{{ $masuk }}</b>@if($masukJam)<span class="jam">{{ $masukJam }}</span>@endif @if($masukJadwal)<em>(jadwal)</em>@endif</div>
+                                <div class="ap-sum-line"><i class="fas fa-sign-out-alt"></i><span class="lbl">Check-out</span><b>{{ $keluar ?? 'belum' }}</b>@if($keluarJam)<span class="jam">{{ $keluarJam }}</span>@endif @if($keluarJadwal)<em>(jadwal {{ $keluarJadwal }})</em>@endif</div>
+                                @if($days !== null)
+                                    <div class="ap-sum-line"><i class="far fa-clock"></i><span class="lbl">{{ $out ? 'Menginap' : 'Sudah menginap' }}</span><b>{{ $malamText($days) }}</b></div>
+                                @endif
+                                @if($lastSt === 'DIBATALKAN' && $cancel && $showNote($cancel->catatan))
+                                    <div class="ap-note ap-note-cancel"><i class="far fa-comment-dots"></i><span>{{ $cancel->catatan }}</span></div>
+                                @endif
+                            @endif
+
+                            {{-- Rincian: hanya yang tidak ada di ringkasan (pindah unit / catatan) --}}
+                            @if($detailEvents->count())
+                                <details class="ap-more">
+                                    <summary>Rincian ({{ $detailEvents->count() }})</summary>
+                                    <ol class="ap-trail">
+                                        @foreach($detailEvents as $e)
+                                            <li class="t-{{ $stepTone[$e->status_selesai] ?? 'gray' }}">
+                                                <span class="ap-trail-dot"></span>
+                                                <div class="min-w-0">
+                                                    <div class="ap-trail-top">
+                                                        <b>{{ $stepLabel[$e->status_selesai] ?? $e->status_selesai }}</b>
+                                                        <time title="{{ $isBackfill($e) ? '' : $e->created_at->format('d/m/Y H:i:s') }}">{{ $fmtEv($e) }}</time>
+                                                    </div>
+                                                    @if($e->status_selesai === 'DIPINDAH')
+                                                        <div class="ap-sub">Dari Unit {{ $e->unit }}</div>
+                                                    @endif
+                                                    @if($showNote($e->catatan))
+                                                        <div class="ap-note"><i class="far fa-comment-dots"></i><span>{{ $e->catatan }}</span></div>
+                                                    @endif
+                                                </div>
+                                            </li>
+                                        @endforeach
+                                    </ol>
+                                </details>
+                            @endif
+
+                            {{-- Riwayat sebelumnya: satu baris ringkas per periode tinggal --}}
+                            @if(count($older))
+                                <details class="ap-prev">
+                                    <summary>Riwayat sebelumnya ({{ count($older) }})</summary>
+                                    @foreach($older as $oldStay)
+                                        @php
+                                            $oe   = collect($oldStay);
+                                            $oIn  = $oe->firstWhere('status_selesai', 'CHECKIN');
+                                            $oOut = $oe->firstWhere('status_selesai', 'SELESAI');
+                                            $oCan = $oe->firstWhere('status_selesai', 'DIBATALKAN');
+                                            [$om, $os] = $stayRange($oldStay);
+                                            $oJs  = $toDate($os);
+                                            $oLate = ($oOut && $oJs) ? max(0, $selisih($oJs, $oOut->created_at)) : 0;
+                                            $oPath = [];
+                                            foreach ($oldStay as $e) { if ($e->status_selesai === 'DIPINDAH') $oPath[] = $e->unit; }
+                                            $oPath[] = end($oldStay)->status_selesai === 'DIPINDAH' ? '…' : end($oldStay)->unit;
+                                        @endphp
+                                        <div class="ap-prevline">
+                                            <div class="ap-prevtop">
+                                                <b>{{ $om ? $om . ' – ' . ($os ?? '…') : 'Jadwal tidak tercatat' }}</b>
+                                                <span>Unit {{ implode(' → ', $oPath) }}</span>
+                                            </div>
+                                            <div class="ap-sub">
+                                                @if($oCan && !$oIn)
+                                                    Dibatalkan {{ $oCan->created_at->format('d/m/Y') }}
+                                                @else
+                                                    Check-in {{ $oIn ? $oIn->created_at->format('d/m/Y') : '-' }} · Check-out {{ $oOut ? $oOut->created_at->format('d/m/Y') : '-' }}
+                                                    @if($oLate > 0)<span class="ap-over"> · telat {{ $hariText($oLate) }}</span>@endif
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </details>
+                            @endif
+                        </td>
+
+                        {{-- STATUS --}}
+                        <td class="c-status">
+                            <span class="ap-tag t-{{ $tagTone }}">{{ $tagText }}</span>
+                            @if($telatIn > 0)
+                                <div class="ap-sub ap-over"><i class="fas fa-hourglass-end"></i>Check-in telat {{ $hariText($telatIn) }}</div>
+                            @endif
+                            @if($telatOut > 0)
+                                <div class="ap-sub ap-over"><i class="fas fa-hourglass-end"></i>{{ $out ? 'Check-out telat ' : 'Lewat jadwal keluar ' }}{{ $hariText($telatOut) }}</div>
+                            @endif
+                            @if($moves > 0)
+                                <div class="ap-sub"><i class="fas fa-exchange-alt"></i>Pindah unit {{ $moves }}×</div>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        <x-apartemen.pager :paginator="$histories" />
+        @else
+            <x-apartemen.empty-state
+                :title="$hasFilter ? 'Tidak ada riwayat yang cocok' : 'Belum ada riwayat pada ' . $periodeLabel"
+                :text="$hasFilter ? 'Coba ubah atau reset filter yang dipakai.' : 'Riwayat akan muncul setelah ada penghuni yang check-in, pindah unit, check-out, atau dibatalkan.'"
+                :resetUrl="$hasFilter ? route('apartemen.admin.history') : null" />
+        @endif
+    </div>
 </div>
 
 <style>
-/* Smooth transitions */
-* {
-    transition-property: background-color, border-color, color, fill, stroke;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 150ms;
-}
+    /* Riwayat penghuni mess */
+    .ap-hist td.c-mess .ap-sub i,.ap-hist td.c-status .ap-sub i{margin-right:.35rem;color:#94a3b8}
+    .ap-date{font-size:.85rem;font-weight:600;color:#0f172a;white-space:nowrap}
+    .ap-date i{margin-right:.4rem;color:#2563eb}
+    .ap-over{color:#dc2626;font-weight:600}
+    .ap-over i{color:#dc2626 !important}
 
-/* Better table styling */
-table tbody tr {
-    transition: background-color 0.15s ease;
-}
+    /* Realisasi: Check-in / Check-out / Menginap */
+    .ap-sum-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .4rem;font-size:.82rem;color:#475569;margin-bottom:.2rem}
+    .ap-sum-line i{width:1rem;color:#94a3b8}
+    .ap-sum-line .lbl{min-width:5.2rem}
+    .ap-sum-line b{font-weight:600;color:#0f172a}
+    .ap-sum-line .jam{font-size:.72rem;color:#94a3b8;font-variant-numeric:tabular-nums}
+    .ap-sum-line em{font-style:normal;font-size:.72rem;color:#94a3b8}
 
-/* Custom scrollbar */
-.overflow-x-auto::-webkit-scrollbar {
-    height: 4px;
-}
+    /* Rincian dilipat (hanya pindah unit / catatan) */
+    .ap-more{margin-top:.45rem}
+    .ap-more summary{cursor:pointer;font-size:.75rem;font-weight:600;color:#2563eb;list-style:none;user-select:none}
+    .ap-more summary::-webkit-details-marker{display:none}
+    .ap-more summary::before{content:"▸ ";color:#94a3b8}
+    .ap-more[open] summary::before{content:"▾ "}
+    .ap-more .ap-trail{margin-top:.6rem}
+    .ap-note-cancel{margin-top:.3rem}
 
-.overflow-x-auto::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 2px;
-}
+    /* Timeline rincian */
+    .ap-trail{position:relative;margin:0;padding:0;list-style:none}
+    .ap-trail li{position:relative;display:flex;gap:.6rem;padding-bottom:.6rem}
+    .ap-trail li:last-child{padding-bottom:0}
+    .ap-trail li:not(:last-child)::before{content:"";position:absolute;left:calc(.325rem - 1px);top:.95rem;bottom:-.05rem;width:2px;background:#e6eaf0}
+    .ap-trail-dot{flex:none;width:.65rem;height:.65rem;margin-top:.32rem;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px var(--soft)}
+    .ap-trail-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .6rem;font-size:.82rem}
+    .ap-trail-top b{font-weight:600;color:var(--c)}
+    .ap-trail-top time{font-size:.75rem;color:#64748b;font-variant-numeric:tabular-nums}
 
-.overflow-x-auto::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 2px;
-}
+    /* Riwayat sebelumnya: satu baris ringkas per periode */
+    .ap-prev{margin-top:.6rem;padding-top:.5rem;border-top:1px dashed #e6eaf0}
+    .ap-prev summary{cursor:pointer;font-size:.75rem;font-weight:600;color:#2563eb}
+    .ap-prevline{margin-top:.55rem}
+    .ap-prevtop{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .6rem;font-size:.8rem;color:#475569}
+    .ap-prevtop b{font-weight:600;color:#0f172a}
 
-.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-    background: #a1a1a1;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .ap-hist td.c-real{min-width:15rem}
+    @media (max-width:767px){
+        .ap-hist td.c-mess,.ap-hist td.c-jadwal,.ap-hist td.c-real{grid-column:1/-1;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #eef1f5;min-width:0}
     }
-    
-    .filter-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    /* Improve mobile table display */
-    .overflow-x-auto {
-        margin-left: -0.75rem;
-        margin-right: -0.75rem;
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-    }
-}
-
-/* Ensure buttons are touch-friendly on mobile */
-@media (max-width: 640px) {
-    button, a.button-like {
-        min-height: 36px;
-    }
-    
-    .touch-target {
-        padding: 0.5rem;
-    }
-    
-    /* Better truncation for mobile */
-    .truncate-mobile {
-        max-width: 100px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
-
-/* Better truncation */
-.truncate-2-lines {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-/* Style for phone icon */
-.text-blue-600 svg {
-    display: inline-block;
-    vertical-align: text-top;
-}
-
-/* Responsive column adjustments */
-@media (max-width: 1024px) {
-    .hidden-lg {
-        display: none !important;
-    }
-}
-
-@media (max-width: 768px) {
-    .hidden-md {
-        display: none !important;
-    }
-}
-
-@media (max-width: 640px) {
-    .hidden-sm {
-        display: none !important;
-    }
-}
 </style>
 @endsection

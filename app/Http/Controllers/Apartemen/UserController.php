@@ -137,6 +137,7 @@ class UserController extends Controller
             'PENDING' => 'Tertunda',
             'AKTIF' => 'Aktif',
             'SELESAI' => 'Selesai',
+            'BATAL' => 'Dibatalkan',
             default => $status
         };
     }
@@ -148,7 +149,7 @@ class UserController extends Controller
     {
         return match($status) {
             'APPROVED', 'AKTIF' => 'approved',
-            'REJECTED' => 'rejected',
+            'REJECTED', 'BATAL' => 'rejected',
             'PENDING' => 'pending',
             'SELESAI' => 'completed',
             default => 'gray'
@@ -188,6 +189,37 @@ class UserController extends Controller
             'penghuni.*.no_hp.regex' => 'Nomor HP hanya boleh berisi angka, tanda plus (+), tanda minus (-), dan spasi',
             'penghuni.*.tanggal_selesai.after' => 'Tanggal selesai harus setelah tanggal mulai',
         ]);
+
+        // Cegah pengajuan ganda: orang yang sama tidak boleh muncul dua kali dengan tanggal bertumpuk,
+        // dan tidak boleh sudah ada di pengajuan lain yang masih menunggu persetujuan.
+        $terlihat = [];
+        foreach ($validated['penghuni'] as $pd) {
+            $nik = trim((string) $pd['id_karyawan']);
+            if ($nik === '' || $nik === '-') {
+                continue;
+            }
+
+            foreach ($terlihat[$nik] ?? [] as [$m, $sel]) {
+                if ($pd['tanggal_mulai'] < $sel && $pd['tanggal_selesai'] > $m) {
+                    return back()->withInput()->with('error', "{$pd['nama']} terdaftar dua kali dengan tanggal yang bertumpuk.");
+                }
+            }
+            $terlihat[$nik][] = [$pd['tanggal_mulai'], $pd['tanggal_selesai']];
+
+            $sudahMenunggu = DB::table('tb_apartemen_request_penghuni as rp')
+                ->join('tb_apartemen_request as r', 'r.id', '=', 'rp.request_id')
+                ->where('r.status', 'PENDING')
+                ->whereNull('r.deleted_at')
+                ->whereNull('rp.deleted_at')
+                ->where('rp.id_karyawan', $nik)
+                ->whereDate('rp.tanggal_mulai', '<', $pd['tanggal_selesai'])
+                ->whereDate('rp.tanggal_selesai', '>', $pd['tanggal_mulai'])
+                ->exists();
+
+            if ($sudahMenunggu) {
+                return back()->withInput()->with('error', "{$pd['nama']} sudah ada di pengajuan lain yang masih menunggu persetujuan pada tanggal tersebut.");
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -452,6 +484,8 @@ private function validatePhoneNumber($phone)
      */
     public function daftarApartemen(Request $request)
     {
+        \App\Services\Apartemen\UnitService::sinkronSemua();
+
         $bisnisUnitId = $this->getUserBisnisUnitId();
         $bisnisUnit = $bisnisUnitId ? BisnisUnit::find($bisnisUnitId) : null;
 
@@ -503,6 +537,8 @@ private function validatePhoneNumber($phone)
      */
     public function daftarApartemenDetail($id, Request $request)
     {
+        \App\Services\Apartemen\UnitService::sinkronSemua();
+
         $bisnisUnitId = $this->getUserBisnisUnitId();
         $bisnisUnit = $bisnisUnitId ? BisnisUnit::find($bisnisUnitId) : null;
 

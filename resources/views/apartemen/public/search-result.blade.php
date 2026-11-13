@@ -339,7 +339,10 @@
                 flex-direction: row;
             }
         }
-    </style>
+    .konf-label{display:block;font-size:12px;color:#64748b;margin:0 0 4px;text-align:left}
+.konf-input{width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;letter-spacing:.3em;text-align:center}
+.konf-input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+</style>
 </head>
 <body>
 
@@ -479,6 +482,8 @@
                                   style="width: 100%;"
                                   onsubmit="return confirm('Yakin ingin check-in untuk {{ addslashes($p->nama) }}?')">
                                 @csrf
+                                <label class="konf-label" for="konf-{{ $p->id }}">Konfirmasi: {{ $p->konfirmasi_hint ?? 'hubungi admin' }}</label>
+                                <input type="text" id="konf-{{ $p->id }}" name="konfirmasi" class="konf-input" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="4 digit" required>
                                 <button type="submit" class="btn-checkin">Check-in</button>
                             </form>
                         @else
@@ -504,6 +509,8 @@
                               style="width: 100%;"
                               onsubmit="return confirm('Yakin ingin check-out untuk {{ addslashes($p->nama) }}?')">
                             @csrf
+                            <label class="konf-label" for="konf-{{ $p->id }}">Konfirmasi: {{ $p->konfirmasi_hint ?? 'hubungi admin' }}</label>
+                            <input type="text" id="konf-{{ $p->id }}" name="konfirmasi" class="konf-input" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="4 digit" required>
                             <button type="submit" class="btn-checkout">Check-out</button>
                         </form>
                     @elseif($p->status === 'AKTIF' && $sudahCheckin && !$bisaCheckout && $accessCode)

@@ -1,240 +1,190 @@
 @extends('layouts.app_apartadmin_sidebar')
 @section('content')
-<div class="p-4 md:p-6">
+<div class="w-full">
 
-    {{-- HEADER --}}
-    <div class="mb-6 md:mb-8">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-800">Dashboard Apartemen</h1>
-            </div>
+    <x-apartemen.page-header title="Dashboard Apartemen" subtitle="Ringkasan unit, permintaan, dan agenda penempatan" />
 
-            <!-- {{-- Quick Stats --}}
-            <div class="flex flex-wrap gap-2">
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                    <div class="text-xs text-gray-500">Total Unit</div>
-                    <div class="text-lg font-bold">{{ $stats['total_unit'] }}</div>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                    <div class="text-xs text-gray-500">Terisi</div>
-                    <div class="text-lg font-bold text-blue-600">{{ $stats['unit_terisi'] }}</div>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                    <div class="text-xs text-gray-500">Tersedia</div>
-                    <div class="text-lg font-bold text-green-600">{{ $stats['unit_tersedia'] }}</div>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-2">
-                    <div class="text-xs text-gray-500">Maintenance</div>
-                    <div class="text-lg font-bold text-yellow-600">{{ $stats['unit_maintenance'] }}</div>
-                </div>
-            </div> -->
-        </div>
+    {{-- RINGKASAN: "Penghuni aktif" dan "Lewat jadwal" sama dengan isi halaman Monitoring --}}
+    <div class="ap-kpis c5">
+        <x-apartemen.stat-card label="Total apartemen" :value="$stats['total_apartemen']" color="blue" :href="route('apartemen.admin.apartemen')"><i class="fas fa-building"></i></x-apartemen.stat-card>
+        <x-apartemen.stat-card label="Permintaan pending" :value="$stats['permintaan_pending']" color="yellow" :href="route('apartemen.admin.index')"><i class="far fa-clock"></i></x-apartemen.stat-card>
+        <x-apartemen.stat-card label="Penghuni aktif" :value="$stats['penghuni_aktif']" color="green" :href="route('apartemen.admin.monitoring')"><i class="fas fa-user-check"></i></x-apartemen.stat-card>
+        <x-apartemen.stat-card label="Lewat jadwal" :value="$stats['lewat_jadwal']" color="red" :href="route('apartemen.admin.monitoring')"><i class="fas fa-hourglass-end"></i></x-apartemen.stat-card>
+        <x-apartemen.stat-card label="Maintenance" :value="$stats['unit_maintenance']" color="gray" :href="route('apartemen.admin.apartemen')"><i class="fas fa-tools"></i></x-apartemen.stat-card>
     </div>
 
-    {{-- STATS CARDS --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="flex items-center">
-                <div class="p-2 rounded-lg bg-blue-100 mr-3">
-                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Total Apartemen</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['total_apartemen'] }}</p>
-                </div>
+    {{-- PERLU TINDAKAN & PERMINTAAN PENDING --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div class="ap-card overflow-hidden">
+            <div class="ap-listhead">
+                <h3>Perlu tindakan: lewat jadwal</h3>
+                <a href="{{ route('apartemen.admin.monitoring') }}" class="ap-link">Monitoring</a>
             </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="flex items-center">
-                <div class="p-2 rounded-lg bg-yellow-100 mr-3">
-                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Permintaan Pending</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['permintaan_pending'] }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="flex items-center">
-                <div class="p-2 rounded-lg bg-green-100 mr-3">
-                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Penghuni Aktif</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['penghuni_aktif'] }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div class="flex items-center">
-                <div class="p-2 rounded-lg bg-red-100 mr-3">
-                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.928-.833-2.698 0L4.392 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Maintenance</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['unit_maintenance'] }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ROW: PERMINTAAN PENDING & CHECKOUT MENDATANG --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {{-- Pending Requests --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Permintaan Pending</h3>
-            </div>
-            <div class="p-4">
-                @if($pendingRequests->count() > 0)
-                    <div class="space-y-3">
-                        @foreach($pendingRequests as $req)
-                        <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                            <div>
-                                <p class="font-medium text-gray-900">{{ $req->user->name ?? 'N/A' }}</p>
-                                <p class="text-xs text-gray-500">{{ $req->created_at->format('d/m/Y H:i') }}</p>
-                                <p class="text-sm text-gray-600 mt-1">{{ $req->penghuni->count() }} penghuni</p>
-                            </div>
-                            <a href="{{ route('apartemen.admin.approve', $req->id) }}" 
-                               class="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
-                                Review
-                            </a>
+            @if($overdueAssigns->count() > 0)
+                <div class="ap-list">
+                    @foreach($overdueAssigns as $assign)
+                    @php $lewat = (int) abs(now()->startOfDay()->diffInDays($assign->tanggal_selesai->copy()->startOfDay(), false)); @endphp
+                    <div class="ap-item">
+                        <div class="min-w-0">
+                            <div class="ap-name truncate">{{ $assign->unit->apartemen->nama_apartemen ?? '-' }} · Unit {{ $assign->unit->nomor_unit ?? '-' }}</div>
+                            <div class="ap-sub truncate">{{ $assign->penghuniAktif->pluck('nama')->join(', ') }}</div>
+                            <div class="ap-rel late">Lewat {{ $lewat }} hari · selesai {{ $assign->tanggal_selesai->format('d/m/Y') }}{{ $assign->checkin_at ? '' : ' · belum check-in' }}</div>
                         </div>
-                        @endforeach
+                        <a href="{{ route('apartemen.admin.monitoring') }}" class="ap-btn ap-btn-red">Tindak</a>
                     </div>
-                    @if($pendingRequests->count() > 5)
-                    <div class="mt-4 text-center">
-                        <a href="{{ route('apartemen.admin.index') }}" class="text-blue-600 text-sm hover:underline">Lihat semua →</a>
-                    </div>
-                    @endif
-                @else
-                    <p class="text-gray-500 text-center py-4">Tidak ada permintaan pending</p>
+                    @endforeach
+                </div>
+                @if($stats['lewat_jadwal'] > $overdueAssigns->count())
+                    <div class="ap-sub p-3">Menampilkan {{ $overdueAssigns->count() }} teratas. Lihat semuanya di Monitoring.</div>
                 @endif
-            </div>
+            @else
+                <x-apartemen.empty-state title="Tidak ada yang lewat jadwal" text="Semua penempatan yang berakhir sudah diselesaikan." />
+            @endif
         </div>
 
-        {{-- Upcoming Checkouts --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-800">Info Mendatang (7 hari)</h3>
+        <div class="ap-card overflow-hidden">
+            <div class="ap-listhead">
+                <h3>Permintaan pending</h3>
+                <a href="{{ route('apartemen.admin.index') }}" class="ap-link">Lihat semua</a>
             </div>
-            <div class="p-4">
-                @if($upcomingCheckouts->count() > 0)
-                    <div class="space-y-3">
-                        @foreach($upcomingCheckouts as $assign)
-                        @php
-                            $hari = ceil(now()->diffInDays($assign->tanggal_selesai, false));
-                            $warna = $hari <= 2 ? 'text-red-600' : ($hari <= 5 ? 'text-orange-600' : 'text-yellow-600');
-                        @endphp
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                                <p class="font-medium text-gray-900">{{ $assign->unit->apartemen->nama_apartemen }} - Unit {{ $assign->unit->nomor_unit }}</p>
-                                <p class="text-xs text-gray-500">Penghuni: {{ $assign->penghuni->pluck('nama')->join(', ') }}</p>
-                                <p class="text-xs {{ $warna }} font-medium">Sisa {{ $hari }} hari ({{ $assign->tanggal_selesai->format('d/m/Y') }})</p>
-                            </div>
-                            <a href="{{ route('apartemen.admin.monitoring') }}?search={{ $assign->penghuni->first()->nama ?? '' }}" 
-                               class="text-blue-600 text-sm hover:underline">Detail</a>
+            @if($pendingRequests->count() > 0)
+                <div class="ap-list">
+                    @foreach($pendingRequests as $req)
+                    <div class="ap-item">
+                        <div class="min-w-0">
+                            <div class="ap-name truncate">{{ $req->user->name ?? 'N/A' }}</div>
+                            <div class="ap-sub">{{ $req->penghuni->count() }} penghuni · {{ $req->created_at->format('d/m/Y H:i') }}</div>
                         </div>
-                        @endforeach
+                        <a href="{{ route('apartemen.admin.approve', $req->id) }}" class="ap-btn ap-btn-blue">Review</a>
                     </div>
-                @else
-                    <p class="text-gray-500 text-center py-4">Tidak ada check-out dalam 7 hari ke depan</p>
-                @endif
-            </div>
+                    @endforeach
+                </div>
+            @else
+                <x-apartemen.empty-state title="Tidak ada permintaan pending" text="Semua permintaan sudah diproses." />
+            @endif
         </div>
     </div>
 
-    {{-- KALENDER FULL WIDTH (tanpa Unit Maintenance) --}}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Agenda & Penempatan</h3>
+    {{-- CHECK-OUT MENDATANG & UNIT MAINTENANCE --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div class="ap-card overflow-hidden">
+            <div class="ap-listhead">
+                <h3>Check-out hari ini &amp; 7 hari ke depan</h3>
+                <a href="{{ route('apartemen.admin.monitoring') }}" class="ap-link">Monitoring</a>
+            </div>
+            @if($upcomingCheckouts->count() > 0)
+                <div class="ap-list">
+                    @foreach($upcomingCheckouts as $assign)
+                    @php
+                        $hari = (int) now()->startOfDay()->diffInDays($assign->tanggal_selesai->copy()->startOfDay(), false);
+                        $tone = $hari <= 0 ? 'late' : ($hari <= 2 ? 'soon' : '');
+                    @endphp
+                    <div class="ap-item">
+                        <div class="min-w-0">
+                            <div class="ap-name truncate">{{ $assign->unit->apartemen->nama_apartemen ?? '-' }} · Unit {{ $assign->unit->nomor_unit ?? '-' }}</div>
+                            <div class="ap-sub truncate">{{ $assign->penghuniAktif->pluck('nama')->join(', ') }}</div>
+                            <div class="ap-rel {{ $tone }}">{{ $hari <= 0 ? 'Hari ini' : 'Sisa ' . $hari . ' hari' }} · {{ $assign->tanggal_selesai->format('d/m/Y') }}</div>
+                        </div>
+                        <a href="{{ route('apartemen.admin.monitoring') }}" class="ap-btn ap-btn-ghost">Monitoring</a>
+                    </div>
+                    @endforeach
+                </div>
+            @else
+                <x-apartemen.empty-state title="Tidak ada check-out" text="Belum ada penghuni yang selesai hari ini sampai 7 hari ke depan." />
+            @endif
+        </div>
+
+        <div class="ap-card overflow-hidden">
+            <div class="ap-listhead">
+                <h3>Unit maintenance</h3>
+                <a href="{{ route('apartemen.admin.apartemen') }}" class="ap-link">Kelola unit</a>
+            </div>
+            @if($maintenanceUnits->count() > 0)
+                <div class="ap-list">
+                    @foreach($maintenanceUnits as $unit)
+                    <div class="ap-item">
+                        <div class="min-w-0">
+                            <div class="ap-name truncate">{{ $unit->apartemen->nama_apartemen ?? '-' }} · Unit {{ $unit->nomor_unit }}</div>
+                            @if($unit->catatan)<div class="ap-sub truncate">{{ $unit->catatan }}</div>@endif
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            @else
+                <x-apartemen.empty-state title="Tidak ada unit maintenance" text="Semua unit tersedia untuk ditempati." />
+            @endif
+        </div>
+    </div>
+
+    {{-- KALENDER --}}
+    <div class="ap-card ap-block">
+        <h3 class="text-base font-semibold text-gray-900 mb-3">Agenda &amp; penempatan</h3>
         <div id="calendar" class="w-full"></div>
     </div>
-
 </div>
 
-{{-- CSS & JS FullCalendar --}}
+{{-- DETAIL EVENT KALENDER (menggantikan alert bawaan browser) --}}
+<div id="evModal" class="ap-modal" role="dialog" aria-modal="true" aria-labelledby="evTitle">
+    <div class="ap-panel sm">
+        <div class="ap-panel-h">
+            <span class="ap-tile t-blue"><i class="far fa-calendar-check"></i></span>
+            <div class="min-w-0">
+                <h3 id="evTitle">-</h3>
+                <p id="evSub">-</p>
+            </div>
+            <button type="button" class="ap-x" onclick="document.getElementById('evModal').classList.remove('is-open')" aria-label="Tutup"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="ap-panel-b"><p id="evBody" class="text-sm text-gray-700 leading-relaxed"></p></div>
+        <div class="ap-panel-f">
+            <button type="button" class="ap-btn ap-btn-lg ap-btn-ghost" onclick="document.getElementById('evModal').classList.remove('is-open')">Tutup</button>
+        </div>
+    </div>
+</div>
+
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-
 <style>
-    /* Pastikan grid & bar event FullCalendar selalu mengikuti lebar container penuh */
-    #calendar,
-    #calendar .fc,
-    #calendar .fc-view-harness {
-        width: 100% !important;
-    }
+    #calendar, #calendar .fc, #calendar .fc-view-harness { width: 100% !important; }
 </style>
-
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var calendarEl = document.getElementById('calendar');
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',     // ubah ke tampilan bulan
+document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
+    const small = window.innerWidth < 768;
+    const modal = document.getElementById('evModal');
+    modal.addEventListener('mousedown', (e) => { if (e.target === modal) modal.classList.remove('is-open'); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') modal.classList.remove('is-open'); });
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: small ? 'listMonth' : 'dayGridMonth',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            right: small ? 'dayGridMonth,listMonth' : 'dayGridMonth,timeGridWeek,timeGridDay'
         },
         events: '{{ route("apartemen.admin.calendar.events") }}',
-        eventClick: function(info) {
-            let props = info.event.extendedProps;
+        eventClick: function (info) {
+            const props = info.event.extendedProps;
+            document.getElementById('evTitle').textContent = info.event.title;
             if (props.type === 'unit') {
-                alert(`Unit ${info.event.title}\nPenghuni: ${props.penghuni}`);
-            } else if (props.type === 'facility') {
-                alert(`Fasilitas: ${info.event.title}\nJumlah orang: ${props.jumlah_orang}`);
+                document.getElementById('evSub').textContent = 'Penempatan unit';
+                document.getElementById('evBody').textContent = 'Penghuni: ' + (props.penghuni || '-');
+            } else {
+                document.getElementById('evSub').textContent = 'Fasilitas';
+                document.getElementById('evBody').textContent = 'Jumlah orang: ' + (props.jumlah_orang ?? '-');
             }
+            modal.classList.add('is-open');
         },
         height: 'auto'
     });
     calendar.render();
 
-    // ==========================================================
-    // FIX: garis/bar event (mis. bar biru penempatan multi-hari)
-    // kadang tidak "full" sampai tepi kanan sel tanggal karena
-    // lebar container belum stabil saat calendar.render() pertama
-    // kali dipanggil (animasi sidebar, zoom halaman, font CDN yang
-    // baru selesai load, dll). calendar.updateSize() memaksa
-    // FullCalendar menghitung ulang lebar & posisi setiap event.
-    // ==========================================================
-    function refreshCalendarSize() {
-        calendar.updateSize();
-    }
-
-    // 1) Recalculate sesaat setelah render pertama (jaga-jaga layout belum settle)
-    setTimeout(refreshCalendarSize, 150);
-    window.addEventListener('load', refreshCalendarSize);
-
-    // 2) Recalculate setiap kali ukuran window berubah
-    window.addEventListener('resize', refreshCalendarSize);
-
-    // 3) Recalculate saat sidebar dibuka/ditutup (toggle mobile) atau
-    //    kapan pun lebar container kalender berubah, meski window
-    //    tidak berubah ukuran (mis. akibat animasi transform sidebar)
-    if (window.ResizeObserver) {
-        var calendarResizeObserver = new ResizeObserver(function() {
-            refreshCalendarSize();
-        });
-        calendarResizeObserver.observe(calendarEl);
-    }
-
-    var sidebarToggleBtn = document.getElementById('sidebar-toggle');
-    if (sidebarToggleBtn) {
-        sidebarToggleBtn.addEventListener('click', function() {
-            setTimeout(refreshCalendarSize, 350); // tunggu animasi sidebar (300ms) selesai
-        });
-    }
+    // Hitung ulang ukuran agar bar event penuh sampai tepi sel (sidebar, zoom, font CDN yang telat load)
+    const refresh = () => calendar.updateSize();
+    setTimeout(refresh, 150);
+    window.addEventListener('load', refresh);
+    window.addEventListener('resize', refresh);
+    if (window.ResizeObserver) new ResizeObserver(refresh).observe(calendarEl);
+    document.getElementById('sidebar-toggle')?.addEventListener('click', () => setTimeout(refresh, 350));
 });
 </script>
 @endsection

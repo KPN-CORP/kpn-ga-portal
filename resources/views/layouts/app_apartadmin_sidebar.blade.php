@@ -22,7 +22,8 @@
             --accent-dark: 37 99 235;  /* blue-600 */
             --ink: 30 41 59;           /* slate-800 */
         }
-        html { zoom: 0.8; }
+        /* Zoom hanya untuk layar desktop lebar; di tab & hp ukuran asli agar teks tetap terbaca */
+        @media (min-width: 1280px) { html { zoom: 0.8; } }
         body { font-family: 'Inter', sans-serif; background-color: #f7f8fa; color: rgb(var(--ink)); }
 
         .soft-border { border-color: rgba(226,232,240,0.7) !important; }
@@ -33,7 +34,7 @@
 
         /* Sidebar */
         .sidebar { transition: transform .3s cubic-bezier(.4,0,.2,1); border-right: 1px solid rgba(226,232,240,0.7); }
-        @media (max-width: 768px) { .sidebar { transform: translateX(-100%); z-index: 60; width: 16rem !important; } .sidebar.active { transform: translateX(0); } }
+        @media (max-width: 1023px) { .sidebar { transform: translateX(-100%); z-index: 60; width: 16rem !important; } .sidebar.active { transform: translateX(0); } }
 
         .brand-badge{
             background: linear-gradient(135deg, rgba(var(--accent)/0.12), rgba(var(--accent)/0.04));
@@ -81,7 +82,7 @@
             background: #fff; display:flex; align-items:center; justify-content:center;
             box-shadow: 0 2px 8px rgba(15,23,42,.12);
         }
-        @media (min-width: 769px){ .mobile-toggle{ display:none; } }
+        @media (min-width: 1024px){ .mobile-toggle{ display:none; } }
 
         /* Profile & logout popup */
         .profile-menu{
@@ -92,6 +93,8 @@
         ::-webkit-scrollbar{ width:6px; }
         ::-webkit-scrollbar-thumb{ background: rgba(148,163,184,.4); border-radius: 999px; }
     </style>
+    {{-- Gaya standar komponen apartemen (kartu, tabel, tombol, modal) --}}
+    @include('apartemen.partials.ui')
     @stack('styles')
 </head>
 <body>
@@ -236,8 +239,8 @@
         </aside>
 
         <!-- Main Content (header dihapus, sama seperti DRMS) -->
-        <div class="flex-1 ml-0 md:ml-64 transition-all duration-300">
-            <main class="p-6 pt-20 md:pt-6">
+        <div class="flex-1 min-w-0 ml-0 lg:ml-64 transition-all duration-300">
+            <main class="p-4 md:p-6 pt-20 lg:pt-6">
                 @hasSection('breadcrumb')
                     <div class="text-sm text-gray-500 mb-4">@yield('breadcrumb')</div>
                 @endif
@@ -276,7 +279,7 @@
         });
 
         window.addEventListener('resize', () => {
-            if (window.innerWidth >= 768) {
+            if (window.innerWidth >= 1024) {
                 sidebarEl.classList.remove('active');
                 overlayEl.classList.remove('active');
                 document.body.style.overflow = '';
@@ -285,7 +288,7 @@
 
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth < 768) {
+                if (window.innerWidth < 1024) {
                     sidebarEl.classList.remove('active');
                     overlayEl.classList.remove('active');
                     document.body.style.overflow = '';
