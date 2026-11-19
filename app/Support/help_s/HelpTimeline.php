@@ -1,0 +1,1011 @@
+<?php
+
+namespace App\Support\help_s;
+
+use App\Models\help_m\HelpLogStatus;
+use App\Models\help_m\HelpTiket;
+use Carbon\Carbon;
+
+/**
+ * Menghitung data grafik proses 7 hari untuk satu tiket Help.
+ *
+ * - Hitungan dimulai dari OPEN (created_at).
+ * - Transfer ke HELP_GA_CORP tetap dihitung (tidak mereset hitungan).
+ * - Berhenti saat CLOSED (ditutup_pada); selama belum CLOSED berjalan sampai sekarang.
+ * - Warna hijau/merah hanya untuk tiket CLOSED:
+ *   7 hari atau kurang = hijau, lebih dari 7 hari = merah.
+ */
+class HelpTimeline
+{
+    const BATAS_HARI    = 7;
+    const JUMLAH_KOLOM  = 7;
+
+    /**
+     * Pecah durasi (detik) menjadi [hari penuh, sisa jam].
+     * 1 hari = 24 jam penuh; sisanya dihitung dalam jam (dibulatkan ke bawah).
+     */
+    public static function pecahDurasi(int $detik): array
+    {
+        $detik = max(0, $detik);
+
+        return [intdiv($detik, 86400), intdiv($detik % 86400, 3600)];
+    }
+
+    /**
+     * Teks durasi lengkap dengan menit: "2 hari 5 jam 12 menit", "3 hari", "7 jam 5 menit", "42 menit", atau "< 1 menit".
+     */
+    public static function formatDurasi(int $detik): string
+    {
+        $detik = max(0, $detik);
+        [$hari, $jam] = self::pecahDurasi($detik);
+        $menit = intdiv($detik % 3600, 60);
+
+        $teks = [];
+        if ($hari > 0) {
+            $teks[] = $hari . ' hari';
+        }
+        if ($jam > 0) {
+            $teks[] = $jam . ' jam';
+        }
+        if ($menit > 0) {
+            $teks[] = $menit . ' menit';
+        }
+
+        return $teks ? implode(' ', $teks) : '< 1 menit';
+    }
+
+    // =====================================================================
+    //  WAKTU WIB
+    // =====================================================================
+
+    const ZONA_WIB = 'Asia/Jakarta';
+
+    /**
+     * Ubah ke zona WIB (Asia/Jakarta). Terima Carbon / string / timestamp / null.
+     */
+    public static function wibCarbon($waktu): ?Carbon
+    {
+        if ($waktu === null || $waktu === '') {
+            return null;
+        }
+
+        $c = $waktu instanceof \DateTimeInterface
+            ? Carbon::instance($waktu)
+            : (is_numeric($waktu) ? Carbon::createFromTimestamp((int) $waktu) : Carbon::parse($waktu));
+
+        return $c->setTimezone(self::ZONA_WIB);
+    }
+
+    /**
+     * Teks tanggal WIB. Default memuat jam:menit, mis. "02/11/2026 14:35 WIB".
+     * Format tanpa jam (mis. 'd/m/Y') tidak diberi akhiran WIB.
+     */
+    public static function wib($waktu, string $format = 'd/m/Y H:i', ?string $kosong = '-'): string
+    {
+        $c = self::wibCarbon($waktu);
+        if (!$c) {
+            return (string) $kosong;
+        }
+
+        $adaJam = (bool) preg_match('/[HhGgi]/', $format);
+
+        return $c->format($format) . ($adaJam ? ' WIB' : '');
+    }
+
+    public static function build(HelpTiket $tiket): array
+    {
+        $mulai   = Carbon::parse($tiket->created_at);
+        $selesai = self::waktuTutup($tiket) ?? now();
+
+        $awal  = $mulai->timestamp;
+        $akhir = max($awal, $selesai->timestamp);
+        $detik = $akhir - $awal;
+
+        $hari    = intdiv($detik, 86400);   // hari penuh (24 jam); sisa dihitung dalam jam
+        $lewat   = $detik > self::BATAS_HARI * 86400;
+        $ditutup = self::waktuTutup($tiket) !== null;
+        $hasil   = $ditutup ? ($lewat ? 'bad' : 'ok') : null;
+
+        $segmen = self::segmen($tiket, $awal, $akhir);
+
+        $cells = [];
+        for ($i = 0; $i < self::JUMLAH_KOLOM; $i++) {
+            $s = $awal + ($i * 86400);
+            $e = $s + 86400;
+
+            $state = null;
+            if ($s < $akhir) {
+                $skor = [];
+                foreach ($segmen as [$a, $b, $st]) {
+                    $overlap = min($b, $e) - max($a, $s);
+                    if ($overlap > 0) {
+                        $skor[$st] = ($skor[$st] ?? 0) + $overlap;
+                    }
+                }
+                if (!empty($skor)) {
+                    arsort($skor);
+                    $state = array_key_first($skor);
+                }
+            }
+
+            $tanggal = Carbon::createFromTimestamp($s)->locale('id');
+
+            $cells[] = [
+                'label'  => $tanggal->isoFormat('ddd D'),
+                'tgl'    => self::wib($s),
+                'terisi' => $state !== null,
+                'state'  => $state,
+            ];
+        }
+
+        return [
+            'hari'    => $hari,
+            'durasi'  => self::formatDurasi($detik),
+            'lewat'   => $lewat,
+            'ditutup' => $ditutup,
+            'hasil'   => $hasil,
+            'extra'   => max(0, $hari - self::JUMLAH_KOLOM),
+            'cells'   => $cells,
+            'mulai'   => $mulai,
+            'selesai' => $selesai,
+        ];
+    }
+
+
+    // =====================================================================
+    //  GRAFIK GANTT KALENDER
+    //  Semua posisi dihitung berdasarkan waktu sebenarnya (bukan "7 hari dari sekarang"),
+    //  sehingga tiket lama tetap terlihat di tanggal aslinya.
+    // =====================================================================
+
+    /**
+     * Susun rentang kalender [awal, akhir] beserta kolom header.
+     * Jenis kolom otomatis: hari (<= 62 hari), minggu (<= 200 hari), bulan (lebih panjang).
+     * Tiap kolom membawa bobot 'hari' agar lebar kolom proporsional dengan waktu.
+     */
+    public static function rentang(Carbon $awal, Carbon $akhir): array
+    {
+        $awal  = $awal->copy()->startOfDay();
+        $akhir = $akhir->copy()->endOfDay();
+        $now   = now();
+
+        $totalHari = (int) round(($akhir->copy()->startOfDay()->timestamp - $awal->timestamp) / 86400) + 1;
+        $jenis     = $totalHari <= 62 ? 'hari' : ($totalHari <= 200 ? 'minggu' : 'bulan');
+
+        $kolom = [];
+        if ($jenis === 'hari') {
+            for ($d = $awal->copy(); $d->lte($akhir); $d->addDay()) {
+                $l = $d->copy()->locale('id');
+                $kolom[] = [
+                    'label' => $l->format('j'),
+                    'sub'   => '',        // hanya angka tanggal, tanpa nama hari
+                    'hari'  => 1,
+                    'ini'   => $d->isSameDay($now),
+                    'libur' => $d->isWeekend(),
+                    'title' => $l->isoFormat('dddd, D MMMM Y'),
+                ];
+            }
+        } elseif ($jenis === 'minggu') {
+            for ($c = $awal->copy(); $c->lte($akhir); $c->addDays(7)) {
+                $e = $c->copy()->addDays(6)->endOfDay();
+                if ($e->gt($akhir)) { $e = $akhir->copy(); }
+                $l = $c->copy()->locale('id');
+                $kolom[] = [
+                    'label' => $l->isoFormat('D MMM'),
+                    'sub'   => '',
+                    'hari'  => (int) round(($e->copy()->startOfDay()->timestamp - $c->timestamp) / 86400) + 1,
+                    'ini'   => $now->between($c, $e),
+                    'libur' => false,
+                    'title' => $l->isoFormat('D MMM Y') . ' – ' . $e->copy()->locale('id')->isoFormat('D MMM Y'),
+                ];
+            }
+        } else {
+            for ($c = $awal->copy(); $c->lte($akhir); $c = $c->copy()->startOfMonth()->addMonth()) {
+                $e = $c->copy()->endOfMonth();
+                if ($e->gt($akhir)) { $e = $akhir->copy(); }
+                $l = $c->copy()->locale('id');
+                $kolom[] = [
+                    'label' => $l->isoFormat('MMM'),
+                    'sub'   => '',
+                    'hari'  => (int) round(($e->copy()->startOfDay()->timestamp - $c->copy()->startOfDay()->timestamp) / 86400) + 1,
+                    'ini'   => $now->between($c->copy()->startOfDay(), $e),
+                    'libur' => false,
+                    'title' => $l->isoFormat('MMMM Y'),
+                ];
+            }
+        }
+
+        $lebarKolom = ['hari' => 30, 'minggu' => 72, 'bulan' => 64][$jenis];
+
+        return [
+            'awal'     => $awal,
+            'akhir'    => $akhir,
+            'jenis'    => $jenis,
+            'kolom'    => $kolom,
+            'minWidth' => 440 + count($kolom) * $lebarKolom,
+            'sekarang' => ($now->between($awal, $akhir))
+                ? round(($now->timestamp - $awal->timestamp) / max(1, $akhir->timestamp + 1 - $awal->timestamp) * 100, 3)
+                : null,
+        ];
+    }
+
+    /**
+     * Rentang TAMPIL untuk satu bulan penuh: bulan sebelumnya + bulan ini + bulan berikutnya (kolom per hari),
+     * supaya grafik bisa digeser kiri-kanan. Bulan terpilih diberi tanda 'aktif'; bulan tetangga abu-abu.
+     * Hanya untuk tampilan: angka ringkasan tetap memakai rentang bulan terpilih.
+     *
+     * Tambahan di hasil: 'grup' (header bulan: label, jumlah kolom, aktif), 'idxAwal' (indeks kolom tgl 1 bulan terpilih),
+     * 'lebarKolom' (px per hari), 'lebarKiri' (px kolom judul).
+     */
+    public static function rentangTampil(array $terpilih): array
+    {
+        $a0  = $terpilih['awal']->copy()->startOfMonth();
+        $awal  = $a0->copy()->subMonthNoOverflow()->startOfMonth();
+        $akhir = $a0->copy()->addMonthNoOverflow()->endOfMonth();
+        $now   = now();
+
+        $kolom = [];
+        $grup  = [];
+        $idxAwal = 0;
+        $i = 0;
+        for ($d = $awal->copy(); $d->lte($akhir); $d->addDay(), $i++) {
+            $l     = $d->copy()->locale('id');
+            $aktif = $d->isSameMonth($a0);
+            if ($aktif && $d->day === 1) {
+                $idxAwal = $i;
+            }
+            $kolom[] = [
+                'label' => $l->format('j'),
+                'sub'   => '',
+                'hari'  => 1,
+                'ini'   => $d->isSameDay($now),
+                'libur' => $d->isWeekend(),
+                'aktif' => $aktif,
+                'title' => $l->isoFormat('dddd, D MMMM Y'),
+            ];
+
+            $kunci = $d->format('Y-m');
+            if (!$grup || $grup[count($grup) - 1]['kunci'] !== $kunci) {
+                $grup[] = ['kunci' => $kunci, 'label' => $l->isoFormat('MMMM Y'), 'span' => 0, 'aktif' => $aktif];
+            }
+            $grup[count($grup) - 1]['span']++;
+        }
+
+        $lebarKolom = 30;
+        $lebarKiri  = 340;
+
+        return [
+            'awal'       => $awal,
+            'akhir'      => $akhir,
+            'jenis'      => 'hari',
+            'kolom'      => $kolom,
+            'grup'       => $grup,
+            'idxAwal'    => $idxAwal,
+            'lebarKolom' => $lebarKolom,
+            'lebarKiri'  => $lebarKiri,
+            'minWidth'   => $lebarKiri + count($kolom) * $lebarKolom,
+            'sekarang'   => ($now->between($awal, $akhir))
+                ? round(($now->timestamp - $awal->timestamp) / max(1, $akhir->timestamp + 1 - $awal->timestamp) * 100, 3)
+                : null,
+        ];
+    }
+
+    /**
+     * Teks periode untuk judul: "Oktober 2026" (1 bulan penuh), "Tahun 2026" (1 tahun penuh),
+     * atau "5 – 20 Okt 2026" / "28 Sep – 5 Okt 2026" / "1 Des 2025 – 5 Jan 2026" untuk rentang bebas.
+     */
+    public static function labelPeriode(array $r): string
+    {
+        $a = $r['awal']->copy()->locale('id');
+        $b = $r['akhir']->copy()->locale('id');
+
+        if ($a->day === 1 && $a->isSameMonth($b) && $b->isSameDay($a->copy()->endOfMonth())) {
+            return $a->isoFormat('MMMM Y');
+        }
+        if ($a->month === 1 && $a->day === 1 && $b->month === 12 && $b->day === 31 && $a->year === $b->year) {
+            return 'Tahun ' . $a->year;
+        }
+        if ($a->isSameDay($b)) {
+            return $a->isoFormat('D MMM Y');
+        }
+        if ($a->year === $b->year && $a->month === $b->month) {
+            return $a->day . ' – ' . $b->isoFormat('D MMM Y');
+        }
+        if ($a->year === $b->year) {
+            return $a->isoFormat('D MMM') . ' – ' . $b->isoFormat('D MMM Y');
+        }
+
+        return $a->isoFormat('D MMM Y') . ' – ' . $b->isoFormat('D MMM Y');
+    }
+
+    public static function rentangBulan(int $tahun, int $bulan): array
+    {
+        $a = Carbon::create($tahun, $bulan, 1)->startOfMonth();
+        return self::rentang($a, $a->copy()->endOfMonth());
+    }
+
+    public static function rentangTahun(int $tahun): array
+    {
+        return self::rentang(Carbon::create($tahun, 1, 1), Carbon::create($tahun, 12, 31));
+    }
+
+    /**
+     * Rentang otomatis untuk satu tiket: dari tanggal OPEN sampai CLOSED (atau hari ini),
+     * minimal 7 hari agar grafik tidak terlalu sempit.
+     */
+    public static function rentangTiket(HelpTiket $tiket): array
+    {
+        $mulai   = Carbon::parse($tiket->created_at);
+        $selesai = self::waktuTutup($tiket) ?? now();
+
+        $awal = $mulai->copy()->startOfDay();
+        if ($selesai->copy()->startOfDay()->timestamp - $awal->timestamp < 6 * 86400) {
+            $awal = $selesai->copy()->startOfDay()->subDays(6);
+        }
+
+        return self::rentang($awal, $selesai);
+    }
+
+    /**
+     * Posisi bar (persen) untuk interval [$a, $b] (timestamp) pada rentang. Null jika di luar rentang.
+     */
+    public static function posisi(int $a, int $b, array $r): ?array
+    {
+        $A = $r['awal']->timestamp;
+        $B = $r['akhir']->timestamp + 1;
+        $T = max(1, $B - $A);
+
+        if ($b < $A || $a > $B) {
+            return null;
+        }
+
+        $va    = max($a, $A);
+        $vb    = min($b, $B);
+        $lebar = max(0.6, ($vb - $va) / $T * 100);
+        $kiri  = ($va - $A) / $T * 100;
+        if ($kiri + $lebar > 100) {
+            $kiri = 100 - $lebar;
+        }
+
+        return [
+            'kiri'        => round($kiri, 4),
+            'lebar'       => round($lebar, 4),
+            'va'          => $va,
+            'vb'          => $vb,
+            'kiriPotong'  => $a < $A,
+            'kananPotong' => $b > $B,
+        ];
+    }
+
+    /**
+     * Data bar satu tiket (internal).
+     *
+     * - CLOSED  : seluruh bar hijau (<= 7 hari) atau merah (> 7 hari)
+     * - Belum   : warna per status; bagian setelah hari ke-7 diberi garis merah ('telat')
+     */
+    public static function barTiket(HelpTiket $tiket, array $r): ?array
+    {
+        $mulai   = Carbon::parse($tiket->created_at);
+        $tutup   = self::waktuTutup($tiket);
+        $ditutup = $tutup !== null;
+        $selesai = $tutup ?? now();
+        if ($selesai->lt($mulai)) {
+            $selesai = $mulai->copy();
+        }
+
+        $a = $mulai->timestamp;
+        $b = $selesai->timestamp;
+
+        $pos = self::posisi($a, $b, $r);
+        if (!$pos) {
+            return null;
+        }
+
+        $detik = max(0, $b - $a);
+        $hari  = intdiv($detik, 86400);   // hari penuh (24 jam); sisa dihitung dalam jam
+        $lewat = $detik > self::BATAS_HARI * 86400;
+        $hasil = $ditutup ? ($lewat ? 'bad' : 'ok') : null;
+
+        // Fase (pengajuan, diambil/diproses, waiting, over ke GA Corp, dst) untuk SEMUA tiket,
+        // termasuk yang sudah CLOSED. Garis merah = bagian setelah hari ke-7.
+        $bagian = [];
+        $fase   = [];
+        $telat  = null;
+        $durV   = max(1, $pos['vb'] - $pos['va']);
+
+        $seg = self::segmen($tiket, $a, $b);
+        foreach ($seg as [$s0, $e0, $st, $ak]) {
+            // rincian tiap fase: lama (tidak dipotong rentang), jam mulai (transaksi) dan pelaku
+            $fase[] = ['state' => $st, 'detik' => $e0 - $s0, 'mulai' => $s0, 'oleh' => $ak];
+
+            $s1 = max($s0, $pos['va']);
+            $e1 = min($e0, $pos['vb']);
+            if ($e1 > $s1) {
+                $bagian[] = [
+                    'state'  => $st,
+                    'persen' => round(($e1 - $s1) / $durV * 100, 2),
+                    'detik'  => $e0 - $s0,
+                ];
+            }
+        }
+
+        $tutup = null;
+        if ($ditutup) {
+            $logTutup = ($tiket->relationLoaded('logStatus') ? $tiket->logStatus : collect())
+                ->sortBy('created_at')->last(fn ($l) => $l->status_baru === 'CLOSED');
+            $tutup = ['mulai' => $b, 'oleh' => optional($logTutup)->pengguna_id];
+        }
+
+        $t7 = $a + self::BATAS_HARI * 86400;
+        if ($b > $t7) {
+            $ts = max($t7, $pos['va']);
+            if ($pos['vb'] > $ts) {
+                $telat = [
+                    'kiri'  => round(($ts - $pos['va']) / $durV * 100, 2),
+                    'lebar' => round(($pos['vb'] - $ts) / $durV * 100, 2),
+                ];
+            }
+        }
+
+        return $pos + [
+            'hari'    => $hari,
+            'durasi'  => self::formatDurasi($detik),
+            'lebih'   => $lewat ? self::formatDurasi($detik - self::BATAS_HARI * 86400) : null,
+            'lewat'   => $lewat,
+            'ditutup' => (bool) $ditutup,
+            'hasil'   => $hasil,
+            'bagian'  => $bagian,
+            'fase'    => $fase,
+            'baris'   => self::barisTiket($tiket, $a, $b, $seg),
+            'tutup'   => $tutup,
+            'telat'   => $telat,
+            'mulai'   => $mulai,
+            'selesai' => $selesai,
+        ];
+    }
+
+    /**
+     * Susun BARIS-BARIS FASE satu tiket, urut kronologis (paling awal dulu; tampilan membalik: terbaru di atas).
+     *
+     *   ajuan  : Pengajuan (menunggu diambil)
+     *   proses : satu baris PER ADMIN yang mengerjakan (admin pertama paling bawah, berikutnya di atasnya)
+     *   over   : tiket di-over ke GA Corp, menunggu diambil
+     *   alih   : penanda pengalihan penanggung jawab (dari -> ke, oleh siapa, alasan)
+     *
+     * Tiap baris membawa jam mulai & akhir asli ('a','b'), jadi posisi dan panjang batangnya sesuai jam/tanggal.
+     * Batas antar-admin = saat diambil, di-over ke GA Corp, atau pengalihan PIC (lihat jejakAdmin).
+     */
+    protected static function barisTiket(HelpTiket $tiket, int $a, int $b, array $seg): array
+    {
+        $j = self::jejakAdmin($tiket, now());
+        $n = count($j['segmen']);
+
+        // lajur admin: [nama, mulai, akhir]; lajur terakhir berlanjut sampai akhir tiket (closed / sekarang)
+        $lajur = [];
+        $titik = $a;
+        foreach ($j['segmen'] as $i => $s) {
+            $berakhir = in_array($s['hasil'], ['OVER', 'ALIH'], true);
+            $akhir    = ($i === $n - 1 && !$berakhir) ? $b : min(max($s['akhir'], $titik), $b);
+            $akhir    = max($akhir, $titik);
+            $lajur[]  = ['nama' => $s['admin'], 'mulai' => $titik, 'akhir' => $akhir];
+            $titik    = $akhir;
+        }
+        // belum diambil / sedang menunggu pengambil berikutnya (mis. menunggu GA Corp)
+        if ($n === 0 || $titik < $b) {
+            $lajur[] = ['nama' => null, 'mulai' => $titik, 'akhir' => $b];
+        }
+
+        $baris = [];
+        foreach ($lajur as $L) {
+            // potong fase global ke lajur ini
+            $parts = [];
+            foreach ($seg as [$s0, $e0, $st, $ak]) {
+                $x = max($s0, $L['mulai']);
+                $y = min($e0, $L['akhir']);
+                if ($y > $x) {
+                    $parts[] = ['state' => $st, 'mulai' => $x, 'akhir' => $y, 'oleh' => $ak];
+                }
+            }
+            if (!$parts) {
+                continue;
+            }
+
+            // 1) fase menunggu di awal lajur (Pengajuan / Over GA Corp) -> baris sendiri
+            while ($parts && in_array($parts[0]['state'], ['OPEN', 'HELP_GA_CORP'], true)) {
+                $p = array_shift($parts);
+                $baris[] = [
+                    'jenis'  => $p['state'] === 'OPEN' ? 'ajuan' : 'over',
+                    'nama'   => null,
+                    'oleh'   => $p['oleh'],
+                    'a'      => $p['mulai'],
+                    'b'      => $p['akhir'],
+                    'detik'  => $p['akhir'] - $p['mulai'],
+                    'bagian' => [$p],
+                ];
+            }
+
+            // 2) pengerjaan admin ini
+            if ($parts) {
+                $proses  = 0;
+                $waiting = 0;
+                $selesai = null;
+                foreach ($parts as $p) {
+                    $d = $p['akhir'] - $p['mulai'];
+                    if (in_array($p['state'], ['ON_PROCESS', 'ON_PROCESS_CORP', 'WAITING'], true)) {
+                        $proses += $d;
+                    }
+                    if ($p['state'] === 'WAITING') {
+                        $waiting += $d;
+                    }
+                    if ($p['state'] === 'DONE' && $selesai === null) {
+                        $selesai = $p['mulai'];
+                    }
+                }
+                $baris[] = [
+                    'jenis'   => 'proses',
+                    'nama'    => $L['nama'] ?? 'Admin',
+                    'oleh'    => null,
+                    'a'       => $parts[0]['mulai'],
+                    'b'       => $parts[count($parts) - 1]['akhir'],
+                    'detik'   => $proses,
+                    'waiting' => $waiting,
+                    'selesai' => $selesai,
+                    'bagian'  => $parts,
+                ];
+            }
+        }
+
+        // 3) baris khusus pengalihan penanggung jawab (alih tugas)
+        foreach ($j['alih'] as $p) {
+            if ($p['ts'] < $a || $p['ts'] > $b) {
+                continue;
+            }
+
+            // Lama dipegang: dari saat dialihkan sampai admin tujuan benar-benar mengambil
+            // (baris 'proses' pertama atas nama admin tujuan). Bila belum diambil: sampai akhir tiket / sekarang.
+            $diambil = null;
+            foreach ($baris as $x) {
+                if ($x['jenis'] === 'proses' && $x['nama'] === $p['ke'] && $x['b'] >= $p['ts']) {
+                    $diambil = max($x['a'], $p['ts']);
+                    break;
+                }
+            }
+            $sampai = $diambil ?? $b;
+
+            $baris[] = [
+                'jenis'   => 'alih',
+                'nama'    => $p['dari'],
+                'ke'      => $p['ke'],
+                'oleh'    => $p['oleh'],
+                'alasan'  => $p['alasan'],
+                'a'       => $p['ts'],
+                'b'       => $p['ts'],
+                'detik'   => 0,
+                'bagian'  => [],
+                'pegang'  => max(0, $sampai - $p['ts']),   // detik dipegang admin tujuan
+                'sampai'  => $sampai,                       // jam diambil (atau akhir tiket / sekarang)
+                'diambil' => $diambil !== null,             // false = belum sempat diambil
+            ];
+        }
+        // urut kronologis; pada waktu yang sama, penanda alih didahulukan
+        usort($baris, fn ($x, $y) => [$x['a'], $x['jenis'] === 'alih' ? 0 : 1] <=> [$y['a'], $y['jenis'] === 'alih' ? 0 : 1]);
+
+        return $baris;
+    }
+
+    /**
+     * Data bar satu pengerjaan vendor.
+     */
+    public static function barVendor(\App\Models\help_m\HelpVendorProses $v, array $r): ?array
+    {
+        $mulai   = Carbon::parse($v->mulai_pada);
+        $selesai = $v->selesai_pada ? Carbon::parse($v->selesai_pada) : now();
+
+        $pos = self::posisi($mulai->timestamp, max($mulai->timestamp, $selesai->timestamp), $r);
+        if (!$pos) {
+            return null;
+        }
+
+        return $pos + [
+            'hari'    => $v->durasi_hari,
+            'durasi'  => self::formatDurasi($v->durasi_detik),
+            'selesai' => $selesai,
+            'mulai'   => $mulai,
+            'berjalan'=> !$v->selesai_pada,
+        ];
+    }
+
+    /**
+     * Jejak penanganan tiket per admin, dari log status:
+     * Laporan (dibuat) -> Diambil -> Eskalasi (minta bantuan GA Corp) -> Done.
+     * Pengalihan PIC ke admin lain dicatat terpisah sebagai 'Dialihkan' (ALIH), dikenali dari awalan
+     * catatan HelpLogStatus::PREFIX_ALIH (bisa terjadi dari status OPEN, HELP_GA_CORP, ON_PROCESS, WAITING).
+     *
+     * Tiap "segmen" = satu admin memegang tiket, dari diambil sampai over / done / sekarang.
+     * Admin dikelompokkan menurut NAMA (pengalihan PIC hanya mencatat nama di catatan log).
+     *
+     * @return array{laporan:int, diambil:?int, over:?int, done:?int, segmen:array<int,array{admin:string,mulai:int,akhir:int,tunggu:?int,hasil:string,corp:bool}>, alih:array<int,array{ts:int,dari:?string,ke:string,alasan:string,oleh:mixed}>}
+     */
+    public static function jejakAdmin(HelpTiket $tiket, ?Carbon $sekarang = null): array
+    {
+        $sekarang = $sekarang ?: now();
+        $laporan  = Carbon::parse($tiket->created_at)->timestamp;
+
+        $logs = $tiket->relationLoaded('logStatus')
+            ? $tiket->logStatus
+            : $tiket->logStatus()->with('pengguna')->orderBy('created_at')->get();
+        $logs = $logs->sortBy('created_at')->values();
+
+        $nama   = fn ($log) => optional($log->pengguna)->nama_pelanggan ?: 'Tidak diketahui';
+        $segmen = [];
+        $pengalihan = [];        // daftar kejadian pengalihan PIC (untuk baris khusus di Gantt)
+        $cur    = null;          // segmen yang sedang berjalan
+        $tungguDari = $laporan;  // sejak kapan tiket menunggu diambil
+        $sudahOver  = false;     // sudah minta bantuan GA Corp: pengerjaan berikutnya = dikerjakan Corp
+        $diambilTs = $overTs = $doneTs = null;
+
+        $tutup = function (?array $c, int $ts, string $hasil) use (&$segmen) {
+            if ($c) {
+                $c['akhir'] = max($c['mulai'], $ts);
+                $c['hasil'] = $hasil;
+                $segmen[]   = $c;
+            }
+
+            return null;
+        };
+
+        foreach ($logs as $log) {
+            $ts   = Carbon::parse($log->created_at)->timestamp;
+            $lama = $log->status_lama;
+            $baru = $log->status_baru;
+            $cat  = (string) $log->catatan;
+
+            if (str_starts_with($cat, HelpLogStatus::PREFIX_ALIH)) {
+                // DIALIHKAN ke admin lain (dari OPEN / HELP_GA_CORP / ON_PROCESS / WAITING)
+                $ok        = preg_match('/dari (.+?) ke (.+?)\. Alasan:\s*(.*)$/su', $cat, $m);
+                $adminBaru = $ok ? trim($m[2]) : $nama($log);
+
+                $pengalihan[] = [
+                    'ts'     => $ts,
+                    'dari'   => $ok ? trim($m[1]) : null,
+                    'ke'     => $adminBaru,
+                    'alasan' => $ok ? trim($m[3]) : '',
+                    'oleh'   => $log->pengguna_id,
+                ];
+
+                // belum ada yang memegang tiket -> pengalihan ini = pengambilan pertama
+                $tungguBaru = $cur ? null : max(0, $ts - $tungguDari);
+                $cur = $tutup($cur, $ts, 'ALIH');
+                $cur = ['admin' => $adminBaru, 'mulai' => $ts, 'tunggu' => $tungguBaru, 'corp' => $sudahOver];
+                $diambilTs ??= $ts;
+            } elseif ($baru === 'HELP_GA_CORP' && $lama !== 'HELP_GA_CORP') {
+                // ESKALASI: minta bantuan GA Corp (kode internal: OVER)
+                $cur = $tutup($cur, $ts, 'OVER');
+                $tungguDari = $ts;
+                $sudahOver  = true;
+                $overTs   ??= $ts;
+            } elseif ($baru === 'ON_PROCESS' && $lama === 'DONE' && str_starts_with($cat, HelpLogStatus::PREFIX_BUKA_KEMBALI)) {
+                // DIBUKA KEMBALI oleh pelapor: pengerjaan dilanjutkan PIC yang sama (bukan pengambilan baru)
+                $prev   = $segmen ? $segmen[array_key_last($segmen)] : null;
+                $cur    = ['admin' => $prev['admin'] ?? $nama($log), 'mulai' => $ts, 'tunggu' => null, 'corp' => $prev['corp'] ?? $sudahOver];
+                $doneTs = null;
+            } elseif ($baru === 'ON_PROCESS' && !$cur) {
+                // DIAMBIL
+                $cur = ['admin' => $nama($log), 'mulai' => $ts, 'tunggu' => max(0, $ts - $tungguDari), 'corp' => $sudahOver || self::pelangganCorp($log->pengguna)];
+                $diambilTs ??= $ts;
+            } elseif ($baru === 'DONE') {
+                $cur = $tutup($cur, $ts, 'DONE');
+                $doneTs = $ts;
+            } elseif ($baru === 'CLOSED') {
+                $cur = $tutup($cur, $ts, 'CLOSED');
+            }
+        }
+
+        if ($cur) {
+            // Log DONE/CLOSED tidak tercatat, padahal tiketnya sudah DONE/CLOSED:
+            // akhiri di waktu selesai/tutup tiket, jangan dianggap masih berjalan sampai sekarang.
+            $akhirTiket = in_array($tiket->status, ['DONE', 'CLOSED'], true) ? self::waktuSelesai($tiket) : null;
+
+            if ($akhirTiket) {
+                $akhirTs = max($cur['mulai'], $akhirTiket->timestamp);
+                $cur     = $tutup($cur, $akhirTs, 'DONE');
+                $doneTs  = $akhirTs;
+            } else {
+                $cur = $tutup($cur, $sekarang->timestamp, 'BERJALAN');
+            }
+        }
+
+        // Tiket lama tanpa log lengkap: pakai kolom ditugaskan_ke / diproses_pada
+        if (!$segmen && $tiket->ditugaskan_ke && $tiket->diproses_pada) {
+            $mulai = Carbon::parse($tiket->diproses_pada)->timestamp;
+            $akhir = self::waktuSelesai($tiket);
+            $segmen[] = [
+                'admin'  => optional($tiket->ditugaskanKe)->nama_pelanggan ?: 'Tidak diketahui',
+                'mulai'  => $mulai,
+                'akhir'  => max($mulai, ($akhir ?: $sekarang)->timestamp),
+                'tunggu' => max(0, $mulai - $laporan),
+                'hasil'  => $akhir ? 'DONE' : 'BERJALAN',
+                'corp'   => false,
+            ];
+            $diambilTs = $mulai;
+            $doneTs    = $akhir ? $akhir->timestamp : null;
+        }
+
+        return [
+            'laporan' => $laporan,
+            'diambil' => $diambilTs,   // pertama kali diambil
+            'over'    => $overTs,      // pertama kali minta bantuan GA Corp
+            'done'    => $doneTs,
+            'segmen'  => $segmen,
+            'alih'    => $pengalihan,  // kejadian pengalihan penanggung jawab
+        ];
+    }
+
+    /**
+     * Apakah seorang admin (Pelanggan) termasuk Corp: Business Unit-nya Corporation,
+     * atau departemennya GA Corp (tb_pelanggan.bisnis_unit / tb_pelanggan.departemen).
+     */
+    public static function pelangganCorp($pelanggan): bool
+    {
+        if (!$pelanggan) {
+            return false;
+        }
+
+        return self::infoBisnisUnit($pelanggan->bisnis_unit ?? null)['urut'] === 1
+            || preg_match('/ga\s*corp/i', (string) ($pelanggan->departemen ?? '')) === 1;
+    }
+
+    /**
+     * Rekap waktu per admin untuk sekumpulan tiket (biasanya satu Business Unit).
+     * Semua angka dalam DETIK; $rinci = true menyertakan daftar tiket tiap admin.
+     */
+    public static function rekapAdmin(iterable $tikets, ?Carbon $sekarang = null, bool $rinci = false): array
+    {
+        $avg   = fn (array $a) => $a ? (int) round(array_sum($a) / count($a)) : null;
+        $admin = [];
+        $tunggu = $over = $totalDone = $bagBU = $bagCorp = [];
+        $nTiket = $nEsk = 0;
+        $label  = ['DONE' => 'Done', 'OVER' => 'Ke GA Corp', 'ALIH' => 'Dialihkan', 'BERJALAN' => 'Berjalan', 'CLOSED' => 'Closed'];
+        $fmt    = fn (int $ts) => self::wib($ts, 'd M H:i');
+
+        foreach ($tikets as $t) {
+            $j = self::jejakAdmin($t, $sekarang);
+            if (!$j['segmen']) {
+                continue;
+            }
+            $nTiket++;
+
+            // tiket yang pernah diteruskan ke GA Corp
+            if ($j['over'] !== null) {
+                $nEsk++;
+            }
+
+            // Diambil -> Done per TIKET, dipisah: bagian dikerjakan BU (sebelum eskalasi) dan dikerjakan GA Corp (setelah eskalasi)
+            if ($j['diambil'] !== null && $j['done'] !== null && $j['done'] >= $j['diambil']) {
+                $ov = $j['over'] !== null ? min(max($j['over'], $j['diambil']), $j['done']) : null;
+                $totalDone[] = $j['done'] - $j['diambil'];
+                $bagBU[]     = ($ov ?? $j['done']) - $j['diambil'];
+                $bagCorp[]   = $ov !== null ? $j['done'] - $ov : 0;
+            }
+
+            foreach ($j['segmen'] as $s) {
+                $detik = $s['akhir'] - $s['mulai'];
+                $nm    = $s['admin'];
+                $admin[$nm] ??= ['nama' => $nm, 'corp' => false, 'tiket' => [], 'tunggu' => [], 'over' => [], 'done' => [], 'berjalan' => 0, 'daftar' => []];
+                $admin[$nm]['corp'] = $admin[$nm]['corp'] || !empty($s['corp']);
+
+                $admin[$nm]['tiket'][$t->id] = true;
+                if ($s['tunggu'] !== null) {
+                    $admin[$nm]['tunggu'][] = $s['tunggu'];
+                    $tunggu[] = $s['tunggu'];
+                }
+                if ($s['hasil'] === 'DONE') {
+                    $admin[$nm]['done'][] = $detik;
+                } elseif ($s['hasil'] === 'OVER') {
+                    $admin[$nm]['over'][] = $detik;
+                    $over[] = $detik;
+                } elseif ($s['hasil'] === 'BERJALAN') {
+                    $admin[$nm]['berjalan']++;
+                }
+
+                if ($rinci) {
+                    $admin[$nm]['daftar'][] = [
+                        'nomor'   => $t->nomor_tiket,
+                        'bu'      => optional($t->bisnisUnit)->nama_bisnis_unit ?: '-',
+                        'judul'   => $t->judul,
+                        'url'     => route('help.proses.show', $t),
+                        'laporan' => $fmt($j['laporan']),
+                        'diambil' => $fmt($s['mulai']),
+                        'tunggu'  => $s['tunggu'] !== null ? self::formatDurasi($s['tunggu']) : null,
+                        'proses'  => self::formatDurasi($detik),
+                        'hasil'   => $label[$s['hasil']] ?? $s['hasil'],
+                        'kode'    => $s['hasil'],
+                        'akhir'   => $fmt($s['akhir']),
+                    ];
+                }
+            }
+        }
+
+        $baris = array_map(fn ($a) => [
+            'nama'     => $a['nama'],
+            'corp'     => $a['corp'],
+            'tiket'    => count($a['tiket']),
+            'tunggu'   => $avg($a['tunggu']),
+            'over'     => $avg($a['over']),
+            'done'     => $avg($a['done']),
+            'jml_over' => count($a['over']),
+            'jml_done' => count($a['done']),
+            'berjalan' => $a['berjalan'],
+            'daftar'   => $a['daftar'],
+        ], array_values($admin));
+        usort($baris, fn ($x, $y) => [$y['tiket'], $x['nama']] <=> [$x['tiket'], $y['nama']]);
+
+        return [
+            'tiket'    => $nTiket,
+            'eskalasi'   => $nEsk,
+            'tunggu'   => $avg($tunggu),
+            'over'     => $avg($over),
+            'done'     => $avg($totalDone),   // Diambil -> Done per tiket (BU + GA Corp)
+            'done_bu'  => $avg($bagBU),
+            'done_corp'=> $avg($bagCorp),
+            'jml_over' => count($over),
+            'jml_done' => count($totalDone),
+            'admin'    => $baris,
+        ];
+    }
+
+    /**
+     * Susun segmen [awal, akhir, status] dari log status.
+     */
+    public static function segmen(HelpTiket $tiket, int $awal, int $akhir): array
+    {
+        $logs = $tiket->relationLoaded('logStatus')
+            ? $tiket->logStatus
+            : $tiket->logStatus()->orderBy('created_at')->get();
+
+        $logs   = $logs->sortBy('created_at')->values();
+        $state  = 'OPEN';
+        $titik  = $awal;
+        $segmen = [];
+        $berubah = false;
+        $sudahOver = false;   // sudah pernah di-over ke GA Corp / unit lain
+        $aktor     = $tiket->pelapor_id;   // siapa yang memulai fase berjalan (pengaju untuk fase OPEN)
+
+        foreach ($logs as $log) {
+            $baru = $log->status_baru;
+            if (!$baru || $baru === $state) {
+                continue;
+            }
+            if ($baru === 'CLOSED') {
+                break;
+            }
+
+            // Setelah di-over, pengerjaan oleh GA Corp dibedakan dari pengerjaan unit awal
+            if ($baru === 'HELP_GA_CORP') {
+                $sudahOver = true;
+            } elseif ($sudahOver && $baru === 'ON_PROCESS') {
+                $baru = 'ON_PROCESS_CORP';
+            }
+            if ($baru === $state) {
+                continue;
+            }
+
+            $ts = max($awal, min(Carbon::parse($log->created_at)->timestamp, $akhir));
+            if ($ts > $titik) {
+                $segmen[] = [$titik, $ts, $state, $aktor];
+            }
+            $titik   = $ts;
+            $state   = $baru;
+            $aktor   = $log->pengguna_id;
+            $berubah = true;
+        }
+
+        // Fallback untuk tiket lama yang log statusnya tidak lengkap
+        if (!$berubah && $tiket->status !== 'OPEN') {
+            $akhirStatus = $tiket->status === 'CLOSED' ? 'ON_PROCESS' : $tiket->status;
+            $pisah = $tiket->diproses_pada ? Carbon::parse($tiket->diproses_pada)->timestamp : null;
+
+            if ($pisah && $pisah > $awal && $pisah < $akhir) {
+                $segmen[] = [$awal, $pisah, 'OPEN', $tiket->pelapor_id];
+                $titik    = $pisah;
+            }
+            $state = $akhirStatus;
+            $aktor = $tiket->ditugaskan_ke;
+        }
+
+        if ($akhir > $titik) {
+            $segmen[] = [$titik, $akhir, $state, $aktor];
+        }
+
+        return $segmen;
+    }
+
+    /**
+     * Waktu tiket ditutup. Null bila tiket belum CLOSED.
+     *
+     * Tiket lama berstatus CLOSED sering tidak punya ditutup_pada, maka dipakai cadangan:
+     * ditutup_pada -> diselesaikan_pada -> updated_at. (Tanpa ini tiket CLOSED dianggap
+     * masih berjalan dan digambar sampai hari ini.)
+     */
+    public static function waktuTutup(HelpTiket $tiket): ?Carbon
+    {
+        if ($tiket->status !== 'CLOSED') {
+            return null;
+        }
+
+        $t = $tiket->ditutup_pada ?: ($tiket->diselesaikan_pada ?: $tiket->updated_at);
+
+        return Carbon::parse($t ?: $tiket->created_at);
+    }
+
+    /**
+     * Waktu pengerjaan tiket selesai (status DONE), bukan waktu ditutup.
+     * Urutan: log status DONE terakhir -> diselesaikan_pada -> (tiket lama CLOSED tanpa data DONE) waktu tutup.
+     * Null bila tiket belum pernah DONE.
+     */
+    public static function waktuSelesai(HelpTiket $tiket): ?Carbon
+    {
+        $logs = $tiket->relationLoaded('logStatus')
+            ? $tiket->logStatus
+            : $tiket->logStatus()->orderBy('created_at')->get();
+
+        $log = $logs->sortBy('created_at')->last(fn ($l) => $l->status_baru === 'DONE');
+        if ($log) {
+            return Carbon::parse($log->created_at);
+        }
+
+        if ($tiket->diselesaikan_pada) {
+            return Carbon::parse($tiket->diselesaikan_pada);
+        }
+
+        return self::waktuTutup($tiket);
+    }
+
+    /**
+     * Waktu tiket pertama kali diambil (status pertama kali ON_PROCESS).
+     * Selisih dengan created_at = lama menunggu diambil sejak pengajuan.
+     */
+    public static function waktuDiambil(HelpTiket $tiket): ?Carbon
+    {
+        $logs = $tiket->relationLoaded('logStatus')
+            ? $tiket->logStatus
+            : $tiket->logStatus()->orderBy('created_at')->get();
+
+        $log = $logs->sortBy('created_at')->first(fn ($l) => $l->status_baru === 'ON_PROCESS');
+        if ($log) {
+            return Carbon::parse($log->created_at);
+        }
+
+        // tiket lama tanpa log lengkap
+        if ($tiket->diproses_pada) {
+            return Carbon::parse($tiket->diproses_pada);
+        }
+
+        return null;
+    }
+
+    /**
+     * Warna Business Unit (dikenali dari nama) dan urutan tampil.
+     * Corporation = coklat, Cement = merah, Property = biru, Plantations = hijau, Downstream = orange.
+     */
+    public const WARNA_CORP = '#92400e';
+
+    public static function infoBisnisUnit(?string $nama): array
+    {
+        $n = strtolower((string) $nama);
+
+        foreach ([
+            ['cement',     '#dc2626', 2],
+            ['property',   '#2563eb', 3],
+            ['plantation', '#16a34a', 4],
+            ['downstream', '#f97316', 5],
+            ['corp',       self::WARNA_CORP, 1],
+        ] as [$kata, $warna, $urut]) {
+            if (str_contains($n, $kata)) {
+                return ['warna' => $warna, 'urut' => $urut];
+            }
+        }
+
+        return ['warna' => '#3b82f6', 'urut' => 99];
+    }
+}

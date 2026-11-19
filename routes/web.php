@@ -1,0 +1,930 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LoginController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MessengerController;
+use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\SSOController;
+use App\Http\Controllers\DBLoginController;
+use App\Http\Controllers\IDCard\ListController as IDCardListController;
+use App\Http\Controllers\IDCard\RequestController as IDCardRequestController;
+use App\Http\Controllers\IDCard\DetailController as IDCardDetailController;
+use App\Http\Controllers\IDCard\ApprovalController as IDCardApprovalController;
+use App\Http\Controllers\IDCard\ReportController as IDCardReportController;
+use App\Http\Controllers\IDCard\GrafikController as IDCardGrafikController;
+use App\Http\Controllers\IDCard\NonaktifController as IDCardNonaktifController;
+use App\Http\Controllers\IDCard\ReturnController as IDCardReturnController;
+use App\Http\Controllers\help_c\HelpTiketController;
+use App\Http\Controllers\help_c\HelpTiketApprovalController;
+use App\Http\Controllers\help_c\HelpTiketPDFController;
+use App\Http\Controllers\help_c\HelpProsesController;
+use App\Http\Controllers\MailingController;
+use App\Http\Controllers\TrackRController;
+use App\Http\Controllers\SettingAccessController;
+use App\Http\Controllers\MenuInformationController;
+use App\Http\Controllers\Apartemen\UserController;
+use App\Http\Controllers\Apartemen\AdminController;
+use App\Http\Controllers\Apartemen\AssignController;
+use App\Http\Controllers\Apartemen\DetailController;
+use App\Http\Controllers\TrackFotoController;
+use App\Http\Controllers\Founddesk\FounddeskController;
+use App\Http\Controllers\Founddesk\FounddeskDispositionController;
+use App\Http\Controllers\Apartemen\PublicAccessController;
+use App\Http\Controllers\Apartemen\QRCodeAdminController;
+use App\Http\Controllers\StockCtl\StockDashboardController;
+use App\Http\Controllers\StockCtl\PermintaanController;
+use App\Http\Controllers\StockCtl\ApprovalL1Controller;
+use App\Http\Controllers\StockCtl\ApprovalAdminController;
+use App\Http\Controllers\StockCtl\BarangController;
+use App\Http\Controllers\StockCtl\StokController;
+use App\Http\Controllers\StockCtl\TransaksiController;
+use App\Http\Controllers\StockCtl\OpnameController;
+use App\Http\Controllers\StockCtl\LaporanController;
+use App\Http\Controllers\StockCtl\SuperadminController;
+use App\Http\Controllers\Drms\RequestController;
+use App\Http\Controllers\Drms\AppL1Controller;
+use App\Http\Controllers\Drms\AppAdminController;
+use App\Http\Controllers\Drms\DriverController;
+use App\Http\Controllers\Drms\DriverDashboardController;
+use App\Http\Controllers\Drms\VehicleController;
+use App\Http\Controllers\Drms\VoucherController;
+use App\Http\Controllers\Drms\VehicleDashboardController;
+use App\Http\Controllers\Drms\VehicleDocumentController;
+use App\Http\Controllers\Drms\ServiceScheduleController;
+use App\Http\Controllers\Drms\RepairController;
+use App\Http\Controllers\Drms\FuelLogController;
+use App\Http\Controllers\Drms\AdminExpenseReportController;
+use App\Http\Controllers\Work\WorkReportController;
+use App\Http\Controllers\Work\WorkReportCategoryController;
+use App\Http\Controllers\Memos\MemosController;
+use App\Http\Controllers\Memos\MemoTemplateController;
+use App\Http\Controllers\Apartemen\EmployeeSearchController;
+use App\Http\Controllers\StockCtl\AntarUnitRequestController;
+use App\Http\Controllers\StockCtl\AntarUnitApprovalController;
+use App\Http\Controllers\Feedbacks\FeedbackController;
+use App\Http\Controllers\Feedbacks\AdminFeedbackController;
+use App\Http\Controllers\Drms\VehicleMapController;
+use App\Http\Controllers\Task_M\TaskMonitorController;
+use App\Http\Controllers\CompressFotomailingController;
+use App\Http\Controllers\Supplies\SuppliesBarangController;
+use App\Http\Controllers\Supplies\SuppliesStokController;
+use App\Http\Controllers\Supplies\SuppliesPermintaanController;
+use App\Http\Controllers\Supplies\SuppliesApprovalController;
+use App\Http\Controllers\Supplies\SuppliesLaporanController;
+use App\Http\Controllers\Drms\DriverTripLogController;
+use App\Http\Controllers\Drms\AdminOperationalController;
+use App\Http\Controllers\Drms\RequestReleaseController;
+use App\Http\Controllers\Drms\ImageController;
+use App\Http\Controllers\Drms\DriverServiceRequestController;
+use App\Http\Controllers\Drms\RequestAttachmentController;
+use App\Http\Controllers\Drms\ServiceFlowController;
+use App\Http\Controllers\HSRM\HsrmCertificateController;
+use App\Http\Controllers\HSRM\HsrmEquipmentController;
+use App\Http\Controllers\Drms\DriverExpenseReportController;
+use App\Http\Controllers\Antaran\AntaranController;
+use App\Http\Controllers\Antaran\AntaranKurirController;
+use App\Http\Controllers\Antaran\AntaranTrackingController;
+use App\Http\Controllers\Compress\FotopdfmailingController;
+use App\Http\Controllers\GaFileStatusController;
+use App\Http\Controllers\HSRM\HsrmAccessController;
+use App\Http\Controllers\FinGrabc\FinGrabController;
+use App\Http\Controllers\FinGrabc\FinGrabUploadController;
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->name('login.process');
+});
+
+Route::post('/logout', [LoginController::class, 'logout'])
+    ->middleware('auth')
+    ->name('logout');
+
+Route::get('/', function () {
+    return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
+});
+
+Route::get('/login/sso', [SSOController::class, 'redirect'])->name('login.sso');
+Route::get('/login/sso/callback', [SSOController::class, 'callback'])->name('login.sso.callback');
+Route::get('/dblogin', [DBLoginController::class, 'handle'])
+    ->middleware('sso.darwinbox')
+    ->name('sso.login');
+Route::get('/dblogin-fallback', [DBLoginController::class, 'handle'])
+    ->name('sso.login.fallback')
+    ->withoutMiddleware(['sso.darwinbox']);
+
+// ---------------- PUBLIK (kode akses) ----------------
+// Throttle per IP: percobaan kode, pencarian, dan aksi check-in/out dibatasi.
+Route::prefix('apartemen/public')->name('apartemen.public.')->group(function () {
+    Route::get('/', [PublicAccessController::class, 'index'])->name('index');
+    Route::post('/verify', [PublicAccessController::class, 'verify'])->middleware('throttle:5,1')->name('verify');
+    Route::get('/search', [PublicAccessController::class, 'search'])->name('search');
+    Route::get('/find', [PublicAccessController::class, 'find'])->middleware('throttle:20,1')->name('find');
+    Route::post('/checkout/{id}', [PublicAccessController::class, 'checkout'])->middleware('throttle:10,1')->name('checkout');
+    Route::post('/checkin/{id}', [PublicAccessController::class, 'checkin'])->middleware('throttle:10,1')->name('checkin');
+    Route::get('/success', [PublicAccessController::class, 'success'])->name('success');
+    Route::get('/logout', [PublicAccessController::class, 'logout'])->name('logout');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api/access-data', [DashboardController::class, 'getAccessData'])->name('api.access.data');
+
+    Route::prefix('messenger')->middleware('auth')->group(function () {
+        Route::middleware('messenger.access:status_messenger')->get('/', [App\Http\Controllers\MessengerController::class, 'index'])->name('messenger.index');
+        Route::middleware('messenger.access:request_messenger')->get('/request', [App\Http\Controllers\MessengerController::class, 'request'])->name('messenger.request');
+        Route::middleware('messenger.access:request_messenger')->post('/', [App\Http\Controllers\MessengerController::class, 'store'])->name('messenger.store');
+        Route::middleware('messenger.access:proses_messenger')->get('/proses', [App\Http\Controllers\MessengerController::class, 'proses'])->name('messenger.proses');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/antar', [App\Http\Controllers\MessengerController::class, 'antar'])->name('messenger.antar');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/tolak', [App\Http\Controllers\MessengerController::class, 'tolak'])->name('messenger.tolak');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/selesaikan', [App\Http\Controllers\MessengerController::class, 'selesaikan'])->name('messenger.selesaikan');
+        Route::middleware('messenger.access:proses_messenger')->post('/{no_transaksi}/kembalikan', [App\Http\Controllers\MessengerController::class, 'kembalikan'])->name('messenger.kembalikan');
+
+        // ===== DASHBOARD ADMIN (harus di atas /{id}) =====
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'index'])
+            ->name('messenger.dashboard');
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard/data/kurir/{kurirId}', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'dataKurir'])
+            ->name('messenger.dashboard.data.kurir');
+        Route::middleware('messenger.access:dashboard_messenger')
+            ->get('/dashboard/data/bulan/{month}', [App\Http\Controllers\Messenger\MessengerDashboardController::class, 'dataBulan'])
+            ->name('messenger.dashboard.data.bulan');
+
+        Route::middleware('messenger.access:detail_messenger')->get('/{no_transaksi}/print', [App\Http\Controllers\MessengerController::class, 'print'])->name('messenger.print');
+        Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/cancel', [App\Http\Controllers\MessengerController::class, 'cancel'])->name('messenger.cancel');
+        Route::middleware('messenger.access:detail_messenger')->post('/{no_transaksi}/kirim-ulang', [App\Http\Controllers\MessengerController::class, 'kirimUlang'])->name('messenger.kirimUlang');
+        Route::middleware('messenger.access:detail_messenger')->get('/file/{type}/{filename}', [App\Http\Controllers\MessengerController::class, 'getFile'])->name('messenger.file');
+        Route::middleware('messenger.access:detail_messenger')->get('/{id}', [App\Http\Controllers\MessengerController::class, 'detail'])->name('messenger.detail');
+    });
+
+    Route::prefix('antaran')->name('antaran.')->group(function () {
+
+        // --- sisi pengirim (AntaranController) ---
+        Route::get('/',                    [AntaranController::class, 'index'])->name('index');
+        Route::get('/buat',                [AntaranController::class, 'request'])->name('request');
+        Route::post('/buat',               [AntaranController::class, 'store'])->name('store');
+        Route::get('/export',              [AntaranController::class, 'exportExcel'])->name('export');
+        Route::get('/lacak/{no_transaksi}', [AntaranController::class, 'detail'])->name('detail');
+        Route::post('/{no_transaksi}/kirim-ulang', [AntaranController::class, 'kirimUlang'])->name('kirimUlang');
+        Route::post('/{no_transaksi}/batal',       [AntaranController::class, 'cancel'])->name('cancel');
+
+        // --- sisi kurir (AntaranKurirController) — tidak ada route "tolak" ---
+        Route::get('/tugas',                            [AntaranKurirController::class, 'proses'])->name('proses');
+        Route::post('/tugas/{no_transaksi}/ambil',       [AntaranKurirController::class, 'antar'])->name('antar');
+        Route::post('/tugas/{no_transaksi}/selesai',     [AntaranKurirController::class, 'selesaikan'])->name('selesaikan');
+        Route::post('/tugas/{no_transaksi}/kembalikan',  [AntaranKurirController::class, 'kembalikan'])->name('kembalikan');
+
+        // --- tracking GPS (AntaranTrackingController) ---
+        Route::get('/lacak/{no_transaksi}/json',   [AntaranTrackingController::class, 'lokasiJson'])->name('lokasi.json');
+        Route::post('/lacak/{no_transaksi}/titik', [AntaranTrackingController::class, 'updateLokasi'])->name('lokasi.update');
+
+        // --- halaman peta TERPISAH: rute 1 hari penuh (gabung semua resi kurir hari itu) ---
+        Route::get('/rute-harian',      [AntaranTrackingController::class, 'ruteHarian'])->name('rute.harian');
+        Route::get('/rute-harian/json', [AntaranTrackingController::class, 'ruteHarianJson'])->name('rute.harian.json');
+
+        // File foto tetap pakai route yang sudah ada di Messenger (messenger.file),
+        // karena storage disknya memang sengaja dibagi bersama. Tidak perlu route baru.
+    });
+
+    Route::prefix('mailing')->name('mailing.')->middleware(['auth'])->group(function () {
+        Route::get('/', [MailingController::class, 'index'])->name('index');
+        Route::get('/proses', [MailingController::class, 'proses'])->name('proses');
+        Route::get('/create', [MailingController::class, 'create'])->name('create');
+        Route::post('/store-bulk', [MailingController::class, 'storeBulk'])->name('store.bulk');
+        Route::post('/lantai47/{id}', [MailingController::class, 'lantai47'])->name('lantai47');
+        Route::post('/selesai/{id}', [MailingController::class, 'selesai'])->name('selesai');
+        Route::post('/bulk-lantai47', [MailingController::class, 'bulkLantai47'])->name('bulk-lantai47');
+        Route::post('/bulk-selesai', [MailingController::class, 'bulkSelesai'])->name('bulk-selesai');
+        Route::get('/pelanggans', [MailingController::class, 'getPelanggans'])->name('get-pelanggans');
+        Route::get('/foto/{id}', [MailingController::class, 'viewFoto'])->name('view-foto');
+    });
+
+    Route::prefix('kompres')->name('kompres.')->middleware(['auth', 'kompres.access'])->group(function () {
+        Route::get('/', [FotopdfmailingController::class, 'index'])->name('index');
+        Route::get('/browse', [FotopdfmailingController::class, 'browse'])->name('browse');
+        Route::get('/image', [FotopdfmailingController::class, 'showImage'])->name('image');
+        Route::post('/proses', [FotopdfmailingController::class, 'proses'])->name('proses');
+        Route::post('/hapus', [FotopdfmailingController::class, 'hapus'])->name('hapus');
+    });
+
+    Route::get('/files/requests/{id}', [GaFileStatusController::class, 'show'])->name('files.request-status');
+
+    Route::middleware(['auth'])->prefix('help')->name('help.')->group(function () {
+        Route::get('/tiket/{tiket}/pdf', [HelpTiketPDFController::class, 'download'])->name('tiket.pdf');
+        Route::prefix('tiket')->name('tiket.')->group(function () {
+            Route::get('/', [HelpTiketController::class, 'index'])->name('index');
+            Route::get('/buat', [HelpTiketController::class, 'create'])->name('create');
+            Route::post('/', [HelpTiketController::class, 'store'])->name('store');
+            Route::get('/{tiket}', [HelpTiketController::class, 'show'])->name('show');
+            Route::post('/{tiket}/komentar', [HelpTiketController::class, 'addKomentar'])->name('add-komentar');
+            Route::post('/{tiket}/konfirmasi', [HelpTiketController::class, 'konfirmasiSelesai'])->name('konfirmasi');
+            Route::post('/{tiket}/belum-selesai', [HelpTiketController::class, 'belumSelesai'])->name('belum-selesai');
+            Route::prefix('lampiran')->name('lampiran.')->group(function () {
+            Route::get('/{lampiran}/preview', [HelpTiketController::class, 'previewLampiran'])->name('preview');
+            Route::get('/{lampiran}/download', [HelpTiketController::class, 'downloadLampiran'])->name('download');
+            });
+        });
+
+        Route::prefix('proses')->name('proses.')->group(function () {
+            // Lampiran: dipakai juga oleh halaman pelapor (image-viewer). Otorisasi per tiket ada di controller.
+            Route::prefix('lampiran')->name('lampiran.')->group(function () {
+                Route::get('/{lampiran}/preview', [HelpTiketApprovalController::class, 'previewLampiran'])->name('preview');
+                Route::get('/{lampiran}/download', [HelpTiketApprovalController::class, 'downloadLampiran'])->name('download');
+            });
+
+            // Selain lampiran: khusus petugas GA Help
+            Route::middleware('ga.help.admin')->group(function () {
+                Route::get('/', [HelpProsesController::class, 'index'])->name('index');
+                Route::get('/download', [HelpProsesController::class, 'download'])->name('download');
+                Route::get('/{id}', [HelpProsesController::class, 'show'])->name('show');
+                Route::post('/{id}/take', [HelpProsesController::class, 'take'])->name('take');
+                Route::post('/{tiket}/waiting', [HelpTiketApprovalController::class, 'waiting'])->name('waiting');
+                Route::post('/{tiket}/resume', [HelpTiketApprovalController::class, 'resume'])->name('resume');
+                Route::post('/{tiket}/selesaikan', [HelpTiketApprovalController::class, 'complete'])->name('complete');
+                Route::post('/{tiket}/tutup', [HelpTiketApprovalController::class, 'close'])->name('close');
+                Route::post('/{tiket}/transfer-to-corp', [HelpTiketApprovalController::class, 'transferToCorp'])->name('transfer-to-corp');
+                Route::post('/{tiket}/vendor', [HelpTiketApprovalController::class, 'serahkanVendor'])->name('vendor.serahkan');
+                Route::post('/{tiket}/vendor/selesai', [HelpTiketApprovalController::class, 'selesaiVendor'])->name('vendor.selesai');
+                Route::post('/{tiket}/upload-foto-selesai', [HelpTiketApprovalController::class, 'uploadFotoSelesai'])->name('upload-foto-selesai');
+                Route::post('/{tiket}/komentar', [HelpTiketApprovalController::class, 'addKomentar'])->name('add-komentar');
+                Route::post('/{tiket}/reassign', [HelpTiketApprovalController::class, 'reassign'])->name('reassign');
+            });
+        });
+
+        // Timeline & Grafik: khusus petugas GA Help
+        Route::middleware('ga.help.admin')->group(function () {
+            Route::get('/timeline',      [HelpProsesController::class, 'timeline'])->name('timeline');
+            Route::get('/grafik',        [HelpProsesController::class, 'grafik'])->name('grafik');
+            Route::get('/grafik/daftar', [HelpProsesController::class, 'grafikDaftar'])->name('grafik.daftar');
+        });
+
+        Route::get('/log-sistem', [HelpTiketController::class, 'logSistem'])
+            ->name('log-sistem')
+            ->middleware('ga_admin');
+    });
+
+    Route::middleware(['auth', 'stock.ctl:user'])->prefix('stock-ctl')->name('stock-ctl.')->group(function () {
+        Route::get('/dashboard', [StockDashboardController::class, 'index'])->name('dashboard');
+        Route::resource('permintaan', PermintaanController::class)->only(['index', 'create', 'store', 'show']);
+        Route::post('/permintaan/{id}/batalkan', [\App\Http\Controllers\StockCtl\PermintaanController::class, 'batalkan'])->name('permintaan.batalkan');
+        Route::get('permintaan/{id}/history', [PermintaanController::class, 'history'])->name('permintaan.history');
+        Route::get('approval/l1', [ApprovalL1Controller::class, 'index'])->name('approval.l1.index');
+        Route::post('approval/l1/{id}/approve', [ApprovalL1Controller::class, 'approve'])->name('approval.l1.approve');
+        Route::post('approval/l1/{id}/reject', [ApprovalL1Controller::class, 'reject'])->name('approval.l1.reject');
+        Route::post('/stock-ctl/approval/l1/{id}/update-jumlah', [ApprovalL1Controller::class, 'updateJumlah'])->name('stock-ctl.approval.l1.update-jumlah');
+
+        Route::middleware('stock.ctl:admin')->group(function () {
+            Route::get('approval/admin', [ApprovalAdminController::class, 'index'])->name('approval.admin.index');
+            Route::post('approval/admin/{id}/approve', [ApprovalAdminController::class, 'approve'])->name('approval.admin.approve');
+            Route::post('approval/admin/{id}/reject', [ApprovalAdminController::class, 'reject'])->name('approval.admin.reject');
+            // Admin yang terdaftar di stock_ctl_l1_override_admins: approve/tolak L1 atas nama atasan
+            Route::post('approval/admin/{id}/approve-l1', [ApprovalAdminController::class, 'approveL1'])->name('approval.admin.approve-l1');
+            Route::post('approval/admin/{id}/reject-l1', [ApprovalAdminController::class, 'rejectL1'])->name('approval.admin.reject-l1');
+            Route::get('approval/admin/cek-stok/{id}', [ApprovalAdminController::class, 'cekStok'])->name('approval.admin.cek-stok');
+
+            // === BARU: Substitusi / Ganti Barang ===
+            Route::get('approval/admin/cari-pengganti/{id}', [ApprovalAdminController::class, 'cariPengganti'])->name('approval.admin.cari-pengganti');
+            Route::post('approval/admin/{id}/substitusi', [ApprovalAdminController::class, 'substitusi'])->name('approval.admin.substitusi');
+
+            Route::resource('barang', BarangController::class);
+            Route::get('stok', [StokController::class, 'index'])->name('stok.index');
+            Route::get('stok/awal', [StokController::class, 'createAwal'])->name('stok.awal');
+            Route::post('stok/awal', [StokController::class, 'storeAwal'])->name('stok.awal.store');
+            Route::get('transaksi/masuk', [TransaksiController::class, 'createMasuk'])->name('transaksi.masuk');
+            Route::post('transaksi/masuk', [TransaksiController::class, 'storeMasuk'])->name('transaksi.masuk.store');
+            Route::get('transaksi/keluar', [TransaksiController::class, 'createKeluar'])->name('transaksi.keluar');
+            Route::post('transaksi/keluar', [TransaksiController::class, 'storeKeluar'])->name('transaksi.keluar.store');
+            Route::get('transaksi/transfer', [TransaksiController::class, 'createTransfer'])->name('transaksi.transfer');
+            Route::post('transaksi/transfer', [TransaksiController::class, 'storeTransfer'])->name('transaksi.transfer.store');
+            Route::post('transaksi/{id}/batalkan', [TransaksiController::class, 'batalkan'])->name('transaksi.batalkan');
+            Route::get('cek-stok', [App\Http\Controllers\StockCtl\TransaksiController::class, 'cekStok'])->name('cek-stok');
+            Route::resource('opname', OpnameController::class);
+            Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
+            Route::post('laporan/excel', [LaporanController::class, 'excel'])->name('laporan.excel');
+            Route::post('laporan/preview', [LaporanController::class, 'preview'])->name('laporan.preview');
+            Route::get('transaksi', [TransaksiController::class, 'index'])->name('transaksi.index');
+            Route::get('laporan/history', [LaporanController::class, 'history'])->name('laporan.history');
+        });
+
+        Route::middleware('stock.ctl:superadmin')->group(function () {
+            Route::resource('area-kerja', SuperadminController::class)->parameters(['area-kerja' => 'area'])->names('area');
+            Route::get('user-profil', [SuperadminController::class, 'userProfilIndex'])->name('user-profil.index');
+            Route::get('user-profil/{id}', [SuperadminController::class, 'getUserProfil'])->name('user-profil.get');
+            Route::post('user-profil/{id}', [SuperadminController::class, 'userProfilUpdate'])->name('user-profil.update');
+        });
+
+        Route::prefix('antar-unit')->group(function () {
+            Route::get('/', [AntarUnitRequestController::class, 'index'])->name('antar-unit.index');
+            Route::get('/create', [AntarUnitRequestController::class, 'create'])->name('antar-unit.create');
+            Route::post('/store', [AntarUnitRequestController::class, 'store'])->name('antar-unit.store');
+            Route::get('/approval', [AntarUnitApprovalController::class, 'index'])->name('antar-unit.approval');
+            Route::get('cek-stok-unit', [AntarUnitApprovalController::class, 'cekStokUnit'])->name('stock-ctl.cek-stok-unit');
+            Route::get('get-areas', [AntarUnitApprovalController::class, 'getAreasByUnit'])->name('get-areas');
+            Route::get('/{id}', [AntarUnitRequestController::class, 'show'])->name('antar-unit.show');
+            Route::post('/{id}/approve', [AntarUnitApprovalController::class, 'approve'])->name('antar-unit.approve');
+            Route::post('/{id}/reject', [AntarUnitApprovalController::class, 'reject'])->name('antar-unit.reject');
+        });
+    });
+
+    Route::middleware(['auth'])->prefix('drms')->name('drms.')->group(function () {
+        // ===== REQUESTS =====
+        Route::get('requests', [RequestController::class, 'index'])->name('requests.index');
+        Route::get('requests/create', [RequestController::class, 'create'])->name('requests.create');
+        Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
+        Route::get('requests/{driverRequest}', [RequestController::class, 'show'])->name('requests.show');
+        Route::post('requests/{driverRequest}/cancel', [RequestController::class, 'cancel'])->name('requests.cancel');
+        Route::get('requests/{driverRequest}/attachments/{attachment}', [RequestAttachmentController::class, 'show'])->whereNumber('attachment')->name('requests.attachments.show');
+
+        // ===== APPROVAL L1 =====
+        Route::middleware(['can:isApprover'])->prefix('approval/l1')->name('approval.l1.')->group(function () {
+            Route::get('/', [AppL1Controller::class, 'index'])->name('index');
+            Route::post('{id}/approve', [AppL1Controller::class, 'approve'])->name('approve');
+            Route::post('{id}/reject', [AppL1Controller::class, 'reject'])->name('reject');
+        });
+
+        // ===== APPROVAL ADMIN =====
+        Route::middleware(['can:isDrmsAdmin'])->prefix('approval/admin')->name('approval.admin.')->group(function () {
+            Route::get('/', [AppAdminController::class, 'index'])->name('index');
+            Route::get('export', [AppAdminController::class, 'export'])->name('export');
+            Route::get('{id}/edit', [AppAdminController::class, 'edit'])->name('edit');
+            Route::put('{id}', [AppAdminController::class, 'update'])->name('update');
+            Route::put('{id}/reject', [AppAdminController::class, 'reject'])->name('reject');
+            Route::post('{driverRequest}/complete', [AppAdminController::class, 'complete'])->name('complete');
+            Route::put('{id}/forward', [AppAdminController::class, 'forward'])->name('forward');
+            // Admin yang terdaftar di drms_l1_override_admins: approve/tolak L1 atas nama atasan
+            Route::post('{id}/approve-l1', [AppAdminController::class, 'approveL1'])->name('approve_l1');
+            Route::post('{id}/reject-l1', [AppAdminController::class, 'rejectL1'])->name('reject_l1');
+            Route::post('{id}/swap-driver', [AppAdminController::class, 'swapDriver'])->name('swap_driver');
+            Route::post('{id}/return-to-pending', [AppAdminController::class, 'returnToPending'])->name('return_to_pending');
+            // Route::get('/operational-export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
+            // Route::get('/operational-dashboard/export', [AdminOperationalController::class, 'exportDashboard'])->name('admin.operational.export');
+        });
+
+        // ===== DRIVER DASHBOARD =====
+        Route::middleware(['is_driver'])->group(function () {
+            Route::get('/driver/dashboard', [DriverDashboardController::class, 'index'])->name('driver.dashboard');
+            Route::get('/driver/requests/{driverRequest}', [DriverDashboardController::class, 'show'])->name('driver.requests.show');
+            Route::post('/driver/requests/{driverRequest}/complete', [DriverDashboardController::class, 'complete'])->name('driver.requests.complete');
+        });
+
+        Route::middleware(['is_driver'])->prefix('driver/service-requests')->name('driver.service.')->group(function () {
+            Route::get('/', [DriverServiceRequestController::class, 'index'])->name('index');
+            Route::get('/create', [DriverServiceRequestController::class, 'create'])->name('create');
+            Route::post('/', [DriverServiceRequestController::class, 'store'])->name('store');
+            Route::get('{type}/{id}', [DriverServiceRequestController::class, 'show'])->where(['type' => 'service|repair', 'id' => '[0-9]+'])->name('show');
+        });
+
+        Route::get('drivers/dashboard', function () {
+            return redirect()->route('drms.driver.dashboard');
+        });
+
+        // ===== VEHICLES MAP (HARUS DI ATAS RESOURCE) =====
+        Route::get('vehicles/map', [VehicleMapController::class, 'index'])
+            ->name('vehicles.map')
+            ->middleware('can:superadmin');
+
+        Route::get('vehicles/{vehicle}/map', [VehicleMapController::class, 'show'])
+            ->name('vehicles.map.single');
+
+        // ===== MASTER DATA (Admin) =====
+        Route::middleware(['can:isDrmsAdmin'])->group(function () {
+            Route::get('drivers/schedule', [DriverController::class, 'schedule'])->name('drivers.schedule');
+            Route::resource('drivers', DriverController::class)->except(['show']);
+            Route::resource('vehicles', VehicleController::class);  // ← resource di bawah custom route
+
+            // ===== VOUCHER UPLOAD (HARUS DI ATAS RESOURCE) =====
+            Route::get('vouchers/upload', [VoucherController::class, 'uploadForm'])->name('vouchers.upload.form');
+            Route::post('vouchers/upload', [VoucherController::class, 'upload'])->name('vouchers.upload');
+            Route::get('vouchers/template/{type}', [VoucherController::class, 'downloadTemplate'])->name('vouchers.template');
+
+            // Hanya SATU resource, dengan constraint numerik (opsional tapi disarankan)
+            Route::resource('vouchers', VoucherController::class)
+                ->where(['voucher' => '[0-9]+']);
+        });
+
+        // ===== SELESAI HARI INI (trip multi-hari): lepas slot driver + mobil, driver atau admin =====
+        Route::post('requests/{driverRequest}/release', [RequestReleaseController::class, 'store'])->name('requests.release.store');
+        Route::delete('releases/{release}', [RequestReleaseController::class, 'cancel'])->name('releases.cancel');
+
+        // ===== DRIVER TRIP LOG =====
+        Route::prefix('driver')->group(function () {
+            Route::get('/trip-log/{requestId}/create', [DriverTripLogController::class, 'create'])
+                ->name('driver.trip.log.create');
+            Route::post('/trip-log/{requestId}/store', [DriverTripLogController::class, 'store'])
+                ->name('driver.trip.log.store');
+
+            // ===== LAPORAN PENGELUARAN DRIVER (BARU) =====
+            Route::get('/expenses', [DriverExpenseReportController::class, 'index'])
+                ->name('driver.expenses.index');
+            Route::get('/expenses/create', [DriverExpenseReportController::class, 'create'])
+                ->name('driver.expenses.create');
+            Route::post('/expenses', [DriverExpenseReportController::class, 'store'])
+                ->name('driver.expenses.store');
+            // Detail 1 perjalanan, tetap di jalur "create" (bukan menu terpisah).
+            Route::get('/expenses/create/{driverRequest}', [DriverExpenseReportController::class, 'detail'])
+                ->name('driver.expenses.detail');
+            // 1 perjalanan = 1 PDF.
+            Route::get('/expenses/{driverRequest}/pdf', [DriverExpenseReportController::class, 'pdf'])
+                ->name('driver.expenses.pdf');
+            // Edit satu entri (bukan per-perjalanan) — HARUS di atas rute {expense} PUT/DELETE.
+            Route::get('/expenses/{expense}/edit', [DriverExpenseReportController::class, 'edit'])
+                ->name('driver.expenses.edit');
+            Route::put('/expenses/{expense}', [DriverExpenseReportController::class, 'update'])
+                ->name('driver.expenses.update');
+            Route::delete('/expenses/{expense}', [DriverExpenseReportController::class, 'destroy'])
+                ->name('driver.expenses.destroy');
+        });
+
+        // ===== LAPORAN PENGELUARAN DRIVER (ADMIN & SUPERADMIN, READ-ONLY) =====
+        Route::middleware(['can:isDrmsAdmin'])->prefix('admin/expenses')->name('admin.expenses.')->group(function () {
+            Route::get('/', [AdminExpenseReportController::class, 'index'])->name('index');
+            Route::get('{driverRequest}', [AdminExpenseReportController::class, 'detail'])
+                ->whereNumber('driverRequest')->name('detail');
+            Route::get('{driverRequest}/pdf', [AdminExpenseReportController::class, 'pdf'])
+                ->whereNumber('driverRequest')->name('pdf');
+        });
+
+        // ===== ADMIN OPERATIONAL =====
+        Route::prefix('admin')->middleware(['auth'])->group(function () {
+            Route::get('/operational-dashboard', [AdminOperationalController::class, 'dashboard'])
+                ->name('admin.operational.dashboard');
+            Route::get('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLogForm'])
+                ->name('admin.verify.log');
+            Route::post('/verify-log/{logId}', [AdminOperationalController::class, 'verifyLog'])
+                ->name('admin.verify.log.post');
+            Route::get('/operational-export', [AdminOperationalController::class, 'export'])
+                ->name('admin.operational.export');
+            Route::get('/monitoring-logs', [AdminOperationalController::class, 'monitoringLogs'])
+                ->name('admin.monitoring.logs');
+        });
+
+        
+        // ===== SERVIS RUTIN =====
+        Route::resource('service-schedules', ServiceScheduleController::class);
+
+        // ===== PERBAIKAN =====
+        Route::patch('repairs/{id}/status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
+        Route::resource('repairs', RepairController::class);
+
+        Route::middleware(['can:isDrmsAdmin'])->prefix('service-flow')->name('service-flow.')
+            ->where(['type' => 'service|repair', 'id' => '[0-9]+'])
+            ->group(function () {
+            Route::post('{type}/{id}/approve', [ServiceFlowController::class, 'approve'])->name('approve');
+            Route::post('{type}/{id}/reject', [ServiceFlowController::class, 'reject'])->name('reject');
+            Route::post('{type}/{id}/complete', [ServiceFlowController::class, 'complete'])->name('complete');
+        });
+
+        Route::get('fuel-logs/analytics', [FuelLogController::class, 'analytics'])->name('fuel-logs.analytics');
+        Route::patch('fuel-logs/{id}/verify', [FuelLogController::class, 'verify'])->name('fuel-logs.verify');
+
+        Route::middleware(['mobile.only'])->group(function () {
+            Route::get('fuel-logs/create', [FuelLogController::class, 'create'])->name('fuel-logs.create');
+            Route::post('fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
+            Route::get('fuel-logs/{fuel_log}/edit', [FuelLogController::class, 'edit'])->name('fuel-logs.edit');
+            Route::put('fuel-logs/{fuel_log}', [FuelLogController::class, 'update'])->name('fuel-logs.update');
+            Route::patch('fuel-logs/{fuel_log}', [FuelLogController::class, 'update']);
+        });
+
+        Route::get('fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
+        Route::get('fuel-logs/{fuel_log}', [FuelLogController::class, 'show'])->name('fuel-logs.show');
+        Route::delete('fuel-logs/{fuel_log}', [FuelLogController::class, 'destroy'])->name('fuel-logs.destroy');
+
+        // ===== DOKUMEN KENDARAAN =====
+        Route::resource('vehicle-documents', VehicleDocumentController::class);
+
+        // ===== PRIVATE IMAGE =====
+        Route::get('/private-image/{path}', [ImageController::class, 'show'])
+            ->where('path', '.*')
+            ->middleware(['auth'])
+            ->name('private.image');
+    });
+
+    Route::prefix('apartemen')->group(function () {
+
+    // ---------------- USER ----------------
+    Route::middleware('apartemen.access:apt_user')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('apartemen.user.index');
+        Route::get('/requests', [UserController::class, 'requests'])->name('apartemen.user.requests');
+        Route::get('/create', [UserController::class, 'create'])->name('apartemen.user.create');
+        Route::post('/store', [UserController::class, 'store'])->name('apartemen.user.store');
+        Route::get('/show/{id}', [UserController::class, 'show'])->name('apartemen.user.show');
+
+        // Daftar Apartemen sesuai Bisnis Unit user (list, detail, foto & penghuni)
+        Route::get('/daftar-apartemen', [UserController::class, 'daftarApartemen'])->name('apartemen.user.daftar');
+        Route::get('/daftar-apartemen/{id}', [UserController::class, 'daftarApartemenDetail'])->name('apartemen.user.daftar.detail');
+    });
+
+    // ---------------- ADMIN ----------------
+    Route::middleware('apartemen.access:apt_admin')
+        ->prefix('admin')
+        ->group(function () {
+            Route::get('/', [AdminController::class, 'index'])->name('apartemen.admin.index');
+            Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('apartemen.admin.dashboard');
+            Route::get('/approve/{id}', [AdminController::class, 'approve'])->name('apartemen.admin.approve');
+            Route::post('/approve/{id}', [AdminController::class, 'approveProcess'])->name('apartemen.admin.approve.process');
+
+            // Penempatan manual. (Route GET /assign/{id} dihapus: method AdminController::assign tidak ada.)
+            Route::post('/assign', [AssignController::class, 'store'])->name('apartemen.admin.assign.store');
+            Route::put('/assign/{id}', [AssignController::class, 'update'])->name('apartemen.admin.assign.update');
+            Route::post('/assign/{id}/cancel', [AssignController::class, 'cancel'])->name('apartemen.admin.assign.cancel');
+            Route::post('/assign/{id}/selesaikan', [AssignController::class, 'selesaikan'])->name('apartemen.admin.assign.selesaikan');
+            Route::post('/transfer/{id}', [AssignController::class, 'transfer'])->name('apartemen.admin.transfer');
+
+            Route::get('/monitoring', [AdminController::class, 'monitoring'])->name('apartemen.admin.monitoring');
+            Route::get('/history', [AdminController::class, 'history'])->name('apartemen.admin.history');
+            Route::get('/report', [AdminController::class, 'report'])->name('apartemen.admin.report');
+            Route::get('/report/export', [AdminController::class, 'exportReport'])->name('apartemen.admin.report.export');
+
+            Route::post('/penghuni/{id}/checkin', [AdminController::class, 'checkin'])->name('apartemen.admin.penghuni.checkin');
+            Route::post('/penghuni/{id}/checkout', [AdminController::class, 'checkoutPenghuni'])->name('apartemen.admin.penghuni.checkout');
+
+            Route::get('/apartemen', [AdminController::class, 'apartemen'])->name('apartemen.admin.apartemen');
+            Route::get('/apartemen/{id}', [AdminController::class, 'apartemenDetail'])->name('apartemen.admin.apartemen.detail');
+            Route::post('/apartemen/store', [AdminController::class, 'storeApartemen'])->name('apartemen.admin.apartemen.store');
+            Route::get('/request/{id}/detail', [AdminController::class, 'detail'])->name('apartemen.admin.detail');
+
+            Route::post('/maintenance/{id}', [AdminController::class, 'setMaintenance'])->name('apartemen.admin.maintenance');
+            Route::post('/unit/maintenance', [AdminController::class, 'setMaintenance'])->name('apartemen.admin.setMaintenance');
+            Route::post('/unit/store', [AdminController::class, 'storeUnit'])->name('unit.store');
+            Route::post('/unit/delete', [AdminController::class, 'deleteUnit'])->name('apartemen.admin.unit.delete');
+            Route::get('/unit/create/{apartemen_id}', [AdminController::class, 'createUnitForm'])->name('unit.create');
+            Route::get('/unit/{id}/edit', [AdminController::class, 'editUnitForm'])->name('unit.edit');
+            Route::put('/unit/{id}', [AdminController::class, 'updateUnit'])->name('unit.update');
+
+            // Kode akses & QR. (Route print-code dihapus: QRCodeAdminController::print tidak ada.)
+            Route::get('/access-codes', [QRCodeAdminController::class, 'index'])->name('apartemen.admin.access-codes');
+            Route::post('/generate-qr', [QRCodeAdminController::class, 'generate'])->name('apartemen.admin.generate-qr');
+            Route::post('/access-codes/{id}/deactivate', [QRCodeAdminController::class, 'deactivate'])->name('apartemen.admin.deactivate-code');
+            Route::post('/access-codes/{id}/activate', [QRCodeAdminController::class, 'activate'])->name('apartemen.admin.activate-code');
+            Route::delete('/access-codes/{id}', [QRCodeAdminController::class, 'destroy'])->name('apartemen.admin.delete-code');
+
+            Route::get('/calendar-events', [AdminController::class, 'calendarEvents'])->name('apartemen.admin.calendar.events');
+        });
+
+    Route::middleware('apartemen.access:apt_detail')->group(function () {
+        Route::get('/detail/{unit_id}', [DetailController::class, 'show'])->name('apartemen.detail');
+    });
+
+    Route::middleware('apartemen.access:apt_history')->group(function () {
+        // Memakai controller (closure lama memanggil view tanpa data $units / $apartements).
+        Route::get('/history', [DetailController::class, 'history'])->name('apartemen.history');
+    });
+});
+
+    Route::middleware(['auth', 'setting.access'])
+        ->get('/setting-access', [SettingAccessController::class, 'index'])
+        ->name('setting.access.index');
+    Route::middleware(['auth', 'setting.access'])
+        ->post('/setting-access', [SettingAccessController::class, 'store'])
+        ->name('setting.access.store');
+    Route::middleware(['auth', 'setting.access'])
+        ->get('/setting-access/export', [SettingAccessController::class, 'export'])
+        ->name('setting.access.export');
+    Route::middleware(['auth', 'setting.access'])
+        ->post('/setting-access/export-all', [SettingAccessController::class, 'exportAll'])
+        ->name('setting.access.exportAll');
+
+    Route::middleware(['auth'])
+        ->get('/informasi', [MenuInformationController::class, 'index'])
+        ->name('menu.information');
+
+    Route::prefix('idcard')
+    ->name('idcard.')
+    ->middleware(['auth', 'check.idcard.access'])
+    ->group(function () {
+
+        // Halaman utama (list)
+        Route::get('/', [IDCardListController::class, 'index'])
+            ->name('index')
+            ->middleware('check.idcard.access:list');
+
+        // STATIC ROUTES (tanpa parameter)
+        Route::get('/aktif', [IDCardListController::class, 'aktif'])
+            ->name('aktif')
+            ->middleware('check.idcard.access:list');
+
+        Route::get('/inaktif', [IDCardListController::class, 'inaktif'])
+            ->name('inaktif')
+            ->middleware('check.idcard.access:list');
+
+        Route::get('/request', [IDCardRequestController::class, 'create'])
+            ->name('request')
+            ->middleware('check.idcard.access:request');
+
+        Route::get('/search-existing', [IDCardRequestController::class, 'searchExisting'])
+            ->name('search-existing')
+            ->middleware('check.idcard.access:request');
+
+        Route::post('/', [IDCardRequestController::class, 'store'])
+            ->name('store')
+            ->middleware('check.idcard.access:request');
+
+        Route::get('/grafik', [IDCardGrafikController::class, 'index'])
+            ->name('grafik')
+            ->middleware('check.idcard.access:grafik');
+
+        Route::get('/report', [IDCardReportController::class, 'index'])
+            ->name('report')
+            ->middleware('check.idcard.access:report');
+
+        Route::get('/report/download', [IDCardReportController::class, 'download'])
+            ->name('report.download')
+            ->middleware('check.idcard.access:report');
+
+        Route::get('/photo/{filename}', [IDCardDetailController::class, 'photo'])
+            ->name('photo')
+            ->middleware('auth');
+
+        Route::get('/{id}', [IDCardDetailController::class, 'detail'])
+            ->name('detail')
+            ->middleware('check.idcard.access:detail');
+
+        Route::get('/{id}/edit', [IDCardDetailController::class, 'edit'])
+            ->name('edit')
+            ->middleware('check.idcard.access:proses');
+
+        Route::put('/{id}', [IDCardDetailController::class, 'update'])
+            ->name('update')
+            ->middleware('check.idcard.access:proses');
+
+        Route::post('/{id}/approve', [IDCardApprovalController::class, 'approve'])
+            ->name('approve')
+            ->middleware('check.idcard.access:proses');
+
+        Route::post('/{id}/reject', [IDCardApprovalController::class, 'reject'])
+            ->name('reject')
+            ->middleware('check.idcard.access:proses');
+
+        Route::post('/{id}/nonaktifkan', [IDCardNonaktifController::class, 'nonaktifkanSatu'])
+            ->name('nonaktifkan.satu')
+            ->middleware('check.idcard.access:proses');
+
+        Route::post('/{id}/aktifkan', [IDCardNonaktifController::class, 'aktifkanSatu'])
+            ->name('aktifkan.satu')
+            ->middleware('check.idcard.access:proses');
+
+        // Pemohon: batalkan request pending miliknya
+        Route::post('/{id}/batalkan', [IDCardRequestController::class, 'cancel'])
+            ->name('cancel')
+            ->middleware('check.idcard.access:request');
+
+        // Pemohon: ajukan pengembalian kartu (magang / visitor) - kepemilikan dicek di controller
+        Route::post('/{id}/kembalikan', [IDCardReturnController::class, 'request'])
+            ->name('return.request')
+            ->middleware('check.idcard.access:request');
+
+        // Admin: terima kartu / tolak pengajuan pengembalian
+        Route::post('/{id}/kembalikan/terima', [IDCardReturnController::class, 'approve'])
+            ->name('return.approve')
+            ->middleware('check.idcard.access:proses');
+
+        Route::post('/{id}/kembalikan/tolak', [IDCardReturnController::class, 'reject'])
+            ->name('return.reject')
+            ->middleware('check.idcard.access:proses');
+    });
+
+    Route::prefix('employees')->middleware(['web', 'auth'])->group(function () {
+        Route::get('/', [EmployeeController::class, 'index'])
+            ->name('employees.index')
+            ->middleware('employees.access:emp_index');
+        Route::get('/{employee}', [EmployeeController::class, 'show'])
+            ->name('employees.show')
+            ->middleware('employees.access:emp_show');
+    });
+    Route::get('/employee/search', [EmployeeSearchController::class, 'search'])->name('employee.search');
+
+    Route::middleware(['auth'])->prefix('track-r')->group(function () {
+        Route::get('/', [TrackRController::class, 'index'])->name('track-r.index');
+        Route::get('/create', [TrackRController::class, 'create'])->name('track-r.create');
+        Route::post('/', [TrackRController::class, 'store'])->name('track-r.store');
+        Route::get('/{id}', [TrackRController::class, 'show'])->name('track-r.show');
+        Route::post('/{id}/terima', [TrackRController::class, 'terima'])->name('track-r.terima');
+        Route::post('/{id}/tolak', [TrackRController::class, 'tolak'])->name('track-r.tolak');
+        Route::post('/{id}/teruskan', [TrackRController::class, 'teruskan'])->name('track-r.teruskan');
+        Route::get('/{id}/pdf', [TrackRController::class, 'pdf'])->name('track-r.pdf');
+        Route::get('track-r/export', [TrackRController::class, 'export'])->name('track-r.export');
+        Route::get('/{document}/foto/{foto}/download', [TrackRController::class, 'downloadFoto'])
+            ->name('track-r.foto.download');
+        Route::get('/track-foto/view/{id}', [App\Http\Controllers\TrackFotoController::class, 'view'])
+            ->name('track-foto.view');
+        Route::get('/track-foto/download/{id}', [App\Http\Controllers\TrackFotoController::class, 'download'])
+            ->name('track-foto.download');
+    });
+
+    Route::middleware(['auth'])->prefix('work-reports')->name('work-reports.')->group(function () {
+        Route::get('/', [WorkReportController::class, 'index'])->name('index');
+        Route::get('/create', [WorkReportController::class, 'create'])->name('create');
+        Route::post('/', [WorkReportController::class, 'store'])->name('store');
+        Route::get('/export', [WorkReportController::class, 'export'])->name('export');
+        Route::get('/chart', [WorkReportController::class, 'chart'])->name('chart');
+        Route::get('/{workReport}/edit', [WorkReportController::class, 'edit'])->name('edit');
+        Route::put('/{workReport}', [WorkReportController::class, 'update'])->name('update');
+        Route::delete('/{workReport}', [WorkReportController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::get('/private-storage/{path}', function ($path) {
+        $fullPath = storage_path('app/private/' . $path);
+        if (!file_exists($fullPath)) {
+            abort(404);
+        }
+        return response()->file($fullPath);
+    })->where('path', '.*')->name('private.storage')->middleware('auth');
+
+    Route::middleware(['auth'])->prefix('work-reports-categories')->name('work-reports.categories.')->group(function () {
+        Route::get('/', [WorkReportCategoryController::class, 'index'])->name('index');
+        Route::get('/create', [WorkReportCategoryController::class, 'create'])->name('create');
+        Route::post('/', [WorkReportCategoryController::class, 'store'])->name('store');
+        Route::get('/{workReportCategory}/edit', [WorkReportCategoryController::class, 'edit'])->name('edit');
+        Route::put('/{workReportCategory}', [WorkReportCategoryController::class, 'update'])->name('update');
+        Route::delete('/{workReportCategory}', [WorkReportCategoryController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('founddesk')
+        ->name('founddesk.')
+        ->middleware(['auth', 'founddesk.access'])
+        ->group(function () {
+            Route::get('/', [FounddeskController::class, 'index'])->name('index');
+            Route::get('/create', [FounddeskController::class, 'create'])->name('create');
+            Route::post('/', [FounddeskController::class, 'store'])->name('store');
+            Route::delete('/{id}', [FounddeskController::class, 'destroy'])->name('destroy');
+            Route::get('/photo/{id}', [FounddeskController::class, 'showPhoto'])->name('photo');
+            Route::get('/export/csv', [FounddeskController::class, 'export'])->name('export');
+
+            Route::prefix('disposition')->name('disposition.')->group(function () {
+                Route::get('/create', [FounddeskDispositionController::class, 'create'])->name('create');
+                Route::post('/', [FounddeskDispositionController::class, 'store'])->name('store');
+                Route::get('/{id}', [FounddeskDispositionController::class, 'show'])->name('show');
+                Route::get('/photo/{id}/{type}', [FounddeskDispositionController::class, 'showPhoto'])->name('photo');
+                Route::patch('/{id}/cancel', [FounddeskDispositionController::class, 'cancel'])->name('cancel');
+            });
+        });
+
+        Route::middleware(['auth'])->group(function () {
+            // Import Excel & export HARUS didaftarkan sebelum Route::resource('memos', ...)
+            // supaya path "memos/import" & "memos/export" tidak ketangkep sebagai {memo}.
+            Route::get('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'importForm'])->name('memos.import.form');
+            Route::post('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'import'])->name('memos.import.store');
+            Route::get('memos/export', [\App\Http\Controllers\Memos\MemosController::class, 'export'])->name('memos.export');
+
+            Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
+            Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
+            Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
+            Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
+            Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
+
+            // Preview HTML (isinya sama persis dengan PDF): dipakai iframe di show.blade.php (memo tersimpan)
+            // dan create.blade.php (data form yang belum disimpan, live).
+            Route::get('/memos/{memo}/preview', [\App\Http\Controllers\Memos\MemosController::class, 'preview'])->name('memos.preview');
+            Route::post('/memos/preview', [\App\Http\Controllers\Memos\MemosController::class, 'previewLive'])->name('memos.preview.live');
+
+            Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
+            Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
+            Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');
+            Route::put('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'update'])->name('memo-templates.update');
+            Route::delete('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
+
+            // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
+            Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'index'])->name('memo-teams.index');
+                Route::get('/create', [\App\Http\Controllers\Memos\MemoTeamController::class, 'create'])->name('memo-teams.create');
+                Route::post('/', [\App\Http\Controllers\Memos\MemoTeamController::class, 'store'])->name('memo-teams.store');
+                Route::get('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'show'])->name('memo-teams.show');
+                Route::delete('/{memoTeam}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'destroy'])->name('memo-teams.destroy');
+
+                // ===== REVISI: Rute letterhead =====
+                // 1. Menampilkan halaman letterhead (GET) — tanpa duplikasi segmen
+                Route::get('/{memoTeam}/letterhead', [\App\Http\Controllers\Memos\MemoTeamController::class, 'letterhead'])
+                    ->name('memo-teams.letterhead');
+
+                // 2. Menyimpan perubahan letterhead (PATCH)
+                Route::patch('/{memoTeam}/letterhead', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateLetterhead'])
+                    ->name('memo-teams.letterhead.update');
+
+                // Kelola admin dalam tim
+                Route::post('/{memoTeam}/admins', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addAdmin'])->name('memo-teams.admins.add');
+                Route::delete('/{memoTeam}/admins/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeAdmin'])->name('memo-teams.admins.remove');
+                Route::patch('/{memoTeam}/admins/{user}/jabatan', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateAdminJabatan'])->name('memo-teams.admins.jabatan');
+
+                // Kelola anggota tim
+                Route::post('/{memoTeam}/members', [\App\Http\Controllers\Memos\MemoTeamController::class, 'addMember'])->name('memo-teams.members.add');
+                Route::delete('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'removeMember'])->name('memo-teams.members.remove');
+                Route::patch('/{memoTeam}/members/{user}', [\App\Http\Controllers\Memos\MemoTeamController::class, 'updateMemberAdmin'])->name('memo-teams.members.update-admin');
+            });
+
+            // Setting nomor memo (superadmin)
+            Route::middleware(['memo.superadmin'])->prefix('memo-number-settings')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'index'])->name('memo-number-settings.index');
+                Route::post('/', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'store'])->name('memo-number-settings.store');
+                Route::patch('/{memoNumberSetting}/counter', [\App\Http\Controllers\Memos\MemoNumberSettingController::class, 'updateCounter'])->name('memo-number-settings.counter');
+            });
+        });
+
+    Route::middleware(['auth'])->prefix('feedbacks')->name('feedbacks.')->group(function () {
+        Route::get('/', [FeedbackController::class, 'index'])->name('index');
+        Route::get('/create', [FeedbackController::class, 'create'])->name('create');
+        Route::post('/', [FeedbackController::class, 'store'])->name('store');
+        Route::get('/{id}', [FeedbackController::class, 'show'])->name('show');
+        Route::post('/{id}/reply', [FeedbackController::class, 'reply'])->name('reply');
+    });
+
+    Route::middleware(['auth', 'feedback.admin'])->prefix('admin/feedbacks')->name('feedbacks.admin.')->group(function () {
+        Route::get('/', [AdminFeedbackController::class, 'index'])->name('index');
+        Route::get('/{id}', [AdminFeedbackController::class, 'show'])->name('show');
+        Route::post('/{id}/reply', [AdminFeedbackController::class, 'reply'])->name('reply');
+        Route::patch('/{id}/toggle-status', [AdminFeedbackController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    Route::prefix('task-m')->name('task-m.')->middleware('auth')->group(function () {
+        Route::get('/', [TaskMonitorController::class, 'index'])->name('index');
+        Route::get('/user/{userId}/projects', [TaskMonitorController::class, 'userProjects'])->name('user.projects');
+        Route::post('/', [TaskMonitorController::class, 'store'])->name('store');
+        Route::get('/units', [TaskMonitorController::class, 'unitsList'])->name('units');
+        Route::get('/report/weekly', [TaskMonitorController::class, 'weeklyReport'])->name('report.weekly'); // BARU: harus di atas /{id}
+        Route::get('/{id}', [TaskMonitorController::class, 'show'])->name('show');
+        Route::put('/{id}', [TaskMonitorController::class, 'update'])->name('update');
+        Route::delete('/{id}', [TaskMonitorController::class, 'destroy'])->name('destroy');
+        Route::post('/{projectId}/units', [TaskMonitorController::class, 'addUnit'])->name('add-unit');
+        Route::patch('/{projectId}/units/{unitId}/status', [TaskMonitorController::class, 'updateUnitStatus'])->name('update-unit-status');
+        Route::put('/{projectId}/units/{unitId}/description', [TaskMonitorController::class, 'updateUnitDescription'])->name('update-unit-description');
+        Route::delete('/{projectId}/units/{unitId}', [TaskMonitorController::class, 'deleteUnit'])->name('delete-unit');
+    });
+
+    Route::prefix('supplies')->name('supplies.')->middleware('auth')->group(function () {
+        Route::middleware('supplies.access:user')->group(function () {
+            Route::resource('permintaan', SuppliesPermintaanController::class)->only(['index', 'create', 'store', 'show']);
+        });
+        Route::middleware('supplies.access:admin')->group(function () {
+            Route::resource('barang', SuppliesBarangController::class)->except(['show']);
+            Route::get('stok', [SuppliesStokController::class, 'index'])->name('stok.index');
+            Route::get('stok/masuk', [SuppliesStokController::class, 'createMasuk'])->name('stok.masuk');
+            Route::post('stok/masuk', [SuppliesStokController::class, 'storeMasuk'])->name('stok.masuk.store');
+            Route::get('approval', [SuppliesApprovalController::class, 'index'])->name('approval.index');
+            Route::post('approval/{id}/approve', [SuppliesApprovalController::class, 'approve'])->name('approval.approve');
+            Route::post('approval/{id}/reject', [SuppliesApprovalController::class, 'reject'])->name('approval.reject');
+            Route::get('laporan', [SuppliesLaporanController::class, 'index'])->name('laporan.index');
+            Route::post('laporan/pdf', [SuppliesLaporanController::class, 'pdf'])->name('laporan.pdf');
+            Route::get('laporan/history', [SuppliesLaporanController::class, 'history'])->name('laporan.history');
+            Route::post('laporan/export', [SuppliesLaporanController::class, 'export'])->name('laporan.export');
+        });
+    });
+
+    Route::middleware(['auth', 'hsrm.access'])->prefix('hsrm')->name('hsrm.')->group(function () {
+        Route::get('/', [App\Http\Controllers\HSRM\HsrmDashboardController::class, 'index'])->name('dashboard');
+        Route::get('certificates/export', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'export'])->name('certificates.export');
+        Route::get('equipments/export', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'export'])->name('equipments.export');
+        Route::resource('certificates', App\Http\Controllers\HSRM\HsrmCertificateController::class);
+        Route::resource('equipments', App\Http\Controllers\HSRM\HsrmEquipmentController::class);
+        Route::post('certificates/{certificate}/approve', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'approve'])->name('certificates.approve');
+        Route::post('certificates/{certificate}/revision', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'revision'])->name('certificates.revision');
+        Route::post('equipments/{equipment}/approve', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'approve'])->name('equipments.approve');
+        Route::post('equipments/{equipment}/revision', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'revision'])->name('equipments.revision');
+
+        // === Tolak update (admin & superadmin) - BARU ===
+        Route::post('certificates/{certificate}/reject-update', [App\Http\Controllers\HSRM\HsrmCertificateController::class, 'rejectUpdate'])->name('certificates.reject-update');
+        Route::post('equipments/{equipment}/reject-update', [App\Http\Controllers\HSRM\HsrmEquipmentController::class, 'rejectUpdate'])->name('equipments.reject-update');
+
+        Route::resource('certificate-types', App\Http\Controllers\HSRM\HsrmCertificateTypeController::class)->except(['show']);
+        Route::resource('equipment-types', App\Http\Controllers\HSRM\HsrmEquipmentTypeController::class)->except(['show']);
+        Route::get('logs', [App\Http\Controllers\HSRM\HsrmLogController::class, 'index'])->name('logs.index');
+        Route::get('download/{type}/{id}/{old_index?}', [App\Http\Controllers\HSRM\HsrmFileController::class, 'download'])->name('file.download');
+        Route::post('download/{type}/{id}/rotate', [App\Http\Controllers\HSRM\HsrmFileController::class, 'rotate'])->name('file.rotate');
+        Route::get('/certificates/filter/{filter}', [HsrmCertificateController::class, 'index'])->name('certificates.filter');
+        Route::get('/equipments/filter/{filter}', [HsrmEquipmentController::class, 'index'])->name('equipments.filter');
+        Route::get('approvals', [App\Http\Controllers\HSRM\HsrmApprovalController::class, 'index'])->name('approvals.index');
+
+        // === Admin Quota Management ===
+        Route::get('admin/quotas', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'index'])->name('admin.quotas.index');
+        Route::post('admin/quotas/update', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'update'])->name('admin.quotas.update');
+        Route::get('admin/quotas/export', [App\Http\Controllers\HSRM\HsrmQuotaController::class, 'export'])->name('admin.quotas.export');
+
+        // === Superadmin: Role Access ===
+        // Nama route akhir: hsrm.superadmin.access.index / .store / .update / .destroy
+        Route::prefix('superadmin')->name('superadmin.')->group(function () {
+            Route::get('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'index'])->name('access.index');
+            Route::post('access', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'store'])->name('access.store');
+            Route::put('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'update'])->name('access.update');
+            Route::delete('access/{id}', [App\Http\Controllers\HSRM\HsrmAccessController::class, 'destroy'])->name('access.destroy');
+        });
+    });
+    
+    Route::middleware(['auth'])->prefix('fingrab')->name('fingrab.')->group(function () {
+        Route::get('/', [FinGrabController::class, 'index'])->name('index');
+        Route::get('/dashboard', [FinGrabController::class, 'dashboard'])->name('dashboard');
+        Route::get('/karyawan-unit', [FinGrabController::class, 'karyawan'])->name('karyawan');
+        Route::get('/kecocokan', [FinGrabController::class, 'kecocokan'])->name('kecocokan');
+        Route::post('/kecocokan/fix', [FinGrabController::class, 'fixId'])->name('kecocokan.fix');
+        Route::get('/detail', [FinGrabController::class, 'detail'])->name('detail');
+        Route::get('/upload', [FinGrabUploadController::class, 'form'])->name('upload');
+        Route::post('/upload', [FinGrabUploadController::class, 'store'])->name('upload.store');
+    });
+
+    Route::get('/no-access', function () {
+        return view('no-access');
+    })->name('no-access');
+
+    Route::get('/upload', [ImageController::class, 'index'])->name('image.form');
+    Route::post('/upload', [ImageController::class, 'upload'])->name('image.upload');
+});
+
+require __DIR__.'/budget_web.php';

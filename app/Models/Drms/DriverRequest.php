@@ -1,0 +1,369 @@
+<?php
+
+namespace App\Models\Drms;
+
+use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+class DriverRequest extends Model
+{
+    protected $table = 'drms_requests';
+    
+    protected $fillable = [
+        'request_no', 'requester_id', 'approver_l1_id', 'admin_id',
+        'driver_id', 'vehicle_id', 'voucher_id',
+        'usage_date', 'start_time', 'end_time', 'pickup_location', 'destination', 'purpose',
+        'transport_type', 'status', 'rejection_reason',
+        'approved_l1_at', 'approved_admin_at',
+        'trip_type', 'distance_type', 'return_date', 'return_time',
+        'pickup_maps_link', 'destination_maps_link',
+        // Kolom baru untuk forward ke BU lain
+        'current_business_unit_id', 'original_business_unit_id',
+        'forwarded_by_user_id', 'forwarded_at',
+        // Kolom baru untuk trip gabungan (menumpang ke request lain)
+        'merged_into_id',
+        // Waktu aktual perjalanan ditandai selesai (bukan end_time terjadwal)
+        'completed_at',
+        // Di-reset saat dikembalikan ke Pending supaya email "disetujui" terkirim lagi setelah approve ulang
+        'email_approved_sent',
+        // Pembatalan oleh pemohon
+        'cancelled_at',
+    ];
+
+    protected $casts = [
+        'usage_date'     => 'date',
+        'return_date'    => 'date',
+        'start_time'     => 'string',
+        'end_time'       => 'string',
+        'return_time'    => 'string',
+        'approved_l1_at' => 'datetime',
+        'approved_admin_at' => 'datetime',
+        'forwarded_at'   => 'datetime',
+        'completed_at'   => 'datetime',
+        'cancelled_at'   => 'datetime',
+    ];
+
+    // Relasi
+    public function requester()
+    {
+        return $this->belongsTo(User::class, 'requester_id');
+    }
+
+    public function approverL1()
+    {
+        return $this->belongsTo(User::class, 'approver_l1_id');
+    }
+
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+
+    public function voucher()
+    {
+        return $this->belongsTo(Voucher::class, 'voucher_id');
+    }
+
+    /**
+     * Semua voucher yang diberikan untuk request ini (mendukung lebih dari 1 voucher).
+     * voucher_id tetap disimpan sebagai voucher "utama"/pertama untuk kompatibilitas
+     * tampilan lama, tapi daftar lengkapnya ada di sini.
+     */
+    public function vouchers()
+    {
+        return $this->belongsToMany(Voucher::class, 'drms_request_vouchers', 'request_id', 'voucher_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Relasi ke business unit yang sedang menangani request (jika di-forward)
+     */
+    public function currentBusinessUnit()
+    {
+        return $this->belongsTo(\App\Models\BisnisUnit::class, 'current_business_unit_id', 'id_bisnis_unit');
+    }
+
+    /**
+     * Relasi ke business unit asal request (dari pemohon)
+     */
+    public function originalBusinessUnit()
+    {
+        return $this->belongsTo(\App\Models\BisnisUnit::class, 'original_business_unit_id', 'id_bisnis_unit');
+    }
+
+    /**
+     * Relasi ke user yang melakukan forward
+     */
+    public function forwardedBy()
+    {
+        return $this->belongsTo(User::class, 'forwarded_by_user_id');
+    }
+
+    // Tambahkan di dalam model DriverRequest
+    public function tripLog()
+    {
+        return $this->hasOne(TripLog::class, 'request_id');
+    }
+
+    /**
+     * Riwayat pergantian (swap) driver untuk request ini, terbaru duluan.
+     */
+    public function swapLogs()
+    {
+        return $this->hasMany(DriverSwapLog::class, 'request_id')->latest();
+    }
+
+    /**
+     * Lampiran (PDF / gambar) yang diunggah pemohon saat membuat request.
+     */
+    public function attachments()
+    {
+        return $this->hasMany(RequestAttachment::class, 'request_id');
+    }
+
+    /**
+     * Bentuk ringkas lampiran untuk modal detail (Alpine) di halaman pemohon, L1 dan admin.
+     */
+    public function attachmentsForJs(): array
+    {
+        return $this->attachments->map(fn ($a) => [
+            'name'     => $a->original_name ?: basename($a->file_path),
+            'url'      => route('drms.requests.attachments.show', [$this->id, $a->id]),
+            'is_image' => $a->isImage(),
+        ])->values()->all();
+    }
+
+    /**
+     * Pemohon boleh membatalkan selama request belum diproses admin GA.
+     */
+    public function canBeCancelledByRequester(): bool
+    {
+        return in_array($this->status, ['pending_l1', 'approved_l1'], true);
+    }
+
+    /**
+     * Trip induk yang ditumpangi request ini (kalau request ini "menumpang").
+     */
+    public function mergedInto()
+    {
+        return $this->belongsTo(DriverRequest::class, 'merged_into_id');
+    }
+
+    /**
+     * Daftar request "penumpang" yang menumpang ke trip ini (kalau request ini induk).
+     */
+    public function passengers()
+    {
+        return $this->hasMany(DriverRequest::class, 'merged_into_id');
+    }
+
+    /**
+     * Waktu berakhirnya perjalanan sesuai jadwal (return_date/return_time untuk pulang-pergi,
+     * selain itu usage_date + end_time). Logikanya sama dengan yang dipakai cek bentrok jadwal.
+     */
+    public function scheduledEnd(): Carbon
+    {
+        $roundTrip = $this->trip_type === 'round_trip' && $this->return_date;
+        $date = $roundTrip ? $this->return_date : $this->usage_date;
+        $time = $roundTrip ? ($this->return_time ?? $this->end_time) : $this->end_time;
+
+        return Carbon::parse($date->format('Y-m-d') . ' ' . ($time ?: $this->start_time));
+    }
+
+    /** Waktu mulai trip sesuai jadwal (usage_date + start_time). */
+    public function scheduledStart(): Carbon
+    {
+        return Carbon::parse($this->usage_date->format('Y-m-d') . ' ' . $this->start_time);
+    }
+
+    /** Jeda (menit) di sisi awal dan akhir slot yang dilepas, sebelum/ sesudah trip lanjut. */
+    public const RELEASE_BUFFER_MINUTES = 15;
+
+    public function releases()
+    {
+        return $this->hasMany(RequestRelease::class, 'request_id');
+    }
+
+    /** Trip pulang-pergi yang menjangkau lebih dari satu hari. */
+    public function isMultiDay(): bool
+    {
+        return $this->trip_type === 'round_trip'
+            && $this->usage_date
+            && $this->return_date
+            && $this->return_date->copy()->startOfDay()->gt($this->usage_date->copy()->startOfDay());
+    }
+
+    /**
+     * Boleh tekan "Selesai hari ini": trip multi-hari yang disetujui, punya driver, bukan penumpang
+     * gabungan, hari ini berada di antara hari pertama dan SEBELUM hari terakhir (hari terakhir
+     * diselesaikan lewat tombol Selesai biasa).
+     */
+    public function canReleaseToday(): bool
+    {
+        if ($this->status !== 'approved_admin' || !$this->driver_id || $this->merged_into_id || !$this->isMultiDay()) {
+            return false;
+        }
+        $today = now()->startOfDay();
+
+        return $today->gte($this->usage_date->copy()->startOfDay())
+            && $today->lt($this->return_date->copy()->startOfDay());
+    }
+
+    public function releaseToday(): ?RequestRelease
+    {
+        return $this->releases()->whereNull('cancelled_at')->whereDate('release_date', now()->toDateString())->first();
+    }
+
+    /**
+     * Pengecualian cek bentrok: request ini TIDAK dianggap memblokir kalau seluruh jadwal baru
+     * ($start..$end, plus jeda) berada di dalam satu slot yang dilepas. Untuk mobil, slot harus
+     * menandai mobil ikut dilepas. Slot driver di luar kota tidak ditawarkan.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $query query pada tabel drms_requests
+     */
+    public static function exemptReleased($query, string $column, string $start, string $end): void
+    {
+        $from  = Carbon::parse($start)->subMinutes(self::RELEASE_BUFFER_MINUTES)->format('Y-m-d H:i:s');
+        $until = Carbon::parse($end)->addMinutes(self::RELEASE_BUFFER_MINUTES)->format('Y-m-d H:i:s');
+
+        $query->whereNotExists(function ($sub) use ($column, $from, $until) {
+            $sub->select(DB::raw(1))
+                ->from('drms_request_releases as rel')
+                ->whereColumn('rel.request_id', 'drms_requests.id')
+                ->whereNull('rel.cancelled_at')
+                ->where('rel.at_home_city', true)
+                ->where('rel.free_from', '<=', $from)
+                ->where('rel.free_until', '>=', $until);
+            if ($column === 'vehicle_id') {
+                $sub->where('rel.vehicle_released', true);
+            }
+        });
+    }
+
+    public function hasEnded(): bool
+    {
+        return now()->gte($this->scheduledEnd());
+    }
+
+    /**
+     * Scope untuk menampilkan request yang menunggu approval admin
+     * berdasarkan business unit dan area, dengan mempertimbangkan current_business_unit_id.
+     */
+    public function scopePendingForAdmin($query, $businessUnitId, $area = null)
+    {
+        // $area boleh berupa string (versi lama), array area (admin multi-area), atau kosong
+        // (admin lintas area = semua area di BU-nya).
+        $areas = array_values(array_filter(array_map('trim', (array) $area), fn ($a) => $a !== ''));
+        $area  = $areas;
+
+        $query->where('status', 'approved_l1')
+              ->where(function ($q) use ($businessUnitId, $area) {
+                  // 1. Jika current_business_unit_id terisi, gunakan itu
+                  $q->where('current_business_unit_id', $businessUnitId)
+                    // 2. Jika belum di-forward, gunakan BU requester
+                    ->orWhere(function ($sub) use ($businessUnitId, $area) {
+                        $sub->whereNull('current_business_unit_id')
+                            ->whereHas('requester.drmsProfile', function ($q2) use ($businessUnitId, $area) {
+                                $q2->where('business_unit_id', $businessUnitId);
+                                if (!empty($area)) {
+                                    $q2->whereIn('area', $area);
+                                }
+                            });
+                    });
+              });
+    }
+
+    /**
+     * Batasi request ke cakupan seorang admin: BU-nya (dan area-areanya kalau ia memegang area),
+     * TANPA membatasi status. Dipakai semua tab di Approval Admin dan Laporan Pengeluaran admin.
+     *
+     * Logikanya sama dengan scopePendingForAdmin:
+     *  - kalau request pernah di-forward, yang dipakai current_business_unit_id (area tidak dicek);
+     *  - kalau belum, yang dipakai BU (dan area) pemohon di drms_user_profiles.
+     *
+     * $area: array area admin (kosong = lintas area dalam BU). Untuk superadmin jangan panggil scope ini.
+     */
+    public function scopeInAdminScope($query, $businessUnitId, $area = [])
+    {
+        $areas = array_values(array_filter(array_map('trim', (array) $area), fn ($a) => $a !== ''));
+
+        return $query->where(function ($q) use ($businessUnitId, $areas) {
+            $q->where('current_business_unit_id', $businessUnitId)
+              ->orWhere(function ($sub) use ($businessUnitId, $areas) {
+                  $sub->whereNull('current_business_unit_id')
+                      ->whereHas('requester.drmsProfile', function ($q2) use ($businessUnitId, $areas) {
+                          $q2->where('business_unit_id', $businessUnitId);
+                          if (!empty($areas)) {
+                              $q2->whereIn('area', $areas);
+                          }
+                      });
+              });
+        });
+    }
+
+    /**
+     * Scope untuk menampilkan request yang menunggu approval admin
+     * (versi lama, hanya berdasarkan BU requester). Masih dipertahankan untuk kompatibilitas.
+     */
+    public function scopePendingAdmin($query, $businessUnitId, $area = null)
+    {
+        $query->where('status', 'approved_l1')
+              ->whereHas('requester', function ($q) use ($businessUnitId, $area) {
+                  $q->whereHas('drmsProfile', function ($q2) use ($businessUnitId, $area) {
+                      $q2->where('business_unit_id', $businessUnitId);
+                      if ($area) {
+                          $q2->where('area', $area);
+                      }
+                  });
+              });
+    }
+
+    /**
+     * Cek tumpang tindih (overlap) untuk driver atau kendaraan pada rentang waktu tertentu.
+     * Digunakan saat admin akan menyetujui request untuk memastikan tidak ada double booking.
+     *
+     * @param  string  $column      'driver_id' atau 'vehicle_id'
+     * @param  int     $id          ID driver/kendaraan
+     * @param  string  $startDate   Y-m-d
+     * @param  string  $startTime   H:i:s
+     * @param  string  $endDate     Y-m-d
+     * @param  string  $endTime     H:i:s
+     * @param  int|null $excludeId  ID request yang dikecualikan (untuk edit)
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeOverlappingPeriod($query, $column, $id, $startDate, $startTime, $endDate, $endTime, $excludeId = null)
+    {
+        if (!$startTime || !$endTime) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $start = $startDate . ' ' . $startTime;
+        $end   = $endDate . ' ' . $endTime;
+
+        return $query->where($column, $id)
+            ->whereIn('status', ['approved_admin', 'pending_l1', 'approved_l1'])
+            ->whereRaw("
+                CONCAT(usage_date, ' ', start_time) < ?
+                AND CONCAT(COALESCE(return_date, usage_date), ' ', COALESCE(return_time, end_time)) > ?
+            ", [$end, $start])
+            ->when($excludeId, function ($q) use ($excludeId) {
+                $q->where('id', '!=', $excludeId);
+            })
+            // Slot yang dilepas ("Selesai hari ini") tidak memblokir jadwal baru yang muat di dalamnya.
+            ->tap(function ($q) use ($column, $start, $end) {
+                self::exemptReleased($q, $column, $start, $end);
+            });
+    }
+}

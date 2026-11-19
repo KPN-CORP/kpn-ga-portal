@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SIDEBAR MENU */
+.menu-item {
+    @apply px-6 py-3 text-gray-600 hover:bg-[#F0F2F5] transition flex items-center border-l-[3px] border-transparent;
+}
+
+.active-menu {
+    @apply bg-white text-gray-900 font-semibold;
+    border-left-color: #4C89FF;
+}
+
+/* ANTI ZOOM */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    overflow-x: hidden;
+}
