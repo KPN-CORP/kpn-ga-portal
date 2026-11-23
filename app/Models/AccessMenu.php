@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class AccessMenu extends Model
+{
+    protected $table = 'tb_access_menu';
+    protected $primaryKey = 'id';
+    
+    protected $fillable = [
+        'username',
+        'request_idcard',
+        'list_idcard',
+        'detail_idcard',
+        'proses_idcard',
+        'request_messenger',
+        'status_messenger',
+        'detail_messenger',
+        'akses_messenger_all',
+        'akses_messenger',
+        'proses_messenger',
+        'emp_index',
+        'emp_show',
+        'emp_edit',
+        'mailing_list',
+        'mailing_input',
+        'mailing_edit',
+        'mailing_proses',
+        'ga_help_proses',
+        'ga_help_full_akses',
+        'stock_ctl_user',
+        'stock_ctl_admin',
+        'stock_ctl_superadmin',
+        'drms_user',
+        'drms_admin',
+        'drms_superadmin',
+        'work_user',      // tambah
+        'work_admin',     // tambah
+        'drms_all_bu_access',
+    ];
+    
+    protected $casts = [
+        'request_idcard' => 'boolean',
+        'list_idcard' => 'boolean',
+        'detail_idcard' => 'boolean',
+        'proses_idcard' => 'boolean',
+        'request_messenger' => 'boolean',
+        'status_messenger' => 'boolean',
+        'detail_messenger' => 'boolean',
+        'akses_messenger_all' => 'boolean',
+        'akses_messenger' => 'boolean',
+        'proses_messenger' => 'boolean',
+        'emp_index' => 'boolean',
+        'emp_show' => 'boolean',
+        'emp_edit' => 'boolean',
+        'mailing_list' => 'boolean',
+        'mailing_input' => 'boolean',
+        'mailing_edit' => 'boolean',
+        'mailing_proses' => 'boolean',
+        'ga_help_proses' => 'boolean',
+        'ga_help_full_akses'=> 'boolean',
+        'stock_ctl_user' => 'boolean',
+        'stock_ctl_admin' => 'boolean',
+        'stock_ctl_superadmin' => 'boolean',
+        'drms_user'=> 'boolean',
+        'drms_admin'=> 'boolean',
+        'drms_superadmin'=> 'boolean',
+        'work_user' => 'boolean',   // tambah
+        'work_admin' => 'boolean',  // tambah
+        'is_superadmin' => 'boolean',
+        'kompres_access' => 'boolean',
+    ];
+}

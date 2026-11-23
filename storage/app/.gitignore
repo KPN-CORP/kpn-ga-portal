@@ -1,0 +1,9 @@
+.env
+.env.*
+/node_modules
+/vendor
+/.vscode
+/.idea
+/public/build
+/public/hot
+/storage/*.key

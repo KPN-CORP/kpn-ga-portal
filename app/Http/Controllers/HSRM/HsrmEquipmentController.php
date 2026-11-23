@@ -1,0 +1,636 @@
+<?php
+
+namespace App\Http\Controllers\HSRM;
+
+use App\Http\Controllers\Controller;
+use App\Helpers\HsrmRole;
+use App\Models\HSRM\HsrmEquipment;
+use App\Models\HSRM\HsrmEquipmentQuota;
+use App\Models\HSRM\HsrmEquipmentType;
+use App\Models\HSRM\HsrmLog;
+use App\Models\HSRM\HsrmUserRole;
+use App\Models\AreaKerja;
+use App\Models\BisnisUnit;
+use App\Models\User;
+use App\Helpers\HsrmFileHelper;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use App\Exports\HsrmEquipmentExport;
+use Maatwebsite\Excel\Facades\Excel;
+
+class HsrmEquipmentController extends Controller
+{
+    public function index(Request $request, $filter = null)
+    {
+        $user = auth()->user();
+        $isAdmin = HsrmRole::canViewAll();
+        $query = HsrmEquipment::with(['businessUnit', 'area', 'pic', 'creator', 'approver', 'equipmentType']);
+
+        if (!$isAdmin) {
+            $areaIds = $user->hsrmAreas->pluck('id_area_kerja');
+            $query->whereIn('area_id', $areaIds);
+        }
+
+        // $filter bisa datang dari segment route (/hsrm/equipments/active)
+        // ATAU dari query string (?filter=active), tergantung link yang dipakai.
+        $filter = $filter ?: $request->query('filter');
+
+        if ($filter) {
+            switch ($filter) {
+                case 'active':
+                    $query->statusActive()->where('status_verif', 'verified');
+                    break;
+                case 'warning':
+                    $query->statusWarning();
+                    break;
+                case 'expired':
+                    $query->statusExpired();
+                    break;
+                case 'pending':
+                    $query->where('status_verif', 'pending');
+                    break;
+                case 'total':
+                    break;
+                default:
+                    abort(404);
+            }
+        }
+
+        if (request('search')) {
+            $search = request('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('capacity', 'like', "%$search%");
+            });
+        }
+        if (request('status_verif')) {
+            $query->where('status_verif', request('status_verif'));
+        }
+        if (request('area_id')) {
+            $query->where('area_id', request('area_id'));
+        }
+        if (request('expired_from')) {
+            $query->whereDate('expired_date', '>=', request('expired_from'));
+        }
+        if (request('expired_to')) {
+            $query->whereDate('expired_date', '<=', request('expired_to'));
+        }
+
+        // 🔽 FILTER TYPE
+        if (request('equipment_type_id')) {
+            $query->where('equipment_type_id', request('equipment_type_id'));
+        }
+
+        // 🔽 FILTER LOCATION (teks bebas, cocok sebagian: "Lantai 2" juga menemukan "Gedung A/Lantai 2/Lobby")
+        if (request()->filled('location')) {
+            $query->where('location', 'like', '%' . trim(request('location')) . '%');
+        }
+
+        // 🔽 FILTER CAPACITY (cocok persis dengan salah satu nilai yang ada, mis. "6kg")
+        if (request()->filled('capacity')) {
+            $query->where('capacity', request('capacity'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Recommendation
+        if (request('rekomendasi')) {
+            $query->rekomendasi(request('rekomendasi'));
+        }
+
+        // 🔽 TAMBAHAN: Filter Status (Active/Warning/Expired) dari dropdown di halaman index
+        if (request('status')) {
+            switch (request('status')) {
+                case 'active':
+                    $query->statusActive();
+                    break;
+                case 'warning':
+                    $query->statusWarning();
+                    break;
+                case 'expired':
+                    $query->statusExpired();
+                    break;
+            }
+        }
+
+        // 🔽 PAGINATION (15 item per halaman)
+        $equipments = $query->latest()->paginate(15);
+
+        $areas = AreaKerja::all();
+        $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
+
+        // Pilihan Location & Capacity diambil dari data yang boleh dilihat user (sesuai area aksesnya)
+        $optionsQuery = HsrmEquipment::query();
+        if (!$isAdmin) {
+            $optionsQuery->whereIn('area_id', $user->hsrmAreas->pluck('id_area_kerja'));
+        }
+        $locations = (clone $optionsQuery)
+            ->whereNotNull('location')->where('location', '!=', '')
+            ->distinct()->pluck('location')
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)->values();
+        $capacities = (clone $optionsQuery)
+            ->whereNotNull('capacity')->where('capacity', '!=', '')
+            ->distinct()->pluck('capacity')
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)->values();
+
+        return view('hsrm.equipments.index', compact('equipments', 'areas', 'equipmentTypes', 'locations', 'capacities'));
+    }
+
+    public function create()
+    {
+        $user = auth()->user();
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
+        $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : $user->hsrmAreas;
+        $businessUnits = BisnisUnit::all();
+        $pics = User::whereHas('hsrmAreas')->get();
+
+        // Peta area_id => [user_id PIC] untuk auto-isi dropdown PIC (admin) saat Area dipilih.
+        $picByArea = $isAdmin
+            ? HsrmUserRole::where('role', 'pic')->orderBy('id')->get()
+                ->groupBy('area_id')
+                ->map(fn($rows) => $rows->pluck('user_id')->values())
+            : collect();
+        $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
+
+        // Ambil semua quota untuk area
+        $quotaData = [];
+        if ($isAdmin) {
+            $allQuotas = HsrmEquipmentQuota::with(['area', 'equipmentType'])->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        } else {
+            $areaIds = $areas->pluck('id_area_kerja')->toArray();
+            $allQuotas = HsrmEquipmentQuota::whereIn('area_id', $areaIds)->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        }
+
+        return view('hsrm.equipments.create', compact('areas', 'businessUnits', 'pics', 'picByArea', 'isAdmin', 'equipmentTypes', 'quotaData'));
+    }
+
+    public function store(Request $request)
+    {
+        $user = auth()->user();
+        HsrmRole::abortUnlessCanWrite();
+        $isAdmin = HsrmRole::isAdmin();
+
+        // Validasi dasar
+        // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin PIC diisi
+        // otomatis dari user yang membuat data ini (lihat penetapan $data['pic_user_id'] di bawah).
+        $rules = [
+            'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
+            'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
+            'pic_user_id' => 'nullable|exists:users,id',
+            'name' => 'required|string|max:255',
+            'capacity' => 'required|string|max:50',
+            'total_items' => 'required|integer|min:1',
+            'location' => 'nullable|string|max:255',
+            'expired_date' => 'nullable|date',
+            'status_kepemilikan' => 'required|boolean',
+            'rekomendasi' => 'nullable|in:recommended',
+            'notes' => 'nullable|string',
+            'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
+        ];
+
+        // Validasi custom atau pilih dari dropdown
+        if ($request->filled('custom_equipment_type')) {
+            $rules['custom_equipment_type'] = 'required|string|max:255|unique:hsrm_equipment_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['equipment_type_id'] = null;
+        } else {
+            $rules['equipment_type_id'] = 'required|exists:hsrm_equipment_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_equipment_type'] = null;
+        }
+
+        // Otorisasi area
+        if (!$isAdmin) {
+            $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
+            if (!in_array($data['area_id'], $allowedAreaIds)) {
+                return back()->withErrors(['area_id' => 'You are not authorized to create in this area.'])->withInput();
+            }
+        }
+
+        // Kuota untuk tipe peralatan ini TIDAK lagi memblokir pembuatan data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
+
+        $data['created_by'] = $user->id;
+        // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
+        // Non-admin, atau admin yang tidak memilih PIC, otomatis PIC = orang yang membuat data ini.
+        if (!$isAdmin || empty($data['pic_user_id'])) {
+            $data['pic_user_id'] = $user->id;
+        }
+        $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
+        $data['pending_action'] = 'create';
+        $data['old_attachments'] = [];
+
+        if ($request->hasFile('photo')) {
+            $path = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
+            if ($path) {
+                $data['photo_path'] = $path;
+            } else {
+                return back()->withErrors(['photo' => 'Failed to upload photo.'])->withInput();
+            }
+        }
+
+        $equipment = HsrmEquipment::create($data);
+
+        HsrmLog::create([
+            'user_id' => $user->id,
+            'action' => 'create',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'new_data' => $equipment->toArray(),
+        ]);
+
+        return redirect()->route('hsrm.equipments.index')->with('success', 'Equipment created successfully.');
+    }
+
+    public function edit($id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeEdit($equipment);
+
+        $isAdmin = HsrmRole::isAdmin();
+        $areas = $isAdmin ? AreaKerja::with('businessUnit')->get() : auth()->user()->hsrmAreas;
+        $businessUnits = BisnisUnit::all();
+        $pics = User::whereHas('hsrmAreas')->get();
+        $equipmentTypes = HsrmEquipmentType::orderBy('name')->get();
+
+        // Ambil quota data
+        $quotaData = [];
+        $areaIds = $areas->pluck('id_area_kerja')->toArray();
+        if (!empty($areaIds)) {
+            $allQuotas = HsrmEquipmentQuota::whereIn('area_id', $areaIds)->get();
+            foreach ($allQuotas as $q) {
+                $key = $q->area_id . '_' . $q->equipment_type_id;
+                $quotaData[$key] = $q->quota;
+            }
+        }
+
+        return view('hsrm.equipments.edit', compact('equipment', 'areas', 'businessUnits', 'pics', 'isAdmin', 'equipmentTypes', 'quotaData'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeEdit($equipment);
+
+        $user = auth()->user();
+        $isAdmin = HsrmRole::isAdmin();
+
+        // Validasi
+        // pic_user_id: hanya admin yang boleh memilih manual (dropdown). Non-admin, PIC pindah
+        // otomatis ke user yang melakukan update ini (lihat $data['pic_user_id'] di bawah).
+        $rules = [
+            'business_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
+            'area_id' => 'required|exists:stock_ctl_area_kerja,id_area_kerja',
+            'pic_user_id' => 'nullable|exists:users,id',
+            'name' => 'required|string|max:255',
+            'capacity' => 'required|string|max:50',
+            'total_items' => 'required|integer|min:1',
+            'location' => 'nullable|string|max:255',
+            'expired_date' => 'nullable|date',
+            'status_kepemilikan' => 'required|boolean',
+            'rekomendasi' => 'nullable|in:recommended',
+            'notes' => 'nullable|string',
+            'photo' => 'nullable|file|mimes:jpg,jpeg,png|max:15360',
+        ];
+
+        if ($request->filled('custom_equipment_type')) {
+            $rules['custom_equipment_type'] = 'required|string|max:255|unique:hsrm_equipment_types,name';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['equipment_type_id'] = null;
+        } else {
+            $rules['equipment_type_id'] = 'required|exists:hsrm_equipment_types,id';
+            $request->validate($rules);
+            $data = $request->all();
+            $data['custom_equipment_type'] = null;
+        }
+
+        if (!$isAdmin) {
+            $allowedAreaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
+            if (!in_array($data['area_id'], $allowedAreaIds)) {
+                return back()->withErrors(['area_id' => 'You are not authorized to edit in this area.'])->withInput();
+            }
+        }
+
+        // Kuota untuk tipe peralatan ini TIDAK lagi memblokir update data.
+        // Data tetap bisa disimpan walau kuota sudah penuh (admin maupun PIC).
+
+        $oldData = $equipment->toArray();
+
+        // Simpan data lama (versi verified) supaya bisa dikembalikan jika update ditolak.
+        $previousData = $equipment->takeSnapshotIfNeeded();
+
+        if ($request->hasFile('photo')) {
+            $oldPath = $equipment->photo_path;
+            $newPath = HsrmFileHelper::storeAttachment($request->file('photo'), 'equipments');
+            if (!$newPath) {
+                return back()->withErrors(['photo' => 'Failed to upload new photo.'])->withInput();
+            }
+
+            if ($previousData) {
+                // File lama masih dibutuhkan untuk snapshot: jangan diarsipkan dulu (baru diarsipkan saat approve).
+                // Kalau file di record ini adalah file pending dari update sebelumnya, buang.
+                if ($equipment->hasPendingUpdate() && $oldPath && $oldPath !== ($previousData['photo_path'] ?? null)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            } elseif ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                $oldAttachments = $equipment->old_attachments ?? [];
+                $oldAttachments = HsrmFileHelper::archiveOldAttachment($oldPath, 'equipments', $oldAttachments);
+                $data['old_attachments'] = $oldAttachments;
+            }
+
+            $data['photo_path'] = $newPath;
+        }
+
+        // Selalu di-set eksplisit supaya tidak bisa ditimpa input dari request.
+        $data['previous_data'] = $previousData;
+        // Form hanya punya opsi '-' / Recommended: jangan hapus nilai 'valid' yang diisi cron otomatis.
+        if (empty($data['rekomendasi']) && $equipment->rekomendasi === 'valid') {
+            $data['rekomendasi'] = 'valid';
+        }
+
+        $data['status_verif'] = HsrmEquipment::STATUS_PENDING;
+        $data['pending_action'] = 'update';
+        $data['approved_by'] = null;
+        $data['approved_at'] = null;
+        $data['updated_by'] = auth()->id();
+        // PIC: admin boleh pilih manual lewat dropdown (pic_user_id dari form).
+        // Non-admin, atau admin yang tidak memilih PIC, otomatis pindah ke user yang mengedit ini.
+        if (!$isAdmin || empty($data['pic_user_id'])) {
+            $data['pic_user_id'] = auth()->id();
+        }
+
+        $equipment->revision_reason = null;
+        $equipment->update($data);
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'update',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'old_data' => $oldData,
+            'new_data' => $equipment->toArray(),
+        ]);
+
+        return redirect()->route('hsrm.equipments.index')->with('success', 'Equipment updated successfully. It will need approval again.');
+    }
+
+    public function destroy($id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeDelete($equipment);
+
+        $oldData = $equipment->toArray();
+        if ($equipment->photo_path) {
+            Storage::disk('public')->delete($equipment->photo_path);
+        }
+        $equipment->delete();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'delete',
+            'module' => 'equipment',
+            'record_id' => $id,
+            'old_data' => $oldData,
+        ]);
+
+        return redirect()->route('hsrm.equipments.index')->with('success', 'Equipment deleted.');
+    }
+
+    public function approve($id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeApprove($equipment);
+
+        // Jika ada custom type, buat tipe baru
+        if ($equipment->custom_equipment_type) {
+            $existing = HsrmEquipmentType::where('name', $equipment->custom_equipment_type)->first();
+            if (!$existing) {
+                $newType = HsrmEquipmentType::create([
+                    'name' => $equipment->custom_equipment_type,
+                    'description' => 'Auto-created from custom equipment',
+                ]);
+                $equipment->equipment_type_id = $newType->id;
+                $equipment->custom_equipment_type = null;
+            } else {
+                $equipment->equipment_type_id = $existing->id;
+                $equipment->custom_equipment_type = null;
+            }
+        }
+
+        // Kuota TIDAK lagi memblokir approve (konsisten dengan create/update).
+        // Jika melebihi kuota, tetap di-approve tapi tampilkan pesan peringatan.
+        $quotaWarning = null;
+        if ($equipment->equipment_type_id) {
+            $quota = HsrmEquipmentQuota::where('area_id', $equipment->area_id)
+                        ->where('equipment_type_id', $equipment->equipment_type_id)
+                        ->first();
+
+            if ($quota && $quota->quota > 0) {
+                $activeItems = HsrmEquipment::where('area_id', $equipment->area_id)
+                                ->where('equipment_type_id', $equipment->equipment_type_id)
+                                ->where('status_verif', 'verified')
+                                ->notExpired()
+                                ->where('id', '!=', $equipment->id)
+                                ->sum('total_items');
+
+                $newTotal = $activeItems + ($equipment->total_items ?? 1);
+                if ($newTotal > $quota->quota) {
+                    $quotaWarning = 'Perhatian: jumlah item aktif untuk tipe ini menjadi ' . $newTotal
+                        . ' dan melebihi kuota (' . $quota->quota . ').';
+                }
+            }
+        }
+
+        // Update disetujui: arsipkan file lama (jika diganti) lalu buang snapshot.
+        if ($equipment->hasPendingUpdate()) {
+            $prevPath = $equipment->previous_data['photo_path'] ?? null;
+            if ($prevPath && $prevPath !== $equipment->photo_path && Storage::disk('public')->exists($prevPath)) {
+                $equipment->old_attachments = HsrmFileHelper::archiveOldAttachment($prevPath, 'equipments', $equipment->old_attachments ?? []);
+            }
+            $equipment->previous_data = null;
+        }
+
+        $equipment->revision_reason = null;
+        $equipment->status_verif = HsrmEquipment::STATUS_VERIFIED;
+        $equipment->pending_action = null;
+        $equipment->approved_by = auth()->id();
+        $equipment->approved_at = now();
+        $equipment->save();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'approve',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'new_data' => $equipment->toArray(),
+        ]);
+
+        $redirect = redirect()->back()->with('success', 'Equipment approved. Custom type has been added if any.');
+        if ($quotaWarning) {
+            $redirect->with('warning', $quotaWarning);
+        }
+        return $redirect;
+    }
+
+    public function revision(Request $request, $id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeApprove($equipment);
+
+        $request->validate(['reason' => 'required|string|max:1000']);
+
+        $equipment->status_verif = HsrmEquipment::STATUS_REVISION;
+        $equipment->revision_reason = trim($request->input('reason'));
+        $equipment->revision_notified_at = null; // cron cron_hsrm_revision_notify.php akan mengirim email ke PIC
+        $equipment->approved_by = auth()->id();
+        $equipment->approved_at = now();
+        $equipment->save();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'revision',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'new_data' => $equipment->toArray(), // termasuk revision_reason
+        ]);
+
+        return redirect()->back()->with('success', 'Equipment sent back for revision.');
+    }
+
+    /**
+     * Tolak update: data kembali ke versi lama (yang sudah verified) dan tetap tampil sebagai data lama.
+     * Hanya admin & superadmin.
+     */
+    public function rejectUpdate($id)
+    {
+        $equipment = HsrmEquipment::findOrFail($id);
+        $this->authorizeReject();
+
+        if (!$equipment->hasPendingUpdate()) {
+            return back()->withErrors(['error' => 'There is no pending update to reject for this record.']);
+        }
+
+        $rejectedData = $equipment->toArray();
+        $previous = $equipment->previous_data;
+
+        // Buang file hasil update yang ditolak (file lama tidak disentuh).
+        $pendingPath = $equipment->photo_path;
+        if ($pendingPath && $pendingPath !== ($previous['photo_path'] ?? null)) {
+            Storage::disk('public')->delete($pendingPath);
+        }
+
+        $equipment->restoreSnapshot();
+        $equipment->save();
+
+        HsrmLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'reject_update',
+            'module' => 'equipment',
+            'record_id' => $equipment->id,
+            'old_data' => $rejectedData,
+            'new_data' => $equipment->toArray(),
+        ]);
+
+        return redirect()->back()->with('success', 'Update rejected. The equipment has been restored to its previous data.');
+    }
+
+    public function show($id)
+    {
+        $equipment = HsrmEquipment::with(['businessUnit', 'area', 'pic', 'creator', 'approver', 'equipmentType'])
+            ->findOrFail($id);
+
+        $this->authorizeView($equipment);
+
+        $logs = HsrmLog::with('user')
+            ->where('module', 'equipment')
+            ->where('record_id', $equipment->id)
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->get();
+
+        return view('hsrm.equipments.show', compact('equipment', 'logs'));
+    }
+
+    public function export()
+    {
+        $user = auth()->user();
+        $isAdmin = HsrmRole::canViewAll();
+        $areaIds = $isAdmin ? [] : $user->hsrmAreas->pluck('id_area_kerja')->toArray();
+
+        $filters = [
+            'status_verif' => request('status_verif'),
+            'area_id' => request('area_id'),
+            'expired_from' => request('expired_from'),
+            'expired_to' => request('expired_to'),
+            'equipment_type_id' => request('equipment_type_id'), // tambahkan untuk export
+            'location' => request('location'),
+            'capacity' => request('capacity'),
+        ];
+
+        return Excel::download(
+            new HsrmEquipmentExport($filters, $isAdmin, $areaIds),
+            'equipments-report.xlsx'
+        );
+    }
+
+    // ===== AUTHORIZATION METHODS =====
+    private function authorizeView($equipment)
+    {
+        $user = auth()->user();
+        if (HsrmRole::canViewAll()) {
+            return;
+        }
+        $areaIds = $user->hsrmAreas->pluck('id_area_kerja')->toArray();
+        if (!in_array($equipment->area_id, $areaIds)) {
+            abort(403, 'You are not authorized to view this equipment.');
+        }
+    }
+
+    private function authorizeEdit($equipment)
+    {
+        $user = auth()->user();
+        HsrmRole::abortUnlessCanWrite('You are not authorized to edit this equipment.');
+        if (HsrmRole::isAdmin()) {
+            return;
+        }
+        if (!$user->canEditInArea($equipment->area_id)) {
+            abort(403, 'You are not authorized to edit this equipment.');
+        }
+    }
+
+    private function authorizeDelete($equipment)
+    {
+        if (!HsrmRole::isAdmin()) {
+            abort(403, 'Only admin can delete an equipment.');
+        }
+    }
+
+    private function authorizeReject()
+    {
+        // Hanya admin & superadmin yang boleh menolak update.
+        if (!(HsrmRole::isAdmin() || HsrmRole::isSuperadmin())) {
+            abort(403, 'Only admin or superadmin can reject an update.');
+        }
+    }
+
+    private function authorizeApprove($equipment)
+    {
+        HsrmRole::abortUnlessCanWrite('You are not authorized to approve this equipment.');
+        if (HsrmRole::isAdmin()) {
+            return;
+        }
+        $user = auth()->user();
+        if (!$user->canApproveInArea($equipment->area_id)) {
+            abort(403, 'You are not authorized to approve this equipment.');
+        }
+    }
+}

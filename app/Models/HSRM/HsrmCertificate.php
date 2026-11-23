@@ -1,0 +1,212 @@
+<?php
+
+namespace App\Models\HSRM;
+
+use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use App\Models\BisnisUnit;
+use App\Models\AreaKerja;
+
+class HsrmCertificate extends Model
+{
+    use HasUpdateSnapshot;
+
+    protected $table = 'hsrm_certificates';
+
+    // Konstanta status verifikasi
+    const STATUS_PENDING = 'pending';
+    const STATUS_VERIFIED = 'verified';
+    const STATUS_REVISION = 'revision';
+
+    // Konstanta rekomendasi
+    const REKOMENDASI_RECOMMENDED = 'recommended';
+
+    protected $fillable = [
+        'business_unit_id',
+        'area_id',
+        'pic_user_id',
+        'employee_name',
+        'nik',
+        'certificate_type_id',
+        'custom_certificate_type',
+        'instansi_pengurusan',
+        'expired_date',
+        'status_verif',
+        'pending_action',
+        'status_kepemilikan',
+        'rekomendasi',
+        'notes',
+        'attachment_path',
+        'old_attachments',
+        'previous_data',
+        'approved_by',
+        'approved_at',
+        'created_by',
+        'updated_by',
+    ];
+
+    protected $casts = [
+        'expired_date' => 'date',
+        'approved_at' => 'datetime',
+        'status_kepemilikan' => 'boolean',
+        'old_attachments' => 'array',
+        'previous_data' => 'array',
+        // rekomendasi tidak di-cast karena berupa string enum
+    ];
+
+    /** Kolom yang di-snapshot saat update (dikembalikan jika update ditolak). */
+    public static function snapshotFields(): array
+    {
+        return [
+            'business_unit_id',
+            'area_id',
+            'pic_user_id',
+            'employee_name',
+            'nik',
+            'certificate_type_id',
+            'custom_certificate_type',
+            'instansi_pengurusan',
+            'expired_date',
+            'status_kepemilikan',
+            'rekomendasi',
+            'notes',
+            'attachment_path',
+            'status_verif',
+            'approved_by',
+            'approved_at',
+            'updated_by',
+        ];
+    }
+
+    // ========== RELATIONSHIPS ==========
+    public function businessUnit()
+    {
+        return $this->belongsTo(BisnisUnit::class, 'business_unit_id', 'id_bisnis_unit');
+    }
+
+    public function area()
+    {
+        return $this->belongsTo(AreaKerja::class, 'area_id', 'id_area_kerja');
+    }
+
+    public function pic()
+    {
+        return $this->belongsTo(User::class, 'pic_user_id');
+    }
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function certificateType()
+    {
+        return $this->belongsTo(HsrmCertificateType::class, 'certificate_type_id');
+    }
+
+    // ========== HELPER ATTRIBUTES ==========
+    /**
+     * Get recommendation label
+     */
+    public function getRekomendasiLabelAttribute()
+    {
+        return match ($this->rekomendasi) {
+            self::REKOMENDASI_RECOMMENDED => 'Recommended',
+            'valid' => 'Valid',
+            default => '-',
+        };
+    }
+
+    /**
+     * Get recommendation badge color class
+     */
+    public function getRekomendasiBadgeAttribute()
+    {
+        return match ($this->rekomendasi) {
+            self::REKOMENDASI_RECOMMENDED => 'text-green-600',
+            'valid' => 'text-sky-600',
+            default => 'text-gray-400',
+        };
+    }
+
+    /**
+     * Status bucket (Active/Warning/Expired) yang null-safe.
+     * expired_date kosong (tanpa masa berlaku) dianggap Active selamanya.
+     */
+    public function getStatusBucketAttribute()
+    {
+        if (is_null($this->expired_date)) {
+            return 'active';
+        }
+        // Aturan tanggal (sama dengan cron): expired mulai SEHARI SETELAH expired_date.
+        $today = today();
+        if ($this->expired_date > $today->copy()->addDays(30)) {
+            return 'active';
+        }
+        if ($this->expired_date >= $today) {
+            return 'warning';
+        }
+        return 'expired';
+    }
+
+    // ========== SCOPES ==========
+    /**
+     * Scope untuk filter rekomendasi
+     */
+    public function scopeRekomendasi($query, $value)
+    {
+        if ($value === self::REKOMENDASI_RECOMMENDED) {
+            return $query->where('rekomendasi', self::REKOMENDASI_RECOMMENDED);
+        }
+
+        // "dash" = yang tampil "-" di list: kosong / null / nilai lama selain "recommended".
+        if ($value === 'dash') {
+            return $query->where(function ($q) {
+                $q->whereNull('rekomendasi')
+                  ->orWhere('rekomendasi', '');
+            });
+        }
+
+        return $query;
+    }
+
+    /** expired_date > now() + 30 hari, ATAU tidak punya tanggal expired (dianggap aktif). */
+    public function scopeStatusActive($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('expired_date')->orWhere('expired_date', '>', today()->addDays(30));
+        });
+    }
+
+    /** expired_date dalam 30 hari ke depan (harus ada tanggal). */
+    public function scopeStatusWarning($query)
+    {
+        return $query->whereNotNull('expired_date')
+            ->where('expired_date', '<=', today()->addDays(30))
+            ->where('expired_date', '>=', today());
+    }
+
+    /** expired_date sudah lewat (harus ada tanggal; kosong = tidak pernah expired). */
+    public function scopeStatusExpired($query)
+    {
+        return $query->whereNotNull('expired_date')->where('expired_date', '<', today());
+    }
+
+    /** Belum expired: expired_date > now(), ATAU expired_date kosong. Dipakai untuk cek kuota "Active". */
+    public function scopeNotExpired($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('expired_date')->orWhere('expired_date', '>=', today());
+        });
+    }
+}

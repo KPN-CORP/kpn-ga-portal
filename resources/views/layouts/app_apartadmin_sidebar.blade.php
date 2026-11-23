@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Apartemen - GA Portal</title>
+    <link rel="shortcut icon" href="{{ asset('KPN123.png') }}" type="image/x-icon">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <!-- Pannellum untuk 360° -->
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+
+    <style>
+        :root{
+            --accent: 59 130 246;      /* blue-500 */
+            --accent-dark: 37 99 235;  /* blue-600 */
+            --ink: 30 41 59;           /* slate-800 */
+        }
+        /* Zoom hanya untuk layar desktop lebar; di tab & hp ukuran asli agar teks tetap terbaca */
+        @media (min-width: 1280px) { html { zoom: 0.8; } }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f8fa; color: rgb(var(--ink)); }
+
+        .soft-border { border-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-bottom { border-bottom-color: rgba(226,232,240,0.7) !important; }
+        .soft-border-top { border-top-color: rgba(226,232,240,0.7) !important; }
+        .soft-shadow { box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04); }
+        .soft-shadow-sidebar { box-shadow: 1px 0 0 rgba(15,23,42,0.04), 6px 0 24px rgba(15,23,42,0.03); }
+
+        /* Sidebar */
+        .sidebar { transition: transform .3s cubic-bezier(.4,0,.2,1); border-right: 1px solid rgba(226,232,240,0.7); }
+        @media (max-width: 1023px) { .sidebar { transform: translateX(-100%); z-index: 60; width: 16rem !important; } .sidebar.active { transform: translateX(0); } }
+
+        .brand-badge{
+            background: linear-gradient(135deg, rgba(var(--accent)/0.12), rgba(var(--accent)/0.04));
+            border: 1px solid rgba(var(--accent)/0.15);
+        }
+
+        .nav-label{ letter-spacing:.08em; white-space:nowrap; }
+
+        .sidebar-link{
+            position: relative;
+            min-height: 2.75rem;
+            transition: background-color .2s ease, color .2s ease, transform .2s ease;
+        }
+        .sidebar-link:hover{ background-color: rgba(248,250,252,0.9); transform: translateX(2px); }
+        .sidebar-link i{ transition: color .2s ease, transform .2s ease; }
+        .sidebar-link.active{
+            background: linear-gradient(90deg, rgba(var(--accent)/0.10), rgba(var(--accent)/0.02));
+            color: rgb(var(--accent-dark));
+            font-weight: 600;
+        }
+        .sidebar-link.active::before{
+            content:"";
+            position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:4px;
+            background: rgb(var(--accent-dark));
+        }
+        .sidebar-link.active i{ color: rgb(var(--accent-dark)); }
+
+        .badge-count{
+            background: linear-gradient(135deg,#ef4444,#dc2626);
+            box-shadow: 0 2px 6px rgba(239,68,68,.35);
+        }
+
+        .overlay{ display:none; position:fixed; inset:0; background: rgba(15,23,42,.25); backdrop-filter: blur(1px); z-index:50; }
+        .overlay.active{ display:block; }
+
+        .avatar-ring{
+            background: linear-gradient(135deg, rgba(var(--accent)/0.14), rgba(var(--accent)/0.05));
+            border: 1px solid rgba(var(--accent)/0.18);
+        }
+
+        /* Tombol mobile mengambang (pengganti header) */
+        .mobile-toggle{
+            position: fixed; top: 1rem; left: 1rem; z-index: 55;
+            width: 2.75rem; height: 2.75rem; border-radius: .75rem;
+            background: #fff; display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 2px 8px rgba(15,23,42,.12);
+        }
+        @media (min-width: 1024px){ .mobile-toggle{ display:none; } }
+
+        /* Profile & logout popup */
+        .profile-menu{
+            position:absolute; left: .75rem; right: .75rem; bottom: calc(100% + .5rem);
+            transition: opacity .18s ease, transform .18s ease;
+        }
+
+        ::-webkit-scrollbar{ width:6px; }
+        ::-webkit-scrollbar-thumb{ background: rgba(148,163,184,.4); border-radius: 999px; }
+    </style>
+    {{-- Gaya standar komponen apartemen (kartu, tabel, tombol, modal) --}}
+    @include('apartemen.partials.ui')
+    @stack('styles')
+    @include('layouts.partials.sidebar-enhance', ['bp' => 1024])
+</head>
+<body>
+    <div id="overlay" class="overlay"></div>
+
+    <button id="sidebar-toggle" class="mobile-toggle text-gray-600">
+        <i class="fas fa-bars text-lg"></i>
+    </button>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 bg-white fixed h-full soft-shadow-sidebar flex flex-col overflow-hidden">
+
+            <!-- Logo -->
+            <div class="p-5 shrink-0 soft-border-bottom border-b flex items-center gap-2">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="brand-badge w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+                        <img src="{{ asset('KPN123.png') }}" alt="Logo" class="w-6 h-6">
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-lg font-bold text-gray-800 leading-tight truncate">Apartemen</h1>
+                        <p class="text-xs text-gray-500 tracking-wide">GA Portal</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 min-h-0 overflow-y-auto p-3">
+                <p class="mt-2 mb-1 px-3 text-[11px] font-semibold text-gray-400 uppercase nav-label">Navigation</p>
+                <ul class="space-y-1">
+                    {{-- MENU ADMIN APARTEMEN --}}
+                    @if(Route::has('dashboard'))
+                    <li>
+                        {{-- [UBAH] tooltip diseragamkan: "Dashboard" -> "GA Portal" --}}
+                        <a href="{{ route('dashboard') }}" title="GA Portal"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-tachometer-alt w-5 mr-3 text-gray-400"></i>
+                            <span>GA Portal</span>
+                        </a>
+                    </li>
+                    @endif
+
+                    @php
+                        $pendingCount = \App\Models\Apartemen\ApartemenRequest::where('status', 'PENDING')->count();
+                    @endphp
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.dashboard') }}" title="Dashboard Admin"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-chart-pie w-5 mr-3 text-gray-400"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.index') }}" title="Permintaan"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 relative {{ request()->routeIs('apartemen.admin.index') ? 'active' : '' }}">
+                            <i class="fas fa-inbox w-5 mr-3 text-gray-400"></i>
+                            <span>Permintaan</span>
+                            @if($pendingCount > 0)
+                                <span class="badge-count ml-auto text-white text-xs rounded-full px-2 py-0.5">{{ $pendingCount }}</span>
+                            @endif
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.apartemen') }}" title="Apartemen & Unit"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.apartemen*') ? 'active' : '' }}">
+                            <i class="fas fa-building w-5 mr-3 text-gray-400"></i>
+                            <span>Apartemen &amp; Unit</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.monitoring') }}" title="Penghuni Aktif"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.monitoring') ? 'active' : '' }}">
+                            <i class="fas fa-users w-5 mr-3 text-gray-400"></i>
+                            <span>Penghuni Aktif</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ route('apartemen.admin.history') }}" title="Riwayat"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.history') ? 'active' : '' }}">
+                            <i class="fas fa-history w-5 mr-3 text-gray-400"></i>
+                            <span>Riwayat</span>
+                        </a>
+                    </li>
+
+                    @if(Route::has('apartemen.admin.access-codes'))
+                    <li>
+                        <a href="{{ route('apartemen.admin.access-codes') }}" title="QR Code Akses"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.access-codes*') ? 'active' : '' }}">
+                            <i class="fas fa-qrcode w-5 mr-3 text-gray-400"></i>
+                            <span>QR Code Akses</span>
+                        </a>
+                    </li>
+                    @endif
+
+                    @if(Route::has('apartemen.admin.report'))
+                    <li>
+                        <a href="{{ route('apartemen.admin.report') }}" title="Laporan"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->routeIs('apartemen.admin.report') ? 'active' : '' }}">
+                            <i class="fas fa-chart-line w-5 mr-3 text-gray-400"></i>
+                            <span>Laporan</span>
+                        </a>
+                    </li>
+                    @endif
+                </ul>
+            </nav>
+
+            <!-- User Profile + Logout -->
+            <div class="relative shrink-0 p-3 soft-border-top border-t bg-white"
+                 x-data="{ openProfile: false }" @click.outside="openProfile = false">
+
+                <div x-show="openProfile" x-transition
+                     class="profile-menu bg-white soft-shadow rounded-lg soft-border border py-2 z-50">
+                    <div class="px-4 py-2 text-sm text-gray-500 soft-border-bottom border-b">
+                        <p class="font-medium text-gray-700">{{ auth()->user()->name ?? '-' }}</p>
+                        <p class="text-xs">{{ auth()->user()->email ?? '-' }}</p>
+                    </div>
+                    <a href="{{ route('logout') }}"
+                       onclick="event.preventDefault(); document.getElementById('logout-form-profile').submit();"
+                       class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition">
+                        <i class="fas fa-sign-out-alt mr-3 text-gray-500"></i>Keluar
+                    </a>
+                    <form id="logout-form-profile" action="{{ route('logout') }}" method="POST" class="hidden">@csrf</form>
+                </div>
+
+                <button @click="openProfile = !openProfile" class="w-full flex items-center space-x-3 p-1 rounded-lg hover:bg-gray-50 transition">
+                    <div class="avatar-ring w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                        <span class="font-semibold text-blue-600 text-sm">
+                            {{ strtoupper(substr(auth()->user()->name ?? 'AD', 0, 2)) }}
+                        </span>
+                    </div>
+                    <div class="min-w-0 text-left flex-1">
+                        <h3 class="font-medium text-gray-800 truncate">{{ auth()->user()->name ?? 'Admin' }}</h3>
+                        <p class="text-xs text-gray-500">Admin Apartemen</p>
+                    </div>
+                    <i class="fas fa-ellipsis-vertical text-gray-400 text-sm"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content (header dihapus, sama seperti DRMS) -->
+        <div class="flex-1 min-w-0 ml-0 lg:ml-64 transition-all duration-300">
+            <main class="p-4 md:p-6 pt-20 lg:pt-6">
+                @hasSection('breadcrumb')
+                    <div class="text-sm text-gray-500 mb-4">@yield('breadcrumb')</div>
+                @endif
+                @yield('content')
+            </main>
+        </div>
+    </div>
+
+    {{-- MODAL 360° UNTUK ADMIN --}}
+    <div id="modal360" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50">
+        <div class="relative w-full h-full">
+            <button onclick="close360Modal()" class="absolute top-4 right-4 text-white text-3xl z-10 hover:text-gray-300 transition">&times;</button>
+            <div id="panorama-container" style="width:100%; height:100%;"></div>
+            {{-- Tampilkan nomor unit di pojok kiri bawah --}}
+            <div id="unit-number-display" class="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-md text-sm font-mono z-10">
+                <!-- Nomor unit akan diisi lewat JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const sidebarEl = document.querySelector('.sidebar');
+        const overlayEl = document.getElementById('overlay');
+
+        document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+            sidebarEl.classList.toggle('active');
+            overlayEl.classList.toggle('active');
+            document.body.style.overflow = sidebarEl.classList.contains('active') ? 'hidden' : '';
+        });
+
+        overlayEl.addEventListener('click', () => {
+            sidebarEl.classList.remove('active');
+            overlayEl.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                sidebarEl.classList.remove('active');
+                overlayEl.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 1024) {
+                    sidebarEl.classList.remove('active');
+                    overlayEl.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        // Fungsi global untuk membuka modal 360°
+        let currentViewer = null;
+        window.open360Modal = function(imageUrl, unitNumber) {
+            const modal = document.getElementById('modal360');
+            modal.classList.remove('hidden');
+
+            const unitDisplay = document.getElementById('unit-number-display');
+            if (unitNumber) {
+                unitDisplay.textContent = 'Unit: ' + unitNumber;
+                unitDisplay.classList.remove('hidden');
+            } else {
+                unitDisplay.classList.add('hidden');
+            }
+
+            if (currentViewer) currentViewer.destroy();
+            currentViewer = pannellum.viewer('panorama-container', {
+                type: 'equirectangular',
+                panorama: imageUrl,
+                autoLoad: true,
+                showZoomCtrl: true,
+                mouseZoom: true,
+                compass: true
+            });
+        };
+        window.close360Modal = function() {
+            if (currentViewer) currentViewer.destroy();
+            document.getElementById('modal360').classList.add('hidden');
+        };
+    </script>
+
+    @stack('scripts')
+</body>
+</html>
