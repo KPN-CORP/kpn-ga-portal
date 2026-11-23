@@ -17,6 +17,9 @@ class FuelLog extends Model
         'is_verified', 'verified_by', 'verified_at', 'notes'
     ];
 
+    /** Draft hanya bisa diubah/dilengkapi selama ini (dihitung dari created_at); setelahnya TERKUNCI (tidak dihapus). */
+    public const DRAFT_TTL_HOURS = 6;
+
     protected $casts = [
         'filling_date' => 'date',
         'odometer_start' => 'integer',
@@ -40,6 +43,26 @@ class FuelLog extends Model
     public function scopeDraft($query)
     {
         return $query->where('is_draft', 1);
+    }
+
+    /** Draft yang sudah melewati batas DRAFT_TTL_HOURS -> terkunci. */
+    public function scopeLockedDraft($query)
+    {
+        return $query->where('is_draft', 1)
+            ->where('created_at', '<', now()->subHours(self::DRAFT_TTL_HOURS));
+    }
+
+    /** Waktu draft terkunci (created_at + 6 jam). Null untuk log final. */
+    public function getDraftLocksAtAttribute()
+    {
+        return $this->is_draft && $this->created_at
+            ? $this->created_at->copy()->addHours(self::DRAFT_TTL_HOURS)
+            : null;
+    }
+
+    public function isDraftLocked(): bool
+    {
+        return $this->is_draft && $this->draft_locks_at && $this->draft_locks_at->isPast();
     }
 
     public function vehicle()

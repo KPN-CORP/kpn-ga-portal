@@ -20,7 +20,7 @@
 
     @if(($draftCount ?? 0) > 0)
         <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded mb-4 flex flex-wrap items-center justify-between gap-2">
-            <span>📝 Ada <strong>{{ $draftCount }}</strong> draft pengisian yang belum dilengkapi.</span>
+            <span>📝 Ada <strong>{{ $draftCount }}</strong> draft pengisian yang belum dilengkapi (terkunci {{ \App\Models\Drms\FuelLog::DRAFT_TTL_HOURS }} jam setelah dibuat){{ ($lockedDraftCount ?? 0) > 0 ? ', ' . $lockedDraftCount . ' di antaranya sudah terkunci' : '' }}.</span>
             <a href="{{ route('drms.fuel-logs.index', ['status' => 'draft', 'month' => 'all']) }}" class="text-sm font-semibold underline">Lihat draft</a>
         </div>
     @endif
@@ -172,7 +172,12 @@
                         <td class="px-6 py-4 font-semibold">{{ $log->total_cost !== null ? 'Rp ' . number_format($log->total_cost, 0, ',', '.') : '-' }}</td>
                         <td class="px-6 py-4">
                             @if($log->is_draft)
-                                <span class="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft</span>
+                                @if($log->isDraftLocked())
+                                    <span class="px-2 py-1 rounded-full text-xs bg-gray-200 text-gray-700">🔒 Draft terkunci</span>
+                                @else
+                                    <span class="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft</span>
+                                    <p class="mt-1 text-[11px] text-red-600">Terkunci {{ $log->draft_locks_at?->format('d/m H:i') }}</p>
+                                @endif
                             @elseif($log->is_verified)
                                 <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">✅ Terverifikasi</span>
                             @else
@@ -187,7 +192,11 @@
                                     <button type="submit" class="text-green-600 hover:text-green-800 text-sm">Verifikasi</button>
                                 </form>
                             @endif
-                            <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="{{ $log->is_draft ? 'text-amber-600 hover:text-amber-800 font-semibold' : 'text-green-600 hover:text-green-800' }} text-sm">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
+                            @if($log->isDraftLocked())
+                                <span class="text-gray-400 text-sm cursor-not-allowed" title="Draft lebih dari {{ \App\Models\Drms\FuelLog::DRAFT_TTL_HOURS }} jam, terkunci">🔒 Terkunci</span>
+                            @else
+                                <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="{{ $log->is_draft ? 'text-amber-600 hover:text-amber-800 font-semibold' : 'text-green-600 hover:text-green-800' }} text-sm">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
+                            @endif
                             <form action="{{ route('drms.fuel-logs.destroy', $log->id) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-800 text-sm">Hapus</button>
@@ -219,7 +228,11 @@
                         <p class="text-xs text-gray-500">{{ $log->vehicle->type }}</p>
                     </div>
                     @if($log->is_draft)
-                        <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft</span>
+                        @if($log->isDraftLocked())
+                            <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-gray-200 text-gray-700">🔒 Terkunci</span>
+                        @else
+                            <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800">📝 Draft<br><span class="text-[10px] text-red-600">Terkunci {{ $log->draft_locks_at?->format('d/m H:i') }}</span></span>
+                        @endif
                     @elseif($log->is_verified)
                         <span class="shrink-0 px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">✅ Terverifikasi</span>
                     @else
@@ -240,7 +253,11 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2 pt-1">
                     <a href="{{ route('drms.fuel-logs.show', $log->id) }}" class="text-center bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded text-xs font-semibold">Detail</a>
-                    <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-center {{ $log->is_draft ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600' }} text-white px-3 py-2 rounded text-xs font-semibold">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
+                    @if($log->isDraftLocked())
+                        <span class="text-center bg-gray-300 text-gray-600 px-3 py-2 rounded text-xs font-semibold cursor-not-allowed">🔒 Terkunci</span>
+                    @else
+                        <a href="{{ route('drms.fuel-logs.edit', $log->id) }}" class="text-center {{ $log->is_draft ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-500 hover:bg-green-600' }} text-white px-3 py-2 rounded text-xs font-semibold">{{ $log->is_draft ? 'Lengkapi' : 'Edit' }}</a>
+                    @endif
                     @if(!$log->is_draft && !$log->is_verified && auth()->user()->isDrmsAdmin())
                         <form action="{{ route('drms.fuel-logs.verify', $log->id) }}" method="POST">
                             @csrf @method('PATCH')

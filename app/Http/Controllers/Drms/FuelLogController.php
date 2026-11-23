@@ -108,6 +108,7 @@ class FuelLogController extends Controller
         // di halaman yang sedang tampil.
         // Draft TIDAK ikut dihitung di statistik (belum ada liter/harga), dihitung terpisah.
         $draftCount    = (clone $query)->where('is_draft', 1)->count();
+        $lockedDraftCount = (clone $query)->lockedDraft()->count();
         $totalLogs     = (clone $query)->where('is_draft', 0)->count();
         $verifiedCount = (clone $query)->where('is_draft', 0)->where('is_verified', 1)->count();
         $pendingCount  = (clone $query)->where('is_draft', 0)->where('is_verified', 0)->count();
@@ -144,7 +145,7 @@ class FuelLogController extends Controller
         $businessUnits = $this->businessUnitOptions($lockedBuId);
         $filterBusinessUnitId = $buId;
         return view('drms.fuel_logs.index', compact(
-            'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount', 'draftCount',
+            'logs', 'vehicles', 'month', 'totalLogs', 'verifiedCount', 'pendingCount', 'draftCount', 'lockedDraftCount',
             'totalLiters', 'totalCostBbm', 'totalKwh', 'totalCostListrik',
             'businessUnits', 'filterBusinessUnitId'
         ));
@@ -238,10 +239,37 @@ class FuelLogController extends Controller
         return $validated;
     }
 
+    /** Draft hanya untuk kendaraan listrik (pengecasan butuh waktu). BBM langsung Simpan & Kirim. */
+    private function isElectricVehicle($vehicleId): bool
+    {
+        return $vehicleId && strcasecmp((string) Vehicle::where('id', $vehicleId)->value('fuel_type'), 'Listrik') === 0;
+    }
+
+    private function draftNotAllowedResponse()
+    {
+        return back()->withInput()->withErrors([
+            'vehicle_id' => 'Simpan Draft hanya untuk kendaraan listrik. Untuk kendaraan BBM, isi semua data dan foto lalu tekan Simpan & Kirim.',
+        ]);
+    }
+
+    /**
+     * Draft yang sudah lewat 6 jam TERKUNCI: tidak bisa dibuka untuk diubah/dilengkapi. Datanya tetap
+     * tersimpan (tidak dihapus) dan masih bisa dilihat lewat Detail; admin bisa menghapusnya manual.
+     */
+    private function guardLockedDraft(FuelLog $log)
+    {
+        if (!$log->isDraftLocked()) return null;
+        return redirect()->route('drms.fuel-logs.index')
+            ->with('error', 'Draft ini sudah lebih dari ' . FuelLog::DRAFT_TTL_HOURS . ' jam sehingga terkunci dan tidak bisa diubah atau dilengkapi. Silakan buat pengisian baru.');
+    }
+
     public function store(Request $request)
     {
         // save_mode: "draft" (simpan dulu, lengkapi setelah selesai mengisi) atau "submit".
         $isDraft = $request->input('save_mode') === 'draft';
+        if ($isDraft && !$this->isElectricVehicle($request->input('vehicle_id'))) {
+            return $this->draftNotAllowedResponse();
+        }
 
         $validated = $request->validate($this->rulesFor($isDraft), $this->rulesMessages());
         $validated = $this->applyCost($validated);
@@ -264,7 +292,7 @@ class FuelLogController extends Controller
         FuelLog::create($validated);
 
         return redirect()->route('drms.fuel-logs.index')->with('success', $isDraft
-            ? 'Draft tersimpan. Setelah selesai mengisi, buka draft ini lalu tekan Lengkapi.'
+            ? 'Draft tersimpan. Lengkapi dalam ' . FuelLog::DRAFT_TTL_HOURS . ' jam, setelah itu draft terkunci dan tidak bisa dilengkapi lagi.'
             : 'Log BBM berhasil disimpan.');
     }
 
@@ -277,6 +305,7 @@ class FuelLogController extends Controller
     public function edit($id)
     {
         $log = FuelLog::with('driver')->findOrFail($id);
+        if ($locked = $this->guardLockedDraft($log)) return $locked;
         $buId = $this->getBusinessUnitId();
         // Sama seperti create(): kendaraan "available" atau "in_use" ditampilkan,
         // ditambah kendaraan yang sudah tersimpan di log ini apa pun statusnya
@@ -297,11 +326,15 @@ class FuelLogController extends Controller
     public function update(Request $request, $id)
     {
         $log = FuelLog::findOrFail($id);
+        if ($locked = $this->guardLockedDraft($log)) return $locked;
 
         // Log yang masih DRAFT: boleh disimpan sebagai draft lagi (save_mode=draft) atau
         // diselesaikan (save_mode=submit -> semua data + foto sesudah + struk wajib).
         // Log yang sudah final: selalu divalidasi penuh seperti sebelumnya.
         $isDraft = $log->is_draft && $request->input('save_mode') === 'draft';
+        if ($isDraft && !$this->isElectricVehicle($request->input('vehicle_id', $log->vehicle_id))) {
+            return $this->draftNotAllowedResponse();
+        }
 
         $validated = $request->validate($this->rulesFor($isDraft, $log), $this->rulesMessages());
         $validated = $this->applyCost($validated);

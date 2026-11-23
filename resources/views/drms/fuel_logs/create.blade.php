@@ -178,10 +178,16 @@
             @endphp
 
             {{-- Catatan alur untuk yang mengisi --}}
-            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <p class="font-semibold mb-1">📸 Alur pengisian</p>
+            <div id="bbm_note_box" class="hidden mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <p class="font-semibold mb-1">⛽ Kendaraan BBM</p>
+                <p>Tidak ada draft. Isi semua data, foto km dan indikator BBM sebelum dan sesudah pengisian, serta struk, lalu tekan <strong>Simpan &amp; Kirim</strong>.</p>
+            </div>
+
+            <div id="ev_note_box" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p class="font-semibold mb-1">🔌 Alur pengisian kendaraan listrik</p>
                 <p><strong>1. Sebelum mengisi:</strong> isi kendaraan, odometer, lalu foto km dan indikator BBM/baterai → tekan <strong>Simpan Draft</strong>.</p>
                 <p><strong>2. Setelah mengisi:</strong> buka draft di daftar log → tekan <strong>Lengkapi</strong> (liter, harga, foto km dan indikator setelah pengisian, struk).</p>
+                <p class="mt-2 rounded bg-white/60 px-2 py-1 text-xs font-semibold text-red-700">🔒 Catatan: draft hanya bisa dilengkapi selama {{ \App\Models\Drms\FuelLog::DRAFT_TTL_HOURS }} jam sejak dibuat. Lewat dari itu draft terkunci dan tidak bisa diubah atau dilengkapi lagi, jadi lengkapi sebelum batas waktu.</p>
                 <p class="text-xs mt-2 text-amber-700">Kalau semua sudah siap sekarang, isi semuanya lalu tekan <strong>Simpan &amp; Kirim</strong>. Pastikan odometer dan indikator BBM/baterai terlihat jelas dan tidak buram.</p>
             </div>
 
@@ -306,7 +312,7 @@
                 <button type="submit"
                         id="btn_draft"
                         formnovalidate
-                        class="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600">
+                        class="hidden px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600">
                     Simpan Draft
                 </button>
 
@@ -376,6 +382,16 @@
             fuelUnitLabel.innerHTML = unit + ' <span class="text-red-500">*</span>';
         }
 
+        // Draft hanya untuk kendaraan listrik: tombol Simpan Draft dan catatan alur EV hanya tampil untuk EV;
+        // kendaraan BBM melihat catatan "tidak ada draft". Belum pilih kendaraan -> keduanya disembunyikan.
+        function updateDraftMode(fuelType) {
+            const chosen = !!fuelType;
+            const isElectric = chosen && fuelType.toLowerCase() === 'listrik';
+            document.getElementById('btn_draft').classList.toggle('hidden', !isElectric);
+            document.getElementById('ev_note_box').classList.toggle('hidden', !isElectric);
+            document.getElementById('bbm_note_box').classList.toggle('hidden', !chosen || isElectric);
+        }
+
         // Mobil listrik: boleh ambil foto dari galeri hp (atribut capture dilepas).
         // Mobil lain: wajib ambil foto langsung dari kamera (capture="environment").
         function updateReceiptCaptureMode(fuelType) {
@@ -427,6 +443,7 @@
                         searchInput.value = this.getAttribute('data-label');
                         updateFuelUnit(this.getAttribute('data-fuel'));
                         updateReceiptCaptureMode(this.getAttribute('data-fuel'));
+                        updateDraftMode(this.getAttribute('data-fuel'));
                         hideSuggestions();
                     });
                 });
@@ -445,6 +462,7 @@
 
         searchInput.addEventListener('input', function () {
             hiddenInput.value = '';
+            updateDraftMode(null);   // kendaraan belum dipilih lagi -> sembunyikan tombol draft
             const results = search(this.value);
             if (this.value.trim().length === 0) {
                 hideSuggestions();
@@ -530,9 +548,11 @@
             const selected = VEHICLES_DATA.find(v => String(v.id) === String(hiddenInput.value));
             updateFuelUnit(selected ? selected.fuel : null);
             updateReceiptCaptureMode(selected ? selected.fuel : null);
+            updateDraftMode(selected ? selected.fuel : null);
         } else {
             updateFuelUnit(null);
             updateReceiptCaptureMode(null);
+            updateDraftMode(null);
         }
 
         /* =====================================================

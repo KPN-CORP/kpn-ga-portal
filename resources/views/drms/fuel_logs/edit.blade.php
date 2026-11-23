@@ -7,6 +7,7 @@
     @if($log->is_draft)
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             <p class="font-semibold mb-1">📝 Draft — belum dikirim</p>
+            <p class="mb-1 rounded bg-white/60 px-2 py-1 text-xs font-semibold text-red-700">🔒 Draft ini terkunci otomatis pada {{ $log->draft_locks_at?->format('d/m/Y H:i') }} ({{ \App\Models\Drms\FuelLog::DRAFT_TTL_HOURS }} jam sejak dibuat). Setelah itu tidak bisa diubah atau dilengkapi lagi.</p>
             <p>Foto sebelum pengisian sudah tersimpan. Setelah selesai mengisi, lengkapi jumlah, harga, foto km dan indikator setelah pengisian, dan struk, lalu tekan <strong>Selesaikan &amp; Kirim</strong>.</p>
             <p class="text-xs mt-1 text-amber-700">Belum selesai? Tekan <strong>Simpan Draft</strong> untuk menyimpan yang sudah diisi.</p>
         </div>
