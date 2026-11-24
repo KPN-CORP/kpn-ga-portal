@@ -85,17 +85,30 @@
         <p class="lbl">Belum ada PIC. PIC ditambahkan oleh Dept Head dari menu Pengaturan, PIC Saya.</p>
     @else
         <table>
-            <tr><th>Departemen</th><th>Dept Head</th><th>PIC</th><th>Email</th></tr>
+            <tr><th>Departemen</th><th>Dept Head</th><th>PIC</th><th>Email</th><th>Pindah ke Dept Head</th></tr>
             @foreach($picHead->sortBy(fn ($p) => $namaDept($p->dept_head_user_id)) as $p)
                 <tr>
                     <td><b>{{ $namaDept($p->dept_head_user_id) }}</b></td>
                     <td>{{ $p->deptHead->name ?? ('#' . $p->dept_head_user_id) }}</td>
                     <td>{{ $p->pic->name ?? ('#' . $p->pic_user_id) }}</td>
                     <td>{{ $p->pic->email ?? '-' }}</td>
+                    <td>
+                        <form method="post" action="{{ route('budgeting.akses.pic.pindah', $p) }}" class="row" style="gap:6px"
+                              onsubmit="return confirm('Pindahkan PIC ini ke Dept Head tujuan? Item di Dept asal yang ditunjuk ke PIC ini akan dikosongkan PIC-nya.')">
+                            @csrf
+                            <select name="ke" required aria-label="Dept Head tujuan">
+                                <option value="">Pilih Dept Head...</option>
+                                @foreach($kepala->where('user_id', '!=', $p->dept_head_user_id) as $k)
+                                    <option value="{{ $k->user_id }}">{{ \App\Support\budget_s\BudgetPeran::namaDeptLengkap($k->user_id) }}</option>
+                                @endforeach
+                            </select>
+                            <button class="btn sm pr">Pindah</button>
+                        </form>
+                    </td>
                 </tr>
             @endforeach
         </table>
-        <p class="lbl">Hanya Dept Head yang bisa menambah atau melepas PIC.</p>
+        <p class="lbl">Dept Head menambah dan melepas PIC; Admin bisa memindahkan PIC ke Dept Head lain.</p>
     @endif
 </div>
 

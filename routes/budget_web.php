@@ -85,6 +85,7 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
         Route::post('/akses', [AksesController::class, 'simpan'])->name('akses.simpan');
         Route::delete('/akses/{akses}', [AksesController::class, 'hapus'])->whereNumber('akses')->name('akses.hapus');
         Route::post('/akses/pindah', [AksesController::class, 'pindahDept'])->name('akses.pindah');
+        Route::post('/akses/pic/{picHead}/pindah', [AksesController::class, 'pindahPic'])->whereNumber('picHead')->name('akses.pic.pindah');
 
         Route::post('/form/pengaturan', [FormController::class, 'pengaturan'])->name('form.pengaturan');
 

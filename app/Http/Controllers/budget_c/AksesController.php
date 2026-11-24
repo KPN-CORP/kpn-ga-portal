@@ -189,6 +189,44 @@ class AksesController extends Controller
     }
 
     /**
+     * Admin: pindahkan satu PIC dari Dept Head asal ke Dept Head lain.
+     * Hubungan PIC pindah ke Dept tujuan; PIC dikosongkan dari item Dept asal (item tetap milik Dept asal).
+     * Dept Head tujuan harus berperan Dept Head dan aktif. PIC yang sama di Dept lain tidak terganggu.
+     */
+    public function pindahPic(Request $r, BudgetPicHead $picHead)
+    {
+        $r->validate(['ke' => ['required', 'integer']], [], ['ke' => 'Dept Head tujuan']);
+
+        $picId = (int) $picHead->pic_user_id;
+        $dari = (int) $picHead->dept_head_user_id;
+        $ke = (int) $r->input('ke');
+
+        if ($ke === $dari) {
+            return back()->withFragment('pesan')->withErrors(['akses' => 'Dept Head tujuan sama dengan Dept Head asal.']);
+        }
+        if ($ke === $picId) {
+            return back()->withFragment('pesan')->withErrors(['akses' => 'PIC tidak bisa berada di bawah dirinya sendiri.']);
+        }
+        $tujuan = BudgetAkses::where('user_id', $ke)->where('peran', BudgetPeran::DEPT_HEAD)->where('aktif', true)->first();
+        if (!$tujuan) {
+            return back()->withFragment('pesan')->withErrors(['akses' => 'Dept Head tujuan harus berperan Dept Head dan aktif.']);
+        }
+
+        $sebelum = $picHead->getAttributes();
+        $itemDikosongkan = 0;
+        DB::transaction(function () use ($picHead, $picId, $dari, $ke, &$itemDikosongkan) {
+            BudgetPicHead::updateOrCreate(['pic_user_id' => $picId, 'dept_head_user_id' => $ke], ['aktif' => true]);
+            $picHead->delete();
+            $itemDikosongkan = BudgetItem::where('dept_head_user_id', $dari)->where('pic_user_id', $picId)->update(['pic_user_id' => null]);
+        });
+        BudgetPeran::lupakan($picId);
+        BudgetCatat::tulis('pindah', 'pic', $picId, 'PIC user #' . $picId . ' dipindah dari Dept user #' . $dari . ' ke Dept user #' . $ke, $sebelum, ['pic_user_id' => $picId, 'dept_head_user_id' => $ke, 'item_dikosongkan' => $itemDikosongkan]);
+
+        return back()->withFragment('pesan')->with('ok', 'PIC dipindahkan ke ' . BudgetPeran::namaDeptLengkap($ke) . '.'
+            . ($itemDikosongkan ? ' ' . $itemDikosongkan . ' item di Dept asal perlu ditunjuk PIC baru.' : ''));
+    }
+
+    /**
      * Admin: pindahkan seluruh data satu Dept ke akun Dept lain (mis. saat orangnya diganti):
      * item (aktif dan nonaktif), PIC, kategori beserta sub, dan nama departemen.
      */
