@@ -35,7 +35,7 @@
         <div><dt class="text-sm text-gray-500">Foto Km dan Indikator BBM/Baterai Sebelum Pengisian</dt>
             <dd>
                 @if($log->photo_dashboard_before)
-                    <a href="{{ route('drms.private.image', $log->photo_dashboard_before) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
+                    <a href="{{ route('drms.private.image.viewer', $log->photo_dashboard_before) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
                 @else
                     <span class="font-medium">-</span>
                 @endif
@@ -44,14 +44,14 @@
         <div><dt class="text-sm text-gray-500">Foto Km dan Indikator BBM/Baterai Setelah Pengisian</dt>
             <dd>
                 @if($log->photo_dashboard_after)
-                    <a href="{{ route('drms.private.image', $log->photo_dashboard_after) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
+                    <a href="{{ route('drms.private.image.viewer', $log->photo_dashboard_after) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>
                 @else
                     <span class="font-medium">-</span>
                 @endif
             </dd>
         </div>
         @if($log->receipt_file)
-        <div class="col-span-2"><dt class="text-sm text-gray-500">Struk</dt><dd><a href="{{ route('drms.private.image', $log->receipt_file) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Struk</a></dd></div>
+        <div class="col-span-2"><dt class="text-sm text-gray-500">Struk</dt><dd><a href="{{ route('drms.private.image.viewer', $log->receipt_file) }}" target="_blank" class="text-blue-600 hover:underline">Lihat Struk</a></dd></div>
         @endif
     </dl>
 

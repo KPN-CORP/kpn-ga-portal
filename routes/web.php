@@ -498,6 +498,15 @@ Route::middleware(['auth'])->group(function () {
             ->where('path', '.*')
             ->middleware(['auth'])
             ->name('private.image');
+
+        // Viewer foto (putar & simpan rotasi) — file non-gambar otomatis diteruskan ke private.image
+        Route::get('/image-viewer/{path}', [ImageController::class, 'viewer'])
+            ->where('path', '.*')
+            ->middleware(['auth'])
+            ->name('private.image.viewer');
+        Route::post('/image-rotate', [ImageController::class, 'rotate'])
+            ->middleware(['auth'])
+            ->name('private.image.rotate');
     });
 
     Route::prefix('apartemen')->group(function () {

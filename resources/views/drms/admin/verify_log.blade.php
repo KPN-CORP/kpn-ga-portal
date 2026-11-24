@@ -83,7 +83,7 @@
         <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">📸 Dokumentasi Speedometer</h3>
         <div class="grid grid-cols-2 gap-3">
             @if($log->photo_before)
-                <a href="{{ route('drms.private.image', $log->photo_before) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
+                <a href="{{ route('drms.private.image.viewer', $log->photo_before) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
                     <img src="{{ route('drms.private.image', $log->photo_before) }}" alt="Foto Sebelum" class="w-full h-32 object-cover group-hover:scale-105 transition duration-300">
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
                         <p class="text-xs text-white font-medium">📷 Sebelum</p>
@@ -91,7 +91,7 @@
                 </a>
             @endif
             @if($log->photo_after)
-                <a href="{{ route('drms.private.image', $log->photo_after) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
+                <a href="{{ route('drms.private.image.viewer', $log->photo_after) }}" target="_blank" class="block group relative rounded-xl overflow-hidden shadow-sm hover:shadow-md transition border border-gray-200 hover:border-blue-300">
                     <img src="{{ route('drms.private.image', $log->photo_after) }}" alt="Foto Sesudah" class="w-full h-32 object-cover group-hover:scale-105 transition duration-300">
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
                         <p class="text-xs text-white font-medium">📷 Sesudah</p>
