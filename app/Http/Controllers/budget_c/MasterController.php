@@ -137,15 +137,24 @@ class MasterController extends Controller
     {
         $user = $r->user();
         $admin = BudgetPeran::isAdmin($user);
+        $ubah = $r->filled('id');
+        $ubahKategori = $ubah && $r->input('jenis') === 'kategori';
         $data = [
             'nama' => $r->input('nama'),
             'urut' => (int) $r->input('urut', 0),
-            // Non-Admin hanya menambah baru, selalu aktif
-            'aktif' => $admin ? $r->boolean('aktif') : true,
+            // Menambah baru oleh non-Admin selalu aktif. Mengubah kategori/subkategori: Admin, Dept Head, dan PIC boleh ubah status.
+            'aktif' => ($admin || $ubah) ? $r->boolean('aktif') : true,
         ];
 
         if ($r->input('jenis') === 'kategori') {
-            $data['dept_head_user_id'] = $this->tentukanPemilik($r);
+            if ($ubahKategori && !$admin) {
+                // Dept Head dan PIC hanya boleh mengubah kategori milik Dept Head-nya (bukan kategori Umum), dan pemilik tidak bisa dipindah
+                $k = BudgetKategori::findOrFail($r->input('id'));
+                abort_unless($k->dept_head_user_id !== null && BudgetKategori::terlihatOleh($user)->whereKey($k->id)->exists(), 403);
+                $data['dept_head_user_id'] = $k->dept_head_user_id;
+            } else {
+                $data['dept_head_user_id'] = $this->tentukanPemilik($r);
+            }
 
             $kembar = BudgetKategori::where('nama', $data['nama'])
                 ->where(fn ($q) => $data['dept_head_user_id']
@@ -170,6 +179,15 @@ class MasterController extends Controller
         }
 
         $data['kategori_id'] = (int) $r->input('kategori_id');
+        if ($ubah && !$admin) {
+            // Dept Head dan PIC hanya boleh mengubah subkategori pada kategori milik Dept Head-nya (bukan Umum), dan tidak memindahnya ke kategori lain
+            $s = BudgetSub::findOrFail($r->input('id'));
+            $data['kategori_id'] = (int) $s->kategori_id;
+            abort_unless(
+                BudgetKategori::terlihatOleh($user)->whereKey($data['kategori_id'])->whereNotNull('dept_head_user_id')->exists(),
+                403
+            );
+        }
         abort_unless(BudgetKategori::terlihatOleh($user)->whereKey($data['kategori_id'])->exists(), 403);
 
         if ($r->filled('id')) {

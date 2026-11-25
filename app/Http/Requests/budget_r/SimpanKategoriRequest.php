@@ -10,7 +10,8 @@ class SimpanKategoriRequest extends FormRequest
 {
     /**
      * Menambah kategori/subkategori baru: Admin, Dept Head, dan PIC (milik Dept Head masing-masing).
-     * Mengubah (ada id): hanya Admin.
+     * Mengubah kategori dan subkategori (ada id): Admin, Dept Head, dan PIC (kepemilikan dicek di controller).
+     * Menghapus tidak lewat sini: hanya Admin (route khusus).
      */
     public function authorize(): bool
     {
@@ -18,7 +19,7 @@ class SimpanKategoriRequest extends FormRequest
         if ($peran === null) {
             return false;
         }
-        return $this->filled('id') ? $peran === BudgetPeran::ADMIN : true;
+        return true;
     }
 
     public function rules(): array

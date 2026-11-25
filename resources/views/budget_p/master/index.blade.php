@@ -40,7 +40,7 @@
     <p class="lbl">"Kunci" hanya menutup angka budget bulanan untuk Dept Head dan PIC. Realisasi (tagihan dan Isi Form) tetap bisa dicatat, dan Admin tetap bisa mengubah budget. Dept Head dan Admin juga bisa membuat tahun lewat tombol "Tahun baru" di Rencana Budget, langsung diisi dari tahun lain.</p>
 </div>
 @else
-<p class="lbl" style="margin-bottom:14px">Halaman ini untuk menambah kategori dan subkategori baru. Anda bisa menambah kategori dan subkategori baru. Kategori yang Anda buat hanya terlihat oleh Anda dan PIC Anda, tidak bercampur dengan Dept Head lain. Mengubah nama, urutan, status, atau menghapus dilakukan Admin.</p>
+<p class="lbl" style="margin-bottom:14px">Halaman ini untuk menambah kategori dan subkategori baru. Anda bisa menambah kategori dan subkategori baru. Kategori yang Anda buat hanya terlihat oleh Anda dan PIC Anda, tidak bercampur dengan Dept Head lain. Anda bisa mengubah nama, urutan, dan status kategori dan subkategori milik Anda. Menghapus kategori dan subkategori dilakukan Admin.</p>
 @endif
 
 <div class="card">
@@ -62,23 +62,27 @@
                 @endforeach
             </summary>
             <div class="isi">
-                @if($admin)
+                @if($admin || $k->dept_head_user_id !== null)
                 <form method="post" action="{{ route('budgeting.master.simpan') }}" class="row" style="margin:6px 0 12px">
                     @csrf <input type="hidden" name="jenis" value="kategori"><input type="hidden" name="id" value="{{ $k->id }}">
                     <input name="nama" value="{{ $k->nama }}" required maxlength="255" aria-label="Nama kategori">
                     <input type="number" name="urut" value="{{ $k->urut }}" min="0" style="width:80px" aria-label="Urutan">
+                    @if($admin)
                     <select name="dept_head_user_id" aria-label="Pemilik kategori">
                         <option value="">Umum (semua)</option>
                         @foreach($pilihanPemilik as $id => $nm)<option value="{{ $id }}" @selected((int) $k->dept_head_user_id === (int) $id)>{{ $nm }}</option>@endforeach
                     </select>
+                    @endif
                     <label><input type="hidden" name="aktif" value="0"><input type="checkbox" name="aktif" value="1" @checked($k->aktif)> Aktif</label>
                     <button class="btn sm pr">Simpan kategori</button>
                 </form>
+                @if($admin)
                 <form method="post" action="{{ route('budgeting.master.kategori.hapus', $k) }}" onsubmit="return confirm('Hapus kategori &quot;{{ addslashes($k->nama) }}&quot; secara permanen?')" style="margin-bottom:10px">@csrf @method('DELETE')<button class="btn sm dg">Hapus kategori</button></form>
+                @endif
                 @endif
 
                 @foreach($k->subs as $s)
-                    @if(!$admin)
+                    @if(!$admin && $k->dept_head_user_id === null)
                     <div class="row" style="border-top:1px solid var(--ln);padding:6px 0">
                         <span>{{ $s->nama }}</span> <span class="lbl">({{ $s->aktif ? 'aktif' : 'nonaktif' }})</span>
                     </div>
@@ -91,7 +95,9 @@
                             <label><input type="hidden" name="aktif" value="0"><input type="checkbox" name="aktif" value="1" @checked($s->aktif)> Aktif</label>
                             <button class="btn sm">Simpan</button>
                         </form>
+                        @if($admin)
                         <form method="post" action="{{ route('budgeting.master.sub.hapus', $s) }}" onsubmit="return confirm('Hapus subkategori &quot;{{ addslashes($s->nama) }}&quot; secara permanen?')">@csrf @method('DELETE')<button class="btn sm dg">Hapus</button></form>
+                        @endif
                     </div>
                     @endif
                     <div class="lbl" style="margin:0 0 8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
