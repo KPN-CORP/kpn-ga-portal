@@ -29,6 +29,8 @@
         <p class="lbl">
             @if(\App\Support\budget_s\BudgetPeran::isAdmin())
                 Dept Head pemilik item ini belum punya PIC. PIC ditambahkan oleh Dept Head di menu PIC Saya.
+            @elseif(\App\Support\budget_s\BudgetPeran::isPic())
+                Belum ada PIC lain di departemen ini. PIC ditambahkan oleh Dept Head di menu PIC Saya.
             @else
                 Belum ada PIC di bawah Anda. Tambahkan dulu di menu <a href="{{ route('budgeting.akses') }}">PIC Saya</a>.
             @endif

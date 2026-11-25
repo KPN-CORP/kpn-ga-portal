@@ -62,7 +62,7 @@ class KategoriController extends Controller
         $rincian = BudgetTagihan::with(['penginput', 'isian.form'])->where('item_id', $item->id)->where('tahun', $tahun)
             ->orderBy('bulan')->orderBy('id')->get()->groupBy('bulan');
 
-        // Admin dan Dept Head pemilik item boleh menunjuk PIC (bawahan Dept Head pemilik item) langsung di popup ini.
+        // Admin, Dept Head pemilik item, dan PIC dari Dept Head tersebut boleh menunjuk PIC (bawahan Dept Head pemilik item) langsung di popup ini.
         $bisaAturPic = $this->bisaAturPic($item, $r->user());
         $daftarPic = $bisaAturPic
             ? BudgetPicHead::with('pic')->where('dept_head_user_id', $item->dept_head_user_id)->where('aktif', true)->get()
@@ -81,7 +81,7 @@ class KategoriController extends Controller
         ]);
     }
 
-    /** Admin (semua item) dan Dept Head (item miliknya): tunjuk atau kosongkan PIC. PIC harus bawahan aktif Dept Head pemilik item. */
+    /** Admin (semua item), Dept Head dan PIC (item departemennya): tunjuk atau kosongkan PIC. PIC harus bawahan aktif Dept Head pemilik item. */
     public function simpanPic(Request $r, BudgetItem $item)
     {
         $user = $r->user();
@@ -108,9 +108,6 @@ class KategoriController extends Controller
 
     private function bisaAturPic(BudgetItem $item, $user): bool
     {
-        if (BudgetPeran::isAdmin($user)) {
-            return true;
-        }
-        return BudgetPeran::isDeptHead($user) && (int) $item->dept_head_user_id === (int) $user->id;
+        return BudgetPeran::bisaAturPic($item, $user);
     }
 }

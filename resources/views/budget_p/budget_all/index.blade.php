@@ -202,7 +202,7 @@
                 <label style="display:block"><input type="radio" name="mode" value="mulai"> Mulai {{ $tahun }} <span class="lbl">(tahun sebelumnya tetap memakai data lama)</span></label>
                 <input type="hidden" name="tahun_berlaku" id="it-tberlaku" value="{{ $tahun }}">
             </fieldset>
-            <p class="lbl">Status aktif diatur per tahun lewat tombol "Nonaktifkan di {{ $tahun }}" pada baris item. PIC yang dipilih adalah satu-satunya PIC yang bisa mengisi item ini; PIC lain di departemen yang sama hanya bisa melihat.</p>
+            <p class="lbl">Status aktif diatur per tahun lewat tombol "Nonaktifkan di {{ $tahun }}" pada baris item. PIC dan Dept Head di departemen ini sama-sama bisa mengisi dan mengubah item.</p>
             <div class="row" style="justify-content:flex-end"><button class="btn pr">Simpan item</button></div>
         </form>
     </dialog>
@@ -297,7 +297,6 @@ function isiPic(pilih){
   const d = PIC_MAP[head] || [];
   $e('it-pic').innerHTML = '<option value="">(belum ditunjuk)</option>' + d.map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('');
   if (pilih) $e('it-pic').value = String(pilih);
-  if (PERAN === 'pic') { $e('it-pic').value = String(pilih || MY_ID); $e('it-pic').disabled = true; }
 }
 function tampilMode(edit){
   $e('it-mode').style.display = edit ? 'block' : 'none';

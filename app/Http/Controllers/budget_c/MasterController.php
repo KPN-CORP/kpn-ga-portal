@@ -186,6 +186,7 @@ class MasterController extends Controller
 
     public function hapusKategori(BudgetKategori $kategori)
     {
+        abort_unless(BudgetPeran::bisaHapusKategori(auth()->user()), 403, 'PIC tidak boleh menghapus kategori.');
         if ($kategori->subs()->exists()) {
             return back()->withErrors(['master' => 'Kategori masih punya subkategori. Hapus atau nonaktifkan saja.']);
         }

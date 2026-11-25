@@ -96,7 +96,7 @@ class BudgetAllController extends Controller
 
         // Pilihan sumber untuk "Salin dari tahun lain": item yang tampil di tiap tahun dan boleh Anda kelola
         $dataSalin = ['kat' => [], 'sub' => [], 'item' => [], 'perTahun' => (object) []];
-        if ($peran === BudgetPeran::ADMIN || $peran === BudgetPeran::DEPT_HEAD) {
+        if (in_array($peran, [BudgetPeran::ADMIN, BudgetPeran::DEPT_HEAD, BudgetPeran::PIC], true)) {
             $perTahun = [];
             $gab = collect();
             foreach (BudgetTahun::daftar() as $t) {
@@ -123,8 +123,8 @@ class BudgetAllController extends Controller
             'paginator' => $paginator,
             'adaFilter' => $adaFilter,
             'tampilNonaktif' => $tampilNonaktif,
-            'bisaSalin' => in_array($peran, [BudgetPeran::ADMIN, BudgetPeran::DEPT_HEAD], true),
-            'bisaBuatTahun' => in_array($peran, [BudgetPeran::ADMIN, BudgetPeran::DEPT_HEAD], true),
+            'bisaSalin' => in_array($peran, [BudgetPeran::ADMIN, BudgetPeran::DEPT_HEAD, BudgetPeran::PIC], true),
+            'bisaBuatTahun' => in_array($peran, [BudgetPeran::ADMIN, BudgetPeran::DEPT_HEAD, BudgetPeran::PIC], true),
             'dataSalin' => $dataSalin,
             'nominal' => $nominal,
             'itemAdaData' => BudgetBulan::where('tahun', $tahun)->whereIn('item_id', $items->pluck('id'))->pluck('item_id')
@@ -150,12 +150,6 @@ class BudgetAllController extends Controller
     {
         $data = Arr::except($r->validated(), ['id', 'mode', 'tahun_berlaku', 'tahun', 'aktif']);
         $data['pic_user_id'] = $r->filled('pic_user_id') ? (int) $r->input('pic_user_id') : null;
-        if (BudgetPeran::isPic($r->user())) {
-            // PIC tidak boleh menunjuk/mengganti PIC: item baru jadi miliknya, item lama tetap seperti semula.
-            $data['pic_user_id'] = $r->filled('id')
-                ? BudgetItem::whereKey($r->input('id'))->value('pic_user_id')
-                : (int) $r->user()->id;
-        }
         $data['dept_head_user_id'] = BudgetPeran::tentukanKepala($r->user(), $r->input('dept_head_user_id'));
 
         if ($r->filled('id')) {
@@ -316,7 +310,7 @@ class BudgetAllController extends Controller
             : back()->withErrors(['budget' => $pesan]);
     }
 
-    /** Admin dan Dept Head: buat tahun anggaran baru, sekaligus (opsional) mengisinya dari tahun lain. */
+    /** Admin, Dept Head, dan PIC: buat tahun anggaran baru, sekaligus (opsional) mengisinya dari tahun lain. */
     public function buatTahun(Request $r)
     {
         $d = $r->validate([

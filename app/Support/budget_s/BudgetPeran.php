@@ -169,18 +169,29 @@ class BudgetPeran
     }
 
     /**
-     * Boleh MENGISI/MENGUBAH item: Dept Head pemilik item, atau PIC yang ditunjuk pada item itu.
-     * PIC lain di departemen yang sama hanya bisa melihat.
+     * Boleh MENGISI/MENGUBAH item: Dept Head pemilik item, dan PIC dari Dept Head tersebut.
+     * PIC punya hak yang sama dengan Dept Head untuk semua item di departemennya (tidak lagi dibatasi item yang ditunjuk padanya).
      */
     protected static function bolehKelola(BudgetItem $item, $user, ?string $peran): bool
     {
-        if (!self::terkait($item, $user, $peran)) {
-            return false;
-        }
-        if ($peran === self::PIC) {
-            return (int) $item->pic_user_id === (int) $user->id;
-        }
-        return true;
+        return self::terkait($item, $user, $peran);
+    }
+
+    /**
+     * Hapus kategori: HANYA Admin. PIC (dan Dept Head) tidak boleh menghapus kategori.
+     * Dipakai sebagai penjaga tambahan di controller, selain pembatasan di route.
+     */
+    public static function bisaHapusKategori($user = null): bool
+    {
+        return self::isAdmin($user);
+    }
+
+    /** Menunjuk/mengosongkan PIC sebuah item: Admin, Dept Head pemilik item, dan PIC dari Dept Head tersebut. */
+    public static function bisaAturPic(BudgetItem $item, $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $p = self::peran($user);
+        return $p === self::ADMIN || (($p === self::DEPT_HEAD || $p === self::PIC) && self::terkait($item, $user, $p));
     }
 
     public static function bisaLihat(BudgetItem $item, $user = null): bool
@@ -212,7 +223,7 @@ class BudgetPeran
         return self::bolehKelola($item, $user, $p);
     }
 
-    /** Input/ubah/hapus tagihan (tidak terpengaruh kunci tahun). Sama dengan hak kelola: PIC hanya untuk item yang ditunjuk padanya. */
+    /** Input/ubah/hapus tagihan (tidak terpengaruh kunci tahun). Sama dengan hak kelola: Dept Head dan PIC untuk semua item departemennya. */
     public static function bisaInputTagihan(BudgetItem $item, $user = null): bool
     {
         $user = $user ?? auth()->user();

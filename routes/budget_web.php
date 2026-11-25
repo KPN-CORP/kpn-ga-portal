@@ -42,8 +42,14 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
     Route::get('/master', [MasterController::class, 'index'])->name('master');
     Route::post('/master/kategori', [MasterController::class, 'simpanKategori'])->name('master.simpan');
 
-    // Admin, Dept, dan PIC (PIC punya akses data yang sama dengan Dept-nya)
+    // Admin, Dept, dan PIC (PIC punya hak data yang sama dengan Dept-nya; yang dikecualikan: hapus kategori, kelola akun PIC)
     Route::middleware($cek . ':admin,dept_head,pic')->group(function () {
+        // Buat tahun baru (opsional langsung diisi dari tahun lain) dan salin antar tahun
+        Route::post('/budget/tahun', [BudgetAllController::class, 'buatTahun'])->name('budget.tahun');
+        Route::post('/budget/salin', [BudgetAllController::class, 'salinTahun'])->name('budget.salin');
+        // Tunjuk PIC item dari popup rincian; hak per item dicek di controller
+        Route::post('/kategori/item/{item}/pic', [KategoriController::class, 'simpanPic'])->name('kategori.item.pic');
+
         Route::post('/budget/item', [BudgetAllController::class, 'simpanItem'])->name('budget.item.simpan');
         // Aktifkan / nonaktifkan item di SATU tahun (tahun lain tidak berubah)
         Route::post('/budget/item/{item}/status', [BudgetAllController::class, 'ubahStatus'])->whereNumber('item')->name('budget.item.status');
@@ -64,14 +70,8 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
 
     // Admin dan Dept
     Route::middleware($cek . ':admin,dept_head')->group(function () {
-        // Buat tahun baru (opsional langsung diisi dari tahun lain) dan salin antar tahun
-        Route::post('/budget/tahun', [BudgetAllController::class, 'buatTahun'])->name('budget.tahun');
-        Route::post('/budget/salin', [BudgetAllController::class, 'salinTahun'])->name('budget.salin');
-
         Route::get('/akses', [AksesController::class, 'index'])->name('akses');
         Route::get('/lookup/user', [LookupController::class, 'user'])->name('lookup.user');
-        // Admin dan Dept: tunjuk PIC item dari halaman Kategori (popup rincian); hak per item dicek di controller
-        Route::post('/kategori/item/{item}/pic', [KategoriController::class, 'simpanPic'])->name('kategori.item.pic');
     });
 
     // Hanya Dept yang menambah dan melepas PIC
@@ -92,6 +92,7 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
         Route::post('/master/tahun', [MasterController::class, 'tambahTahun'])->name('master.tahun');
         Route::post('/master/tahun/{tahun}/kunci', [MasterController::class, 'kunci'])->whereNumber('tahun')->name('master.kunci');
         Route::post('/master/tahun/{tahun}/buka', [MasterController::class, 'buka'])->whereNumber('tahun')->name('master.buka');
+        // Hapus kategori hanya Admin; PIC tidak boleh (dijaga juga di MasterController::hapusKategori)
         Route::delete('/master/kategori/{kategori}', [MasterController::class, 'hapusKategori'])->name('master.kategori.hapus');
         Route::delete('/master/sub/{sub}', [MasterController::class, 'hapusSub'])->name('master.sub.hapus');
     });
