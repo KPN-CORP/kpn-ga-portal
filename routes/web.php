@@ -772,26 +772,27 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware(['auth'])->group(function () {
             // Import Excel & export HARUS didaftarkan sebelum Route::resource('memos', ...)
             // supaya path "memos/import" & "memos/export" tidak ketangkep sebagai {memo}.
-            Route::get('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'importForm'])->name('memos.import.form');
-            Route::post('memos/import', [\App\Http\Controllers\Memos\MemosController::class, 'import'])->name('memos.import.store');
-            Route::get('memos/export', [\App\Http\Controllers\Memos\MemosController::class, 'export'])->name('memos.export');
+            Route::get('memos/import', [MemosController::class, 'importForm'])->name('memos.import.form');
+            Route::post('memos/import', [MemosController::class, 'import'])->name('memos.import.store');
+            Route::get('memos/export', [MemosController::class, 'export'])->name('memos.export');
 
-            Route::resource('memos', \App\Http\Controllers\Memos\MemosController::class);
-            Route::patch('memos/attachment/{attachment}/checklist', [\App\Http\Controllers\Memos\MemosController::class, 'updateChecklist'])->name('memos.checklist');
-            Route::delete('memos/attachment/{attachment}', [\App\Http\Controllers\Memos\MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
-            Route::get('/api/terbilang/{amount}', [\App\Http\Controllers\Memos\MemosController::class, 'terbilang'])->name('api.terbilang');
-            Route::get('/memos/{memo}/pdf', [\App\Http\Controllers\Memos\MemosController::class, 'downloadPdf'])->name('memos.pdf');
+            Route::resource('memos', MemosController::class);
+            Route::get('memos/{memo}/pdf', [MemosController::class, 'downloadPdf'])->name('memos.pdf');
 
-            // Preview HTML (isinya sama persis dengan PDF): dipakai iframe di show.blade.php (memo tersimpan)
-            // dan create.blade.php (data form yang belum disimpan, live).
-            Route::get('/memos/{memo}/preview', [\App\Http\Controllers\Memos\MemosController::class, 'preview'])->name('memos.preview');
-            Route::post('/memos/preview', [\App\Http\Controllers\Memos\MemosController::class, 'previewLive'])->name('memos.preview.live');
+            // Lampiran: file disimpan di disk privat, dibuka lewat route ini (cek akses ke memo induknya).
+            Route::get('memos/attachment/{attachment}/download', [MemosController::class, 'downloadAttachment'])->name('memos.attachments.download');
+            Route::patch('memos/attachment/{attachment}/checklist', [MemosController::class, 'updateChecklist'])->name('memos.checklist');
+            Route::delete('memos/attachment/{attachment}', [MemosController::class, 'deleteAttachment'])->name('memos.attachments.destroy');
 
-            Route::get('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'index'])->name('memo-templates.index');
-            Route::post('/memo-templates', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'store'])->name('memo-templates.store');
-            Route::get('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'show'])->name('memo-templates.show');
-            Route::put('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'update'])->name('memo-templates.update');
-            Route::delete('/memo-templates/{memoTemplate}', [\App\Http\Controllers\Memos\MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
+            Route::get('/api/terbilang/{amount}', [MemosController::class, 'terbilang'])
+                ->where('amount', '[0-9]+(\.[0-9]+)?')
+                ->name('api.terbilang');
+
+            Route::get('/memo-templates', [MemoTemplateController::class, 'index'])->name('memo-templates.index');
+            Route::post('/memo-templates', [MemoTemplateController::class, 'store'])->name('memo-templates.store');
+            Route::get('/memo-templates/{memoTemplate}', [MemoTemplateController::class, 'show'])->name('memo-templates.show');
+            Route::put('/memo-templates/{memoTemplate}', [MemoTemplateController::class, 'update'])->name('memo-templates.update');
+            Route::delete('/memo-templates/{memoTemplate}', [MemoTemplateController::class, 'destroy'])->name('memo-templates.destroy');
 
             // ==== Khusus superadmin e-Memo: kelola tim, admin, anggota, & setting nomor memo ====
             Route::middleware(['memo.superadmin'])->prefix('memo-teams')->group(function () {

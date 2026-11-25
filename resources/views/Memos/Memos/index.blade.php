@@ -89,7 +89,7 @@
                                         <ul class="max-h-48 overflow-y-auto">
                                             @foreach($memo->attachments as $att)
                                             <li>
-                                                <a href="{{ Storage::url($att->file_path) }}" target="_blank" rel="noopener"
+                                                <a href="{{ route('memos.attachments.download', $att) }}" target="_blank" rel="noopener"
                                                     class="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700">
                                                     <i class="fas {{ str_contains($att->mime_type,'pdf') ? 'fa-file-pdf text-red-500' : 'fa-file-image text-blue-500' }}"></i>
                                                     <span class="truncate flex-1">{{ $att->original_name }}</span>
@@ -143,12 +143,12 @@
                                 <a href="{{ route('memos.show', $memo) }}" class="text-blue-600 hover:text-blue-800">
                                     <i class="fas fa-eye"></i> Lihat
                                 </a>
-                                @if(in_array($memo->status, ['draft', 'submitted']) && $memo->created_by == auth()->id())
+                                @if(in_array($memo->status, ['draft', 'submitted']) && auth()->user()->can('update', $memo))
                                     <a href="{{ route('memos.edit', $memo) }}" class="text-amber-600 hover:text-amber-800">
                                         <i class="fas fa-pen"></i> {{ $memo->status === 'draft' ? 'Edit' : 'Revisi' }}
                                     </a>
                                 @endif
-                                @if($memo->status === 'draft' && $memo->created_by == auth()->id())
+                                @if($memo->status === 'draft' && auth()->user()->can('delete', $memo))
                                     <form action="{{ route('memos.destroy', $memo) }}" method="POST" onsubmit="return confirm('Hapus draft ini?')">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="text-red-500 hover:text-red-700">

@@ -9,7 +9,7 @@
         <a href="{{ route('memos.index') }}" class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700">
             <i class="fas fa-arrow-left mr-2"></i> Kembali
         </a>
-        @if(in_array($memo->status, ['draft', 'submitted']) && $memo->created_by == auth()->id())
+        @if(in_array($memo->status, ['draft', 'submitted']) && auth()->user()->can('update', $memo))
             <div class="flex gap-2">
                 <a href="{{ route('memos.edit', $memo) }}" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-lg">
                     <i class="fas fa-pen mr-2"></i> {{ $memo->status === 'draft' ? 'Edit Draft' : 'Revisi Memo' }}
@@ -68,7 +68,7 @@
             <p>
                 {!! $memo->paragraf_pembuka
                     ? nl2br(e($memo->paragraf_pembuka))
-                    : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
+                    : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:<br>&nbsp;' !!}
             </p>
 
             @php
@@ -171,7 +171,7 @@
                 </tr>
             </table>
             @endif
-            <p class="mt-6">Hormat kami,<br><br><br><br><strong>{{ $memo->penandatangan }}</strong><br>{{ $memo->jabatan }}</p>
+            <p class="mt-6">Hormat kami,<br><br><br><br><br><strong>{{ $memo->penandatangan }}</strong><br>{{ $memo->jabatan }}</p>
         </div>
     </div>
 
@@ -187,7 +187,7 @@
         <ul class="space-y-2 mt-2">
             @foreach($memo->attachments as $att)
             <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                <a href="{{ Storage::url($att->file_path) }}" target="_blank" rel="noopener" class="text-blue-600 flex items-center gap-2">
+                <a href="{{ route('memos.attachments.download', $att) }}" target="_blank" rel="noopener" class="text-blue-600 flex items-center gap-2">
                     <i class="fas {{ str_contains($att->mime_type,'pdf') ? 'fa-file-pdf text-red-500' : 'fa-file-image text-blue-500' }}"></i>
                     {{ $att->original_name }}
                     <i class="fas fa-up-right-from-square text-xs text-gray-400"></i>
@@ -286,12 +286,12 @@
                 <strong>Download PDF</strong>: klik tombol "⬇️ Download PDF" untuk mengunduh memo
                 ini dalam bentuk file PDF.
             </p>
-            @if($memo->status === 'draft' && $memo->created_by == auth()->id())
+            @if($memo->status === 'draft' && auth()->user()->can('update', $memo))
             <p class="mb-2">
                 Memo ini masih <strong>draft</strong> — gunakan "Edit Draft" untuk mengubah isinya,
                 atau "Hapus Draft" untuk membatalkan.
             </p>
-            @elseif($memo->status === 'submitted' && $memo->created_by == auth()->id())
+            @elseif($memo->status === 'submitted' && auth()->user()->can('update', $memo))
             <p class="mb-2">
                 Perlu perbaikan? Gunakan "Revisi Memo" — nomor memo dan status memo tetap sama,
                 versi sebelumnya otomatis tersimpan di "Riwayat Revisi" di bawah.

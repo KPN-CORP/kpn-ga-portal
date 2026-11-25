@@ -7,6 +7,9 @@ use App\Models\User;
 
 class Memos extends Model
 {
+    /** Status yang masih boleh diedit (draft) / direvisi (submitted, nomor memo tetap). */
+    public const EDITABLE_STATUSES = ['draft', 'submitted'];
+
     protected $table = 'memos';
 
     protected $fillable = [

@@ -4,6 +4,7 @@ namespace App\Models\Memos;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 class MemoNumberSetting extends Model
@@ -13,6 +14,15 @@ class MemoNumberSetting extends Model
     protected $fillable = [
         'admin_id', 'prefix_kode', 'format_template', 'digit_padding',
         'reset_period', 'last_number', 'last_reset_year', 'last_reset_month', 'created_by',
+    ];
+
+    // Dicast ke integer: perbandingan reset periode di bawah memakai !== (strict),
+    // jadi "2026" (string) vs 2026 (int) tidak boleh dianggap beda -> nomor ke-reset terus.
+    protected $casts = [
+        'digit_padding'    => 'integer',
+        'last_number'      => 'integer',
+        'last_reset_year'  => 'integer',
+        'last_reset_month' => 'integer',
     ];
 
     public function admin()
@@ -99,19 +109,7 @@ class MemoNumberSetting extends Model
             $setting = static::where('admin_id', $adminId)->lockForUpdate()->first();
 
             if (!$setting) {
-                $adminName = $adminId ? optional(User::find($adminId))->name : null;
-                $prefixKode = $adminName ? strtoupper(substr($adminName, 0, 3)) : 'UNK';
-
-                $setting = static::create([
-                    'admin_id'        => $adminId,
-                    'prefix_kode'     => $prefixKode,
-                    'format_template' => '{seq}/{prefix}/Fin/{bulan_romawi}/{tahun}',
-                    'digit_padding'   => 3,
-                    'reset_period'    => 'yearly',
-                    'last_number'     => 0,
-                    'last_reset_year' => $year,
-                    'created_by'      => auth()->id() ?? $adminId,
-                ]);
+                $setting = static::createDefaultSetting($adminId, $year);
             }
 
             $needsReset = match ($setting->reset_period) {
@@ -144,5 +142,38 @@ class MemoNumberSetting extends Model
                 '{tahun}'        => $year,
             ]);
         });
+    }
+
+    /**
+     * Buat setting penomoran default untuk admin yang belum punya.
+     *
+     * Kalau dua memo pertama admin ini di-submit bersamaan, keduanya bisa sampai ke sini
+     * (belum ada baris untuk di-lock). Dengan unique index pada admin_id, salah satunya
+     * kena duplicate-key; kita ambil baris milik pemenangnya (dengan lock) alih-alih error.
+     */
+    private static function createDefaultSetting(?int $adminId, int $year): self
+    {
+        $adminName = $adminId ? optional(User::find($adminId))->name : null;
+        $prefixKode = $adminName ? strtoupper(substr($adminName, 0, 3)) : 'UNK';
+
+        try {
+            return static::create([
+                'admin_id'        => $adminId,
+                'prefix_kode'     => $prefixKode,
+                'format_template' => '{seq}/{prefix}/Fin/{bulan_romawi}/{tahun}',
+                'digit_padding'   => 3,
+                'reset_period'    => 'yearly',
+                'last_number'     => 0,
+                'last_reset_year' => $year,
+                'created_by'      => auth()->id() ?? $adminId,
+            ]);
+        } catch (QueryException $e) {
+            $existing = static::where('admin_id', $adminId)->lockForUpdate()->first();
+            if (!$existing) {
+                throw $e;
+            }
+
+            return $existing;
+        }
     }
 }

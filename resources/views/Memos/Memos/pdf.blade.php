@@ -115,7 +115,7 @@
     <p>
         {!! $memo->paragraf_pembuka
             ? nl2br(e($memo->paragraf_pembuka))
-            : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:' !!}
+            : 'Mohon disiapkan dana sebesar <strong>Rp ' . rupiah($memo->total_amount) . '</strong> (' . terbilang($memo->total_amount) . ') untuk ' . e($memo->perihal) . ' dengan rincian:<br>&nbsp;' !!}
     </p>
 
     @php
@@ -214,7 +214,7 @@
     @endif
 
     <p style="margin-top:40px;">
-        Hormat kami,<br><br><br><br>
+        Hormat kami,<br><br><br><br><br>
         <strong>{{ $memo->penandatangan }}</strong><br>
         {{ $memo->jabatan }}
     </p>

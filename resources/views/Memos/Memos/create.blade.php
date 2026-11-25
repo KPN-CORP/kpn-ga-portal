@@ -175,7 +175,7 @@
                 <ul class="mt-2 space-y-1">
                     @foreach($memo->attachments as $att)
                     <li class="flex justify-between items-center text-xs bg-gray-50 rounded p-2">
-                        <a href="{{ Storage::url($att->file_path) }}" target="_blank" class="text-blue-600 flex items-center gap-1">
+                        <a href="{{ route('memos.attachments.download', $att) }}" target="_blank" class="text-blue-600 flex items-center gap-1">
                             <i class="fa {{ str_contains($att->mime_type,'pdf') ? 'fa-file-pdf' : 'fa-file-image' }}"></i>
                             {{ $att->original_name }}
                         </a>
@@ -712,11 +712,11 @@ function memoCreator() {
                 <p><strong>Dari</strong> : ${this.escapeHtml(this.form.dari) || '-'}</p>
                 <p><strong>Perihal</strong> : ${this.escapeHtml(this.form.perihal) || '-'}</p>
                 <hr style="margin: 16px 0; border: none; border-top: 2px solid #333;">
-                <p>${(this.form.paragraf_pembuka && this.form.paragraf_pembuka.trim() !== '') ? this.escapeHtml(this.form.paragraf_pembuka).replace(/\n/g, '<br>') : `Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+')' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:`}</p>
+                <p>${(this.form.paragraf_pembuka && this.form.paragraf_pembuka.trim() !== '') ? this.escapeHtml(this.form.paragraf_pembuka).replace(/\n/g, '<br>') : `Mohon disiapkan dana sebesar <strong>Rp ${this.formatRupiah(this.total)}</strong> ${terbilangText ? '('+terbilangText+')' : ''} untuk ${this.escapeHtml(this.form.perihal) || '-'} dengan rincian:<br>&nbsp;`}</p>
                 ${itemsHtml}
                 <p>${this.escapeHtml(this.form.instruksi) || '-'}</p>
                 ${this.form.sertakan_rekening ? `<div class="border-l-4 border-blue-600 pl-3 my-3"><strong>Rekening Tujuan</strong><br>Bank : ${this.escapeHtml(this.form.bank) || '-'}<br>Atas Nama : ${this.escapeHtml(this.form.atas_nama) || '-'}<br>No Rek : ${this.escapeHtml(this.form.no_rek) || '-'}</div>` : ''}
-                <p class="mt-6">Hormat kami,<br><br>${this.escapeHtml(this.signer.penandatangan) || '-'}<br>${this.escapeHtml(this.signer.jabatan) || '-'}</p>
+                <p class="mt-6">Hormat kami,<br><br><br><br><br>${this.escapeHtml(this.signer.penandatangan) || '-'}<br>${this.escapeHtml(this.signer.jabatan) || '-'}</p>
             `;
         },
         escapeHtml(str) {
