@@ -11,6 +11,7 @@ use App\Models\budget_m\BudgetTagihan;
 use App\Models\budget_m\BudgetTahun;
 use App\Support\budget_s\BudgetCatat;
 use App\Support\budget_s\BudgetPeran;
+use App\Support\budget_s\BudgetStatus;
 use Illuminate\Http\Request;
 
 class TagihanController extends Controller
@@ -79,6 +80,31 @@ class TagihanController extends Controller
             ->selectRaw('item_id, bulan, COUNT(*) AS c')->groupBy('item_id', 'bulan')->get()
             ->mapWithKeys(fn ($b) => [$b->item_id . '-' . $b->bulan => (int) $b->c]);
 
+        // Budget bulanan + total realisasi (semua invoice) per item + bulan, supaya baris yang over langsung kelihatan.
+        // Total diambil dari seluruh data item + bulan itu (bukan hanya yang tampil di halaman ini / lolos filter).
+        $statusBulan = [];
+        if (!$daftar->isEmpty()) {
+            $idItem = $daftar->pluck('item_id')->unique();
+            $budgetBulan = BudgetBulan::where('tahun', $tahun)->whereIn('item_id', $idItem)
+                ->get(['item_id', 'bulan', 'nominal'])
+                ->mapWithKeys(fn ($b) => [$b->item_id . '-' . $b->bulan => (float) $b->nominal]);
+            $realBulan = BudgetTagihan::where('tahun', $tahun)->whereIn('item_id', $idItem)
+                ->selectRaw('item_id, bulan, SUM(total) AS s')->groupBy('item_id', 'bulan')->get()
+                ->mapWithKeys(fn ($b) => [$b->item_id . '-' . $b->bulan => (float) $b->s]);
+            foreach ($daftar as $t) {
+                $k = $t->item_id . '-' . $t->bulan;
+                $bud = $budgetBulan[$k] ?? 0.0;
+                $rea = $realBulan[$k] ?? 0.0;
+                $statusBulan[$k] = [
+                    'budget' => $bud,
+                    'real' => $rea,
+                    'selisih' => $bud - $rea,
+                    'persen' => $bud > 0 ? $rea / $bud * 100 : null,
+                    'status' => BudgetStatus::dari($bud, $rea),
+                ];
+            }
+        }
+
         // Nomor urut tiap tagihan di dalam item + bulan (1 = yang dicatat paling awal), supaya jelas "ke-2 dari 4"
         $urutanTagihan = [];
         if (!$daftar->isEmpty()) {
@@ -94,6 +120,7 @@ class TagihanController extends Controller
 
         return view('budget_p.tagihan.index', [
             'urutanTagihan' => $urutanTagihan,
+            'statusBulan' => $statusBulan,
             'tahun' => $tahun,
             'daftarTahun' => $daftarTahun,
             'itemModal' => $itemModal,
@@ -193,12 +220,12 @@ class TagihanController extends Controller
             $sebelum = $baris->getAttributes();
             $baris->update($data);
             BudgetCatat::tulis('ubah', 'tagihan', $baris->id, $item->nama, $sebelum, $baris->getAttributes(), ['item_id' => $baris->item_id, 'tahun' => $baris->tahun]);
-            return $keTahun()->with('ok', 'Tagihan diperbarui' . ($tahunHalaman !== $data['tahun'] ? ' (tahun ' . $data['tahun'] . ')' : '') . '.');
+            return $keTahun()->with('ok', 'Realisasi diperbarui' . ($tahunHalaman !== $data['tahun'] ? ' (tahun ' . $data['tahun'] . ')' : '') . '.');
         }
 
         $baru = BudgetTagihan::create($data + ['input_oleh' => $user->id]);
         BudgetCatat::tulis('tambah', 'tagihan', $baru->id, $item->nama, null, $baru->getAttributes(), ['item_id' => $baru->item_id, 'tahun' => $baru->tahun]);
-        return $keTahun()->with('ok', 'Tagihan disimpan' . ($tahunHalaman !== $data['tahun'] ? ' (tahun ' . $data['tahun'] . ')' : '') . '.');
+        return $keTahun()->with('ok', 'Realisasi disimpan' . ($tahunHalaman !== $data['tahun'] ? ' (tahun ' . $data['tahun'] . ')' : '') . '.');
     }
 
     public function hapus(Request $r, BudgetTagihan $tagihan)
@@ -210,7 +237,7 @@ class TagihanController extends Controller
         $sebelum = $tagihan->getAttributes();
         $tagihan->delete();
         BudgetCatat::tulis('hapus', 'tagihan', $tagihan->id, $tagihan->item->nama ?? null, $sebelum, null, ['item_id' => $tagihan->item_id, 'tahun' => $tagihan->tahun]);
-        return back()->with('ok', 'Tagihan dihapus.');
+        return back()->with('ok', 'Realisasi dihapus.');
     }
     protected function pesanKunci(BudgetItem $item): string
     {

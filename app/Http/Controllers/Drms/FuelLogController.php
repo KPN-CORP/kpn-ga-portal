@@ -516,8 +516,6 @@ class FuelLogController extends Controller
                 'last_interval_warning' => $lastRow['warning_level'] ?? null,
                 // Seluruh baris riwayat (sesuai filter) -- dipakai popup "Lihat hitungan" rata-rata
                 'rows' => $detail['rows'],
-                // Estimasi ke depan, langsung tampil tanpa perlu klik
-                'estimate' => $detail['estimate'],
             ];
         }
         // Urutkan: kendaraan dengan pengisian PALING BARU di atas.
@@ -551,9 +549,7 @@ class FuelLogController extends Controller
         // ===== Detail per pengisian (bukan cuma rata-rata) =====
         // Kalau admin sudah memfilter ke SATU kendaraan, tampilkan juga riwayat
         // pengisian sebelum vs sekarang satu-satu (bukan cuma dirangkum jadi
-        // satu baris rata-rata), plus estimasi ke depan berdasarkan pengisian
-        // yang paling baru — seolah-olah "kalau isi sekarang, kira-kira sampai
-        // kapan/berapa jauh lagi & isi berikutnya kira-kira berapa".
+        // satu baris rata-rata).
         $vehicleDetail = null;
         if ($request->filled('vehicle_id') && $logs->isNotEmpty()) {
             $vehicleDetail = $this->buildVehicleFillDetail($logs, $baselines[(int) $request->vehicle_id] ?? null);
@@ -607,8 +603,7 @@ class FuelLogController extends Controller
 
     /**
      * Bangun riwayat pengisian per-pasangan (pengisian sebelumnya -> pengisian
-     * sekarang) untuk SATU kendaraan, beserta estimasi ke depan berdasarkan
-     * pengisian paling baru.
+     * sekarang) untuk SATU kendaraan.
      *
      * @param  \Illuminate\Support\Collection  $items  FuelLog milik SATU kendaraan, urut tanggal (lama -> baru)
      * @param  FuelLog|null  $baseline  pengisian terakhir SEBELUM periode filter (kalau ada), jadi
@@ -668,54 +663,12 @@ class FuelLogController extends Controller
             $prevIsBaseline = false;
         }
 
-        // ----- Estimasi ke depan, dianggap "kalau isi sekarang" (dari pengisian TERAKHIR) -----
-        // Efisiensi acuan pakai RATA-RATA dari seluruh interval yang punya jarak
-        // pembanding (bukan cuma interval terakhir saja), supaya estimasinya tidak
-        // terlalu liar kalau baru ada 1-2 riwayat pengisian.
-        $validRows = collect($rows)->filter(fn ($r) => $r['distance'] !== null && $r['efficiency'] !== null);
-        $lastFill = $items->last();
-
-        $estimate = null;
-        if ($lastFill && $validRows->isNotEmpty()) {
-            $avgEfficiency = round($validRows->avg('efficiency'), 2);
-            $avgLitersPerFill = round($items->avg('fuel_liters'), 2);
-
-            // Rata-rata jarak hari antar pengisian, dari seluruh riwayat tanggal.
-            $dateDiffs = [];
-            $prevDate = $baseline ? $baseline->filling_date : null;
-            foreach ($items as $item) {
-                if ($prevDate !== null && $item->filling_date) {
-                    $dateDiffs[] = $prevDate->diffInDays($item->filling_date);
-                }
-                $prevDate = $item->filling_date;
-            }
-            $avgDaysBetweenFills = !empty($dateDiffs) ? round(array_sum($dateDiffs) / count($dateDiffs), 1) : null;
-
-            $estimate = [
-                'based_on_date'          => $lastFill->filling_date,
-                'based_on_liters'        => $lastFill->fuel_liters,
-                'avg_efficiency'         => $avgEfficiency,
-                // Estimasi jarak yang bisa ditempuh dari volume pengisian TERAKHIR ini,
-                // pakai rata-rata efisiensi historisnya.
-                'estimated_range_km'     => round($avgEfficiency * $lastFill->fuel_liters, 0),
-                'avg_days_between_fills' => $avgDaysBetweenFills,
-                'estimated_next_fill_date' => $avgDaysBetweenFills
-                    ? \Carbon\Carbon::parse($lastFill->filling_date)->addDays($avgDaysBetweenFills)
-                    : null,
-                'estimated_next_liters'  => $avgLitersPerFill,
-                // Estimasi biaya isi berikutnya pakai harga per liter/kWh dari pengisian terakhir
-                // (asumsi harga relatif stabil dalam waktu dekat).
-                'estimated_next_cost'    => round($avgLitersPerFill * $lastFill->fuel_price_per_liter, 0),
-            ];
-        }
-
         return [
             'vehicle'        => $vehicle,
             'unit_label'     => $unitLabel,
             'fuel_unit_label'=> $fuelUnitLabel,
             'standard'       => $standard,
             'rows'           => $rows,
-            'estimate'       => $estimate,
         ];
     }
 }

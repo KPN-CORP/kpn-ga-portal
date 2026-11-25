@@ -41,7 +41,7 @@
                 <div class="lbl">Dibuat {{ $f->pembuat->name ?? '-' }}</div></td>
             <td>{{ $f->item->nama }}<div class="lbl">{{ $f->item->sub->kategori->nama }} / {{ $f->item->sub->nama }}</div>
                 <div class="lbl">PT: {{ $f->item->pt ?: '-' }} | Departemen: {{ \App\Support\budget_s\BudgetPeran::namaDept($f->dept_head_user_id) }}</div>
-                @if(($manual[$f->item_id] ?? 0) > 0)<div class="lbl">{{ $manual[$f->item_id] }} tagihan manual lama di item ini</div>@endif</td>
+                @if(($manual[$f->item_id] ?? 0) > 0)<div class="lbl">{{ $manual[$f->item_id] }} realisasi manual lama di item ini</div>@endif</td>
             <td>@if($f->pakai_ppn)<span class="bd b-mu">PPN</span> @endif @if($f->pakai_materai)<span class="bd b-mu">Materai</span>@endif
                 @unless($f->pakai_ppn || $f->pakai_materai)<span class="lbl">-</span>@endunless</td>
             <td class="n">{{ $f->fields->where('aktif', true)->count() }}</td>

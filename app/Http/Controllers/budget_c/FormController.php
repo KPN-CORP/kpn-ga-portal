@@ -140,7 +140,7 @@ class FormController extends Controller
         $manual = BudgetTagihan::whereNull('isian_id')->where('item_id', $item->id)->count();
         $pesan = 'Form "' . $hasil->nama . '" disimpan. Item "' . $item->nama . '" sekarang terkunci dari input manual.';
         if ($manual > 0) {
-            $pesan .= ' Item ini punya ' . $manual . ' tagihan manual lama: datanya tetap tersimpan dan tetap dihitung, tetapi tidak bisa diubah selama form ini aktif.';
+            $pesan .= ' Item ini punya ' . $manual . ' realisasi manual lama: datanya tetap tersimpan dan tetap dihitung, tetapi tidak bisa diubah selama form ini aktif.';
         }
         return redirect()->route('budgeting.form')->with('ok', $pesan);
     }

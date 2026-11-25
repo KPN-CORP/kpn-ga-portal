@@ -1,4 +1,4 @@
-{{-- Potongan HTML isi popup rincian. params: $item, $tahun, $budget, $real, $bisaUbah, $rincian (tagihan per bulan) --}}
+{{-- Potongan HTML isi popup rincian. params: $item, $tahun, $budget, $real, $bisaUbah, $rincian (realisasi per bulan) --}}
 @php
     $F = \App\Support\budget_s\BudgetFormat::class;
     $tb = (float) collect($budget)->sum();
@@ -55,7 +55,7 @@
         <tr id="rb-{{ $item->id }}-{{ $b }}" hidden>
             <td colspan="4" style="background:var(--bg);padding:8px 10px">
                 <table>
-                    <tr><th>Keterangan</th><th class="n">Tagihan</th><th class="n">PPN</th><th class="n">Materai</th><th class="n">Total</th><th>Diinput oleh</th></tr>
+                    <tr><th>Keterangan</th><th class="n">Realisasi (sebelum PPN)</th><th class="n">PPN</th><th class="n">Materai</th><th class="n">Total</th><th>Diinput oleh</th></tr>
                     @foreach($baris as $t)
                         <tr>
                             <td>{{ $t->keterangan ?: '-' }}@if($t->isian_id) <span class="bd b-mu">dari form</span>@endif</td>
@@ -76,6 +76,6 @@
 </table>
 </div>
 <div class="row" style="margin-top:12px">
-    <a class="btn sm" href="{{ route('budgeting.tagihan.index', ['tahun' => $tahun, 'item_id' => $item->id]) }}">Lihat tagihan item ini</a>
+    <a class="btn sm" href="{{ route('budgeting.tagihan.index', ['tahun' => $tahun, 'item_id' => $item->id]) }}">Lihat realisasi item ini</a>
     <a class="btn sm" href="{{ route('budgeting.budget.index', ['tahun' => $tahun, 'q' => $item->nama]) }}">Buka di halaman Budget</a>
 </div>

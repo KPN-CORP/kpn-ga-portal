@@ -150,7 +150,7 @@
             <button class="btn pr" onclick="if(!document.getElementById('pic-user').value){alert('Pilih user dari hasil pencarian dulu.');return false}">Tambah PIC</button>
         </div>
     </form>
-    <p class="lbl">PIC dapat melihat semua data departemen ini, tetapi hanya bisa mengisi (budget, realisasi/tagihan, dan ubah item) untuk item yang Anda tunjuk PIC-nya. Untuk item lain PIC hanya bisa melihat. Hanya Anda yang bisa menambah dan melepas PIC. Satu PIC boleh berada di bawah lebih dari satu Dept Head.</p>
+    <p class="lbl">PIC dapat melihat semua data departemen ini, tetapi hanya bisa mengisi (budget, realisasi, dan ubah item) untuk item yang Anda tunjuk PIC-nya. Untuk item lain PIC hanya bisa melihat. Hanya Anda yang bisa menambah dan melepas PIC. Satu PIC boleh berada di bawah lebih dari satu Dept Head.</p>
 
     @if($picHead->isEmpty())
         <p class="lbl">Belum ada PIC.</p>

@@ -266,7 +266,7 @@
         </div>
     </div>
 
-    {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) + ESTIMASI KE DEPAN --}}
+    {{-- RIWAYAT PENGISIAN PER KENDARAAN (SEBELUM vs SEKARANG) --}}
     @if($vehicleDetail)
     <div class="bg-white p-4 rounded-lg shadow border mb-6">
         <h3 class="font-semibold text-gray-700 mb-1">🔍 Riwayat Pengisian — {{ $vehicleDetail['vehicle']->plate_number }}</h3>
@@ -404,36 +404,9 @@
                 </tbody>
             </table>
         </div>
-
-        {{-- ESTIMASI KE DEPAN --}}
-        @if($vehicleDetail['estimate'])
-            @php $est = $vehicleDetail['estimate']; @endphp
-            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                <h4 class="font-semibold text-blue-800 mb-2">🔮 Estimasi ke Depan (dari pengisian {{ $est['based_on_date']->format('d M Y') }})</h4>
-                <p class="text-sm text-blue-900 mb-2">
-                    Isi terakhir <strong>{{ number_format($est['based_on_liters'], 2, ',', '.') }} {{ $vehicleDetail['fuel_unit_label'] }}</strong>,
-                    dengan rata-rata efisiensi historis <strong>{{ number_format($est['avg_efficiency'], 2) }} {{ $vehicleDetail['unit_label'] }}</strong>,
-                    diperkirakan bisa menempuh sekitar <strong>{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km</strong> ke depan.
-                </p>
-                <p class="text-sm text-blue-900">
-                    @if($est['estimated_next_fill_date'])
-                        Berdasarkan rata-rata jarak antar pengisian (~{{ $est['avg_days_between_fills'] }} hari), pengisian berikutnya diperkirakan sekitar
-                        <strong>{{ $est['estimated_next_fill_date']->format('d M Y') }}</strong>,
-                    @else
-                        Pengisian berikutnya diperkirakan
-                    @endif
-                    dengan estimasi volume <strong>{{ number_format($est['estimated_next_liters'], 2, ',', '.') }} {{ $vehicleDetail['fuel_unit_label'] }}</strong>
-                    dan estimasi biaya <strong>Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}</strong>
-                    (pakai harga per {{ $vehicleDetail['fuel_unit_label'] }} dari pengisian terakhir).
-                </p>
-                <p class="text-xs text-blue-400 mt-2">*Estimasi kasar dari pola historis, bukan jaminan — kondisi jalan, gaya berkendara, dan beban bisa mengubah hasil aktual.</p>
-            </div>
-        @else
-            <p class="text-xs text-gray-400 mt-3">Belum cukup data (minimal 2 pengisian dengan jarak berbeda) untuk membuat estimasi ke depan.</p>
-        @endif
     </div>
     @else
-    <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; estimasi tiap kendaraan sudah langsung tampil di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
+    <p class="text-xs text-gray-400 mb-4">💡 Info efisiensi &amp; total KM tiap kendaraan sudah langsung tampil di bawah. Pilih satu kendaraan di filter kalau mau lihat riwayat pengisian lengkap satu-satu.</p>
     <p class="text-xs text-gray-500 mb-4">
         📊 Angka di tabel ini adalah <strong>rangkuman dari seluruh pengisian</strong> pada periode yang dipilih:
         Parameter = rata-rata km per liter/kWh dari semua pengisian, Deviasi = selisih rata-rata itu dengan standar.
@@ -450,7 +423,6 @@
                 'yellow' => 'bg-yellow-50 border-yellow-200',
                 default => 'bg-white',
             };
-            $est = $data['estimate'] ?? null;
         @endphp
         <div class="border rounded-lg shadow-sm p-4 {{ $cardBg }}">
             <div class="flex justify-between items-start gap-2 mb-3">
@@ -501,20 +473,11 @@
                     @endif
                 </div>
                 <div>
-                    <div class="text-xs text-gray-500 uppercase">Estimasi Isi Berikutnya</div>
-                    @if($est)
-                        @if($est['estimated_next_fill_date'])
-                            <div>~{{ $est['estimated_next_fill_date']->format('d M Y') }}</div>
-                        @else
-                            <div class="text-gray-400 italic">tanggal blm bisa diprediksi</div>
-                        @endif
-                        <div class="text-xs text-gray-400">
-                            ~{{ number_format($est['estimated_next_liters'], 1, ',', '.') }} {{ $data['fuel_unit_label'] }}
-                            · Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}
-                        </div>
-                        <div class="text-xs text-gray-400">jarak ~{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km lagi</div>
+                    <div class="text-xs text-gray-500 uppercase">Total KM</div>
+                    @if(($data['total_distance'] ?? 0) > 0)
+                        <div class="font-semibold">{{ number_format($data['total_distance'], 0, ',', '.') }} km</div>
                     @else
-                        <span class="text-gray-400">-</span>
+                        <span class="text-gray-400" title="Minimal 2 pengisian dengan odometer berbeda untuk menghitung total KM">-</span>
                     @endif
                 </div>
             </div>
@@ -549,7 +512,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kendaraan</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Parameter</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Isi Terakhir</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estimasi Isi Berikutnya</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total KM</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Liter/kWh</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Biaya</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah Isi</th>
@@ -563,7 +526,6 @@
                         'yellow' => 'bg-yellow-50',
                         default => '',
                     };
-                    $est = $data['estimate'] ?? null;
                 @endphp
                 <tr class="{{ $rowBg }} align-top">
                     <td class="px-6 py-4 font-medium">
@@ -614,20 +576,11 @@
                             <span class="text-gray-400">-</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4">
-                        @if($est)
-                            @if($est['estimated_next_fill_date'])
-                                <div>~{{ $est['estimated_next_fill_date']->format('d M Y') }}</div>
-                            @else
-                                <div class="text-gray-400 italic">tanggal blm bisa diprediksi</div>
-                            @endif
-                            <div class="text-xs text-gray-400">
-                                ~{{ number_format($est['estimated_next_liters'], 1, ',', '.') }} {{ $data['fuel_unit_label'] }}
-                                · Rp {{ number_format($est['estimated_next_cost'], 0, ',', '.') }}
-                            </div>
-                            <div class="text-xs text-gray-400">jarak ~{{ number_format($est['estimated_range_km'], 0, ',', '.') }} km lagi</div>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        @if(($data['total_distance'] ?? 0) > 0)
+                            {{ number_format($data['total_distance'], 0, ',', '.') }} km
                         @else
-                            <span class="text-gray-400" title="Minimal 2 pengisian dengan jarak berbeda untuk membuat estimasi">-</span>
+                            <span class="text-gray-400" title="Minimal 2 pengisian dengan odometer berbeda untuk menghitung total KM">-</span>
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -644,7 +597,7 @@
     </div>
 
     <p class="text-xs text-gray-400 mt-3">
-        Catatan: efisiensi &amp; estimasi dihitung dari selisih odometer antar pengisian yang berurutan.
+        Catatan: efisiensi &amp; total KM dihitung dari selisih odometer antar pengisian yang berurutan.
         Standar efisiensi: mobil BBM 8 km/L, mobil listrik 6 km/kWh. Deviasi &gt;5% di bawah standar = warning kuning, &gt;10% = warning merah.
         Klik nomor plat untuk lihat riwayat pengisian lengkap satu-satu.
         Kalau filter &quot;Dari Tanggal&quot; dipakai, pengisian pertama di periode dibandingkan dengan pengisian terakhir sebelum periode (bukan dianggap pengisian pertama).

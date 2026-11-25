@@ -37,7 +37,7 @@
         <label class="row"><span class="lbl">Tahun baru</span><input type="number" name="tahun" min="2000" max="2100" value="{{ now()->year + 1 }}" required style="width:100px"></label>
         <button class="btn pr">Tambah tahun</button>
     </form>
-    <p class="lbl">"Kunci" hanya menutup angka budget bulanan untuk Dept Head dan PIC. Realisasi (tagihan dan Isi Form) tetap bisa dicatat, dan Admin tetap bisa mengubah budget. Dept Head dan Admin juga bisa membuat tahun lewat tombol "Tahun baru" di Rencana Budget, langsung diisi dari tahun lain.</p>
+    <p class="lbl">"Kunci" hanya menutup angka budget bulanan untuk Dept Head dan PIC. Realisasi (input manual dan Isi Form) tetap bisa dicatat, dan Admin tetap bisa mengubah budget. Dept Head dan Admin juga bisa membuat tahun lewat tombol "Tahun baru" di Rencana Budget, langsung diisi dari tahun lain.</p>
 </div>
 @else
 <p class="lbl" style="margin-bottom:14px">Halaman ini untuk menambah kategori dan subkategori baru. Anda bisa menambah kategori dan subkategori baru. Kategori yang Anda buat hanya terlihat oleh Anda dan PIC Anda, tidak bercampur dengan Dept Head lain. Anda bisa mengubah nama, urutan, dan status kategori dan subkategori milik Anda. Menghapus kategori dan subkategori dilakukan Admin.</p>

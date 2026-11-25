@@ -130,7 +130,7 @@
             <div class="row" style="justify-content:space-between;border-top:1px solid var(--ln);margin-top:4px;padding-top:4px"><b>Total yang dicatat ke budget</b><b id="v-total">Rp 0</b></div>
             <p class="lbl" style="margin:6px 0 0">Ini hanya perkiraan di layar. Angka resmi dihitung ulang oleh sistem saat disimpan, memakai tarif PPN {{ $F::angka($ppnPersen) }}% dan materai {{ $F::rupiah($materai) }}.</p>
         </div>
-        <p class="lbl">Satu invoice hanya untuk satu PT. Bila ada tagihan gabungan beberapa PT, catat sebagai invoice terpisah.</p>
+        <p class="lbl">Satu invoice hanya untuk satu PT. Bila ada invoice gabungan beberapa PT, catat sebagai invoice terpisah.</p>
         <div class="row" style="justify-content:flex-end"><button class="btn pr">Simpan</button></div>
     </form>
 </dialog>

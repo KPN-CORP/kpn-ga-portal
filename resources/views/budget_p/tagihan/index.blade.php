@@ -60,7 +60,7 @@
 </form>
 
 <div class="kpi">
-    <div class="card"><span class="lbl">Tagihan</span><b>{{ $F::rupiah($ringkas['tagihan']) }}</b></div>
+    <div class="card"><span class="lbl">Realisasi (sebelum PPN)</span><b>{{ $F::rupiah($ringkas['tagihan']) }}</b></div>
     <div class="card"><span class="lbl">PPN</span><b>{{ $F::rupiah($ringkas['ppn']) }}</b></div>
     <div class="card"><span class="lbl">Biaya materai</span><b>{{ $F::rupiah($ringkas['biaya_materai']) }}</b></div>
     <div class="card"><span class="lbl">Total realisasi</span><b>{{ $F::rupiah($ringkas['total']) }}</b></div>
@@ -83,16 +83,25 @@
 @else
 <div class="card scroll tbl-beku" style="padding:0">
 <table>
-    <thead><tr><th class="beku" style="min-width:230px;max-width:280px">Item</th><th>Bulan</th><th class="n">Tagihan</th><th class="n">PPN</th><th class="n">Biaya materai</th><th class="n">Total</th><th>Keterangan</th><th>Diinput oleh</th><th></th></tr></thead>
+    <thead><tr><th class="beku" style="min-width:230px;max-width:280px">Item</th><th>Bulan</th><th class="n">Realisasi (sebelum PPN)</th><th class="n">PPN</th><th class="n">Biaya materai</th><th class="n">Total</th><th class="n">Budget bulan</th><th class="n">Realisasi bulan</th><th class="n">Selisih</th><th>Status</th><th>Keterangan</th><th>Diinput oleh</th><th></th></tr></thead>
     <tbody>
     @foreach($daftar as $t)
-        <tr>
+        @php
+            $sb = $statusBulan[$t->item_id . '-' . $t->bulan] ?? null;
+            $kode = $sb['status']['kode'] ?? 'kosong';
+            $bgBaris = ['lebih' => 'background:rgba(220,38,38,.07)', 'waspada' => 'background:rgba(180,83,9,.07)'][$kode] ?? '';
+        @endphp
+        <tr style="{{ $bgBaris }}">
             <td class="beku" style="min-width:230px;max-width:280px"><b>{{ $t->item->nama }}</b><div class="lbl">{{ $t->item->sub->kategori->nama }} / {{ $t->item->sub->nama }}</div></td>
-            <td>{{ $F::BULAN[$t->bulan] }}@if($t->isian_id)<div class="lbl">Form: {{ $t->isian->form->nama ?? '-' }}</div>@endif @if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd {{ $t->isian_id ? 'b-mu' : 'b-wn' }}" title="Item ini punya {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} tagihan di bulan ini; urutan 1 = yang dicatat paling awal">Tagihan ke-{{ $urutanTagihan[$t->id] ?? '?' }} dari {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }}</span></div>@endif</td>
+            <td>{{ $F::BULAN[$t->bulan] }}@if($t->isian_id)<div class="lbl">Form: {{ $t->isian->form->nama ?? '-' }}</div>@endif @if(($jumlahPerBulan[$t->item_id . '-' . $t->bulan] ?? 0) > 1)<div><span class="bd {{ $t->isian_id ? 'b-mu' : 'b-wn' }}" title="Item ini punya {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }} realisasi di bulan ini; urutan 1 = yang dicatat paling awal">Realisasi ke-{{ $urutanTagihan[$t->id] ?? '?' }} dari {{ $jumlahPerBulan[$t->item_id . '-' . $t->bulan] }}</span></div>@endif</td>
             <td class="n">{{ $F::rupiah($t->tagihan) }}</td>
             <td class="n">{{ $F::rupiah($t->ppn) }}</td>
             <td class="n">{{ $F::rupiah($t->biaya_materai) }}</td>
             <td class="n"><b>{{ $F::rupiah($t->total) }}</b></td>
+            <td class="n">@if(($sb['budget'] ?? 0) > 0){{ $F::rupiah($sb['budget']) }}@else<span class="lbl">Belum diisi</span>@endif</td>
+            <td class="n {{ $sb['status']['kelas'] ?? '' }}">{{ $F::rupiah($sb['real'] ?? 0) }}@if(($sb['persen'] ?? null) !== null)<div class="lbl">{{ $F::persen($sb['persen']) }}</div>@endif</td>
+            <td class="n {{ $kode === 'lebih' ? 'b-er' : ($kode === 'aman' ? 'b-ok' : ($kode === 'waspada' ? 'b-wn' : '')) }}">@if(($sb['budget'] ?? 0) > 0)<b>{{ $sb['selisih'] < 0 ? '-' . $F::rupiah(abs($sb['selisih'])) : $F::rupiah($sb['selisih']) }}</b>@else - @endif</td>
+            <td>@if($sb)<span class="bd {{ $sb['status']['kelas'] }}" title="Dihitung dari seluruh realisasi item ini di bulan {{ $F::BULAN[$t->bulan] }}, bukan hanya baris ini">{{ $kode === 'lebih' ? 'OVER' : $sb['status']['label'] }}</span>@endif</td>
             <td>{{ $t->keterangan }}</td>
             <td>{{ $t->penginput->name ?? '-' }}<div class="lbl">{{ optional($t->created_at)->format('d/m/Y H:i') }}@if($t->updated_at && $t->created_at && $t->updated_at->diffInSeconds($t->created_at) > 60) | diubah {{ $t->updated_at->format('d/m/Y H:i') }}@endif</div></td>
             <td class="n">
@@ -100,11 +109,11 @@
                     <span class="bd b-mu" title="Baris ini dicatat dari form. Ubah lewat menu Isi Form.">Dari form</span>
                     <a class="btn sm" href="{{ route('budgeting.isian', ['form' => $t->isian->form_id, 'tahun' => $t->tahun]) }}">Buka</a>
                 @elseif(in_array($t->item_id, $terkunci, true))
-                    <span class="bd b-mu" title="Item ini dikunci oleh form. Tagihan manual lama tidak bisa diubah selama form aktif.">Terkunci</span>
+                    <span class="bd b-mu" title="Item ini dikunci oleh form. Realisasi manual lama tidak bisa diubah selama form aktif.">Terkunci</span>
                 @elseif($itemBisaInput->contains('id', $t->item_id))
                     <button type="button" class="btn sm" data-tg="{{ json_encode(['id' => $t->id, 'item_id' => $t->item_id, 'tahun' => $t->tahun, 'bulan' => $t->bulan,
                         'tagihan' => $F::angka($t->tagihan), 'ppn' => $F::angka($t->ppn), 'biaya_materai' => $F::angka($t->biaya_materai), 'keterangan' => $t->keterangan]) }}" onclick="tagihanEdit(this)">Ubah</button>
-                    <form method="post" action="{{ route('budgeting.tagihan.hapus', $t) }}" style="display:inline" onsubmit="return confirm('Hapus tagihan ini?')">@csrf @method('DELETE')<button class="btn sm dg">Hapus</button></form>
+                    <form method="post" action="{{ route('budgeting.tagihan.hapus', $t) }}" style="display:inline" onsubmit="return confirm('Hapus realisasi ini?')">@csrf @method('DELETE')<button class="btn sm dg">Hapus</button></form>
                 @endif
             </td>
         </tr>
@@ -139,7 +148,7 @@
                     @foreach($daftarTahun as $t)<option value="{{ $t }}" @selected((int) $t === (int) $tahun)>{{ $t }}</option>@endforeach
                 </select>
             </label>
-            <label><span>Bulan tagihan</span>
+            <label><span>Bulan realisasi</span>
                 <select name="bulan" id="tg-bulan" required data-cari onchange="cekBulan()">@foreach($F::BULAN as $n => $nama)<option value="{{ $n }}" @selected($n === (int) now()->month)>{{ $nama }}</option>@endforeach</select>
             </label>
             <label><span>Kategori</span>
@@ -152,13 +161,13 @@
                 <select name="item_id" id="tg-item" required disabled data-cari onchange="cekBulan()"><option value="">- Pilih sub dulu -</option></select>
             </label>
             <div id="tg-info" style="grid-column:1/-1" hidden></div>
-            <label><span>Tagihan (Rp)</span><input type="number" step="any" min="0" name="tagihan" id="tg-tagihan" required oninput="hitungTotal()"></label>
+            <label><span>Realisasi sebelum PPN (Rp)</span><input type="number" step="any" min="0" name="tagihan" id="tg-tagihan" required oninput="hitungTotal()"></label>
             <label><span>PPN (Rp)</span><input type="number" step="any" min="0" name="ppn" id="tg-ppn" oninput="hitungTotal()"></label>
             <label><span>Biaya materai (Rp)</span><input type="number" step="any" min="0" name="biaya_materai" id="tg-materai" oninput="hitungTotal()"></label>
-            <div><span class="lbl">Total (tagihan + PPN + biaya materai)</span><div><b id="tg-total">Rp 0</b></div></div>
+            <div><span class="lbl">Total (realisasi + PPN + biaya materai)</span><div><b id="tg-total">Rp 0</b></div></div>
         </div>
         <label style="display:block;margin-top:10px"><span class="lbl">Keterangan</span><textarea name="keterangan" id="tg-ket" rows="2" maxlength="500"></textarea></label>
-        <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn pr">Simpan tagihan</button></div>
+        <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn pr">Simpan realisasi</button></div>
     </form>
 </dialog>
 @endsection
@@ -226,7 +235,7 @@ function setItem(itemId){
 function gantiTahun(){ setItem(g('tg-item').value); }
 
 
-// ---- Panel "Sudah tercatat": tagihan yang sudah ada di item + bulan + tahun yang dipilih ----
+// ---- Panel "Sudah tercatat": realisasi yang sudah ada di item + bulan + tahun yang dipilih ----
 let tgRows = [], tgBudget = 0, tgSiap = false, tgSeq = 0, tgKunci = '';
 function cekBulan(){
   const box = g('tg-info'), item = g('tg-item').value, tahun = g('tg-tahun').value, bulan = g('tg-bulan').value;
@@ -251,7 +260,7 @@ function renderInfo(){
   if(!tgRows.length){
     h += '<div style="padding:8px 10px;border:1px solid var(--ok);color:var(--ok);border-radius:6px">Belum ada realisasi di bulan ini.</div>';
   } else {
-    h += '<div style="padding:8px 10px;border:1px solid var(--wn);border-radius:6px"><b style="color:var(--wn)">Sudah ada ' + tgRows.length + ' tagihan di bulan ini</b> <span class="lbl">(total ' + rp(total) + ')</span><div style="margin-top:6px">';
+    h += '<div style="padding:8px 10px;border:1px solid var(--wn);border-radius:6px"><b style="color:var(--wn)">Sudah ada ' + tgRows.length + ' realisasi di bulan ini</b> <span class="lbl">(total ' + rp(total) + ')</span><div style="margin-top:6px">';
     tgRows.forEach(r => {
       const sedang = String(r.id) === String(editId);
       h += '<div class="row" style="gap:8px;padding:3px 0;border-top:1px solid var(--ln)"><b>' + rp(r.total) + '</b>'
@@ -259,7 +268,7 @@ function renderInfo(){
         + (r.dari_form ? '<span class="bd b-mu">dari form ' + esc(r.dari_form) + '</span>' : sedang ? '<span class="bd b-wn">sedang diubah</span>' : '<button type="button" class="btn sm" onclick="muatBaris(' + r.id + ')">Ubah</button>') + '</div>';
     });
     h += '</div>';
-    if(editId) h += '<div style="margin-top:6px"><button type="button" class="btn sm" onclick="barisBaru()">Tambah tagihan baru</button></div>';
+    if(editId) h += '<div style="margin-top:6px"><button type="button" class="btn sm" onclick="barisBaru()">Tambah realisasi baru</button></div>';
     h += '</div>';
   }
   if(tgBudget > 0){
@@ -282,11 +291,11 @@ function barisBaru(){
   ['tg-tagihan','tg-ppn','tg-materai','tg-ket'].forEach(i => g(i).value = '');
   hitungTotal(); renderInfo();
 }
-// Simpan tagihan baru dengan total yang sama persis dengan yang sudah ada: minta konfirmasi dulu
+// Simpan realisasi baru dengan total yang sama persis dengan yang sudah ada: minta konfirmasi dulu
 function konfirmasiSimpan(){
   if(g('tg-id').value || !tgSiap) return true;
   const sama = tgRows.find(r => Math.abs(r.total - jumlahBaru()) < 0.5);
-  return sama ? confirm('Di bulan ini sudah ada tagihan dengan total sama (' + rp(sama.total) + '). Tetap simpan sebagai tagihan baru?') : true;
+  return sama ? confirm('Di bulan ini sudah ada realisasi dengan total sama (' + rp(sama.total) + '). Tetap simpan sebagai realisasi baru?') : true;
 }
 
 function tagihanBaru(){
