@@ -679,6 +679,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('kartu-pinjam.update')
             ->middleware('check.idcard.access:kartu_pinjam');
 
+        Route::delete('/kartu-pinjam/{id}', [IDCardKartuPinjamController::class, 'destroy'])
+            ->name('kartu-pinjam.destroy')
+            ->middleware('check.idcard.access:kartu_pinjam');
+
         Route::get('/photo/{filename}', [IDCardDetailController::class, 'photo'])
             ->name('photo')
             ->middleware('auth');

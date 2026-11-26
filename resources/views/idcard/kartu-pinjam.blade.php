@@ -128,6 +128,15 @@
                         <td class="px-4 py-3 text-right">
                             <button type="button" class="text-blue-600 hover:underline text-xs font-semibold"
                                 x-on:click='openEdit(@json($payload, JSON_HEX_APOS | JSON_HEX_QUOT))'>Ubah</button>
+                            @if($row->status !== 'digunakan')
+                                <form method="POST" action="{{ route('idcard.kartu-pinjam.destroy', $row->kartu->id) }}" class="inline ml-2"
+                                      data-nomor="{{ $row->kartu->nomor_kartu }}"
+                                      onsubmit="return confirm('Hapus kartu ' + this.dataset.nomor + ' dari daftar kartu pinjam? Riwayat pemakaian tetap tersimpan.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:underline text-xs font-semibold">Hapus</button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @empty

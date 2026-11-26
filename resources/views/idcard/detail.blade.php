@@ -158,7 +158,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Kartu *</label>
-                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="{{ $data->kategori === 'visitor' ? 'Kata atau angka, contoh: VISITOR 05 / 1234' : 'Contoh: MAG20240115001' }}" maxlength="50" required>
+                        <input type="text" name="nomor_kartu" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="{{ $data->nomor_kartu ?? '' }}" placeholder="{{ $data->kategori === 'visitor' ? 'Kata atau angka, contoh: VISITOR 05 / 1234' : 'Contoh: MAG20240115001' }}" maxlength="50" required list="kartuTersediaList" autocomplete="off">
+                        @if(isset($kartuTersedia) && $kartuTersedia->isNotEmpty())
+                            <datalist id="kartuTersediaList">
+                                @foreach($kartuTersedia as $nomorKartu)
+                                    <option value="{{ $nomorKartu }}"></option>
+                                @endforeach
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">Pilih dari kartu yang tersedia ({{ $kartuTersedia->count() }}). Jangan tulis "Done" di nomor kartu.</p>
+                        @endif
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Sampai Tanggal (Opsional)</label>

@@ -24,6 +24,9 @@ class ApprovalController extends IDCardBaseController
 
         // Validasi untuk magang/magang_extend/visitor (nomor kartu diisi saat approve)
         if (in_array($item->kategori, RequestIdCard::KATEGORI_PERIODE)) {
+            // Rapikan nomor dulu (trim, 7 -> 07) supaya cocok dengan master dan pengecekan bentrok
+            $req->merge(['nomor_kartu' => IDCardStokService::rapikanNomor($req->nomor_kartu)]);
+
             $rules = [
                 'nomor_kartu' => [
                     'required',
@@ -32,6 +35,11 @@ class ApprovalController extends IDCardBaseController
                     // Nomor kartu hanya bentrok dengan kartu yang SEDANG AKTIF. Kartu yang sudah
                     // dikembalikan / nonaktif boleh dipakai lagi (kartu fisik dipakai berulang).
                     function ($attribute, $value, $fail) use ($item, $id) {
+                        if (IDCardStokService::mengandungDone($value)) {
+                            $fail('Nomor kartu tidak boleh berisi kata "Done". Status pengembalian dicatat lewat tombol Nonaktifkan / Terima Kartu.');
+                            return;
+                        }
+
                         $bentrok = RequestIdCard::where('id', '<>', $id)
                             ->where('status', 'approved')
                             ->where('is_active', 1)

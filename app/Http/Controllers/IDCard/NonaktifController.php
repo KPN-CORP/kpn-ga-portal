@@ -32,6 +32,14 @@ class NonaktifController extends IDCardBaseController
             return back()->with('error', 'Ada pengajuan pengembalian yang menunggu. Proses lewat tombol Terima Kartu atau Tolak di halaman detail.');
         }
 
+        // Kartu pinjam (magang / magang_extend / visitor): lewat alur Terima Kartu, bukan edit nomor.
+        // Nomor kartu TIDAK boleh diubah di sini (dulu dipakai untuk menulis "NN Done"); status
+        // kembali + kondisi kartu dicatat di kolom return_*, jadi nomor tetap utuh sebagai riwayat.
+        if (in_array($item->kategori, RequestIdCard::KATEGORI_KEMBALI, true)) {
+            $req->request->remove('nomor_kartu');
+            return app(ReturnController::class)->approve($req, $id);
+        }
+
         // Validasi nomor kartu (opsional)
         $rules = [];
         if ($req->has('nomor_kartu') && !empty($req->nomor_kartu)) {

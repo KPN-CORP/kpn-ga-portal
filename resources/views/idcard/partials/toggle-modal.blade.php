@@ -11,7 +11,17 @@
         <form id="toggleCardForm" method="POST">
             @csrf
             <p class="text-sm text-gray-600 mb-2"><span id="toggleCardVerb"></span> kartu untuk: <span id="toggleCardNama" class="font-semibold"></span></p>
-            <div class="mb-4">
+            {{-- Mode nonaktif (magang/visitor): kondisi kartu, bukan edit nomor. Nomor tetap utuh. --}}
+            <div id="toggleCardKondisiWrap" class="mb-4 hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kondisi Kartu</label>
+                <select name="return_kondisi" id="toggleCardKondisi" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="baik">Baik</option>
+                    <option value="rusak">Rusak</option>
+                    <option value="hilang">Hilang</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Nomor kartu tidak diubah; riwayat pemakai tetap tersimpan.</p>
+            </div>
+            <div class="mb-4" id="toggleCardNomorWrap">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Kartu (Opsional)</label>
                 <input type="text" name="nomor_kartu" id="toggleCardNomor" maxlength="50" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Ubah nomor kartu jika perlu">
                 <p class="text-xs text-gray-500 mt-1">Kosongkan jika tidak ingin mengubah</p>
@@ -45,6 +55,12 @@
         document.getElementById('toggleCardVerb').textContent  = m.verb;
         document.getElementById('toggleCardNama').textContent  = nama;   // textContent: aman dari XSS
         document.getElementById('toggleCardNomor').value       = nomor || '';
+        // Nonaktif: sembunyikan edit nomor (nomor tidak boleh diubah / ditulis "Done"), tampilkan kondisi kartu
+        const isNonaktif = mode === 'nonaktif';
+        document.getElementById('toggleCardNomorWrap').classList.toggle('hidden', isNonaktif);
+        document.getElementById('toggleCardKondisiWrap').classList.toggle('hidden', !isNonaktif);
+        document.getElementById('toggleCardNomor').disabled    = isNonaktif;
+        document.getElementById('toggleCardKondisi').disabled  = !isNonaktif;
         form.action = urls[mode].replace('__ID__', encodeURIComponent(id));
         submit.textContent = m.verb;
         submit.disabled = false;

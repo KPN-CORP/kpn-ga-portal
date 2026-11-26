@@ -76,9 +76,15 @@ class DetailController extends IDCardBaseController
             $items = collect();
         }
 
+        // Saran nomor kartu yang statusnya "Ada" untuk form approve (magang / visitor)
+        $kartuTersedia = collect();
+        if ($isPending && $canProses && in_array($data->kategori, RequestIdCard::KATEGORI_PERIODE, true)) {
+            $kartuTersedia = app(\App\Services\IDCardStokService::class)->nomorTersedia($data->kategori);
+        }
+
         return view('idcard.detail', compact(
             'data', 'logs', 'canProses', 'isPending', 'canToggleAktif', 'canEditLantai',
-            'canReturn', 'canProcessReturn', 'canCancel', 'items'
+            'canReturn', 'canProcessReturn', 'canCancel', 'items', 'kartuTersedia'
         ));
     }
 

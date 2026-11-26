@@ -125,4 +125,25 @@ class KartuPinjamController extends IDCardBaseController
 
         return back()->with('success', 'Kartu pinjam diperbarui.');
     }
+
+    public function destroy($id)
+    {
+        if (!$this->canAksesKartuPinjam()) {
+            abort(403, 'Anda tidak memiliki akses.');
+        }
+
+        $kartu  = IdCardKartuPinjam::findOrFail($id);
+        $status = $this->stok->statusKartuPinjam(collect([$kartu]))->first();
+
+        // Kartu yang sedang dipakai tidak boleh dihapus sebelum dikembalikan
+        if ($status->status === 'digunakan') {
+            return back()->with('error', 'Kartu ' . $kartu->nomor_kartu . ' sedang digunakan oleh ' . optional($status->pemakai)->nama . '. Proses pengembalian kartu dulu.');
+        }
+
+        $nomor = $kartu->nomor_kartu;
+        $kartu->delete();
+        \Log::info('IDCard kartu pinjam dihapus: ' . $nomor . ' (id ' . $id . ') oleh user ' . Auth::id());
+
+        return back()->with('success', 'Kartu ' . $nomor . ' dihapus dari daftar. Riwayat pemakaian di request tidak ikut terhapus.');
+    }
 }

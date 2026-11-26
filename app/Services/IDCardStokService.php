@@ -228,11 +228,47 @@ class IDCardStokService
         return mb_strtoupper(trim((string) $nomor));
     }
 
+    /**
+     * Rapikan nomor kartu yang diketik admin: trim, spasi ganda jadi satu,
+     * dan nomor angka 1-2 digit di-pad jadi 2 digit (7 -> 07) supaya cocok dengan master.
+     * Huruf besar/kecil dibiarkan seperti yang diketik ("Visitor 05" tetap "Visitor 05").
+     */
+    public static function rapikanNomor(?string $nomor): string
+    {
+        $n = trim((string) preg_replace('/\s+/u', ' ', (string) $nomor));
+        if (preg_match('/^\d{1,2}$/', $n)) {
+            $n = str_pad($n, 2, '0', STR_PAD_LEFT);
+        }
+        return $n;
+    }
+
+    /** Nomor yang memuat kata "done" = kebiasaan lama menandai kartu selesai; status kembali dicatat di kolom return_*. */
+    public static function mengandungDone(?string $nomor): bool
+    {
+        return stripos((string) $nomor, 'done') !== false;
+    }
+
+    /** Nomor kartu pinjam yang statusnya "Ada" untuk jenis request (dipakai saran/datalist di form approve). */
+    public function nomorTersedia(string $kategori): Collection
+    {
+        try {
+            $jenis = $kategori === 'visitor' ? ['visitor', 'umum'] : ['magang', 'umum'];
+            $kartu = IdCardKartuPinjam::where('is_active', 1)->whereIn('jenis', $jenis)->orderBy('nomor_kartu')->get();
+
+            return $this->statusKartuPinjam($kartu)
+                ->where('status', 'ada')
+                ->map(fn ($r) => $r->kartu->nomor_kartu)
+                ->values();
+        } catch (\Throwable $e) {
+            return collect();
+        }
+    }
+
     /** Daftarkan nomor kartu ke master bila belum ada (dipanggil saat approve magang/visitor). */
     public function daftarkanKartu(?string $nomor, string $kategori, ?int $userId = null): void
     {
-        $nomor = trim((string) $nomor);
-        if ($nomor === '') {
+        $nomor = self::rapikanNomor($nomor);
+        if ($nomor === '' || self::mengandungDone($nomor)) {
             return;
         }
         try {
