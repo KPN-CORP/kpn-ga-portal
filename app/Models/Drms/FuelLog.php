@@ -65,6 +65,37 @@ class FuelLog extends Model
         return $this->is_draft && $this->draft_locks_at && $this->draft_locks_at->isPast();
     }
 
+    /**
+     * Batas odometer yang sah untuk satu pengisian BBM sebuah kendaraan, dihitung dari log BBM
+     * kendaraan itu sendiri (draft ikut dihitung: fotonya tetap angka km asli).
+     *
+     *  - min : odometer tertinggi pada log bertanggal SAMA atau SEBELUM $date  -> tidak boleh di bawahnya.
+     *  - max : odometer terendah pada log bertanggal SETELAH $date              -> tidak boleh di atasnya
+     *          (hanya relevan untuk isi mundur / edit log lama, supaya urutan km tetap naik).
+     *
+     * @param  int|null $excludeId  id log yang sedang diedit (tidak dibandingkan dengan dirinya sendiri)
+     * @return array{min:?int, min_date:?string, max:?int, max_date:?string}
+     */
+    public static function odometerBounds(int $vehicleId, string $date, ?int $excludeId = null): array
+    {
+        $base = static::query()
+            ->where('vehicle_id', $vehicleId)
+            ->whereNotNull('odometer_start')
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId));
+
+        $lower = (clone $base)->whereDate('filling_date', '<=', $date)
+            ->orderByDesc('odometer_start')->orderByDesc('id')->first(['odometer_start', 'filling_date']);
+        $upper = (clone $base)->whereDate('filling_date', '>', $date)
+            ->orderBy('odometer_start')->orderBy('id')->first(['odometer_start', 'filling_date']);
+
+        return [
+            'min'      => $lower ? (int) $lower->odometer_start : null,
+            'min_date' => $lower ? $lower->filling_date->format('d-m-Y') : null,
+            'max'      => $upper ? (int) $upper->odometer_start : null,
+            'max_date' => $upper ? $upper->filling_date->format('d-m-Y') : null,
+        ];
+    }
+
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class);

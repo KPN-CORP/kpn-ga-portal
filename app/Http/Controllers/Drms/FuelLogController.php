@@ -263,6 +263,28 @@ class FuelLogController extends Controller
             ->with('error', 'Draft ini sudah lebih dari ' . FuelLog::DRAFT_TTL_HOURS . ' jam sehingga terkunci dan tidak bisa diubah atau dilengkapi. Silakan buat pengisian baru.');
     }
 
+    /**
+     * Lock odometer: odometer_start tidak boleh di bawah odometer pengisian sebelumnya untuk
+     * kendaraan yang sama (dan tidak boleh melompati pengisian yang lebih baru, saat isi mundur /
+     * edit log lama). Dipakai di store() dan update(). Return pesan error, atau null kalau aman.
+     */
+    private function odometerViolation(array $validated, ?FuelLog $log = null): ?string
+    {
+        $b   = FuelLog::odometerBounds((int) $validated['vehicle_id'], $validated['filling_date'], $log?->id);
+        $odo = (int) $validated['odometer_start'];
+        $fmt = fn ($n) => number_format($n, 0, ',', '.');
+
+        if ($b['min'] !== null && $odo < $b['min']) {
+            return 'Odometer tidak boleh di bawah ' . $fmt($b['min']) . ' km (pengisian sebelumnya, ' . $b['min_date']
+                . '). Periksa kembali angka pada dashboard kendaraan.';
+        }
+        if ($b['max'] !== null && $odo > $b['max']) {
+            return 'Odometer tidak boleh di atas ' . $fmt($b['max']) . ' km karena sudah ada pengisian yang lebih baru (' . $b['max_date']
+                . ') dengan odometer tersebut. Periksa tanggal pengisian atau angka odometer.';
+        }
+        return null;
+    }
+
     public function store(Request $request)
     {
         // save_mode: "draft" (simpan dulu, lengkapi setelah selesai mengisi) atau "submit".
@@ -272,6 +294,9 @@ class FuelLogController extends Controller
         }
 
         $validated = $request->validate($this->rulesFor($isDraft), $this->rulesMessages());
+        if ($msg = $this->odometerViolation($validated)) {
+            return back()->withInput()->withErrors(['odometer_start' => $msg]);
+        }
         $validated = $this->applyCost($validated);
 
         $driver = Auth::user()->driver;
@@ -337,6 +362,9 @@ class FuelLogController extends Controller
         }
 
         $validated = $request->validate($this->rulesFor($isDraft, $log), $this->rulesMessages());
+        if ($msg = $this->odometerViolation($validated, $log)) {
+            return back()->withInput()->withErrors(['odometer_start' => $msg]);
+        }
         $validated = $this->applyCost($validated);
 
         // PERBAIKAN: sebelumnya driver_id selalu ditimpa dengan driver milik user yang sedang
