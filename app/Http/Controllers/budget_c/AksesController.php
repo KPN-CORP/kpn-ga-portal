@@ -9,6 +9,7 @@ use App\Models\budget_m\BudgetItem;
 use App\Models\budget_m\BudgetKategori;
 use App\Models\budget_m\BudgetSub;
 use App\Models\budget_m\BudgetPicHead;
+use App\Models\budget_m\BudgetPicTugas;
 use App\Support\budget_s\BudgetCatat;
 use App\Support\budget_s\BudgetPeran;
 use Illuminate\Http\Request;
@@ -36,7 +37,21 @@ class AksesController extends Controller
             $picHead = BudgetPicHead::with('pic')->where('dept_head_user_id', $user->id)->where('aktif', true)->get();
         }
 
-        return view('budget_p.akses.index', compact('peran', 'akses', 'picHead', 'kepala', 'jumlahItem'));
+        // Ringkasan penugasan per PIC (kategori / sub / item) dan status saklar "Batasi PIC" per Dept Head
+        $tugasRingkas = [];
+        if (BudgetPeran::fiturPicAktif()) {
+            BudgetPicTugas::query()->when($peran !== BudgetPeran::ADMIN, fn ($q) => $q->where('dept_head_user_id', $user->id))->get()
+                ->each(function ($t) use (&$tugasRingkas) {
+                    $j = $t->item_id ? 'item' : ($t->sub_id ? 'sub' : 'kat');
+                    $k = $t->pic_user_id . ':' . $t->dept_head_user_id;
+                    $tugasRingkas[$k][$j] = ($tugasRingkas[$k][$j] ?? 0) + 1;
+                });
+        }
+        $batasiMap = BudgetPeran::fiturPicAktif()
+            ? BudgetAkses::where('peran', BudgetPeran::DEPT_HEAD)->pluck('batasi_pic', 'user_id')->map(fn ($v) => (bool) $v)->all()
+            : [];
+
+        return view('budget_p.akses.index', compact('peran', 'akses', 'picHead', 'kepala', 'jumlahItem', 'tugasRingkas', 'batasiMap'));
     }
 
     /** Admin: tambah user ke modul budget / ubah peran / aktif-nonaktif. */
@@ -77,9 +92,11 @@ class AksesController extends Controller
             if ($lama && $lama->peran === BudgetPeran::PIC && $peranBaru !== BudgetPeran::PIC) {
                 BudgetPicHead::where('pic_user_id', $uid)->delete();
                 BudgetItem::where('pic_user_id', $uid)->update(['pic_user_id' => null]);
+                BudgetPicTugas::hapusPic($uid);
             }
             if ($lama && $lama->peran === BudgetPeran::DEPT_HEAD && $peranBaru !== BudgetPeran::DEPT_HEAD) {
                 BudgetPicHead::where('dept_head_user_id', $uid)->delete();
+                BudgetPicTugas::hapusHead($uid);
             }
         });
         BudgetPeran::lupakan($uid);
@@ -120,7 +137,7 @@ class AksesController extends Controller
         BudgetPeran::lupakan($picId);
         BudgetCatat::tulis('tambah', 'pic', $picId, 'PIC user #' . $picId . ' ke Dept user #' . $head, null, ['pic_user_id' => $picId, 'dept_head_user_id' => $head]);
 
-        return back()->withFragment('pesan')->with('ok', 'PIC ditambahkan. PIC memiliki akses yang sama dengan Anda untuk data departemen ini.');
+        return back()->withFragment('pesan')->with('ok', 'PIC ditambahkan. Tentukan bagian yang ia proses di menu Tugas PIC. Selama pembatasan belum dihidupkan, PIC melihat semua data departemen.');
     }
 
     /**
@@ -140,6 +157,7 @@ class AksesController extends Controller
         DB::transaction(function () use ($picHead, $picId, $headId, &$akesDihapus) {
             $picHead->delete();
             BudgetItem::where('dept_head_user_id', $headId)->where('pic_user_id', $picId)->update(['pic_user_id' => null]);
+            BudgetPicTugas::hapusPic($picId, $headId);
 
             if (!BudgetPicHead::where('pic_user_id', $picId)->exists()) {
                 $akesDihapus = BudgetAkses::where('user_id', $picId)->where('peran', BudgetPeran::PIC)->delete() > 0;
@@ -180,6 +198,8 @@ class AksesController extends Controller
         DB::transaction(function () use ($akses, $uid) {
             BudgetPicHead::where('pic_user_id', $uid)->orWhere('dept_head_user_id', $uid)->delete();
             BudgetItem::where('pic_user_id', $uid)->update(['pic_user_id' => null]);
+            BudgetPicTugas::hapusPic($uid);
+            BudgetPicTugas::hapusHead($uid);
             $akses->delete();
         });
         BudgetPeran::lupakan($uid);
@@ -218,6 +238,7 @@ class AksesController extends Controller
             BudgetPicHead::updateOrCreate(['pic_user_id' => $picId, 'dept_head_user_id' => $ke], ['aktif' => true]);
             $picHead->delete();
             $itemDikosongkan = BudgetItem::where('dept_head_user_id', $dari)->where('pic_user_id', $picId)->update(['pic_user_id' => null]);
+            BudgetPicTugas::hapusPic($picId, $dari);
         });
         BudgetPeran::lupakan($picId);
         BudgetCatat::tulis('pindah', 'pic', $picId, 'PIC user #' . $picId . ' dipindah dari Dept user #' . $dari . ' ke Dept user #' . $ke, $sebelum, ['pic_user_id' => $picId, 'dept_head_user_id' => $ke, 'item_dikosongkan' => $itemDikosongkan]);
@@ -275,6 +296,14 @@ class AksesController extends Controller
 
             // 3. Item (aktif dan nonaktif)
             $jumlah = BudgetItem::where('dept_head_user_id', $dari)->update(['dept_head_user_id' => $ke]);
+
+            // 3b. Penugasan PIC dan saklar "Batasi PIC" ikut pindah ke Dept tujuan
+            if (BudgetPeran::fiturPicAktif()) {
+                BudgetPicTugas::where('dept_head_user_id', $dari)->update(['dept_head_user_id' => $ke]);
+                if ($asal->batasi_pic) {
+                    $tujuan->update(['batasi_pic' => true]);
+                }
+            }
 
             // 4. Nama departemen ikut pindah bila Dept tujuan belum punya
             if ($asal->nama_dept && !$tujuan->nama_dept) {

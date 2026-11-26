@@ -2,6 +2,7 @@
 
 namespace App\Models\budget_m;
 
+use App\Support\budget_s\BudgetPeran;
 use Illuminate\Database\Eloquent\Model;
 
 class BudgetSub extends Model
@@ -17,6 +18,10 @@ class BudgetSub extends Model
 
     public function scopeTerlihatOleh($q, $user = null)
     {
+        $user = $user ?? auth()->user();
+        if (BudgetPeran::picDibatasi($user)) {
+            return BudgetPeran::batasSub($q, $user);
+        }
         return $q->whereHas('kategori', fn ($k) => $k->terlihatOleh($user));
     }
 

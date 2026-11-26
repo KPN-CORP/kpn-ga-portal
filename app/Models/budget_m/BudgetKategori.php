@@ -46,6 +46,9 @@ class BudgetKategori extends Model
         if ($peran === BudgetPeran::ADMIN) {
             return $q;
         }
+        if ($peran === BudgetPeran::PIC && BudgetPeran::picDibatasi($user)) {
+            return BudgetPeran::batasKategori($q, $user);
+        }
         $ids = match ($peran) {
             BudgetPeran::DEPT_HEAD => [(int) $user->id],
             BudgetPeran::PIC => BudgetPicHead::where('pic_user_id', $user->id)->where('aktif', true)

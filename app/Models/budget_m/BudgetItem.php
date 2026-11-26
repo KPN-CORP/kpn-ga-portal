@@ -144,15 +144,19 @@ class BudgetItem extends Model
         return $this->hasMany(BudgetTagihan::class, 'item_id');
     }
 
-    /** Admin: semua item. Dept: item miliknya. PIC: item milik Dept-nya. Lainnya: kosong. */
+    /** Admin: semua item. Dept Head: item miliknya (seluruh tim). PIC: item Dept-nya, atau hanya bagian yang ditugaskan bila dibatasi. Lainnya: kosong. */
     public function scopeTerlihatOleh($q, $user)
     {
         $peran = BudgetPeran::peran($user);
         if ($peran === BudgetPeran::ADMIN) {
             return $q;
         }
+        if ($peran === BudgetPeran::PIC && BudgetPeran::picDibatasi($user)) {
+            // Dept Head memakai saklar "Batasi PIC": PIC hanya melihat bagian yang ditugaskan
+            return BudgetPeran::batasItem($q, $user);
+        }
         if ($peran === BudgetPeran::DEPT_HEAD || $peran === BudgetPeran::PIC) {
-            // PIC melihat data yang sama dengan Dept-nya
+            // Dept Head melihat semua milik timnya; PIC tanpa pembatasan melihat data yang sama dengan Dept-nya
             return $q->whereIn('dept_head_user_id', BudgetPeran::kepalaIds($user));
         }
         return $q->whereRaw('1 = 0');

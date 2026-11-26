@@ -48,6 +48,10 @@ class BudgetForm extends Model
         if ($peran === BudgetPeran::ADMIN) {
             return $q;
         }
+        if ($peran === BudgetPeran::PIC && BudgetPeran::picDibatasi($user)) {
+            // Form hanya untuk item yang boleh dilihat PIC ini
+            return $q->whereIn('item_id', BudgetItem::terlihatOleh($user)->select('id'));
+        }
         if ($peran === BudgetPeran::DEPT_HEAD || $peran === BudgetPeran::PIC) {
             return $q->whereIn('dept_head_user_id', BudgetPeran::kepalaIds($user));
         }

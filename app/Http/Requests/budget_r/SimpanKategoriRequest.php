@@ -9,8 +9,8 @@ use Illuminate\Validation\Rule;
 class SimpanKategoriRequest extends FormRequest
 {
     /**
-     * Menambah kategori/subkategori baru: Admin, Dept Head, dan PIC (milik Dept Head masing-masing).
-     * Mengubah kategori dan subkategori (ada id): Admin, Dept Head, dan PIC (kepemilikan dicek di controller).
+     * Menambah kategori/subkategori baru: Admin dan Dept Head (PIC tidak, dicek di MasterController::simpanKategori).
+     * Mengubah kategori dan subkategori (ada id): Admin, Dept Head, dan PIC (kepemilikan/penugasan dicek di controller).
      * Menghapus tidak lewat sini: hanya Admin (route khusus).
      */
     public function authorize(): bool

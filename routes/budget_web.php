@@ -11,6 +11,7 @@ use App\Http\Controllers\budget_c\LookupController;
 use App\Http\Controllers\budget_c\MasterController;
 use App\Http\Controllers\budget_c\TagihanController;
 use App\Http\Controllers\budget_c\TemplateController;
+use App\Http\Controllers\budget_c\TugasPicController;
 use App\Http\Middleware\budget_mw\CekAksesBudget;
 use Illuminate\Support\Facades\Route;
 
@@ -38,7 +39,8 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
     Route::delete('/tagihan/{tagihan}', [TagihanController::class, 'hapus'])->name('tagihan.hapus');
     Route::get('/unduh', [TemplateController::class, 'unduh'])->name('unduh');
 
-    // Kategori/subkategori: semua peran boleh MELIHAT dan MENAMBAH (ubah/hapus tetap Admin, dijaga di request & controller)
+    // Kategori/subkategori: semua peran boleh MELIHAT. Tambah: Admin dan Dept Head. Ubah: Admin, Dept Head, dan PIC (sebatas bagian yang ditugaskan). Hapus: Admin.
+    // Pembatasan tambah/ubah dijaga di MasterController::simpanKategori
     Route::get('/master', [MasterController::class, 'index'])->name('master');
     Route::post('/master/kategori', [MasterController::class, 'simpanKategori'])->name('master.simpan');
 
@@ -72,6 +74,11 @@ Route::middleware(['auth', $cek])->prefix('budgeting')->name('budgeting.')->grou
     Route::middleware($cek . ':admin,dept_head')->group(function () {
         Route::get('/akses', [AksesController::class, 'index'])->name('akses');
         Route::get('/lookup/user', [LookupController::class, 'user'])->name('lookup.user');
+
+        // Tugas PIC: tentukan PIC mana yang memproses kategori / subkategori / item mana (Dept Head: timnya, Admin: semua Dept)
+        Route::get('/tugas', [TugasPicController::class, 'index'])->name('tugas');
+        Route::post('/tugas/mode', [TugasPicController::class, 'mode'])->name('tugas.mode');
+        Route::post('/tugas', [TugasPicController::class, 'simpan'])->name('tugas.simpan');
     });
 
     // Hanya Dept yang menambah dan melepas PIC

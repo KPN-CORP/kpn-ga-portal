@@ -8,6 +8,7 @@ use App\Models\budget_m\BudgetAkses;
 use App\Models\budget_m\BudgetItem;
 use App\Models\budget_m\BudgetKategori;
 use App\Models\budget_m\BudgetPicHead;
+use App\Models\budget_m\BudgetPicTugas;
 use App\Models\budget_m\BudgetSub;
 use App\Models\budget_m\BudgetTahun;
 use App\Models\User;
@@ -16,7 +17,7 @@ use App\Support\budget_s\BudgetCatat;
 use App\Support\budget_s\BudgetPeran;
 use Illuminate\Http\Request;
 
-/** Master tahun, kategori, subkategori. Tahun/kunci/ubah/hapus: Admin (dijaga di route). Tambah kategori/sub: semua peran. */
+/** Master tahun, kategori, subkategori. Tahun/kunci/hapus: Admin (dijaga di route). Tambah kategori/sub: Admin dan Dept Head. Ubah: Admin, Dept Head, dan PIC (sebatas bagian yang ditugaskan). */
 class MasterController extends Controller
 {
     public function index(Request $r)
@@ -59,7 +60,45 @@ class MasterController extends Controller
                 ->filter(fn ($k) => $k->subs->isNotEmpty())->values();
         }
 
+        // PIC yang dibatasi penugasan hanya melihat subkategori yang ditugaskan (atau yang berisi item yang ditugaskan)
+        if (BudgetPeran::picDibatasi($user)) {
+            $subBoleh = BudgetSub::terlihatOleh($user)->pluck('id')->flip();
+            $kategori = $kategori->each(fn ($k) => $k->setRelation('subs', $k->subs->filter(fn ($sb) => $subBoleh->has($sb->id))->values()))
+                ->filter(fn ($k) => $k->subs->isNotEmpty() || BudgetPeran::bisaUbahKategori($k, $user))->values();
+        }
+
+        // Hak ubah per baris, dan PIC penanggung jawab per kategori/sub (hanya untuk Admin dan Dept Head)
+        $bolehUbahK = $kategori->mapWithKeys(fn ($k) => [$k->id => BudgetPeran::bisaUbahKategori($k, $user)])->all();
+        $bolehUbahS = [];
+        foreach ($kategori as $k) {
+            foreach ($k->subs as $sb) {
+                $sb->setRelation('kategori', $k);
+                $bolehUbahS[$sb->id] = BudgetPeran::bisaUbahSub($sb, $user);
+            }
+        }
+        $picKat = [];
+        $picSub = [];
+        if (BudgetPeran::fiturPicAktif() && !BudgetPeran::isPic($user)) {
+            $tugas = BudgetPicTugas::query()
+                ->when(BudgetPeran::isDeptHead($user), fn ($q) => $q->where('dept_head_user_id', $user->id))
+                ->whereNull('item_id')->get();
+            $namaPic = User::whereIn('id', $tugas->pluck('pic_user_id')->unique())->pluck('name', 'id');
+            foreach ($tugas as $t) {
+                $nm = $namaPic[$t->pic_user_id] ?? ('#' . $t->pic_user_id);
+                if ($t->sub_id) {
+                    $picSub[$t->sub_id][] = $nm;
+                } elseif ($t->kategori_id) {
+                    $picKat[$t->kategori_id][] = $nm;
+                }
+            }
+        }
+
         return view('budget_p.master.index', [
+            'bolehTambah' => BudgetPeran::bisaTambahMaster($user),
+            'bolehUbahK' => $bolehUbahK,
+            'bolehUbahS' => $bolehUbahS,
+            'picKat' => $picKat,
+            'picSub' => $picSub,
             'tahunList' => $tahun,
             'pengunci' => $pengunci,
             'kategori' => $kategori,
@@ -139,6 +178,11 @@ class MasterController extends Controller
         $admin = BudgetPeran::isAdmin($user);
         $ubah = $r->filled('id');
         $ubahKategori = $ubah && $r->input('jenis') === 'kategori';
+
+        // PIC boleh mengubah bagian yang ditugaskan, tetapi tidak menambah kategori/subkategori baru
+        if (!$ubah && !BudgetPeran::bisaTambahMaster($user)) {
+            return back()->withErrors(['master' => 'PIC tidak bisa menambah kategori atau subkategori baru. Minta Dept Head menambahkannya; Anda tetap bisa mengubah bagian yang ditugaskan kepada Anda.']);
+        }
         $data = [
             'nama' => $r->input('nama'),
             'urut' => (int) $r->input('urut', 0),
@@ -148,9 +192,9 @@ class MasterController extends Controller
 
         if ($r->input('jenis') === 'kategori') {
             if ($ubahKategori && !$admin) {
-                // Dept Head dan PIC hanya boleh mengubah kategori milik Dept Head-nya (bukan kategori Umum), dan pemilik tidak bisa dipindah
+                // Dept Head: kategori miliknya. PIC: kategori Dept Head-nya (bila dibatasi: yang ditugaskan). Kategori Umum hanya Admin. Pemilik tidak bisa dipindah.
                 $k = BudgetKategori::findOrFail($r->input('id'));
-                abort_unless($k->dept_head_user_id !== null && BudgetKategori::terlihatOleh($user)->whereKey($k->id)->exists(), 403);
+                abort_unless(BudgetPeran::bisaUbahKategori($k, $user), 403);
                 $data['dept_head_user_id'] = $k->dept_head_user_id;
             } else {
                 $data['dept_head_user_id'] = $this->tentukanPemilik($r);
@@ -180,13 +224,10 @@ class MasterController extends Controller
 
         $data['kategori_id'] = (int) $r->input('kategori_id');
         if ($ubah && !$admin) {
-            // Dept Head dan PIC hanya boleh mengubah subkategori pada kategori milik Dept Head-nya (bukan Umum), dan tidak memindahnya ke kategori lain
-            $s = BudgetSub::findOrFail($r->input('id'));
+            // Dept Head dan PIC hanya boleh mengubah subkategori Dept Head-nya (bukan Umum; PIC yang dibatasi: yang ditugaskan), dan tidak memindahnya ke kategori lain
+            $s = BudgetSub::with('kategori')->findOrFail($r->input('id'));
             $data['kategori_id'] = (int) $s->kategori_id;
-            abort_unless(
-                BudgetKategori::terlihatOleh($user)->whereKey($data['kategori_id'])->whereNotNull('dept_head_user_id')->exists(),
-                403
-            );
+            abort_unless(BudgetPeran::bisaUbahSub($s, $user), 403);
         }
         abort_unless(BudgetKategori::terlihatOleh($user)->whereKey($data['kategori_id'])->exists(), 403);
 

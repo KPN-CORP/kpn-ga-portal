@@ -13,6 +13,7 @@ use App\Models\budget_m\BudgetItem;
 use App\Models\budget_m\BudgetItemTahun;
 use App\Models\budget_m\BudgetKategori;
 use App\Models\budget_m\BudgetPicHead;
+use App\Models\budget_m\BudgetPicTugas;
 use App\Models\budget_m\BudgetTagihan;
 use App\Models\budget_m\BudgetSub;
 use App\Models\budget_m\BudgetTahun;
@@ -172,6 +173,11 @@ class BudgetAllController extends Controller
         $tahun = (int) ($r->input('tahun') ?: BudgetTahun::pilih(null));
         $baru = BudgetItem::create($data + ['aktif' => true]);
         $baru->daftarkanDi($tahun);
+        // PIC yang dibatasi penugasan: item yang ia buat otomatis ditugaskan kepadanya, supaya tidak "hilang" dari layarnya
+        if (BudgetPeran::picDibatasi($r->user()) && BudgetPeran::batasiPic($baru->dept_head_user_id)) {
+            BudgetPicTugas::create(['dept_head_user_id' => $baru->dept_head_user_id, 'pic_user_id' => $r->user()->id, 'item_id' => $baru->id, 'dibuat_oleh' => $r->user()->id]);
+            BudgetPeran::lupakan($r->user()->id);
+        }
         BudgetCatat::tulis('tambah', 'item', $baru->id, $baru->nama, null, $baru->getAttributes(), ['item_id' => $baru->id, 'tahun' => $tahun]);
         return back()->with('ok', 'Item baru ditambahkan di tahun ' . $tahun . '. Untuk memakainya di tahun lain, salin dari tahun ini atau buat tahun barunya.');
     }
@@ -207,6 +213,13 @@ class BudgetAllController extends Controller
             }
             $baru->daftarkanDi($mulai);
             BudgetItemTahun::where('item_id', $lama->id)->where('tahun', '>=', $mulai)->delete();
+
+            // Penugasan PIC di tingkat item ikut berpindah ke item baru (penugasan kategori/sub tidak terpengaruh)
+            if (BudgetPeran::fiturPicAktif()) {
+                BudgetPicTugas::where('item_id', $lama->id)->get()->each(function ($t) use ($baru) {
+                    BudgetPicTugas::create(['dept_head_user_id' => $baru->dept_head_user_id ?: $t->dept_head_user_id, 'pic_user_id' => $t->pic_user_id, 'item_id' => $baru->id, 'dibuat_oleh' => $t->dibuat_oleh]);
+                });
+            }
 
             // Form Realisasi ikut menunjuk item baru (isian bertanggal sebelum "mulai" tetap bisa dicatat ke item lama lewat BudgetItem::untukTahun).
             $formPindah = BudgetForm::where('item_id', $lama->id)->update(['item_id' => $baru->id]);
