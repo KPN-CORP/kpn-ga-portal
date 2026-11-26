@@ -184,8 +184,14 @@
                                 ->where('user_id', $user->id)->count();
                         }
 
-                        // Badge stok: jumlah item yang perlu dibeli (hanya superadmin)
-                        $stokPerluBeli = ($isSuperAdmin || !empty($adminBUIds)) ? app(\App\Services\IDCardStokService::class)->jumlahPerluBeli($user->id) : 0;
+                        // Menu yang hanya tampil bila diceklis di tb_access_menu (stok_idcard / kartu_pinjam_idcard)
+                        $aksesStok        = \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::STOK);
+                        $aksesKartuPinjam = \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::KARTU_PINJAM);
+                        // Menu Grafik & Report: hanya superadmin / admin BU (sama dengan aturan middleware)
+                        $aksesAdmin       = $isSuperAdmin || !empty($adminBUIds);
+
+                        // Badge stok: jumlah item yang perlu dibeli (hanya yang punya akses Stok)
+                        $stokPerluBeli = $aksesStok ? app(\App\Services\IDCardStokService::class)->jumlahPerluBeli($user->id) : 0;
                     @endphp
 
                     <!-- Aktif -->
@@ -212,7 +218,7 @@
                         </a>
                     </li>
 
-                    @if($isSuperAdmin || !empty($adminBUIds))
+                    @if($aksesKartuPinjam)
                     <!-- Kartu Pinjam (magang / visitor) -->
                     <li>
                         <a href="{{ url('/idcard/kartu-pinjam') }}" title="Kartu Pinjam"
@@ -223,7 +229,7 @@
                     </li>
                     @endif
 
-                    @if($isSuperAdmin || !empty($adminBUIds))
+                    @if($aksesStok)
                     <!-- Stok -->
                     <li>
                         <a href="{{ url('/idcard/stok') }}" title="Stok"
@@ -237,6 +243,7 @@
                     </li>
                     @endif
 
+                    @if($aksesAdmin)
                     <!-- Grafik -->
                     <li>
                         <a href="{{ url('/idcard/grafik') }}" title="Grafik"
@@ -254,6 +261,7 @@
                             <span>Report</span>
                         </a>
                     </li>
+                    @endif
 
                 </ul>
             </nav>

@@ -23,7 +23,7 @@ class KartuPinjamController extends IDCardBaseController
 
     public function index(Request $request)
     {
-        if (!$this->canProses()) {
+        if (!$this->canAksesKartuPinjam()) {
             return redirect()->route('no-access')->with('error', 'Anda tidak memiliki akses ke halaman kartu pinjam.');
         }
 
@@ -66,7 +66,7 @@ class KartuPinjamController extends IDCardBaseController
 
     public function store(Request $req)
     {
-        if (!$this->canProses()) {
+        if (!$this->canAksesKartuPinjam()) {
             abort(403, 'Anda tidak memiliki akses.');
         }
 
@@ -94,7 +94,7 @@ class KartuPinjamController extends IDCardBaseController
 
     public function update(Request $req, $id)
     {
-        if (!$this->canProses()) {
+        if (!$this->canAksesKartuPinjam()) {
             abort(403, 'Anda tidak memiliki akses.');
         }
 

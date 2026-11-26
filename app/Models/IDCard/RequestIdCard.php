@@ -22,6 +22,7 @@ class RequestIdCard extends Model
         'magang'           => 'Magang',
         'magang_extend'    => 'Magang Extend',
         'visitor'          => 'Visitor',
+        'request_item'     => 'Request Item',
     ];
 
     // Kategori lama (data historis). Tidak muncul lagi di pilihan form/filter.
@@ -39,11 +40,17 @@ class RequestIdCard extends Model
     ];
 
     // Kategori yang kartunya tidak punya masa berlaku (kartu tetap)
-    public const KATEGORI_TETAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'perubahan_lantai'];  // perubahan_lantai = data lama
+    public const KATEGORI_TETAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'request_item', 'perubahan_lantai'];  // perubahan_lantai = data lama
 
     // Kategori yang MEMOTONG stok Card Holder / Lanyard / Kartu saat approve.
     // Magang & visitor sengaja tidak ada di sini: hanya status Digunakan / Ada (lihat IdCardKartuPinjam).
-    public const KATEGORI_POTONG_STOK = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'];
+    public const KATEGORI_POTONG_STOK = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'request_item'];
+
+    // Kategori yang SELALU mendapat paket lengkap (Card Holder + Lanyard + Kartu, qty 1): tidak ada pilihan item.
+    public const KATEGORI_PAKET_LENGKAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'];
+
+    // Kategori yang meminta SALAH SATU item saja (pemohon memilih satu: Card Holder / Lanyard / Kartu).
+    public const KATEGORI_ITEM_SATUAN = ['request_item'];
 
     // Kartu fisik yang harus dikembalikan ke GA (magang & visitor)
     public const KATEGORI_KEMBALI = ['magang', 'magang_extend', 'visitor'];

@@ -392,18 +392,39 @@
             document.getElementById('bbm_note_box').classList.toggle('hidden', !chosen || isElectric);
         }
 
-        // Mobil listrik: boleh ambil foto dari galeri hp (atribut capture dilepas).
+        // Mobil listrik: boleh ambil foto dari galeri hp (tanpa atribut capture).
         // Mobil lain: wajib ambil foto langsung dari kamera (capture="environment").
-        function updateReceiptCaptureMode(fuelType) {
-            const receiptInput = document.getElementById('receipt_file');
-            if (!receiptInput) return;
+        //
+        // Catatan iOS Safari: mengubah atribut `capture` pada <input type="file"> yang sudah
+        // ada TIDAK dihormati (iPhone tetap langsung buka kamera). Jadi elemen input-nya
+        // dibuat ulang dengan atribut yang benar, bukan sekadar removeAttribute().
+        const photoBinders = {};   // key -> fungsi untuk pasang listener 'change' ke input baru
 
-            const isElectric = fuelType && fuelType.toLowerCase() === 'listrik';
-            if (isElectric) {
-                receiptInput.removeAttribute('capture');
-            } else {
-                receiptInput.setAttribute('capture', 'environment');
-            }
+        function updateReceiptCaptureMode(fuelType) {
+            const oldInput = document.getElementById('receipt_file');
+            if (!oldInput) return;
+
+            const isElectric = !!fuelType && fuelType.toLowerCase() === 'listrik';
+            const hasCapture = oldInput.hasAttribute('capture');
+            if (isElectric !== hasCapture) return;   // mode sudah sesuai, tidak perlu apa-apa
+
+            const newInput = document.createElement('input');
+            newInput.type = 'file';
+            newInput.id = oldInput.id;
+            newInput.name = oldInput.name;
+            newInput.accept = 'image/*';
+            newInput.className = oldInput.className;
+            if (!isElectric) newInput.setAttribute('capture', 'environment');
+
+            // Pertahankan foto yang sudah dipilih (kalau ada) saat kendaraan diganti.
+            try {
+                if (oldInput.files && oldInput.files.length > 0) {
+                    newInput.files = oldInput.files;
+                }
+            } catch (err) { /* abaikan */ }
+
+            oldInput.replaceWith(newInput);
+            if (photoBinders.receipt_file) photoBinders.receipt_file(newInput);
         }
 
         function hideSuggestions() {
@@ -609,16 +630,16 @@
         function setupPhotoField(key) {
             const wrap        = document.querySelector('.photo-field[data-key="' + key + '"]');
             const emptyText   = wrap.getAttribute('data-empty');
-            const fileInput   = document.getElementById(key);
+            let   fileInput   = document.getElementById(key);
             const fileName    = document.getElementById(key + '_name');
             const preview     = document.getElementById(key + '_preview');
             const previewImg  = document.getElementById(key + '_preview_img');
             const removeBtn   = document.getElementById(key + '_remove');
             const errorEl     = document.getElementById(key + '_error');
 
-            fileInput.addEventListener('change', async function () {
-                if (this.files && this.files.length > 0) {
-                    let file = this.files[0];
+            async function onFileChange() {
+                if (fileInput.files && fileInput.files.length > 0) {
+                    let file = fileInput.files[0];
 
                     if (file.type.startsWith('image/') && file.size > MAX_SIZE) {
                         fileName.textContent = 'Mengompres foto...';
@@ -647,9 +668,19 @@
                     };
                     reader.readAsDataURL(file);
                 }
-            });
+            }
+
+            function bindInput(input) {
+                input.addEventListener('change', onFileChange);
+            }
+            photoBinders[key] = function (input) {
+                fileInput = input;
+                bindInput(input);
+            };
+            bindInput(fileInput);
 
             removeBtn.addEventListener('click', function () {
+                fileInput = document.getElementById(key);
                 fileInput.value = '';
                 previewImg.src = '';
                 preview.classList.add('hidden');

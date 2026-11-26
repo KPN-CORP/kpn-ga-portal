@@ -96,27 +96,45 @@
                 </div>
             </div>
 
-            {{-- Item yang diminta: hanya karyawan baru / mutasi / ganti kartu (stok dipotong saat disetujui) --}}
+            {{-- Item (stok dipotong saat disetujui GA):
+                 - Karyawan baru / mutasi / ganti kartu : PASTI dapat Card Holder + Lanyard + Kartu (centang terkunci, tidak bisa diubah)
+                 - Request Item                          : pilih SALAH SATU saja --}}
             <div id="itemBox" class="hidden">
-                <label class="block text-sm font-medium mb-1">Item yang diminta *</label>
                 @if($stokItems->isEmpty())
+                    <label class="block text-sm font-medium mb-1">Item yang diminta</label>
                     <p class="text-xs text-gray-500">Daftar item belum tersedia.</p>
                 @else
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        @foreach($stokItems as $it)
-                            @php
-                                $dipilih = old('item_id') ? in_array($it->id, (array) old('item_id')) : $it->kode === 'kartu';
-                            @endphp
-                            <label class="flex items-center justify-between gap-3 border border-gray-300 rounded p-3 text-sm">
-                                <span class="flex items-center gap-2">
-                                    <input type="checkbox" name="item_id[]" value="{{ $it->id }}" class="item-check" {{ $dipilih ? 'checked' : '' }}>
+                    {{-- Paket lengkap: semua item sudah tercentang & terkunci. Server tetap menyimpan semua item (qty 1). --}}
+                    <div id="itemPaket" class="hidden">
+                        <label class="block text-sm font-medium mb-1">Item yang didapat</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            @foreach($stokItems as $it)
+                                <label class="flex items-center gap-2 border border-gray-200 bg-gray-50 rounded p-3 text-sm text-gray-700 cursor-not-allowed">
+                                    <input type="checkbox" checked disabled class="cursor-not-allowed">
                                     {{ $it->nama }}
-                                </span>
-                                <input type="number" name="item_qty[{{ $it->id }}]" min="1" max="99" value="{{ old('item_qty.' . $it->id, 1) }}" class="w-16 border border-gray-300 rounded p-1 text-sm text-center" aria-label="Jumlah {{ $it->nama }}">
-                            </label>
-                        @endforeach
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Otomatis semua item, tidak bisa diubah. Stok berkurang setelah request disetujui GA.</p>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Stok berkurang setelah request disetujui GA.</p>
+
+                    {{-- Request Item: pilih salah satu --}}
+                    <div id="itemSatuan" class="hidden">
+                        <label class="block text-sm font-medium mb-1">Item yang diminta * <span class="text-xs font-normal text-gray-500">(pilih salah satu)</span></label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            @foreach($stokItems as $it)
+                                <label class="flex items-center gap-2 border border-gray-300 rounded p-3 text-sm cursor-pointer">
+                                    <input type="radio" name="item_id" value="{{ $it->id }}" class="item-radio" {{ (string) old('item_id') === (string) $it->id ? 'checked' : '' }}>
+                                    {{ $it->nama }}
+                                </label>
+                            @endforeach
+                        </div>
+                        <div class="mt-3 flex items-center gap-2 text-sm">
+                            <label for="item_qty_satuan">Jumlah</label>
+                            <input type="number" id="item_qty_satuan" name="item_qty" min="1" max="99" value="{{ old('item_qty', 1) }}" class="w-20 border border-gray-300 rounded p-1 text-sm text-center">
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Stok berkurang setelah request disetujui GA.</p>
+                    </div>
                 @endif
             </div>
 
@@ -147,6 +165,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const buInput = document.getElementById('bisnis_unit_id');
     const ketInput = document.getElementById('keterangan');
     const itemBox = document.getElementById('itemBox');
+    const itemPaket = document.getElementById('itemPaket');
+    const itemSatuan = document.getElementById('itemSatuan');
+    const KATEGORI_PAKET_LENGKAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'];
+    const KATEGORI_ITEM_SATUAN = ['request_item'];
 
     // ---- Mode New / Extend ----
     const modeBox = document.getElementById('modeBox');
@@ -371,11 +393,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
         modeBox.classList.toggle('hidden', !periode);
 
-        // Item (Card Holder / Lanyard / Kartu) hanya untuk kategori karyawan
-        const pakaiItem = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'].includes(kategori);
-        itemBox.classList.toggle('hidden', !pakaiItem);
-        itemBox.querySelectorAll('input').forEach(function (el) { el.disabled = !pakaiItem; });
+        // Item: paket lengkap (terkunci) untuk karyawan baru / mutasi / ganti kartu; pilih salah satu untuk Request Item
+        const paketLengkap = KATEGORI_PAKET_LENGKAP.includes(kategori);
+        const itemSatuanOn = KATEGORI_ITEM_SATUAN.includes(kategori);
+        itemBox.classList.toggle('hidden', !(paketLengkap || itemSatuanOn));
+        if (itemPaket) itemPaket.classList.toggle('hidden', !paketLengkap);
+        if (itemSatuan) {
+            itemSatuan.classList.toggle('hidden', !itemSatuanOn);
+            // input yang disembunyikan tidak ikut dikirim / divalidasi
+            itemSatuan.querySelectorAll('input').forEach(function (el) { el.disabled = !itemSatuanOn; });
+        }
         extendBox.classList.toggle('hidden', !extend);
+
+        // Request Item: tidak perlu Tanggal Join & Foto
+        if (itemSatuanOn) {
+            tanggalJoinContainer.style.display = 'none';
+            tanggalJoinInput.required = false;
+            tanggalJoinInput.value = '';
+            fotoContainer.style.display = 'none';
+            fotoInput.required = false;
+            fotoInput.value = '';
+            resetFotoPreview();
+        }
 
         if (periode) {
             const nama = kategori === 'magang' ? 'Intern' : 'Visitor';
@@ -493,9 +532,9 @@ document.addEventListener('DOMContentLoaded', function() {
             extendSearch.focus();
             return;
         }
-        if (!itemBox.classList.contains('hidden') && itemBox.querySelector('.item-check') && !itemBox.querySelector('.item-check:checked')) {
+        if (itemSatuan && !itemSatuan.classList.contains('hidden') && itemSatuan.querySelector('.item-radio') && !itemSatuan.querySelector('.item-radio:checked')) {
             e.preventDefault();
-            alert('Pilih minimal satu item (Card Holder / Lanyard / Kartu).');
+            alert('Pilih salah satu item yang diminta (Card Holder / Lanyard / Kartu).');
             return;
         }
         submitBtn.disabled = true;

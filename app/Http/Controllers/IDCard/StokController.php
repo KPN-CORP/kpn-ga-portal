@@ -29,7 +29,8 @@ class StokController extends IDCardBaseController
     {
         if ($this->isSuperAdmin() && $request->filled('owner_id')) {
             $id = (int) $request->owner_id;
-            if (User::whereKey($id)->exists()) {
+            // Hanya admin yang punya akses Stok yang bisa dipilih sebagai pemilik
+            if ($this->stok->daftarAdmin()->contains('id', $id)) {
                 return $id;
             }
         }
@@ -38,14 +39,14 @@ class StokController extends IDCardBaseController
 
     private function wajibAdmin(): void
     {
-        if (!$this->canProses()) {
-            abort(403, 'Hanya admin yang dapat mengelola stok.');
+        if (!$this->canAksesStok()) {
+            abort(403, 'Anda tidak memiliki akses untuk mengelola stok.');
         }
     }
 
     public function index(Request $request)
     {
-        if (!$this->canProses()) {
+        if (!$this->canAksesStok()) {
             return redirect()->route('no-access')->with('error', 'Anda tidak memiliki akses ke halaman stok.');
         }
 

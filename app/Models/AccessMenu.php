@@ -15,6 +15,8 @@ class AccessMenu extends Model
         'list_idcard',
         'detail_idcard',
         'proses_idcard',
+        'stok_idcard',          // ceklis menu Stok ID Card
+        'kartu_pinjam_idcard',  // ceklis menu Kartu Pinjam ID Card
         'request_messenger',
         'status_messenger',
         'detail_messenger',
@@ -46,6 +48,8 @@ class AccessMenu extends Model
         'list_idcard' => 'boolean',
         'detail_idcard' => 'boolean',
         'proses_idcard' => 'boolean',
+        'stok_idcard' => 'boolean',
+        'kartu_pinjam_idcard' => 'boolean',
         'request_messenger' => 'boolean',
         'status_messenger' => 'boolean',
         'detail_messenger' => 'boolean',

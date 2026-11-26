@@ -25,6 +25,18 @@ trait IDCardAccessTrait
             ->toArray();
     }
 
+    /** Menu Stok: hanya yang diceklis stok_idcard di tb_access_menu (superadmin / admin BU pun tidak otomatis). */
+    protected function canAksesStok(): bool
+    {
+        return \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::STOK);
+    }
+
+    /** Menu Kartu Pinjam: hanya yang diceklis kartu_pinjam_idcard di tb_access_menu (superadmin / admin BU pun tidak otomatis). */
+    protected function canAksesKartuPinjam(): bool
+    {
+        return \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::KARTU_PINJAM);
+    }
+
     protected function canProses()
     {
         return $this->isSuperAdmin() || !empty($this->getAdminBUAccess());

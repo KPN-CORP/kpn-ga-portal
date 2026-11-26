@@ -141,7 +141,7 @@ class DetailController extends IDCardBaseController
         $validationRules = [
             'nik'      => 'required|string|max:50',
             'nama'     => 'required|string|max:100',
-            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,visitor',
+            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,visitor,request_item',
             'bisnis_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'keterangan' => 'required|string|max:255'
         ];

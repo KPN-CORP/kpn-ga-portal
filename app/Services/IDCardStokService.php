@@ -78,17 +78,19 @@ class IDCardStokService
         }
     }
 
-    /** Admin yang bisa meng-approve (superadmin proses_idcard + admin BU). Dipakai untuk pilihan pemilik stok. */
+    /**
+     * Admin yang punya akses menu Stok (diceklis stok_idcard di tb_access_menu).
+     * Dipakai untuk pilihan pemilik stok dan "Stok Semua Admin": hanya yang punya akses, bukan semua admin.
+     */
     public function daftarAdmin(): Collection
     {
-        $idBu      = DB::table('request_idcard_accesbu')->pluck('user_id');
-        $usernames = DB::table('tb_access_menu')->where('proses_idcard', 1)->pluck('username');
+        try {
+            $usernames = DB::table('tb_access_menu')->where('stok_idcard', 1)->pluck('username');
+        } catch (\Throwable $e) {
+            return collect(); // kolom belum dibuat
+        }
 
-        return User::whereIn('id', $idBu)
-            ->orWhereIn('username', $usernames)
-            ->orWhere('username', 'admin')
-            ->orderBy('name')
-            ->get();
+        return User::whereIn('username', $usernames)->orderBy('name')->get();
     }
 
     /**
@@ -103,7 +105,8 @@ class IDCardStokService
             ->groupBy('user_id', 'item_id')->get()->groupBy('user_id');
         $mins  = IdCardStokAdmin::get()->groupBy('user_id');
 
-        $ownerIds = $saldo->keys()->merge($mins->keys())->merge($this->daftarAdmin()->pluck('id'))->unique()->values();
+        // Hanya admin yang punya akses Stok (riwayat stok admin yang aksesnya dicabut tidak ditampilkan di matriks)
+        $ownerIds = $this->daftarAdmin()->pluck('id')->unique()->values();
         $users    = User::whereIn('id', $ownerIds)->orderBy('name')->get();
 
         return $users->map(function (User $u) use ($items, $saldo, $mins) {
@@ -191,6 +194,12 @@ class IDCardStokService
     {
         if (!in_array($req->kategori, RequestIdCard::KATEGORI_POTONG_STOK, true)) {
             return; // magang / visitor: tidak menyentuh stok
+        }
+
+        // Admin yang tidak diceklis stok_idcard (tidak punya akses menu Stok) tidak punya stok sendiri: approve tetap jalan,
+        // stok tidak dipotong (supaya tidak error "tambah stok dulu" padahal menunya tidak bisa dibuka).
+        if (!\App\Support\IDCardAkses::bisaUserId($approverId, \App\Support\IDCardAkses::STOK)) {
+            return;
         }
 
         $rows = RequestIdCardItem::with('item')->where('request_id', $req->id)->get();

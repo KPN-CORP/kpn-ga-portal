@@ -32,8 +32,13 @@ class ReportController extends IDCardBaseController
         $kartuRingkas  = null;
         try {
             $svc = app(IDCardStokService::class);
-            $stokRingkasan = $svc->ringkasan((int) Auth::id());
-            $kartuRingkas = $svc->hitungKartuPinjam();
+            // Ringkasan stok & kartu pinjam hanya untuk admin yang punya akses menunya
+            if ($this->canAksesStok()) {
+                $stokRingkasan = $svc->ringkasan((int) Auth::id());
+            }
+            if ($this->canAksesKartuPinjam()) {
+                $kartuRingkas = $svc->hitungKartuPinjam();
+            }
         } catch (\Throwable $e) {
             // abaikan: report request tetap tampil
         }
@@ -53,7 +58,7 @@ class ReportController extends IDCardBaseController
             $svc = app(IDCardStokService::class);
 
             // Sheet stok per admin: superadmin melihat semua admin, admin BU hanya stok dan mutasi miliknya
-            if (Schema::hasTable('idcard_item')) {
+            if ($this->canAksesStok() && Schema::hasTable('idcard_item')) {
                 $statusLabel = ['aman' => 'Aman', 'menipis' => 'Perlu beli', 'habis' => 'Habis'];
                 $items       = $svc->items();
 
@@ -106,7 +111,7 @@ class ReportController extends IDCardBaseController
             }
 
             // Sheet kartu pinjam: pemakai dari BU lain disamarkan untuk admin BU
-            if (Schema::hasTable('idcard_kartu_pinjam')) {
+            if ($this->canAksesKartuPinjam() && Schema::hasTable('idcard_kartu_pinjam')) {
                 $isSuper = $this->isSuperAdmin();
                 $adminBU = $this->getAdminBUAccess();
                 $label   = ['digunakan' => 'Digunakan', 'ada' => 'Ada', 'nonaktif' => 'Tidak beredar'];

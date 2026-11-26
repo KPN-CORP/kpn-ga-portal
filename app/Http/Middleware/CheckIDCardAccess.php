@@ -53,11 +53,12 @@ class CheckIDCardAccess
                 $allowed = $isSuperAdmin || $isAdminBU;
                 break;
             case 'stok':
-                // Tiap admin yang meng-approve punya stok sendiri: superadmin + admin BU
-                $allowed = $isSuperAdmin || $isAdminBU;
+                // Hanya yang diceklis stok_idcard di tb_access_menu (bukan otomatis superadmin / admin BU)
+                $allowed = \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::STOK, $user);
                 break;
             case 'kartu_pinjam':
-                $allowed = $isSuperAdmin || $isAdminBU;
+                // Hanya yang diceklis kartu_pinjam_idcard di tb_access_menu (bukan otomatis superadmin / admin BU)
+                $allowed = \App\Support\IDCardAkses::bisa(\App\Support\IDCardAkses::KARTU_PINJAM, $user);
                 break;
             case 'nonaktifkan':
                 // Disamakan dengan route aktif/nonaktifkan (memakai 'proses'): superadmin + admin BU

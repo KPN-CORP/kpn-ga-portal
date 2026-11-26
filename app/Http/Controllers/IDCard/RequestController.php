@@ -135,7 +135,7 @@ class RequestController extends IDCardBaseController
         $validationRules = [
             'nik'      => 'required|string|max:50',
             'nama'     => 'required|string|max:100',
-            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,visitor',
+            'kategori' => 'required|in:karyawan_baru,karyawan_mutasi,ganti_kartu,magang,magang_extend,visitor,request_item',
             'bisnis_unit_id' => 'required|exists:tb_bisnis_unit,id_bisnis_unit',
             'keterangan' => 'required|string|max:255'
         ];
@@ -234,18 +234,26 @@ class RequestController extends IDCardBaseController
             $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:10240';
         }
 
-        // Karyawan baru / mutasi / ganti kartu: wajib pilih item (stok dipotong saat approve)
-        $pakaiItem = in_array($kategori, RequestIdCard::KATEGORI_POTONG_STOK, true) && $this->itemStokTersedia();
-        if ($pakaiItem) {
-            $validationRules['item_id']     = 'required|array|min:1';
-            $validationRules['item_id.*']   = 'integer|exists:idcard_item,id';
-            $validationRules['item_qty.*']  = 'nullable|integer|min:1|max:99';
+        // Item (stok dipotong saat approve):
+        //  - karyawan baru / mutasi / ganti kartu : PASTI dapat semua item (Card Holder, Lanyard, Kartu) qty 1.
+        //    Tidak ada pilihan dari pemohon; diisi server supaya tidak bisa dimanipulasi dari browser.
+        //  - request_item                         : pemohon memilih SALAH SATU item (+ jumlah).
+        $paketLengkap = in_array($kategori, RequestIdCard::KATEGORI_PAKET_LENGKAP, true);
+        $itemSatuan   = in_array($kategori, RequestIdCard::KATEGORI_ITEM_SATUAN, true);
+        $pakaiItem    = ($paketLengkap || $itemSatuan) && $this->itemStokTersedia();
+
+        if ($itemSatuan) {
+            if (!$pakaiItem) {
+                return back()->with('error', 'Daftar item belum tersedia, Request Item belum bisa dibuat.')->withInput();
+            }
+            $validationRules['item_id']  = 'required|integer|exists:idcard_item,id,is_active,1';
+            $validationRules['item_qty'] = 'nullable|integer|min:1|max:99';
         }
 
         $validator = Validator::make($req->all(), $validationRules, [
             'extend_from_id.required' => 'Untuk extend, cari dan pilih dulu data lama yang sudah ada.',
-            'item_id.required'        => 'Pilih minimal satu item (Card Holder / Lanyard / Kartu).',
-            'item_id.min'             => 'Pilih minimal satu item (Card Holder / Lanyard / Kartu).',
+            'item_id.required'        => 'Pilih salah satu item yang diminta (Card Holder / Lanyard / Kartu).',
+            'item_id.exists'          => 'Item yang dipilih tidak valid.',
         ]);
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -302,11 +310,18 @@ class RequestController extends IDCardBaseController
             $requestIdCard = RequestIdCard::create($dataToCreate);
 
             if ($pakaiItem) {
-                foreach (array_unique((array) $req->item_id) as $itemId) {
+                if ($paketLengkap) {
+                    // Semua item aktif, qty 1 (abaikan apa pun yang dikirim browser)
+                    $itemQty = IdCardItem::where('is_active', 1)->pluck('id')->mapWithKeys(fn ($id) => [$id => 1]);
+                } else {
+                    $itemQty = collect([(int) $req->item_id => max(1, (int) $req->input('item_qty', 1))]);
+                }
+
+                foreach ($itemQty as $itemId => $qty) {
                     RequestIdCardItem::create([
                         'request_id' => $requestIdCard->id,
                         'item_id'    => (int) $itemId,
-                        'qty'        => max(1, (int) $req->input('item_qty.' . $itemId, 1)),
+                        'qty'        => (int) $qty,
                         'created_at' => now(),
                     ]);
                 }
