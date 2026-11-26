@@ -35,6 +35,7 @@ use App\Http\Controllers\Founddesk\FounddeskDispositionController;
 use App\Http\Controllers\Apartemen\PublicAccessController;
 use App\Http\Controllers\Apartemen\QRCodeAdminController;
 use App\Http\Controllers\StockCtl\StockDashboardController;
+use App\Http\Controllers\StockCtl\StockDashboardDrillController;
 use App\Http\Controllers\StockCtl\PermintaanController;
 use App\Http\Controllers\StockCtl\ApprovalL1Controller;
 use App\Http\Controllers\StockCtl\ApprovalAdminController;
@@ -277,6 +278,11 @@ Route::middleware(['auth'])->group(function () {
         Route::middleware('stock.ctl:admin')->group(function () {
             // Dashboard memuat data seluruh bisnis unit (termasuk nama pemohon) -> khusus admin/superadmin
             Route::get('dashboard', [StockDashboardController::class, 'index'])->name('dashboard');
+            // Dashboard drill-down (baru): Barang > BU > Dept > Unit > User. Dashboard lama tetap ada.
+            Route::get('dashboard-drill', [StockDashboardDrillController::class, 'index'])->name('dashboard-drill');
+            Route::get('dashboard-drill/data', [StockDashboardDrillController::class, 'data'])->name('dashboard-drill.data');
+            Route::get('dashboard-drill/chart', [StockDashboardDrillController::class, 'chart'])->name('dashboard-drill.chart');
+            Route::get('dashboard-drill/rows', [StockDashboardDrillController::class, 'rows'])->name('dashboard-drill.rows');
             Route::get('approval/admin', [ApprovalAdminController::class, 'index'])->name('approval.admin.index');
             Route::post('approval/admin/{id}/approve', [ApprovalAdminController::class, 'approve'])->name('approval.admin.approve');
             Route::post('approval/admin/{id}/reject', [ApprovalAdminController::class, 'reject'])->name('approval.admin.reject');
