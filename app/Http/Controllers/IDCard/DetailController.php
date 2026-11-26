@@ -69,9 +69,16 @@ class DetailController extends IDCardBaseController
         // Pemohon: batalkan request yang masih pending
         $canCancel = $isOwner && $model->status === 'pending';
 
+        // Item yang diminta (Card Holder / Lanyard / Kartu); kosong untuk request lama / magang / visitor
+        try {
+            $items = \App\Models\IDCard\RequestIdCardItem::with('item')->where('request_id', $id)->get();
+        } catch (\Throwable $e) {
+            $items = collect();
+        }
+
         return view('idcard.detail', compact(
             'data', 'logs', 'canProses', 'isPending', 'canToggleAktif', 'canEditLantai',
-            'canReturn', 'canProcessReturn', 'canCancel'
+            'canReturn', 'canProcessReturn', 'canCancel', 'items'
         ));
     }
 

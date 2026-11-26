@@ -122,6 +122,19 @@
                         @endif
                     </div>
                 @endif
+                @if(isset($items) && $items->isNotEmpty())
+                    <div class="md:col-span-2">
+                        <p class="text-sm text-gray-500 mb-1">Item Diminta</p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($items as $it)
+                                <span class="inline-block px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs font-semibold">{{ optional($it->item)->nama ?? 'Item' }} x{{ $it->qty }}</span>
+                            @endforeach
+                        </div>
+                        @if($data->status === 'approved')
+                            <p class="text-xs text-gray-500 mt-1">Stok sudah dipotong saat request disetujui.</p>
+                        @endif
+                    </div>
+                @endif
                 @if(!empty($data->keterangan))
                     <div class="md:col-span-2">
                         <p class="text-sm text-gray-500">Keterangan / Lantai</p>

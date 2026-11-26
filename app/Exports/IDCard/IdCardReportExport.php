@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -27,6 +28,7 @@ class IdCardReportExport extends StringValueBinder implements
     WithMapping,
     ShouldAutoSize,
     WithStyles,
+    WithTitle,
     WithCustomValueBinder
 {
     protected $query;
@@ -45,6 +47,11 @@ class IdCardReportExport extends StringValueBinder implements
         return $this->query;
     }
 
+    public function title(): string
+    {
+        return 'Request';
+    }
+
     public function headings(): array
     {
         return [
@@ -52,6 +59,9 @@ class IdCardReportExport extends StringValueBinder implements
             'Masa Berlaku', 'Sampai Tanggal', 'Nomor Kartu', 'Tanggal Join', 'Keterangan',
             'Tanggal Request', 'Disetujui Oleh', 'Tanggal Disetujui',
             'Ditolak Oleh', 'Tanggal Ditolak', 'Alasan Penolakan',
+            // Kolom tambahan (ditaruh di belakang supaya urutan kolom lama tidak bergeser)
+            'Diajukan Oleh', 'Item Diminta', 'Status Pengembalian', 'Kondisi Kartu Kembali',
+            'Tanggal Pengembalian', 'Diproses Oleh (Pengembalian)', 'Catatan Pengembalian',
         ];
     }
 
@@ -76,7 +86,33 @@ class IdCardReportExport extends StringValueBinder implements
             $this->namaUser($row->rejected_by),
             $this->tgl($row->rejected_at, true),
             $row->rejection_reason,
+            $this->namaUser($row->user_id),
+            $row->relationLoaded('items') ? $row->item_text : '',
+            $this->statusKembali($row),
+            $this->kondisiKembali($row),
+            $this->tgl($row->return_processed_at, true),
+            $this->namaUser($row->return_processed_by),
+            $row->return_status === 'rejected'
+                ? trim('Ditolak: ' . $row->return_reject_reason)
+                : (string) $row->return_note,
         ];
+    }
+
+    /** Pengembalian hanya relevan untuk magang / visitor yang sudah disetujui. */
+    private function statusKembali($row): string
+    {
+        if ($row->status !== 'approved' || !in_array($row->kategori, \App\Models\IDCard\RequestIdCard::KATEGORI_KEMBALI, true)) {
+            return '';
+        }
+        return $row->return_status_text;
+    }
+
+    private function kondisiKembali($row): string
+    {
+        if (($row->return_status ?? 'none') === 'none' || empty($row->return_kondisi)) {
+            return '';
+        }
+        return \App\Models\IDCard\RequestIdCard::RETURN_KONDISI_LABELS[$row->return_kondisi] ?? (string) $row->return_kondisi;
     }
 
     public function styles(Worksheet $sheet)

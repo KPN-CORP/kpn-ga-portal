@@ -9,6 +9,48 @@
         </a>
     </div>
 
+    {{-- Ringkasan stok (superadmin) dan kartu pinjam --}}
+    @if($stokRingkasan->isNotEmpty() || $kartuRingkas)
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            @if($stokRingkasan->isNotEmpty())
+                <div class="bg-white border rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800">Stok Anda</h3>
+                        <a href="{{ route('idcard.stok') }}" class="text-xs text-blue-600 hover:underline">Kelola stok</a>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        @foreach($stokRingkasan as $r)
+                            @php
+                                $cls = ['aman' => 'text-green-700', 'menipis' => 'text-orange-600', 'habis' => 'text-red-600'][$r->status];
+                            @endphp
+                            <div>
+                                <p class="text-xs text-gray-500">{{ $r->nama }}</p>
+                                <p class="text-2xl font-semibold {{ $cls }}">{{ number_format($r->stok) }}</p>
+                                <p class="text-xs text-gray-500">
+                                    min {{ number_format($r->min_stok) }}@if($r->perlu_beli) <span class="text-red-600">| perlu beli</span>@endif
+                                </p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+            @if($kartuRingkas)
+                <div class="bg-white border rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold text-gray-800">Kartu Pinjam (Magang &amp; Visitor)</h3>
+                        <a href="{{ route('idcard.kartu-pinjam') }}" class="text-xs text-blue-600 hover:underline">Lihat daftar</a>
+                    </div>
+                    <div class="grid grid-cols-4 gap-3">
+                        <div><p class="text-xs text-gray-500">Total</p><p class="text-2xl font-semibold">{{ $kartuRingkas['total'] }}</p></div>
+                        <div><p class="text-xs text-gray-500">Digunakan</p><p class="text-2xl font-semibold text-blue-700">{{ $kartuRingkas['digunakan'] }}</p></div>
+                        <div><p class="text-xs text-gray-500">Ada</p><p class="text-2xl font-semibold text-green-700">{{ $kartuRingkas['ada'] }}</p></div>
+                        <div><p class="text-xs text-gray-500">Tidak beredar</p><p class="text-2xl font-semibold text-gray-600">{{ $kartuRingkas['nonaktif'] }}</p></div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="bg-white border rounded-xl p-4">
         <form method="GET" action="{{ route('idcard.report') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -54,7 +96,7 @@
     <p class="text-xs text-gray-500">
         @if($data->total() > 0)
             Menampilkan {{ $data->firstItem() }}-{{ $data->lastItem() }} dari {{ $data->total() }} data
-            (file Excel berisi seluruh {{ $data->total() }} data sesuai filter)
+            (file Excel berisi seluruh {{ $data->total() }} data sesuai filter, ditambah sheet Stok Saat Ini, Mutasi Stok, dan Kartu Pinjam; superadmin melihat stok semua admin, admin lain hanya stok sendiri)
         @else
             Tidak ada data
         @endif
@@ -71,6 +113,8 @@
                     <th class="px-4 py-3 text-left hidden lg:table-cell">Bisnis Unit</th>
                     <th class="px-4 py-3 text-left">Status</th>
                     <th class="px-4 py-3 text-left hidden xl:table-cell">No. Kartu</th>
+                    <th class="px-4 py-3 text-left hidden lg:table-cell">Item</th>
+                    <th class="px-4 py-3 text-left hidden xl:table-cell">Pengembalian</th>
                     <th class="px-4 py-3 text-left">Tanggal</th>
                 </tr>
             </thead>
@@ -86,10 +130,21 @@
                         @include('idcard.partials.status-badge', ['status' => $item->status])
                     </td>
                     <td class="px-4 py-3 hidden xl:table-cell">{{ $item->nomor_kartu ?? '-' }}</td>
+                    <td class="px-4 py-3 hidden lg:table-cell">{{ $item->item_text ?: '-' }}</td>
+                    <td class="px-4 py-3 hidden xl:table-cell">
+                        @if($item->status === 'approved' && in_array($item->kategori, \App\Models\IDCard\RequestIdCard::KATEGORI_KEMBALI, true))
+                            {{ $item->return_status_text }}
+                            @if(($item->return_status ?? 'none') !== 'none' && $item->return_kondisi)
+                                <span class="text-xs text-gray-500">({{ \App\Models\IDCard\RequestIdCard::RETURN_KONDISI_LABELS[$item->return_kondisi] ?? $item->return_kondisi }})</span>
+                            @endif
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="px-4 py-3">{{ $item->created_at?->format('d-m-Y') ?? '-' }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="8" class="py-10 text-center text-gray-500">Data tidak ditemukan</td></tr>
+                <tr><td colspan="10" class="py-10 text-center text-gray-500">Data tidak ditemukan</td></tr>
                 @endforelse
             </tbody>
         </table>

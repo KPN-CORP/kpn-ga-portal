@@ -15,6 +15,8 @@ use App\Http\Controllers\IDCard\ReportController as IDCardReportController;
 use App\Http\Controllers\IDCard\GrafikController as IDCardGrafikController;
 use App\Http\Controllers\IDCard\NonaktifController as IDCardNonaktifController;
 use App\Http\Controllers\IDCard\ReturnController as IDCardReturnController;
+use App\Http\Controllers\IDCard\StokController as IDCardStokController;
+use App\Http\Controllers\IDCard\KartuPinjamController as IDCardKartuPinjamController;
 use App\Http\Controllers\help_c\HelpTiketController;
 use App\Http\Controllers\help_c\HelpTiketApprovalController;
 use App\Http\Controllers\help_c\HelpTiketPDFController;
@@ -640,6 +642,36 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/report/download', [IDCardReportController::class, 'download'])
             ->name('report.download')
             ->middleware('check.idcard.access:report');
+
+        // Stok Card Holder / Lanyard / Kartu (superadmin). Harus di atas '/{id}'
+        Route::get('/stok', [IDCardStokController::class, 'index'])
+            ->name('stok')
+            ->middleware('check.idcard.access:stok');
+
+        Route::post('/stok/masuk', [IDCardStokController::class, 'masuk'])
+            ->name('stok.masuk')
+            ->middleware('check.idcard.access:stok');
+
+        Route::post('/stok/opname', [IDCardStokController::class, 'opname'])
+            ->name('stok.opname')
+            ->middleware('check.idcard.access:stok');
+
+        Route::post('/stok/minimum', [IDCardStokController::class, 'minimum'])
+            ->name('stok.minimum')
+            ->middleware('check.idcard.access:stok');
+
+        // Kartu pinjam magang / visitor (status Digunakan / Ada, tanpa stok)
+        Route::get('/kartu-pinjam', [IDCardKartuPinjamController::class, 'index'])
+            ->name('kartu-pinjam')
+            ->middleware('check.idcard.access:kartu_pinjam');
+
+        Route::post('/kartu-pinjam', [IDCardKartuPinjamController::class, 'store'])
+            ->name('kartu-pinjam.store')
+            ->middleware('check.idcard.access:kartu_pinjam');
+
+        Route::put('/kartu-pinjam/{id}', [IDCardKartuPinjamController::class, 'update'])
+            ->name('kartu-pinjam.update')
+            ->middleware('check.idcard.access:kartu_pinjam');
 
         Route::get('/photo/{filename}', [IDCardDetailController::class, 'photo'])
             ->name('photo')

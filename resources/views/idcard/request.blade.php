@@ -96,6 +96,30 @@
                 </div>
             </div>
 
+            {{-- Item yang diminta: hanya karyawan baru / mutasi / ganti kartu (stok dipotong saat disetujui) --}}
+            <div id="itemBox" class="hidden">
+                <label class="block text-sm font-medium mb-1">Item yang diminta *</label>
+                @if($stokItems->isEmpty())
+                    <p class="text-xs text-gray-500">Daftar item belum tersedia.</p>
+                @else
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        @foreach($stokItems as $it)
+                            @php
+                                $dipilih = old('item_id') ? in_array($it->id, (array) old('item_id')) : $it->kode === 'kartu';
+                            @endphp
+                            <label class="flex items-center justify-between gap-3 border border-gray-300 rounded p-3 text-sm">
+                                <span class="flex items-center gap-2">
+                                    <input type="checkbox" name="item_id[]" value="{{ $it->id }}" class="item-check" {{ $dipilih ? 'checked' : '' }}>
+                                    {{ $it->nama }}
+                                </span>
+                                <input type="number" name="item_qty[{{ $it->id }}]" min="1" max="99" value="{{ old('item_qty.' . $it->id, 1) }}" class="w-16 border border-gray-300 rounded p-1 text-sm text-center" aria-label="Jumlah {{ $it->nama }}">
+                            </label>
+                        @endforeach
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Stok berkurang setelah request disetujui GA.</p>
+                @endif
+            </div>
+
             <div>
                 <label class="block text-sm font-medium mb-1">Lantai Kerja / Keterangan *</label>
                 <input type="text" name="keterangan" id="keterangan" value="{{ old('keterangan') }}" maxlength="255" class="w-full border border-gray-300 p-2 rounded text-sm" placeholder="Contoh: Lantai 42 (untuk Visitor: lantai yang dituju)" required>
@@ -122,6 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const namaInput = document.getElementById('nama');
     const buInput = document.getElementById('bisnis_unit_id');
     const ketInput = document.getElementById('keterangan');
+    const itemBox = document.getElementById('itemBox');
 
     // ---- Mode New / Extend ----
     const modeBox = document.getElementById('modeBox');
@@ -345,6 +370,11 @@ document.addEventListener('DOMContentLoaded', function() {
         nikInput.placeholder = '';
 
         modeBox.classList.toggle('hidden', !periode);
+
+        // Item (Card Holder / Lanyard / Kartu) hanya untuk kategori karyawan
+        const pakaiItem = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'].includes(kategori);
+        itemBox.classList.toggle('hidden', !pakaiItem);
+        itemBox.querySelectorAll('input').forEach(function (el) { el.disabled = !pakaiItem; });
         extendBox.classList.toggle('hidden', !extend);
 
         if (periode) {
@@ -461,6 +491,11 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             alert('Untuk Extend, cari dan pilih dulu data lama yang sudah ada.');
             extendSearch.focus();
+            return;
+        }
+        if (!itemBox.classList.contains('hidden') && itemBox.querySelector('.item-check') && !itemBox.querySelector('.item-check:checked')) {
+            e.preventDefault();
+            alert('Pilih minimal satu item (Card Holder / Lanyard / Kartu).');
             return;
         }
         submitBtn.disabled = true;

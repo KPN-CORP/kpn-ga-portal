@@ -183,6 +183,9 @@
                             $inaktifCount = \App\Models\IDCard\RequestIdCard::where('is_active', 0)
                                 ->where('user_id', $user->id)->count();
                         }
+
+                        // Badge stok: jumlah item yang perlu dibeli (hanya superadmin)
+                        $stokPerluBeli = ($isSuperAdmin || !empty($adminBUIds)) ? app(\App\Services\IDCardStokService::class)->jumlahPerluBeli($user->id) : 0;
                     @endphp
 
                     <!-- Aktif -->
@@ -208,6 +211,31 @@
                             @endif
                         </a>
                     </li>
+
+                    @if($isSuperAdmin || !empty($adminBUIds))
+                    <!-- Kartu Pinjam (magang / visitor) -->
+                    <li>
+                        <a href="{{ url('/idcard/kartu-pinjam') }}" title="Kartu Pinjam"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 {{ request()->is('idcard/kartu-pinjam*') ? 'active' : '' }}">
+                            <i class="fas fa-id-badge w-5 mr-3 text-gray-400"></i>
+                            <span>Kartu Pinjam</span>
+                        </a>
+                    </li>
+                    @endif
+
+                    @if($isSuperAdmin || !empty($adminBUIds))
+                    <!-- Stok -->
+                    <li>
+                        <a href="{{ url('/idcard/stok') }}" title="Stok"
+                           class="sidebar-link flex items-center p-3 rounded-lg text-gray-700 relative {{ request()->is('idcard/stok*') ? 'active' : '' }}">
+                            <i class="fas fa-boxes w-5 mr-3 text-gray-400"></i>
+                            <span>Stok</span>
+                            @if($stokPerluBeli > 0)
+                                <span class="badge-count ml-auto text-white text-xs rounded-full px-2 py-0.5" title="Perlu beli">{{ $stokPerluBeli }}</span>
+                            @endif
+                        </a>
+                    </li>
+                    @endif
 
                     <!-- Grafik -->
                     <li>

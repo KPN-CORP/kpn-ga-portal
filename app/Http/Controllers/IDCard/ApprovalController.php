@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\IDCard;
 
 use App\Models\IDCard\RequestIdCard;
+use App\Services\IDCardStokService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,12 @@ class ApprovalController extends IDCardBaseController
 
                         if ($bentrok->exists()) {
                             $fail('Nomor kartu ini masih dipakai kartu aktif lain. Kembalikan / nonaktifkan kartu tersebut terlebih dahulu.');
+                            return;
+                        }
+
+                        // Kartu yang ditandai rusak / hilang di menu Kartu Pinjam tidak boleh dipakai lagi
+                        if (app(IDCardStokService::class)->kartuDitarik($value)) {
+                            $fail('Nomor kartu ini ditandai tidak beredar (rusak / hilang) di menu Kartu Pinjam.');
                         }
                     },
                 ],
@@ -84,6 +91,14 @@ class ApprovalController extends IDCardBaseController
             $item->rejection_reason = null;
             $item->result_email_sent = 0; // cron kirim email hasil ke pemohon
             $item->save();
+
+            // Stok: hanya karyawan baru / mutasi / ganti kartu yang memotong (melempar error bila stok kurang).
+            // Magang & visitor tidak menyentuh stok; nomor kartunya cukup didaftarkan ke daftar Kartu Pinjam.
+            $stokSvc = app(IDCardStokService::class);
+            $stokSvc->potongUntukRequest($item, Auth::id());
+            if (in_array($item->kategori, RequestIdCard::KATEGORI_PERIODE, true)) {
+                $stokSvc->daftarkanKartu($item->nomor_kartu, $item->kategori, Auth::id());
+            }
 
             DB::table('request_idcard_logs')->insert([
                 'request_id' => $id,

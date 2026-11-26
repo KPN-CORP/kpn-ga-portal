@@ -52,6 +52,13 @@ class CheckIDCardAccess
             case 'report':
                 $allowed = $isSuperAdmin || $isAdminBU;
                 break;
+            case 'stok':
+                // Tiap admin yang meng-approve punya stok sendiri: superadmin + admin BU
+                $allowed = $isSuperAdmin || $isAdminBU;
+                break;
+            case 'kartu_pinjam':
+                $allowed = $isSuperAdmin || $isAdminBU;
+                break;
             case 'nonaktifkan':
                 // Disamakan dengan route aktif/nonaktifkan (memakai 'proses'): superadmin + admin BU
                 $allowed = $isSuperAdmin || $isAdminBU;

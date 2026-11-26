@@ -41,6 +41,10 @@ class RequestIdCard extends Model
     // Kategori yang kartunya tidak punya masa berlaku (kartu tetap)
     public const KATEGORI_TETAP = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu', 'perubahan_lantai'];  // perubahan_lantai = data lama
 
+    // Kategori yang MEMOTONG stok Card Holder / Lanyard / Kartu saat approve.
+    // Magang & visitor sengaja tidak ada di sini: hanya status Digunakan / Ada (lihat IdCardKartuPinjam).
+    public const KATEGORI_POTONG_STOK = ['karyawan_baru', 'karyawan_mutasi', 'ganti_kartu'];
+
     // Kartu fisik yang harus dikembalikan ke GA (magang & visitor)
     public const KATEGORI_KEMBALI = ['magang', 'magang_extend', 'visitor'];
 
@@ -124,6 +128,22 @@ class RequestIdCard extends Model
     public function bisnisUnit()
     {
         return $this->belongsTo(BisnisUnit::class, 'bisnis_unit_id', 'id_bisnis_unit');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(RequestIdCardItem::class, 'request_id');
+    }
+
+    /** Contoh: "Kartu x1, Lanyard x1". Eager load 'items.item' bila dipakai di daftar. */
+    public function getItemTextAttribute(): string
+    {
+        if (!$this->relationLoaded('items')) {
+            return '';
+        }
+        return $this->items
+            ->map(fn ($i) => (optional($i->item)->nama ?? ('Item #' . $i->item_id)) . ' x' . $i->qty)
+            ->implode(', ');
     }
 
     public function getStatusTextAttribute()

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\IDCard;
 
+use App\Models\IDCard\IdCardItem;
 use App\Models\IDCard\RequestIdCard;
+use App\Models\IDCard\RequestIdCardItem;
+use App\Services\IDCardStokService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +17,25 @@ class RequestController extends IDCardBaseController
     public function create()
     {
         $bisnisUnits = DB::table('tb_bisnis_unit')->get();
-        return view('idcard.request', compact('bisnisUnits'));
+
+        // Item yang bisa diminta (Card Holder / Lanyard / Kartu). Kosong bila tabel stok belum dibuat.
+        try {
+            $stokItems = app(IDCardStokService::class)->items();
+        } catch (\Throwable $e) {
+            $stokItems = collect();
+        }
+
+        return view('idcard.request', compact('bisnisUnits', 'stokItems'));
+    }
+
+    /** True bila master item stok sudah ada dan terisi (supaya form lama tetap jalan sebelum SQL dijalankan). */
+    private function itemStokTersedia(): bool
+    {
+        try {
+            return IdCardItem::where('is_active', 1)->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -213,8 +234,18 @@ class RequestController extends IDCardBaseController
             $validationRules['bukti_bayar'] = 'required|mimes:jpg,jpeg,png,pdf|max:10240';
         }
 
+        // Karyawan baru / mutasi / ganti kartu: wajib pilih item (stok dipotong saat approve)
+        $pakaiItem = in_array($kategori, RequestIdCard::KATEGORI_POTONG_STOK, true) && $this->itemStokTersedia();
+        if ($pakaiItem) {
+            $validationRules['item_id']     = 'required|array|min:1';
+            $validationRules['item_id.*']   = 'integer|exists:idcard_item,id';
+            $validationRules['item_qty.*']  = 'nullable|integer|min:1|max:99';
+        }
+
         $validator = Validator::make($req->all(), $validationRules, [
             'extend_from_id.required' => 'Untuk extend, cari dan pilih dulu data lama yang sudah ada.',
+            'item_id.required'        => 'Pilih minimal satu item (Card Holder / Lanyard / Kartu).',
+            'item_id.min'             => 'Pilih minimal satu item (Card Holder / Lanyard / Kartu).',
         ]);
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput();
@@ -269,6 +300,17 @@ class RequestController extends IDCardBaseController
 
             DB::beginTransaction();
             $requestIdCard = RequestIdCard::create($dataToCreate);
+
+            if ($pakaiItem) {
+                foreach (array_unique((array) $req->item_id) as $itemId) {
+                    RequestIdCardItem::create([
+                        'request_id' => $requestIdCard->id,
+                        'item_id'    => (int) $itemId,
+                        'qty'        => max(1, (int) $req->input('item_qty.' . $itemId, 1)),
+                        'created_at' => now(),
+                    ]);
+                }
+            }
             DB::table('request_idcard_logs')->insert([
                 'request_id' => $requestIdCard->id,
                 'action' => 'created',
