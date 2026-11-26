@@ -323,13 +323,16 @@
 @endsection
 
 @push('scripts')
-<script>
-    window.__drill = @json([
+@php
+    $drillConfig = [
         'url'   => route('stock-ctl.dashboard-drill.data'),
         'chart' => route('stock-ctl.dashboard-drill.chart'),
         'rows'  => route('stock-ctl.dashboard-drill.rows'),
         'tahun' => $tahunIni,
-    ]);
+    ];
+@endphp
+<script>
+    window.__drill = @json($drillConfig);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
